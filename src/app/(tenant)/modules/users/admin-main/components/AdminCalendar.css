@@ -1,0 +1,196 @@
+/* Light mode styles */
+.custom-calendar {
+  width: 100%;
+  border: none;
+  background: transparent;
+  height: 280px !important;
+  padding: 0 5px;
+  font-family: 'Poppins', 'Segoe UI', sans-serif;
+  color: #010E30;
+  box-sizing: border-box;
+  margin-top: -20px;
+}
+
+/* Dark mode styles using .dark selector from Tailwind */
+.dark .custom-calendar {
+  color: white;
+}
+
+.dark .custom-calendar .react-calendar__tile {
+  color: white;
+}
+
+.dark .custom-calendar .react-calendar__tile:disabled {
+  color: #666;
+}
+
+.dark .custom-calendar .react-calendar__tile--now {
+  background: transparent;
+}
+
+.dark .custom-calendar .react-calendar__tile--now:enabled:hover,
+.dark .custom-calendar .react-calendar__tile--now:enabled:focus {
+  background: transparent;
+}
+
+/* .dark .custom-calendar .react-calendar__tile--active {
+  background: transparent;
+} */
+
+.dark .custom-calendar .react-calendar__tile--active:enabled:hover,
+.dark .custom-calendar .react-calendar__tile--active:enabled:focus {
+  background: transparent;
+}
+
+.dark .custom-calendar .react-calendar__navigation button {
+  color: white;
+}
+
+.dark .custom-calendar .react-calendar__navigation__label {
+  color: white;
+}
+
+.dark .custom-calendar .react-calendar__month-view__weekdays {
+  color: white;
+}
+
+.dark .custom-calendar .react-calendar__month-view__days__day--neighboringMonth {
+  color: #b2a8a8 !important;
+}
+
+/* Navigation area (month and year) */
+.custom-calendar .react-calendar__navigation {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  height: auto;
+  background: #FAFAFB;
+  padding: 0px 0;
+  border-radius: 8px 8px 0 0;
+}
+
+.custom-calendar .react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+  font-size: 16px;
+  color: #010E30;
+  margin-top: 8px;
+}
+
+.custom-calendar .react-calendar__navigation__label {
+  font-weight: 500;
+  color: #010E30;
+}
+
+/* Weekday labels */
+.custom-calendar .react-calendar__month-view__weekdays {
+  font-size: 10px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.custom-calendar .react-calendar__month-view__weekdays__weekday {
+  padding: 5px 0;
+}
+
+.custom-calendar .react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+  font-weight: normal;
+}
+
+/* Calendar days */
+.custom-calendar .react-calendar__month-view__days__day {
+  font-size: 11px;
+  padding: 0px;
+  color: #333;
+}
+
+.custom-calendar .react-calendar__tile {
+  padding: 0.5em 0.5em;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  height: 30px;
+}
+
+.custom-calendar .react-calendar__tile:hover {
+  background: transparent;
+}
+
+.custom-calendar .react-calendar__tile:enabled:hover,
+.custom-calendar .react-calendar__tile:enabled:focus {
+  background: transparent;
+}
+
+/* Weekend days */
+.custom-calendar .react-calendar__month-view__days__day--weekend:last-child {
+  color: #2563eb;
+}
+
+/* Current day */
+.custom-calendar .react-calendar__tile--now {
+  background: transparent;
+}
+
+/* Selected date */
+.custom-calendar .react-calendar__tile--active {
+  background: #5882BE !important;
+  color: #fff !important;
+  border-radius: 6px;
+}
+
+/* Neighboring month dates */
+.custom-calendar .react-calendar__month-view__days__day--neighboringMonth {
+  color: #ccc;
+}
+
+/* Navigation arrows */
+.custom-calendar .react-calendar__navigation__arrow {
+  font-size: 20px;
+  color: #666;
+}
+
+.event-day {
+  position: relative;
+  color: #406ca9 !important;
+  border-radius: 6px !important;
+}
+
+.event-day::after {
+  content: "";
+  position: absolute;
+  top: 0px;
+  left: 85%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  background-color: #3973c6;
+  border-radius: 50%;
+  border: 1px solid #fff;
+}
+
+.dark .event-day::after {
+  background-color: #576CBC;
+}
+
+.dark .custom-calendar .react-calendar__navigation {
+  background: #343434;
+}
+
+.dark .custom-calendar .react-calendar__navigation button {
+  color: #FFFFFF;
+}
+
+.dark .custom-calendar .react-calendar__navigation button:enabled:hover,
+.dark .custom-calendar .react-calendar__navigation button:enabled:focus {
+  background-color: transparent;
+}
+
+.dark .custom-calendar .react-calendar__navigation__label {
+  color: #FFFFFF;
+}
+
+.dark .custom-calendar .react-calendar__tile--active {
+  background: #5882be !important;
+  color: #FFFFFF !important;
+}

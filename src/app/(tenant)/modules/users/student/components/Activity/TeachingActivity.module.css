@@ -1,0 +1,39 @@
+.teachingActivityContainer {
+    max-width: 100px;
+    margin: 0 auto;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    margin-right: 900px;
+    margin-top:250px;
+    height: 300px;
+    
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: large;
+  }
+  
+  .header h2 {
+    font-size: 1.5rem;
+    color: #333;
+  }
+  
+  .timeFilter {
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    color: #555;
+  }
+  
+  /* Scoped canvas style */
+  .chartCanvas {
+    margin-top: 20px;
+   
+  }
+  

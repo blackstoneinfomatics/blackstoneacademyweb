@@ -1,0 +1,46 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 93 96"
+  width="93"
+  height="96"
+>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#A0B4C8" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- File Background -->
+  <path
+    d="M18 0h45.2L93 29.3v64.7c0 0.6-0.5 1.3-1.3 1.3H18c-1.5 0-3-1.3-3-3V3c0-1.5 1.3-3 3-3z"
+    fill="#E6F2FF"
+    stroke="#A0B4C8"
+    stroke-width="2"
+    filter="url(#shadow)"
+  />
+
+  <!-- File Fold -->
+  <path
+    d="M63 0v24.3c0 2.2 1.8 4 4 4H93L63 0z"
+    fill="#FFFFFF"
+    stroke="#A0B4C8"
+    stroke-width="2"
+    filter="url(#shadow)"
+  />
+
+  <!-- PDF Badge -->
+  <rect x="22" y="60" width="50" height="25" rx="5" fill="#F77A7A" filter="url(#shadow)" />
+
+  <!-- PDF Text -->
+  <text
+    x="47"
+    y="78"
+    fill="white"
+    font-family="Arial, sans-serif"
+    font-weight="bold"
+    font-size="16"
+    text-anchor="middle"
+  >
+    PDF
+  </text>
+</svg>

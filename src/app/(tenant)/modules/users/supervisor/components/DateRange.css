@@ -1,0 +1,67 @@
+.custom-date-range .rdrDaySelected,
+.custom-date-range .rdrDayInRange,
+.custom-date-range .rdrStartEdge,
+.custom-date-range .rdrEndEdge {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: #111827 !important; /* Or your desired text color */
+}
+
+.custom-date-range .rdrDayStartPreview,
+.custom-date-range .rdrDayInPreview,
+.custom-date-range .rdrDayEndPreview {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.custom-date-range .rdrDayNumber span {
+  color: #000 !important; /* Set date numbers to black */
+  background: none !important;
+}
+.custom-date-range .rdrDateDisplayWrapper {
+  display: none !important;
+}
+
+/* Wrapper background and default text */
+.dark .custom-date-range {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+/* Day numbers */
+.dark .custom-date-range .rdrDayNumber span {
+  color: #fff !important;
+}
+
+/* Navigation (month/year selectors and arrows) */
+.dark .custom-date-range .rdrMonthAndYearWrapper,
+.dark .custom-date-range .rdrMonthPicker select,
+.dark .custom-date-range .rdrYearPicker select,
+.dark .custom-date-range .rdrNextPrevButton {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+/* Weekday labels */
+.dark .custom-date-range .rdrWeekDays {
+  color: #ccc !important;
+}
+
+/* Selected ranges */
+.dark .custom-date-range .rdrDaySelected,
+.dark .custom-date-range .rdrDayInRange,
+.dark .custom-date-range .rdrStartEdge,
+.dark .custom-date-range .rdrEndEdge {
+  background-color: #1f2937 !important; /* Tailwind gray-800 */
+  color: #fff !important;
+}
+
+/* Hover effect */
+.dark .custom-date-range .rdrDayHovered {
+  background-color: #374151 !important; /* Tailwind gray-700 */
+  color: #fff !important;
+}
+ .custom-date-range .rdrDayHovered {
+  background-color: #e2e3e4 !important; /* Tailwind gray-700 */
+  color: #374151 !important
+ }

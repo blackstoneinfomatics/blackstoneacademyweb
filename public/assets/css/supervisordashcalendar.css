@@ -1,0 +1,63 @@
+/* Shrink entire date range picker */
+.rdrCalendarWrapper {
+  transform: scale(0.75);
+  transform-origin: top left;
+}
+
+/* Dark mode background for the calendar */
+.rdrCalendarWrapper {
+  background-color: #ffffff; /* light mode */
+}
+
+.dark .rdrCalendarWrapper {
+  background-color: #565656; /* dark mode */
+}
+
+/* Month name and year text */
+.rdrMonthName,
+.rdrMonthAndYearPickers span {
+  font-size: 10px !important;
+  color: #000000; 
+}
+
+.dark .rdrMonthName,
+.dark .rdrMonthAndYearPickers span {
+  color: #ffffff !important; /* dark mode */
+}
+
+/* Smaller weekdays */
+.rdrWeekDay {
+  font-size: 9px !important;
+  color: #555555; /* light mode */
+}
+
+.dark .rdrWeekDay {
+  color: #cccccc; /* dark mode */
+}
+
+/* Smaller day numbers */
+.rdrDayNumber span {
+  font-size: 13px !important;
+  color: #000000; /* light mode */
+}
+
+.dark .rdrDayNumber span {
+  color: #ffffff; /* dark mode */
+}
+
+/* Reduce day cell size */
+.rdrDay {
+  width: 35px !important;
+  height: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.5 !important;
+}
+
+/* Selected day background for dark mode */
+.dark .rdrDay.rdrStartEdge,
+.dark .rdrDay.rdrEndEdge,
+.dark .rdrDay.rdrInRange {
+  background-color: #888888 !important;
+  color: #ffffff !important;
+}

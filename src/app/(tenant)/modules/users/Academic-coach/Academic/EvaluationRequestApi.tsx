@@ -1,0 +1,52 @@
+// src/types/EvaluationRequest.ts
+export interface EvaluationRequest {
+    student: {
+      studentId: string;
+      studentFirstName: string;
+      studentLastName: string;
+      studentEmail: string;
+      studentPhone: number;
+      studentCountry: string;
+      studentCountryCode: string;
+      learningInterest: string;
+      numberOfStudents: number;
+      preferredTeacher: string;
+      preferredFromTime: string;
+      preferredToTime: string;
+      timeZone: string;
+      referralSource: string;
+      preferredDate?: Date;
+      evaluationStatus: string;
+      status: string;
+      createdDate: Date;
+      createdBy?: string;
+    };
+    isLanguageLevel: boolean;
+    languageLevel: string;
+    isReadingLevel: boolean;
+    readingLevel?: string;
+    isGrammarLevel: boolean;
+    grammarLevel: string;
+    hours: number;
+    subscription: {
+      subscriptionName: string;
+    };
+    classStartDate: Date;
+    classEndDate?: Date;
+    classStartTime: string;
+    classEndTime: string;
+    gardianName: string;
+    gardianEmail: string;
+    gardianPhone: string;
+    gardianCity: string;
+    gardianCountry: string;
+    gardianTimeZone: string;
+    gardianLanguage: string;
+    studentStatus?: string;
+    classStatus?: string;
+    status?: string;
+    createdDate?: Date;
+    createdBy?: string;
+    updatedDate?: Date;
+    updatedBy?: string;
+  }
