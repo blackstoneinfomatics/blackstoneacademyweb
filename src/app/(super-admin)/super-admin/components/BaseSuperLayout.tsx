@@ -5,11 +5,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname} from "next/navigation";
 import { RiDashboardFill } from "react-icons/ri";
-import { MdContactSupport, MdAssignment } from "react-icons/md";
+import { MdCurrencyExchange} from "react-icons/md";
 import { IoPeopleSharp } from "react-icons/io5";
-import { FaBookOpenReader } from "react-icons/fa6";
-import { LuMessagesSquare } from "react-icons/lu";
+import { FaUsers } from "react-icons/fa6";
 import { PermissionsContext } from "../../../../contexts/PermissionsContext";
+import { BsGraphUpArrow } from "react-icons/bs";
+import { AiFillControl } from "react-icons/ai";
+import { SiSimpleanalytics } from "react-icons/si";
+import { PiChats } from "react-icons/pi";
+import { TfiReload } from "react-icons/tfi";
+import { AiOutlineAudit } from "react-icons/ai";
+import { LuDatabaseBackup } from "react-icons/lu";
+import { IoIosSettings } from "react-icons/io";
+
+
+
+
+
+
 
 interface Props {
   readonly children: ReactNode | ReactNode[];
@@ -18,33 +31,63 @@ interface Props {
 const SuperSidebarItems = [
   {
     name: 'Dashboard',
-    href: 'super-admin/ui/tenants',
+    href: '/super-admin/ui/dashboard',
     icon: RiDashboardFill,
   },
   {
-    name: 'Tenents Management',
-    href: '/modules/users/supervisor/ui/recruitment',
+    name: 'Tenants Management',
+    href: '/super-admin/ui/tenants',
     icon: IoPeopleSharp,
   },
   {
-    name: 'Meeting & Training',
-    href: '/modules/users/supervisor/ui/meetingandtraining',
-    icon: MdAssignment,
+    name: 'Subscriptions',
+    href: '/super-admin/ui/subscriptions',
+    icon: MdCurrencyExchange,
   },
   {
-    name: 'Teachers',
-    href: '/modules/users/supervisor/ui/teachers',
-    icon: FaBookOpenReader,
+    name: 'Finance',
+    href: '/super-admin/ui/finance',
+    icon: BsGraphUpArrow,
   },
   {
-    name: 'Messages',
-    href: '/modules/users/supervisor/ui/message',
-    icon: LuMessagesSquare,
+    name: 'Users & Roles',
+    href: '/super-admin/ui/usersroles',
+    icon: FaUsers,
   },
   {
-    name: 'Support',
-    href: '/modules/users/supervisor/ui/support',
-    icon: MdContactSupport,
+    name: 'Feature Control',
+    href: '/super-admin/ui/featurecontrol',
+    icon: AiFillControl,
+  },
+  {
+    name: 'Analytics',
+    href: '/super-admin/ui/analytics',
+    icon: SiSimpleanalytics,
+  },
+  {
+    name: 'Chat & Support',
+    href: '/super-admin/ui/chatsupport',
+    icon: PiChats,
+  },
+  {
+    name: 'Updates',
+    href: '/super-admin/ui/updates',
+    icon: TfiReload,
+  },
+  {
+    name: 'Audit Logs',
+    href: '/super-admin/ui/auditlogs',
+    icon: AiOutlineAudit,
+  },
+  {
+    name: 'Backup & Restore',
+    href: '/super-admin/ui/backuprestore',
+    icon: LuDatabaseBackup,
+  },
+  {
+    name: 'Settings',
+    href: '/super-admin/ui/settings',
+    icon: IoIosSettings,
   }
 ];
 
@@ -99,7 +142,7 @@ function SuperSidebar() {
         <Link href={hasReadAccess ? href : '#'} className="block no-underline">
                 <button
                   className={`w-full flex items-center gap-3 px-3 py-3
-                    text-[13px] sm:text-[14px] xl:text-[15px]
+                    text-[12px] sm:text-[13px] xl:text-[14px]
                     cursor-${hasReadAccess ? 'pointer' : 'not-allowed'} rounded transition-colors duration-200
                     ${pathname === href
                       ? 'text-white font-medium bg-[#576CBC]'
