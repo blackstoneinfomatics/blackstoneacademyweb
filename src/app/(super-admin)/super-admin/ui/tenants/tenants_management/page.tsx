@@ -6,6 +6,8 @@ import { Users } from "lucide-react";
 import React, { useState } from "react";
 import TenantAnalytics from "../../../components/TenantAnalytics";
 import TenantUserTable from "../../../components/TenantUsers";
+import SuperAdminHeader from "../../../components/SuperAdminHeader";
+import BaseSuperLayout from "../../../components/BaseSuperLayout";
 
 const tenantDetails = {
   tenantId: "TEN22001",
@@ -65,8 +67,8 @@ const Page = () => {
   const [activeTab, setActiveTab] = useState("Overview");
 
   return (
-    <BaseLayout3>
-      <SupervisorHeader currentSection="Tenant Management" />
+    <BaseSuperLayout>
+      <SuperAdminHeader currentSection="Tenant Management" />
       <div className="p-6 ">
         {/* Tabs */}
         <div className="flex flex-wrap gap-6 border-b mb-6">
@@ -347,7 +349,7 @@ const Page = () => {
           </div>
         )}
       </div>
-    </BaseLayout3>
+    </BaseSuperLayout>
   );
 };
 

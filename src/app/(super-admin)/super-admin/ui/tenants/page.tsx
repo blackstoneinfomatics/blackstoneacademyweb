@@ -9,6 +9,7 @@ import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Pagination from "@/components/Pagination";
 import { useRouter } from "next/navigation";
+import SuperAdminHeader from "../../components/SuperAdminHeader";
 
 interface TenantType {
   id: string;
@@ -168,7 +169,7 @@ const getPlanStyle = (plan: string) => {
   return (
     <div>
       <BaseSuperLayout>
-        <SupervisorHeader currentSection="Tenant Management" />
+        <SuperAdminHeader currentSection="Tenant Management" />
 
         <TenantStats />
 <br />
