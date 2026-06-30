@@ -6,17 +6,19 @@ import SubscriptionChart from "./components/SubscriptionChart";
 import CalendarCard from "./components/CalendarCard";
 import RecentActivities from "./components/RecentActivities";
 import TenantsTable from "./components/TenantsTable";
+import SuperAdminHeader from "../../components/SuperAdminHeader";
 
 const page = () => {
   return (
     <BaseSuperLayout>
+    <SuperAdminHeader currentSection="Dashboard"/>
       <div className="pt-2 min-h-screen">
         <div className="grid grid-cols-12 gap-4 h-full">
           {/* LEFT */}
           <div className="col-span-9 flex flex-col gap-4">
             <StatsCards />
 
-            <div className="grid grid-cols-2 gap-4 h-full">
+            <div className="grid grid-cols-2 gap-4 h-[290px]">
               <RevenueOverview />
               <SubscriptionChart />
             </div>
@@ -28,7 +30,7 @@ const page = () => {
 
           {/* RIGHT */}
           <div className="col-span-3 flex flex-col gap-4">
-            <div className="h-full">
+            <div className="">
               <CalendarCard />
             </div>
 

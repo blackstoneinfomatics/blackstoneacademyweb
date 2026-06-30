@@ -6,45 +6,41 @@ import { HiOutlineCurrencyDollar } from "react-icons/hi2";
 
 const cards = [
   {
-    title: "Total Tenants",
+    title: "Total Plans",
     value: "200",
     icon: Users,
     iconBg: "bg-[#4D5BF624]",
     iconColor: "text-[#4D5BF6]",
     titleColor: "text-[#4D5BF6]",
-    trend: "12% ",
-    trendColor: "text-green-500",
+    trend: "All Subscriptions Plan"
   },
-  {
-    title: "Total Revenue",
-    value: "$2,500",
-    icon: HiOutlineCurrencyDollar,
-    iconBg: "bg-[#DAEEE8]",
-    iconColor: "text-[#0F9E5C]",
-    titleColor: "text-[#0F9E5C]",
-    trend: "12%",
-    trendColor: "text-green-500",
-  },
-  {
-    title: "Subscriptions",
+    {
+    title: "Active Plan",
     value: "150",
     icon: UserPlus,
     iconBg: "bg-[#FBF2E7]",
     iconColor: "text-[#ECA036]",
     titleColor: "text-[#ECA036]",
-    trend: "12%",
-    trendColor: "text-green-500",
+    trend: "Currently Active Plan"
   },
   {
-    title: "Pending",
+    title: "Total Tenants",
     value: "50",
     icon: Clock3,
     iconBg: "bg-red-100",
     iconColor: "text-red-400",
     titleColor: "text-red-400",
-    trend: "12%",
-    trendColor: "text-red-400",
+    trend: "Subscribed Tenants"
   },
+  {
+    title: "Monthly Revenue",
+    value: "$2,500",
+    icon: HiOutlineCurrencyDollar,
+    iconBg: "bg-[#DAEEE8]",
+    iconColor: "text-[#0F9E5C]",
+    titleColor: "text-[#0F9E5C]",
+    trend: "vs last Month"
+  }
 ];
 
 const StatsCards = () => {
@@ -76,7 +72,7 @@ const StatsCards = () => {
             </div>
 
             <p className='text-xs mt-3 ml-8 flex flex-row gap-1'>
-              <span className={`${card.trendColor} flex flex-row gap-x-1`}><HiArrowTrendingUp className="mt-[2px]"/>{card.trend}</span> from our month
+              <span className="flex flex-row gap-x-1">{card.trend}</span>
             </p>
           </div>
         );
