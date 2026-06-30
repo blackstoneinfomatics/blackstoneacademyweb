@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import SupervisorHeader from "@/app/(tenant)/modules/users/supervisor/components/supervisorHeader";
-import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
 import { MdTune } from "react-icons/md";
 import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -193,7 +191,7 @@ const TenantUserTable = () => {
                           {user.email}
                         </td>
 
-                        <td className="px-3 py-3 break-words text-left text-left">
+                        <td className="px-3 py-3 break-words  text-left">
                           <span
                             className={`inline-flex items-center justify-center w-[90px] h-6 rounded-md text-xs font-medium ${getStatusStyle(
                               user.role,

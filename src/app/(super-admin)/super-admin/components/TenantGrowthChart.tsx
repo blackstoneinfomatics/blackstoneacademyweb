@@ -1,0 +1,129 @@
+"use client";
+
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { ChevronDown } from "lucide-react";
+
+const data = [
+  { year: "2016", value: 2000 },
+  { year: "2017", value: 6000 },
+  { year: "2018", value: 22000 },
+  { year: "2019", value: 30000 },
+  { year: "2020", value: 5000 },
+  { year: "2021", value: 11000 },
+  { year: "2022", value: 30000 },
+  { year: "2023", value: 39000 },
+];
+
+export default function GrowthChart() {
+  return (
+    <div className="bg-white rounded-2xl border border-[#ECECEC] p-5 shadow-sm ">
+
+      {/* Header */}
+
+      <div className="flex items-center justify-between mb-5">
+
+        <h2 className="text-[22px] font-semibold text-[#1E293B]">
+          Tenants Growth
+        </h2>
+
+        <button className="flex items-center gap-2 text-[13px] px-3 py-2 rounded-lg bg-[#F7F7F7] text-[#64748B]">
+
+          Yearly
+
+          <ChevronDown size={16} />
+
+        </button>
+
+      </div>
+
+      {/* Chart */}
+
+      <div className="h-[246.5px]">
+
+        <ResponsiveContainer width="100%" height="100%">
+
+          <AreaChart data={data}>
+
+            <defs>
+
+              <linearGradient
+                id="greenGradient"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+
+                <stop
+                  offset="5%"
+                  stopColor="#22C55E"
+                  stopOpacity={0.35}
+                />
+
+                <stop
+                  offset="95%"
+                  stopColor="#22C55E"
+                  stopOpacity={0}
+                />
+
+              </linearGradient>
+
+            </defs>
+
+            <CartesianGrid
+              stroke="#F1F5F9"
+              vertical={true}
+            />
+
+            <XAxis
+              dataKey="year"
+              tick={{
+                fontSize: 12,
+                fill: "#64748B",
+              }}
+              tickLine={false}
+              axisLine={false}
+            />
+
+            <YAxis
+              tick={{
+                fontSize: 12,
+                fill: "#64748B",
+              }}
+              tickFormatter={(v) =>
+                `${v / 1000}k`
+              }
+              tickLine={false}
+              axisLine={false}
+            />
+
+            <Tooltip />
+
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="#22C55E"
+              strokeWidth={2}
+              fill="url(#greenGradient)"
+              activeDot={{
+                r: 5,
+              }}
+            />
+
+          </AreaChart>
+
+        </ResponsiveContainer>
+
+      </div>
+
+    </div>
+  );
+}

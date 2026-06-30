@@ -8,6 +8,20 @@ import TenantAnalytics from "../../../components/TenantAnalytics";
 import TenantUserTable from "../../../components/TenantUsers";
 import SuperAdminHeader from "../../../components/SuperAdminHeader";
 import BaseSuperLayout from "../../../components/BaseSuperLayout";
+import BlackstoneInfomaticsTables from "../../../components/BlackstoneInfomaticsTables";
+import SubscriptionCard from "../../../components/subscriptionCard";
+import FeatureSummaryCards from "../../../components/FeaturesCard";
+import FeaturesTable from "../../../components/FeaturesTable";
+import ActiveLogsTable from "../../../components/ActiveLogsTable";
+import TicketsTable from "../../../components/TicketsTable";
+import ActiveLogsChart from "../../../components/ActiveLogsChart";
+import TicketAnalyticsCards from "../../../components/TicketLogs";
+import DashboardCards from "../../../components/TenantDashboardCrad";
+import GrowthChart from "../../../components/TenantGrowthChart";
+import ModuleGrowth from "../../../components/TenantModuleGrowth";
+import PerformanceCard from "../../../components/TenantPerformanceCard";
+import ActivityTable from "../../../components/TeanantActivityTable";
+import QuickInsights from "../../../components/TenantQuickInsights";
 
 const tenantDetails = {
   tenantId: "TEN22001",
@@ -324,29 +338,72 @@ const Page = () => {
         )}
 
         {activeTab === "Subscriptions" && (
-          <div className="bg-white p-6 rounded-xl border">
-            Subscription Content
+          <div className="rounded-xl border">
+            <SubscriptionCard />
+            <BlackstoneInfomaticsTables />
           </div>
         )}
 
         {activeTab === "Features" && (
-          <div className="bg-white p-6 rounded-xl border">Features Content</div>
+          <div className="  rounded-xl border">
+<FeatureSummaryCards />
+<FeaturesTable />
+
+          </div>
         )}
 
         {activeTab === "Active Logs" && (
-          <div className="bg-white p-6 rounded-xl border">
-            Active Logs Content
+          <div className=" rounded-xl border">
+            <ActiveLogsChart />
+            <ActiveLogsTable />
           </div>
         )}
 
         {activeTab === "Tickets" && (
-          <div className="bg-white p-6 rounded-xl border">Tickets Content</div>
+          <div className="rounded-xl border">
+            <TicketAnalyticsCards />
+            <TicketsTable />
+          </div>
         )}
 
         {activeTab === "Analytics" && (
-          <div className="bg-white p-6 rounded-xl border">
-            Analytics Content
-          </div>
+          <div className=" min-h-screen ">
+
+      {/* Top Cards */}
+      <DashboardCards />
+
+      {/* Middle */}
+   <div className="grid grid-cols-12 gap-4 mt-5">
+
+  <div className="col-span-12 xl:col-span-5">
+    <GrowthChart />
+  </div>
+
+  <div className="col-span-12 xl:col-span-4">
+    <ModuleGrowth />
+  </div>
+
+  <div className="col-span-12 xl:col-span-3">
+    <PerformanceCard />
+  </div>
+
+</div>
+
+      {/* Bottom */}
+      <div className="grid grid-cols-12 gap-5 mt-5">
+
+        <div className="col-span-12 lg:col-span-8">
+          <ActivityTable />
+        </div>
+
+        <div className="col-span-12 lg:col-span-4">
+          <QuickInsights />
+        </div>
+
+      </div>
+
+    </div>
+
         )}
       </div>
     </BaseSuperLayout>
