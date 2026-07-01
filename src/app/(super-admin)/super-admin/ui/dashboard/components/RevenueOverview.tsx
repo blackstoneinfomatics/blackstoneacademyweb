@@ -2,14 +2,14 @@ import React from "react";
 
 const RevenueOverview = () => {
   return (
-    <div className="bg-white rounded-[18px] p-5 shadow-sm w-full max-w-full">
+    <div className="bg-white dark:bg-[#343434] rounded-[18px] p-5 shadow-sm w-full max-w-full">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-[19px] font-semibold text-slate-900">
+        <h2 className="text-[19px] font-semibold">
           Revenue Overview
         </h2>
 
-        <button className="bg-gray-100 px-4 py-2 rounded-lg text-gray-600 text-xs flex items-center gap-2">
+        <button className="bg-gray-100 dark:bg-[#2c2c2c] px-4 py-2 rounded-lg text-xs flex items-center gap-2">
           Monthly
           <span className="text-[9px]">▼</span>
         </button>
@@ -17,7 +17,7 @@ const RevenueOverview = () => {
 
       <div className="relative h-[190px]">
         {/* Y Axis Labels */}
-        <div className="absolute -mt-2 space-y-4 left-0 top-0 h-full flex flex-col text-gray-900 text-[11px] z-10">
+        <div className="absolute -mt-2 space-y-4 left-0 top-0 h-full flex flex-col text-[11px] z-10">
           <span>$1000</span>
           <span>$500</span>
           <span>$200</span>
@@ -76,10 +76,10 @@ const RevenueOverview = () => {
         </div>
 
         {/* Floating Card */}
-        <div className="absolute -top-4 left-[38%] bg-white rounded-xl shadow-lg px-4 py-3 z-20">
-          <p className="text-gray-500 text-xs">29 July</p>
+        <div className="absolute -top-4 left-[38%] bg-white dark:bg-[#2c2c2c] rounded-xl shadow-lg px-4 py-3 z-20">
+          <p className="text-xs">29 July</p>
           <div className="flex items-center gap-4">
-            <span className="text-lg font-semibold text-gray-900">
+            <span className="text-lg font-semibold">
               220,342.76
             </span>
             <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg font-semibold text-xs">

@@ -57,11 +57,19 @@ type NotificationType = {
   isRead: boolean;
 };
 
+type SuperAdminHeaderProps = {
+  currentSection: string;
+  showBackButton?: boolean;
+  showBackPath?: string;
+  tenantActiveTab?: "plans" | "tenant-subscriptions" | "invoices" | "trials" | "analytics";
+};
+
 export default function SuperAdminHeader({
   currentSection,
   showBackButton = false,
   showBackPath = "",
-}: Props) {
+  tenantActiveTab,
+}: Readonly<SuperAdminHeaderProps>) {
   const theme: any = useTheme();
   const darkMode = theme?.darkMode ?? false;
   const toggleDarkMode = theme?.toggleDarkMode ?? (() => { });
@@ -433,12 +441,17 @@ const fetchNotifications = async (token: string) => {
 
   const renderButton = () => {
     const path = pathname?.toLowerCase() ?? "";
+    const isTenantManagementPage =
+      path.includes("/super-admin/ui/tenants/tenants_management") ||
+      path.includes("/super-admin/ui/tenants_management") ||
+      path.includes("tenants_management");
     const isTenantSection =
-      path.includes("/super-admin/ui/tenants") ||
-      path.includes("/super-admin/ui/tenant") ||
-      currentSection?.toLowerCase().includes("tenant");
+      (path.includes("/super-admin/ui/tenants") ||
+        path.includes("/super-admin/ui/tenant") ||
+        currentSection?.toLowerCase().includes("tenant")) &&
+      !isTenantManagementPage;
 
-if (path.includes("tenant") && permissions.tenant) {
+    if (isTenantSection) {
       return (
         <button
           onClick={() => setAddTenant(true)}
@@ -450,7 +463,12 @@ if (path.includes("tenant") && permissions.tenant) {
       );
     }
 
-if (path.includes("invoice") && permissions.invoice) {
+    const isSubscriptionsInvoicesView =
+      (path.includes("/super-admin/ui/subscriptions") ||
+        path.includes("subscriptions")) &&
+      (tenantActiveTab === "invoices" || path.includes("invoices"));
+
+    if (isSubscriptionsInvoicesView && permissions.invoice) {
       return (
         <button
           onClick={() => setShowGenerateInvoice(true)}

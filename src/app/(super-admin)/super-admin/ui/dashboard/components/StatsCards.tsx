@@ -1,5 +1,5 @@
 import React from "react";
-import { Users, DollarSign, UserPlus, Clock3 } from "lucide-react";
+import { Users, UserPlus, Clock3 } from "lucide-react";
 import { HiArrowTrendingUp } from "react-icons/hi2";
 import { HiOutlineCurrencyDollar } from "react-icons/hi2";
 
@@ -9,7 +9,7 @@ const cards = [
     title: "Total Tenants",
     value: "200",
     icon: Users,
-    iconBg: "bg-[#4D5BF624]",
+    iconBg: "bg-[#4D5BF624] dark:bg-[#343434]",
     iconColor: "text-[#4D5BF6]",
     titleColor: "text-[#4D5BF6]",
     trend: "12% ",
@@ -19,7 +19,7 @@ const cards = [
     title: "Total Revenue",
     value: "$2,500",
     icon: HiOutlineCurrencyDollar,
-    iconBg: "bg-[#DAEEE8]",
+    iconBg: "bg-[#DAEEE8] dark:bg-[#343434]",
     iconColor: "text-[#0F9E5C]",
     titleColor: "text-[#0F9E5C]",
     trend: "12%",
@@ -29,7 +29,7 @@ const cards = [
     title: "Subscriptions",
     value: "150",
     icon: UserPlus,
-    iconBg: "bg-[#FBF2E7]",
+    iconBg: "bg-[#FBF2E7] dark:bg-[#343434]",
     iconColor: "text-[#ECA036]",
     titleColor: "text-[#ECA036]",
     trend: "12%",
@@ -39,7 +39,7 @@ const cards = [
     title: "Pending",
     value: "50",
     icon: Clock3,
-    iconBg: "bg-red-100",
+    iconBg: "bg-red-100 dark:bg-[#343434]",
     iconColor: "text-red-400",
     titleColor: "text-red-400",
     trend: "12%",
@@ -56,7 +56,7 @@ const StatsCards = () => {
         return (
           <div
             key={index}
-            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] rounded-2xl px-4 py-3 shadow-lg border border-gray-100"
+            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
           >
             <div className="flex items-start gap-4">
               <div
@@ -69,7 +69,7 @@ const StatsCards = () => {
                 <p className={`text-sm mt-[1px] font-medium ${card.titleColor}`}>
                   {card.title}
                 </p>
-                <h2 className="text-[25px] font-semibold text-gray-800 mt-1">
+                <h2 className="text-[25px] font-semibold mt-1">
                   {card.value}
                 </h2>
               </div>

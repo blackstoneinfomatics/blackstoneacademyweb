@@ -1,29 +1,63 @@
-export default function Activities() {
+import React from "react";
+
+const Activities = () => {
+  const stats = [
+    { label: "Active", color: "#22C55E", value: "600 (80%)", count: 600 },
+    { label: "Trial", color: "#FACC15", value: "200 (12%)", count: 200 },
+    { label: "Expired", color: "#EF4444", value: "100 (8%)", count: 100 },
+  ];
+
+  const total = stats.reduce((sum, item) => sum + item.count, 0);
+
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border">
-      <div className="flex items-center justify-between">
-        <div className="relative w-40 h-40 rounded-full bg-[conic-gradient(#22c55e_0deg_288deg,#f59e0b_288deg_331deg,#ef4444_331deg_360deg)] flex items-center justify-center">
-          <div className="w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center">
-            <h3 className="text-3xl font-bold">900</h3>
-            <p className="text-xs text-gray-500">Activities</p>
+    <div className="bg-white rounded-xl p-5 border border-[#ECECEC] h-full min-h-full">
+      <div className="flex flex-col xl:flex-row items-center xl:items-start justify-between gap-6 h-full">
+        
+        {/* Donut Chart */}
+        <div
+          className="relative w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] rounded-full flex-shrink-0 mt-3"
+          style={{
+            background: `conic-gradient(
+              #22C55E 0deg 288deg,
+              #FACC15 288deg 331deg,
+              #EF4444 331deg 360deg
+            )`,
+          }}
+        >
+          <div className="absolute inset-[28px] bg-white rounded-full flex flex-col items-center justify-center">
+            <h2 className="text-[40px] font-bold text-[#111827] leading-none">
+              {total}
+            </h2>
+            <p className="text-[14px] text-[#6B7280] mt-1">Total</p>
           </div>
         </div>
 
-        <div className="space-y-3">
-          <div className="flex justify-between gap-8">
-            <span>🟢 Active</span>
-            <span>600 (80%)</span>
-          </div>
-          <div className="flex justify-between gap-8">
-            <span>🟡 Trial</span>
-            <span>200 (12%)</span>
-          </div>
-          <div className="flex justify-between gap-8">
-            <span>🔴 Expired</span>
-            <span>100 (8%)</span>
-          </div>
+        {/* Legend */}
+        <div className="flex-1 min-w-0 w-full space-y-3 items-center mt-12">
+          {stats.map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center justify-between"
+            >
+              <div className="flex items-center justify-center gap-3">
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="text-[14px] text-[#111827]">
+                  {item.label}
+                </span>
+              </div>
+
+              <span className="text-[14px] font-medium text-[#111827]">
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default Activities;

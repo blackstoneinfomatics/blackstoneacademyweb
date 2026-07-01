@@ -2,8 +2,8 @@ import React from "react";
 
 const SubscriptionChart = () => {
   return (
-    <div className="bg-white rounded-[18px] p-6 w-full max-w-full">
-      <h2 className="text-[19px] font-semibold text-[#111827] mb-6">
+    <div className="bg-white dark:bg-[#343434] rounded-[18px] p-6 w-full max-w-full">
+      <h2 className="text-[19px] font-semibold text-[#111827] dark:text-white mb-6">
         Subscriptions
       </h2>
 
@@ -13,31 +13,31 @@ const SubscriptionChart = () => {
           <div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-[#4F46E5] rounded-[3px]" />
-              <span className="text-[14px] font-semibold text-[#111827]">
+              <span className="text-[14px] font-semibold text-[#111827] dark:text-white">
                 Premium
               </span>
             </div>
-            <p className="text-[9px] text-gray-500 ml-7">200 (40%)</p>
+            <p className="text-[9px] text-gray-500 dark:text-gray-400 ml-7">200 (40%)</p>
           </div>
 
           <div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-[#F5A623] rounded-[3px]" />
-              <span className="text-[14px] font-semibold text-[#111827]">
+              <span className="text-[14px] font-semibold text-[#111827] dark:text-white">
                 Standard
               </span>
             </div>
-            <p className="text-[9px] text-gray-500 ml-7">200 (24%)</p>
+            <p className="text-[9px] text-gray-500 dark:text-gray-400 ml-7">200 (24%)</p>
           </div>
 
           <div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-[#22C55E] rounded-[3px]" />
-              <span className="text-[14px] font-semibold text-[#111827]">
+              <span className="text-[14px] font-semibold text-[#111827] dark:text-white">
                 Basic
               </span>
             </div>
-            <p className="text-[9px] text-gray-500 ml-7">200 (6%)</p>
+            <p className="text-[9px] text-gray-500 dark:text-gray-400 ml-7">200 (6%)</p>
           </div>
         </div>
 
@@ -54,8 +54,8 @@ const SubscriptionChart = () => {
             }}
           >
             {/* inner hole */}
-            <div className="absolute inset-[55px] bg-[#F5F7FF] rounded-full flex items-center justify-center">
-              <span className="text-[24px] font-bold text-[#2F3A56]">100%</span>
+            <div className="absolute inset-[55px] bg-[#F5F7FF] dark:bg-[#343434] rounded-full flex items-center justify-center">
+              <span className="text-[24px] font-bold text-[#2F3A56] dark:text-white">100%</span>
             </div>
 
             {/* labels */}

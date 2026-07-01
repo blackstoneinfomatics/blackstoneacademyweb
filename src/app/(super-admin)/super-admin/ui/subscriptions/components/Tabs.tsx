@@ -1,13 +1,24 @@
 "use client";
 
-import { useState } from "react";
 import PlansTab from "./plans/PlansTab";
 import TenantSubscriptionsTab from "./tenant-subscriptions/TenantSubscriptionsTab";
 import InvoicesTab from "./invoices/InvoicesTab";
 import TrialsTab from "./trials/TrialsTab";
 import AnalyticsTab from "./analytics/AnalyticsTab";
 
-const tabs = [
+type SubscriptionTab =
+  | "plans"
+  | "tenant-subscriptions"
+  | "invoices"
+  | "trials"
+  | "analytics";
+
+type TabsProps = {
+  activeTab: SubscriptionTab;
+  onTabChange: (tab: SubscriptionTab) => void;
+};
+
+const tabs: Array<{ id: SubscriptionTab; label: string; component: JSX.Element }> = [
   { id: "plans", label: "Plans", component: <PlansTab /> },
   {
     id: "tenant-subscriptions",
@@ -19,8 +30,7 @@ const tabs = [
   { id: "analytics", label: "Analytics", component: <AnalyticsTab /> },
 ];
 
-export default function Tabs() {
-  const [activeTab, setActiveTab] = useState("plans");
+export default function Tabs({ activeTab, onTabChange }: TabsProps) {
   const activeContent = tabs.find((tab) => tab.id === activeTab)?.component;
 
   return (
@@ -33,7 +43,7 @@ export default function Tabs() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => onTabChange(tab.id)}
               className={`text-md font-medium transition ${
                 isActive
                   ? "border-4 border-b-[#576CBC] text-[#576CBC]"

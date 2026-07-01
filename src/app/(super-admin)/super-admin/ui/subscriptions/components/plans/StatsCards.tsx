@@ -52,7 +52,7 @@ const StatsCards = () => {
         return (
           <div
             key={index}
-            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] rounded-2xl px-4 py-3 shadow-lg border border-gray-100"
+            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
           >
             <div className="flex items-start gap-4">
               <div

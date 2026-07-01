@@ -90,10 +90,10 @@ const TenantsTable = () => {
                       <span
                         className={`px-2 py-1 rounded-md text-[12px] font-medium inline-block ${
                           item.plan === "Premium"
-                            ? "bg-[#DCDDF2] text-[#585BDC]"
+                            ? "bg-[#DCDDF2] text-[#585BDC] dark:bg-[#36497e33]"
                             : item.plan === "Basic"
-                              ? "bg-[#DDF3F8] text-[#31C7E5]"
-                              : "bg-[#DCDDF2] text-[#3169DE]"
+                              ? "bg-[#DDF3F8] text-[#31C7E5] dark:bg-[#36737e33]"
+                              : "bg-[#DCDDF2] text-[#3169DE] dark:bg-[#435f9433]"
                         }`}
                       >
                         {item.plan}
@@ -103,8 +103,8 @@ const TenantsTable = () => {
                       <span
                         className={`px-2 text-[12px] py-[3px] rounded-md ${
                           item.status === "Active"
-                            ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#E4F4E8]"
-                            : item.status === "Expired==="
+                            ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                            : item.status === "Expired"
                               ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
                               : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
                         }`}
