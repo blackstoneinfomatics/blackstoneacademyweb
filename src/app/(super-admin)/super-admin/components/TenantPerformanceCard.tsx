@@ -7,10 +7,10 @@ const percentage = 92;
 
 export default function PerformanceCard() {
   return (
-    <div className="bg-white rounded-2xl border border-[#ECECEC] shadow-sm p-4 h-[342px]">
+    <div className="bg-white dark:bg-[#343434] rounded-2xl  shadow-sm p-4 h-[342px]">
 
       {/* Header */}
-      <h2 className="text-[22px] font-semibold text-[#1E293B]">
+      <h2 className="text-[22px] font-semibold text-[#1E293B] dark:text-white">
 Performance        </h2>
 
       {/* Circle */}
@@ -36,7 +36,7 @@ Performance        </h2>
       </div>
 
       {/* Message */}
-      <p className="text-center text-[16px] text-[#374151] mt-5">
+      <p className="text-center text-[16px] text-[#374151] dark:text-gray-300 mt-5">
         Your tenant is performing great
       </p>
 

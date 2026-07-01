@@ -95,11 +95,12 @@ const getStatusStyle = (status: string) => {
 };
 
 const [filters, setFilters] = useState({
-  ticketId: "",
   category: "",
+  requester: "",
+  fromDate: "",
+  toDate: "",
   priority: "",
   status: "",
-  requester: "",
 });
 
   const itemsPerPage = 10;
@@ -109,43 +110,52 @@ const [filters, setFilters] = useState({
   };
 
 const filteredTickets = tickets.filter((ticket) => {
+  // Search
   const search =
     ticket.ticketId.toLowerCase().includes(searchKeyword.toLowerCase()) ||
     ticket.subject.toLowerCase().includes(searchKeyword.toLowerCase()) ||
     ticket.category.toLowerCase().includes(searchKeyword.toLowerCase()) ||
     ticket.requester.toLowerCase().includes(searchKeyword.toLowerCase());
 
-  const ticketIdFilter =
-    !filters.ticketId ||
-    ticket.ticketId
-      .toLowerCase()
-      .includes(filters.ticketId.toLowerCase());
-
+  // Category
   const categoryFilter =
     !filters.category ||
     ticket.category === filters.category;
 
+  // Requester
+  const requesterFilter =
+    !filters.requester ||
+    ticket.requester === filters.requester;
+
+  // Priority
   const priorityFilter =
     !filters.priority ||
     ticket.priority === filters.priority;
 
+  // Status
   const statusFilter =
     !filters.status ||
     ticket.status === filters.status;
 
-  const requesterFilter =
-    !filters.requester ||
-    ticket.requester
-      .toLowerCase()
-      .includes(filters.requester.toLowerCase());
+  // Date
+  const ticketDate = new Date(ticket.dateTime);
+
+  const fromDateFilter =
+    !filters.fromDate ||
+    ticketDate >= new Date(filters.fromDate);
+
+  const toDateFilter =
+    !filters.toDate ||
+    ticketDate <= new Date(filters.toDate);
 
   return (
     search &&
-    ticketIdFilter &&
     categoryFilter &&
+    requesterFilter &&
     priorityFilter &&
     statusFilter &&
-    requesterFilter
+    fromDateFilter &&
+    toDateFilter
   );
 });
 const paginatedTickets = filteredTickets.slice(
@@ -341,93 +351,164 @@ const totalPages = Math.ceil(
             </div>
 
             {/* Invoice ID */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Ticket ID
-              </label>
-              <input
-                type="text"
-                value={filters.ticketId}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    ticketId: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-                placeholder="Enter Ticket ID"
-              />
-            </div>
+           {/* Category */}
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Category
+  </label>
 
-            {/* Plan */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Priority</label>
-              <select
-                value={filters.priority}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    priority: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All Priorities</option>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-              </select>
-            </div>
+  <select
+    value={filters.category}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        category: e.target.value,
+      }))
+    }
+    className="w-full border dark:bg-[#2c2c2c]  rounded-lg px-4 py-2.5 bg-white"
+  >
+    <option value="">Select Status</option>
+    <option value="Authentication">Authentication</option>
+    <option value="Course">Course</option>
+    <option value="Billing">Billing</option>
+  </select>
+</div>
 
-            
-            {/* Feature Status */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                 Status
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    status: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All</option>
-                <option value="Active">Open</option>
-                <option value="Expired">InProgress</option>
-                <option value="Cancelled">Resolved</option>
-              </select>
-            </div>
+{/* Requester */}
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Requester
+  </label>
+
+  <select
+    value={filters.requester}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        requester: e.target.value,
+      }))
+    }
+    className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5 bg-white"
+  >
+    <option value="">Select Status</option>
+    <option value="John Smith">John Smith</option>
+    <option value="Sarah Ahmed">Sarah Ahmed</option>
+    <option value="Mohammed Ali">Mohammed Ali</option>
+  </select>
+</div>
+
+{/* Date */}
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Date
+  </label>
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <input
+      type="date"
+      value={filters.fromDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          fromDate: e.target.value,
+        }))
+      }
+      className="dark:bg-[#2c2c2c]  rounded-lg px-3 py-2.5"
+    />
+
+    <input
+      type="date"
+      value={filters.toDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          toDate: e.target.value,
+        }))
+      }
+      className="dark:bg-[#2c2c2c]  rounded-lg px-3 py-2.5"
+    />
+
+  </div>
+</div>
+
+{/* Priority */}
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Priority
+  </label>
+
+  <select
+    value={filters.priority}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        priority: e.target.value,
+      }))
+    }
+    className="w-full border dark:bg-[#2c2c2c]  rounded-lg px-4 py-2.5 bg-white"
+  >
+    <option value="">Select Status</option>
+    <option value="High">High</option>
+    <option value="Medium">Medium</option>
+    <option value="Low">Low</option>
+  </select>
+</div>
+
+{/* Status */}
+<div className="mb-5">
+  <label className="block text-sm font-medium mb-2">
+    Status
+  </label>
+
+  <select
+    value={filters.status}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        status: e.target.value,
+      }))
+    }
+    className="w-full border dark:bg-[#2c2c2c]  rounded-lg px-4 py-2.5 bg-white"
+  >
+    <option value="">Select Status</option>
+    <option value="Open">Open</option>
+    <option value="In Progress">In Progress</option>
+    <option value="Resolved">Resolved</option>
+  </select>
+</div>
+
+<hr className="mb-5" />
+
+<div className="flex justify-end gap-4">
+  <button
+    type="button"
+    className="border border-[#5E6BFF] text-[#5E6BFF] rounded-lg px-7 py-2 font-semibold"
+    onClick={() =>
+      setFilters({
+        category: "",
+        requester: "",
+        fromDate: "",
+        toDate: "",
+        priority: "",
+        status: "",
+      })
+    }
+  >
+    Reset
+  </button>
+
+  <button
+    type="submit"
+    className="bg-[#5E6BFF] text-white rounded-lg px-7 py-2 font-semibold"
+  >
+    Show {filteredTickets.length} results
+  </button>
+</div>
 
            
 
-            <div className="flex gap-4 justify-end">
-              <button
-                type="button"
-                className="border border-[#576CBC] text-[#576CBC] rounded-lg px-6 py-2 font-semibold"
-                onClick={() =>
-                  setFilters({
-                    ticketId: "",
-                    category: "",
-                    priority: "",
-                    status: "",
-                    requester: "",
-                  })
-                }
-              >
-                Reset
-              </button>
-
-              <button
-                type="submit"
-                className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold"
-              >
-                Show Results
-              </button>
-            </div>
+            
           </form>
 
           <div className="fixed inset-0" onClick={() => setShowFilter(false)} />

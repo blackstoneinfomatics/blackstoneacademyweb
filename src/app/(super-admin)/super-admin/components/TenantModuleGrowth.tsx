@@ -27,15 +27,15 @@ const modules = [
 
 export default function GrowthCard() {
   return (
-    <div className="bg-white rounded-[18px] border border-[#ECECEC] p-5 ">
+    <div className="bg-white dark:bg-[#343434] rounded-[18px]  p-5 ">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-[22px] font-semibold text-[#1E293B]">
+        <h2 className="text-[22px] font-semibold text-[#1E293B] dark:text-white">
           Growth
         </h2>
 
-        <button className="flex items-center gap-2 bg-[#F5F5F5] px-3 py-1 rounded-md text-[11px] text-[#7B8495]">
+        <button className="flex items-center gap-2 bg-[#F5F5F5] dark:bg-[#374151] px-3 py-1 rounded-md text-[11px] text-[#7B8495] dark:text-gray-300">
           Yearly
           <ChevronDown size={13} />
         </button>
@@ -63,7 +63,7 @@ export default function GrowthCard() {
     />
   </div>
 
-  <p className="text-[14px] font-medium text-[#1E293B]">
+  <p className="text-[14px] font-medium text-[#1E293B] dark:text-white">
     {item.name}
   </p>
 
@@ -84,7 +84,7 @@ export default function GrowthCard() {
 
               </div>
 
-              <span className="text-[12px] font-semibold text-[#374151] w-9 text-right">
+              <span className="text-[12px] font-semibold text-[#374151] dark:text-gray-300 w-9 text-right">
                 {item.percentage}%
               </span>
 

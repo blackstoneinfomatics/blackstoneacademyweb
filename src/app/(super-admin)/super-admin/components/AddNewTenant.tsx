@@ -86,13 +86,13 @@ function ReviewRow({
   return (
     <div className="grid grid-cols-[120px_10px_1fr]">
 
-      <span className="text-[#6B7280]">
+      <span className="text-[#6B7280] dark:text-white ">
         {label}
       </span>
 
       <span>:</span>
 
-      <span className="font-medium">
+      <span className="font-medium dark:bg-[#2c2c2c] border border-gray-300 rounded-lg px-4 py-2">
         {value || "-"}
       </span>
 
@@ -120,7 +120,7 @@ function UploadCard({
   setFormData,
 }: UploadCardProps) {
   return (
-    <div className="border rounded-xl p-5 bg-white">
+    <div className="border rounded-xl p-5 bg-white dark:bg-[#343434]">
 
       <h4 className="font-semibold mb-4">{title}</h4>
 
@@ -145,7 +145,7 @@ function UploadCard({
 
       {file && (
 
-        <div className="mt-4 flex items-center justify-between border rounded-lg px-3 py-2 bg-white">
+        <div className="mt-4 flex items-center justify-between border rounded-lg px-3 py-2 bg-white dark:bg-[#343434]">
 
           <div className="flex items-center gap-3 min-w-0">
 
@@ -286,8 +286,8 @@ comments:"",
     }));
   };
   return (
-    <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-[1200px] h-[92vh] overflow-hidden">
+    <div className="fixed inset-0  z-[9999] flex items-center justify-center ">
+      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-[1200px] h-[92vh] overflow-hidden dark:bg-[#343434]">
         {" "}
         {/* Header */}
         <div className="flex justify-between items-center border-b px-8 py-5">
@@ -362,8 +362,8 @@ comments:"",
               <div className="space-y-10">
                 {/* Company Information */}
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h4 className="text-lg font-semibold text-[#1F2937] mb-6">
+                <div className="bg-white rounded-xl  p-6 dark:bg-[#2c2c2c]">
+                  <h4 className="text-lg font-semibold text-[#1F2937] mb-6 dark:text-white">
                     Company Information
                   </h4>
 
@@ -379,7 +379,7 @@ comments:"",
                         value={formData.companyName}
                         onChange={handleInput}
                         placeholder="Enter company name"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4 focus:outline-none focus:ring-2 focus:ring-[#5967E8]"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4 focus:outline-none focus:ring-2 focus:ring-[#5967E8]"
                       />
                     </div>
 
@@ -394,7 +394,7 @@ comments:"",
                         value={formData.email}
                         onChange={handleInput}
                         placeholder="Enter email"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4 focus:outline-none focus:ring-2 focus:ring-[#5967E8]"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4 focus:outline-none focus:ring-2 focus:ring-[#5967E8]"
                       />
                     </div>
 
@@ -409,7 +409,7 @@ comments:"",
                         value={formData.phone}
                         onChange={handleInput}
                         placeholder="+91 XXXXX XXXXX"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                       />
                     </div>
 
@@ -424,7 +424,7 @@ comments:"",
                         value={formData.domain}
                         onChange={handleInput}
                         placeholder="company.com"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                       />
                     </div>
 
@@ -439,7 +439,7 @@ comments:"",
                         value={formData.gstNo}
                         onChange={handleInput}
                         placeholder="GST Number"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                       />
                     </div>
 
@@ -454,7 +454,7 @@ comments:"",
                         value={formData.panNo}
                         onChange={handleInput}
                         placeholder="PAN Number"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                       />
                     </div>
 
@@ -469,7 +469,7 @@ comments:"",
                         value={formData.faxNo}
                         onChange={handleInput}
                         placeholder="Fax Number"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                       />
                     </div>
 
@@ -484,7 +484,7 @@ comments:"",
                         value={formData.website}
                         onChange={handleInput}
                         placeholder="https://example.com"
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                       />
                     </div>
                   </div>
@@ -492,7 +492,7 @@ comments:"",
 
                 {/* Tenant Configuration */}
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl dark:bg-[#2c2c2c] p-6">
                   <h4 className="text-lg font-semibold text-[#1F2937] mb-6">
                     Tenant Configuration
                   </h4>
@@ -507,7 +507,7 @@ comments:"",
                         name="status"
                         value={formData.status}
                         onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                       >
                         <option value="">Select Status</option>
                         <option>Active</option>
@@ -524,7 +524,7 @@ comments:"",
                         name="timeZone"
                         value={formData.timeZone}
                         onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                       >
                         <option value="">Select Time Zone</option>
                         <option>Asia/Kolkata</option>
@@ -541,7 +541,7 @@ comments:"",
                         name="plan"
                         value={formData.plan}
                         onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                       >
                         <option>Select Plan</option>
                         <option>Basic</option>
@@ -559,7 +559,7 @@ comments:"",
                         name="currency"
                         value={formData.currency}
                         onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4"
+                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                       >
                         <option>Select Currency</option>
                         <option>INR</option>
@@ -585,7 +585,7 @@ comments:"",
 
                 {/* Address */}
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl dark:bg-[#2c2c2c] p-6">
                   <h4 className="text-lg font-semibold mb-6">
                     Address Information
                   </h4>
@@ -596,7 +596,7 @@ comments:"",
                       value={formData.country}
                       onChange={handleInput}
                       placeholder="Country"
-                      className="h-11 border rounded-lg px-4"
+                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                     />
 
                     <input
@@ -604,7 +604,7 @@ comments:"",
                       value={formData.state}
                       onChange={handleInput}
                       placeholder="State"
-                      className="h-11 border rounded-lg px-4"
+                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                     />
 
                     <input
@@ -612,7 +612,7 @@ comments:"",
                       value={formData.city}
                       onChange={handleInput}
                       placeholder="City"
-                      className="h-11 border rounded-lg px-4"
+                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                     />
 
                     <input
@@ -620,7 +620,7 @@ comments:"",
                       value={formData.pincode}
                       onChange={handleInput}
                       placeholder="Pincode"
-                      className="h-11 border rounded-lg px-4"
+                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                     />
                   </div>
 
@@ -630,7 +630,7 @@ comments:"",
                       value={formData.street}
                       onChange={handleInput}
                       placeholder="Street Address"
-                      className="w-full h-11 border rounded-lg px-4"
+                      className="w-full h-11 border   border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                     />
                   </div>
 
@@ -640,7 +640,7 @@ comments:"",
                       value={formData.landmark}
                       onChange={handleInput}
                       placeholder="Landmark"
-                      className="w-full h-11 border rounded-lg px-4"
+                      className="w-full h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
                     />
                   </div>
                 </div>
@@ -722,7 +722,7 @@ comments:"",
 
       <div className="border rounded-lg p-5">
 
-        <h4 className="font-semibold text-[#1F2937] mb-5">
+        <h4 className="font-semibold text-[#1F2937] mb-5 dark:text-white">
           Tenant Information
         </h4>
 
@@ -776,7 +776,7 @@ comments:"",
 
       <div className="border rounded-lg p-5">
 
-        <h4 className="font-semibold text-[#1F2937] mb-5">
+        <h4 className="font-semibold text-[#1F2937] mb-5 dark:text-white">
           Documents
         </h4>
 
@@ -807,7 +807,7 @@ comments:"",
   </div>
 )}
           {currentStep === 4 && (
-            <div>
+            <div className="dark:bg-[#2c2c2c] p-6 rounded-xl border">
               <h3 className="text-2xl font-semibold mb-2">
                 Invite Tenant Admin
               </h3>
@@ -832,7 +832,7 @@ comments:"",
                       value={formData.adminName}
                       onChange={handleInput}
                       placeholder="Enter full name"
-                      className="w-full h-11 border rounded-lg px-4"
+                      className="w-full h-11  rounded-lg px-4 border border-gray-300 dark:bg-[#2c2c2c]"
                     />
                   </div>
 
@@ -850,7 +850,7 @@ comments:"",
                       value={formData.adminEmail}
                       onChange={handleInput}
                       placeholder="admin@company.com"
-                      className="w-full h-11 border rounded-lg px-4"
+                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                     />
                   </div>
 
@@ -864,7 +864,7 @@ comments:"",
                     <input
                       value="Tenant Admin"
                       disabled
-                      className="w-full h-11 border rounded-lg px-4 bg-gray-100"
+                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                     />
                   </div>
                   {/* Phone */}
@@ -880,7 +880,7 @@ comments:"",
                       value={formData.adminPhone}
                       onChange={handleInput}
                       placeholder="+91 XXXXX XXXXX"
-                      className="w-full h-11 border rounded-lg px-4"
+                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
                     />
                   </div>
 
@@ -894,7 +894,7 @@ comments:"",
                     <input
                       value="Share Your Comments"
                       disabled
-                      className="w-full h-20  px-4 rounded-lg border bg-[#F8F9FF]"
+                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] p-5 rounded-lg px-4"
                     />
                   </div>
                   {/* Phone */}
@@ -905,13 +905,13 @@ comments:"",
 
 
 
-                {/* <div className="mt-8 rounded-lg border bg-[#F8F9FF] p-5">
-                  <p className="text-sm text-gray-600 leading-7">
+                <div className="mt-8 rounded-lg  bg-[#F8F9FF] p-5 border border-gray-300 dark:bg-[#2c2c2c] ">
+                  <p className="text-sm text-gray-600 leading-7 dark:text-white">
                     An invitation email will be sent to the tenant
                     administrator.
                     <br />
                   </p>
-                </div> */}
+                </div>
               </div>
             </div>
           )}

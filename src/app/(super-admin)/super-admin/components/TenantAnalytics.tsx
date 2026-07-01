@@ -60,7 +60,7 @@ const TenantAnalytics = () => {
     <div className="grid grid-cols-12 gap-4 items-stretch auto-rows-fr">
       {" "}
       {/* Left Card */}
-      <div className="col-span-12 lg:col-span-5 xl:col-span-5 bg-white rounded-xl p-5 border border-[#ECECEC] h-full min-h-full">
+      <div className="col-span-12 lg:col-span-5 xl:col-span-5 bg-white  dark:bg-[#343434] rounded-xl p-5  h-full min-h-full">
         <div className="flex flex-col xl:flex-row items-center xl:items-start justify-between gap-4 h-full">
           {" "}
           {/* Donut Chart */}
@@ -71,12 +71,12 @@ const TenantAnalytics = () => {
                 "conic-gradient(#7C5CFA 0deg 72deg,#3B82F6 72deg 144deg,#22C55E 144deg 216deg,#EAB308 216deg 288deg,#F2994A 288deg 360deg)",
             }}
           >
-            <div className="absolute inset-[28px] sm:inset-[28px] bg-white rounded-full flex flex-col items-center justify-center">
-              <h2 className="text-[48px] font-bold text-[#111827] leading-none">
+            <div className="absolute inset-[28px] sm:inset-[28px] bg-white dark:bg-[#343434] rounded-full flex flex-col items-center justify-center">
+              <h2 className="text-[48px] font-bold text-[#111827] dark:text-white leading-none">
                 {totalUsersFromRoles}
               </h2>
 
-              <p className="text-[14px] text-[#6B7280] mt-1">Teachers</p>
+              <p className="text-[14px] text-[#6B7280] dark:text-slate-300 mt-1">Teachers</p>
             </div>
           </div>
           {/* Legend */}
@@ -85,7 +85,7 @@ const TenantAnalytics = () => {
               <div
                 key={role.roleName}
                 className={`flex items-center justify-between rounded-md px-2 py-1 cursor-pointer transition-all duration-200 whitespace-nowrap ${
-                  hoveredRole === role.roleName ? "bg-[#F5F7FF]" : ""
+                  hoveredRole === role.roleName ? "bg-[#F5F7FF] dark:bg-[#374151]" : ""
                 }`}
                 onMouseEnter={() => setHoveredRole(role.roleName)}
                 onMouseLeave={() => setHoveredRole(null)}
@@ -100,18 +100,18 @@ const TenantAnalytics = () => {
                     }}
                   />
 
-                  <span className="text-[13px] text-[#111827] truncate">
+                  <span className="text-[13px] text-[#111827] dark:text-white truncate">
                     {role.roleName}
                   </span>
                 </div>
 
                 <div className="relative gap-3">
-                  <span className="text-[13px] text-[#111827] font-medium gap-3">
+                  <span className="text-[13px] text-[#111827] dark:text-white font-medium gap-3">
                     {role.count} ({role.percentage}%)
                   </span>
 
                   {hoveredRole === role.roleName && (
-                    <div className="absolute right-0 top-6 z-20 bg-[#111827] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                    <div className="absolute right-0 top-6 z-20 bg-[#343434] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
                       {role.roleName}: {role.count} Users
                     </div>
                   )}
@@ -126,9 +126,9 @@ const TenantAnalytics = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {" "}
           {/* Total User */}
-          <div className="bg-white rounded-xl px-4 py-4 border border-[#ECECEC]">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 ">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#C7CEFC24] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full  flex items-center justify-center">
                 <Users size={22} className="text-[#5B4CFF]" />
               </div>
 
@@ -137,7 +137,7 @@ const TenantAnalytics = () => {
                   {" "}
                   Total User
                 </p>
-                <h3 className="text-[18px] font-semibold">
+                <h3 className="text-[18px] font-semibold dark:text-white">
                   {dashboardData.stats.totalUsers}
                 </h3>
               </div>
@@ -148,13 +148,13 @@ const TenantAnalytics = () => {
                 ↑ 8 (14%)
               </span>
 
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap">
+              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-white">
                 vs last Month
               </span>
             </div>
           </div>
           {/* Active User */}
-          <div className="bg-white rounded-xl px-4 py-4 border border-[#ECECEC] h-full">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4  h-full">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-[#DFF5E3] flex items-center justify-center">
                 <CheckCircle size={22} className="text-[#39B54A]" />
@@ -165,7 +165,7 @@ const TenantAnalytics = () => {
                   Active User
                 </p>
 
-                <h3 className="text-xl font-semibold">
+                <h3 className="text-xl font-semibold dark:text-white">
                   {dashboardData.stats.activeUsers}
                 </h3>
               </div>
@@ -176,13 +176,13 @@ const TenantAnalytics = () => {
                 ↑ 8 (14%)
               </span>
 
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap">
+              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-white">
                 vs last Month
               </span>
             </div>
           </div>
           {/* Inactive User */}
-          <div className="bg-white rounded-xl p-4 shadow-sm h-full">
+          <div className="bg-white dark:bg-[#343434] rounded-xl p-4 shadow-sm h-full ">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-[#FBE3E3] flex items-center justify-center">
                 <XCircle size={22} className="text-[#E05353]" />
@@ -193,18 +193,18 @@ const TenantAnalytics = () => {
                   Inactive User
                 </p>
 
-                <h3 className="text-xl font-semibold">
+                <h3 className="text-xl font-semibold dark:text-white">
                   {dashboardData.stats.inactiveUsers}
                 </h3>
               </div>
             </div>
 
             <div className="flex items-center gap-6 mt-3">
-              <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap">
+              <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap ">
                 ↑ 8 (14%)
               </span>
 
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap">
+              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-white">
                 vs last Month
               </span>
             </div>
@@ -213,8 +213,8 @@ const TenantAnalytics = () => {
 
         {/* Bottom Cards */}
         <div className="grid md:grid-cols-[2fr_1fr] gap-4 items-stretch">
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-[#7A7A7A]">Total User</p>
+          <div className="bg-white dark:bg-[#343434] rounded-xl p-4 shadow-sm">
+            <p className="text-xs text-[#7A7A7A] dark:text-gray-300">Total User</p>
 
             <div className="flex items-center gap-2 mt-3">
               <div className="w-7 h-7 rounded-full bg-gray-300" />
@@ -225,14 +225,14 @@ const TenantAnalytics = () => {
                 +5
               </div>
 
-              <span className="text-xs text-[#7A7A7A] ml-2">
+              <span className="text-xs text-[#7A7A7A] dark:text-gray-300 ml-2">
                 124+ users added in the last 7 days
               </span>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-[#ECECEC] px-4 py-3">
-            <p className="text-[14px] font-semibold text-[#1E293B]">
+          <div className="bg-white dark:bg-[#343434] rounded-xl  px-4 py-3">
+            <p className="text-[14px] font-semibold text-[#1E293B] dark:text-white">
               Most Active Role
             </p>
 
@@ -242,11 +242,11 @@ const TenantAnalytics = () => {
               </div>
 
               <div>
-                <h3 className="text-[14px] font-semibold leading-none text-[#111827]">
+                <h3 className="text-[14px] font-semibold leading-none text-[#111827] dark:text-white ">
                   {dashboardData.activeRole.role}
                 </h3>
 
-                <p className="text-[11px] text-[#6B7280] mt-1 whitespace-nowrap">
+                <p className="text-[11px] text-[#6B7280] mt-1 whitespace-nowrap  dark:text-gray-300">
                   {dashboardData.activeRole.count} total active users
                 </p>
               </div>

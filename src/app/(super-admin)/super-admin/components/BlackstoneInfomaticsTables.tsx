@@ -74,12 +74,11 @@ const BlackstoneInfomaticsTables = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const [filters, setFilters] = useState({
-    invoiceId: "",
     plan: "",
-    planCycle: "",
     paymentMethod: "",
-    planStatus: "",
-    paymentStatus: "",
+   status:"",
+    fromDate:"",
+    toDate:"",
   });
 
   const itemsPerPage = 10;
@@ -89,48 +88,48 @@ const BlackstoneInfomaticsTables = () => {
   };
 
   const filteredSubscriptions = subscriptions.filter((subscription) => {
-    const search =
-      subscription.invoiceId
-        .toLowerCase()
-        .includes(searchKeyword.toLowerCase()) ||
-      subscription.plan.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      subscription.amount.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      subscription.planCycle
-        .toLowerCase()
-        .includes(searchKeyword.toLowerCase());
+  const search =
+    subscription.invoiceId
+      .toLowerCase()
+      .includes(searchKeyword.toLowerCase()) ||
+    subscription.plan
+      .toLowerCase()
+      .includes(searchKeyword.toLowerCase()) ||
+    subscription.paymentMethod
+      .toLowerCase()
+      .includes(searchKeyword.toLowerCase());
 
-    const invoiceIdFilter =
-      !filters.invoiceId ||
-      subscription.invoiceId
-        .toLowerCase()
-        .includes(filters.invoiceId.toLowerCase());
+  const planFilter =
+    !filters.plan ||
+    subscription.plan === filters.plan;
 
-    const planFilter = !filters.plan || subscription.plan === filters.plan;
+  const paymentMethodFilter =
+    !filters.paymentMethod ||
+    subscription.paymentMethod === filters.paymentMethod;
 
-    const planCycleFilter =
-      !filters.planCycle || subscription.planCycle === filters.planCycle;
+  const statusFilter =
+    !filters.status ||
+    subscription.paymentStatus === filters.status;
 
-    const paymentMethodFilter =
-      !filters.paymentMethod ||
-      subscription.paymentMethod === filters.paymentMethod;
+  const subscriptionDate = new Date(subscription.date);
 
-    const planStatusFilter =
-      !filters.planStatus || subscription.planStatus === filters.planStatus;
+  const fromDateFilter =
+    !filters.fromDate ||
+    subscriptionDate >= new Date(filters.fromDate);
 
-    const paymentStatusFilter =
-      !filters.paymentStatus ||
-      subscription.paymentStatus === filters.paymentStatus;
+  const toDateFilter =
+    !filters.toDate ||
+    subscriptionDate <= new Date(filters.toDate);
 
-    return (
-      search &&
-      invoiceIdFilter &&
-      planFilter &&
-      planCycleFilter &&
-      paymentMethodFilter &&
-      planStatusFilter &&
-      paymentStatusFilter
-    );
-  });
+  return (
+    search &&
+    planFilter &&
+    paymentMethodFilter &&
+    statusFilter &&
+    fromDateFilter &&
+    toDateFilter
+  );
+});
 
   const paginatedSubscriptions = filteredSubscriptions.slice(
     (currentPage - 1) * itemsPerPage,
@@ -340,147 +339,124 @@ const BlackstoneInfomaticsTables = () => {
             </div>
 
             {/* Invoice ID */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Invoice ID
-              </label>
-              <input
-                type="text"
-                value={filters.invoiceId}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    invoiceId: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-                placeholder="Enter Invoice ID"
-              />
-            </div>
+           <div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Plan
+  </label>
+
+  <select
+    value={filters.plan}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        plan: e.target.value,
+      }))
+    }
+    className="w-full  dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+  >
+    <option value="">Select Status</option>
+    <option value="Basic">Basic</option>
+    <option value="Standard">Standard</option>
+    <option value="Premium">Premium</option>
+  </select>
+</div>
 
             {/* Plan */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Plan</label>
-              <select
-                value={filters.plan}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    plan: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All Plans</option>
-                <option value="Basic">Basic</option>
-                <option value="Standard">Standard</option>
-                <option value="Premium">Premium</option>
-              </select>
-            </div>
+  <label className="block text-sm font-medium mb-2">
+    Payment Method
+  </label>
+
+  <select
+    value={filters.paymentMethod}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        paymentMethod: e.target.value,
+      }))
+    }
+    className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+  >
+    <option value="">Select Status</option>
+    <option value="Visa">Visa</option>
+    <option value="MasterCard">MasterCard</option>
+    <option value="UPI">UPI</option>
+  </select>
+</div>
 
             {/* Plan Cycle */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Plan Cycle
-              </label>
-              <select
-                value={filters.planCycle}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    planCycle: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All</option>
-                <option value="Monthly">Monthly</option>
-                <option value="Quarterly">Quarterly</option>
-                <option value="Yearly">Yearly</option>
-              </select>
-            </div>
+  <label className="block text-sm font-medium mb-2">
+    Date
+  </label>
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <input
+      type="date"
+      value={filters.fromDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          fromDate: e.target.value,
+        }))
+      }
+      className="dark:bg-[#2c2c2c] rounded-lg px-3 py-2.5"
+    />
+
+    <input
+      type="date"
+      value={filters.toDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          toDate: e.target.value,
+        }))
+      }
+      className="dark:bg-[#2c2c2c] rounded-lg px-3 py-2.5"
+    />
+
+  </div>
+</div>
 
             {/* Payment Method */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Payment Method
-              </label>
-              <select
-                value={filters.paymentMethod}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    paymentMethod: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All</option>
-                <option value="Visa">Visa</option>
-                <option value="MasterCard">MasterCard</option>
-                <option value="UPI">UPI</option>
-                <option value="PayPal">PayPal</option>
-              </select>
-            </div>
+           <div className="mb-5">
+  <label className="block text-sm font-medium mb-2">
+    Status
+  </label>
 
-            {/* Plan Status */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Plan Status
-              </label>
-              <select
-                value={filters.planStatus}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    planStatus: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All</option>
-                <option value="Active">Active</option>
-                <option value="Expired">Expired</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
+  <select
+    value={filters.status}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        status: e.target.value,
+      }))
+    }
+    className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+  >
+    <option value="">Select Status</option>
+    <option value="Paid">Paid</option>
+    <option value="Pending">Pending</option>
+    <option value="Failed">Failed</option>
+  </select>
+</div>
 
-            {/* Payment Status */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">
-                Payment Status
-              </label>
-              <select
-                value={filters.paymentStatus}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    paymentStatus: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All</option>
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
-                <option value="Failed">Failed</option>
-              </select>
-            </div>
+           
 
             <div className="flex gap-4 justify-end">
               <button
                 type="button"
                 className="border border-[#576CBC] text-[#576CBC] rounded-lg px-6 py-2 font-semibold"
                 onClick={() =>
-                  setFilters({
-                    invoiceId: "",
-                    plan: "",
-                    planCycle: "",
-                    paymentMethod: "",
-                    planStatus: "",
-                    paymentStatus: "",
-                  })
-                }
+  setFilters({
+    plan: "",
+    paymentMethod: "",
+    fromDate: "",
+    toDate: "",
+    status: "",
+  })
+}
               >
                 Reset
               </button>

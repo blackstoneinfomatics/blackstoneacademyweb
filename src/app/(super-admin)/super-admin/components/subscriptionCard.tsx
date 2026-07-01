@@ -21,7 +21,7 @@ const features = [
 
 export default function SubscriptionCard() {
   return (
-    <div className="w-full rounded-[24px] border border-[#E7EAF3] bg-white p-7 shadow-sm">
+    <div className="w-full rounded-[24px] bg-white dark:bg-[#343434] p-7 shadow-sm">
       <div className="flex gap-8">
 
         {/* LEFT SECTION */}
@@ -47,25 +47,25 @@ export default function SubscriptionCard() {
                 Active
               </span>
 
-              <h2 className="mt-3 text-[18px] font-bold leading-none text-[#16213E]">
+              <h2 className="mt-3 text-[18px] font-bold leading-none text-[#16213E] dark:text-white">
                 Enterprise
               </h2>
 
-              <p className="mt-2 text-[12px] font-medium text-[#7C8799]">
+              <p className="mt-2 text-[12px] font-medium text-[#7C8799] dark:text-gray-300">
                 Yearly Subscription
               </p>
 
               <div className="mt-4 flex items-end">
-                <span className="text-[28px] font-bold leading-none text-[#111827]">
+                <span className="text-[28px] font-bold leading-none text-[#111827] dark:text-white">
                   $8,500
                 </span>
 
-                <span className="ml-2 mb-[4px] text-[14px] text-[#6B7280]">
+                <span className="ml-2 mb-[4px] text-[14px] text-[#6B7280] dark:text-gray-300">
                   / year
                 </span>
               </div>
 
-              <p className="mt-4 text-[14px] text-[#8A94A6]">
+              <p className="mt-4 text-[14px] text-[#8A94A6] dark:text-gray-300">
                 Next Billing on{" "}
                 <span className="font-semibold text-[#5669D8]">
                   15 Aug, 2026
@@ -83,7 +83,7 @@ export default function SubscriptionCard() {
   {features.map((feature, index) => (
     <div
       key={index}
-      className="flex h-[40px] items-center rounded-md bg-[#EEF9F2] px-2"
+      className="flex h-[40px] items-center rounded-md bg-[#EEF9F2] dark:bg-[#2D3B4A] px-2"
     >
       <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#DDF5E6]">
         <Check
@@ -94,7 +94,7 @@ export default function SubscriptionCard() {
       </div>
 
       <p
-        className={`ml-3 text-[12px] font-medium leading-4 text-[#24324B] ${
+        className={`ml-3 text-[12px] font-medium leading-4 text-[#24324B] dark:text-gray-200 ${
           feature.length < 22 ? "whitespace-nowrap" : ""
         }`}
       >

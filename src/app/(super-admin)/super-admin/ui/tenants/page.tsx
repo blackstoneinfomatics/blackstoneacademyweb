@@ -71,7 +71,12 @@ const [currentPage, setCurrentPage] = useState(1);
 const [activeTab, setActiveTab] = useState<"All" | "New">("All");
 const [filters, setFilters] = useState({
   tenantName: "",
+  domain: "",
   plan: "",
+  fromDate: "",
+  toDate: "",
+  renewalFromDate: "",
+  renewalToDate: "",
   status: "",
 });
 
@@ -101,6 +106,12 @@ const filteredTenants = tenants.filter((tenant) => {
       .toLowerCase()
       .includes(filters.tenantName.toLowerCase());
 
+  const domainFilter =
+    !filters.domain ||
+    tenant.domain
+      .toLowerCase()
+      .includes(filters.domain.toLowerCase());
+
   const planFilter =
     !filters.plan ||
     tenant.plan === filters.plan;
@@ -109,11 +120,35 @@ const filteredTenants = tenants.filter((tenant) => {
     !filters.status ||
     tenant.status === filters.status;
 
+  const startDate = new Date(tenant.startDate);
+  const renewalDate = new Date(tenant.renewalDate);
+
+  const fromDateFilter =
+    !filters.fromDate ||
+    startDate >= new Date(filters.fromDate);
+
+  const toDateFilter =
+    !filters.toDate ||
+    startDate <= new Date(filters.toDate);
+
+  const renewalFromFilter =
+    !filters.renewalFromDate ||
+    renewalDate >= new Date(filters.renewalFromDate);
+
+  const renewalToFilter =
+    !filters.renewalToDate ||
+    renewalDate <= new Date(filters.renewalToDate);
+
   return (
     search &&
     tenantFilter &&
+    domainFilter &&
     planFilter &&
-    statusFilter
+    statusFilter &&
+    fromDateFilter &&
+    toDateFilter &&
+    renewalFromFilter &&
+    renewalToFilter
   );
 });
 
@@ -167,7 +202,7 @@ const getPlanStyle = (plan: string) => {
   }
 };
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50 dark:bg-[#343434] text-slate-900 dark:text-white">
       <BaseSuperLayout>
         <SuperAdminHeader currentSection="Tenant Management" />
 
@@ -208,14 +243,14 @@ const getPlanStyle = (plan: string) => {
               </div>
 
               {/* Search + Filter */}
-              <div className="w-full bg-[#FAFAFB] dark:bg-[#343434] rounded-lg">
+                <div className="w-full bg-[#FAFAFB] dark:bg-[#343434] rounded-lg border border-gray-200 dark:border-gray-700">
                 <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#343434]">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                     <input
                       type="text"
                       placeholder="Search by keyword"
-                      className="bg-transparent outline-none text-[15px] w-52 py-3"
+                      className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-300"
                       value={searchKeyword}
                       onChange={(e) => setSearchKeyword(e.target.value)}
                     />
@@ -265,31 +300,31 @@ const getPlanStyle = (plan: string) => {
   {paginatedTenants.map((tenant, index) => {
     const rowBgClass =
       index % 2 === 0
-        ? "bg-[#fff] dark:bg-[#2C2C2C]"
-        : "bg-[#F8F8F8] dark:bg-[#303030]";
+        ? "bg-[#fff] dark:bg-[#343434]"
+        : "bg-[#F8F8F8] dark:bg-[#343434]";
 
     return (
       <tr
         key={tenant.id}
         className={`text-[10px] ${rowBgClass}`}
       >
-        <td className="px-3 py-3 break-words text-[11px]">
+        <td className="px-3 py-3 break-words text-[11px] dark:text-white">
           {tenant.tenantName}
         </td>
 
-        <td className="px-3 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left">
+        <td className="px-3 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
           {tenant.domain}
         </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left">
+        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
           {tenant.phoneNumber}
         </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left">
+        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
           {tenant.email}
         </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left">
+        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
           {tenant.startDate}
         </td>
 
@@ -303,11 +338,11 @@ const getPlanStyle = (plan: string) => {
   </span>
 </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left">
+        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
           {tenant.users}
         </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left">
+        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
           {tenant.renewalDate}
         </td>
 
@@ -330,7 +365,7 @@ const getPlanStyle = (plan: string) => {
   </button>
 
   {openDropdownId === tenant.id && (
-    <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
+    <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#343434] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
       <button
         className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
          onClick={() => {
@@ -371,14 +406,14 @@ const getPlanStyle = (plan: string) => {
         {showFilter && (
   <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
     <form
-      className="bg-white dark:bg-[#232323] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
+      className="bg-white dark:bg-[#343434] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
       onSubmit={(e) => {
         e.preventDefault();
         setShowFilter(false);
       }}
     >
       <div className="flex justify-between items-center mb-4">
-        <h2 className="font-bold text-lg">Filter by</h2>
+        <h2 className="font-bold text-lg dark:text-white">Filter by</h2>
         <button
           type="button"
           className="text-gray-400 text-2xl font-bold cursor-pointer"
@@ -401,11 +436,28 @@ const getPlanStyle = (plan: string) => {
               tenantName: e.target.value,
             }))
           }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#343434] dark:text-white text-[15px]"
           placeholder="Enter tenant name..."
         />
       </div>
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Domain
+  </label>
 
+  <input
+    type="text"
+    value={filters.domain}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        domain: e.target.value,
+      }))
+    }
+    placeholder="blackstoneacademy.com"
+    className="w-full border border-[#D5D9E2] dark:bg-[#2c2c2c] dark:border-gray-600 rounded-lg px-4 py-2.5  dark:text-white"
+  />
+</div>
       <div className="mb-4">
         <label className="block text-sm font-medium mb-1">
           Plan
@@ -419,7 +471,7 @@ const getPlanStyle = (plan: string) => {
               plan: e.target.value,
             }))
           }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#343434] dark:text-white text-[15px]"
         >
           <option value="">Select Plan</option>
           <option value="Basic">Basic</option>
@@ -427,10 +479,75 @@ const getPlanStyle = (plan: string) => {
           <option value="Premium">Premium</option>
         </select>
       </div>
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Date
+  </label>
 
+  <div className="grid grid-cols-2 gap-3">
+
+    <input
+      type="date"
+      value={filters.fromDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          fromDate: e.target.value,
+        }))
+      }
+      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
+    />
+
+    <input
+      type="date"
+      value={filters.toDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          toDate: e.target.value,
+        }))
+      }
+      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
+    />
+
+  </div>
+</div>
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Renewal Date
+  </label>
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <input
+      type="date"
+      value={filters.renewalFromDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          renewalFromDate: e.target.value,
+        }))
+      }
+      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
+    />
+
+    <input
+      type="date"
+      value={filters.renewalToDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          renewalToDate: e.target.value,
+        }))
+      }
+      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
+    />
+
+  </div>
+</div>
       <div className="mb-6">
         <label className="block text-sm font-medium mb-1">
-          Status
+          Tenant Status
         </label>
 
         <select
@@ -441,7 +558,7 @@ const getPlanStyle = (plan: string) => {
               status: e.target.value,
             }))
           }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#343434] dark:text-white text-[15px]"
         >
           <option value="">Select Status</option>
           <option value="Active">Active</option>
@@ -455,13 +572,18 @@ const getPlanStyle = (plan: string) => {
         <button
           type="button"
           className="border border-[#576CBC] bg-white text-[#576CBC] rounded-lg px-6 py-2 font-semibold"
-          onClick={() =>
-            setFilters({
-              tenantName: "",
-              plan: "",
-              status: "",
-            })
-          }
+       onClick={() =>
+  setFilters({
+    tenantName: "",
+    domain: "",
+    plan: "",
+    fromDate: "",
+    toDate: "",
+    renewalFromDate: "",
+    renewalToDate: "",
+    status: "",
+  })
+}
         >
           Reset
         </button>

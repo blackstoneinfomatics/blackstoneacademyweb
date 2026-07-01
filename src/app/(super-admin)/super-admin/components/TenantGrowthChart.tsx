@@ -24,17 +24,17 @@ const data = [
 
 export default function GrowthChart() {
   return (
-    <div className="bg-white rounded-2xl border border-[#ECECEC] p-5 shadow-sm ">
+    <div className="bg-white dark:bg-[#343434] rounded-2xl  p-5 shadow-sm ">
 
       {/* Header */}
 
       <div className="flex items-center justify-between mb-5">
 
-        <h2 className="text-[22px] font-semibold text-[#1E293B]">
+        <h2 className="text-[22px] font-semibold text-[#1E293B] dark:text-white">
           Tenants Growth
         </h2>
 
-        <button className="flex items-center gap-2 text-[13px] px-3 py-2 rounded-lg bg-[#F7F7F7] text-[#64748B]">
+        <button className="flex items-center gap-2 text-[13px] px-3 py-2 rounded-lg bg-[#F7F7F7] dark:bg-[#374151] text-[#64748B] dark:text-gray-300">
 
           Yearly
 

@@ -72,11 +72,11 @@ const toggleDropdown = (id: number) => {
   return (
     <div className=" ">
 
-      <h2 className="text-[20px] font-semibold text-[#1E293B] mb-4">
+      <h2 className="text-[20px] font-semibold text-[#1E293B] dark:text-white mb-4">
         All Activity
       </h2>
 
-      <div className="overflow-hidden rounded-xl border border-[#E8E8E8]">
+      <div className="overflow-hidden rounded-xl border border-[#E8E8E8] dark:border-gray-700">
 
         <table className="w-full">
 
@@ -117,15 +117,15 @@ const toggleDropdown = (id: number) => {
                   {row.date}
                 </td>
 
-                <td className="px-5 py-4 text-[12px] text-[#1E293B]">
+                <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
                   {row.role}
                 </td>
 
-                <td className="px-5 py-4 text-[12px] text-[#1E293B]">
+                <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
                   {row.activity}
                 </td>
 
-                <td className="px-5 py-4 text-[12px] text-[#1E293B]">
+                <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
                   {row.details}
                 </td>
 

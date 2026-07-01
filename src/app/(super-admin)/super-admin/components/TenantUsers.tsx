@@ -52,12 +52,14 @@ const TenantUserTable = () => {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [filters, setFilters] = useState({
-    userName: "",
-    role: "",
-    department: "",
-    status: "",
-  });
+const [filters, setFilters] = useState({
+  userName: "",
+  role: "",
+  department: "",
+  status: "",
+  fromDate: "",
+  toDate: "",
+});
 
   const itemsPerPage = 10;
 
@@ -65,28 +67,49 @@ const TenantUserTable = () => {
     setOpenDropdownId((prev) => (prev === id ? null : id));
   };
 
-  const filteredUsers = users.filter((user) => {
-    const search =
-      user.userName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchKeyword.toLowerCase());
+ const filteredUsers = users.filter((user) => {
+  const search =
+    user.userName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+    user.department.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchKeyword.toLowerCase());
 
-    const userNameFilter =
-      !filters.userName ||
-      user.userName.toLowerCase().includes(filters.userName.toLowerCase());
+  const userNameFilter =
+    !filters.userName ||
+    user.userName.toLowerCase().includes(filters.userName.toLowerCase());
 
-    const roleFilter = !filters.role || user.role === filters.role;
+  const roleFilter =
+    !filters.role ||
+    user.role === filters.role;
 
-    const departmentFilter =
-      !filters.department || user.department === filters.department;
+  const departmentFilter =
+    !filters.department ||
+    user.department === filters.department;
 
-    const statusFilter = !filters.status || user.status === filters.status;
+  const statusFilter =
+    !filters.status ||
+    user.status === filters.status;
 
-    return (
-      search && userNameFilter && roleFilter && departmentFilter && statusFilter
-    );
-  });
+  const loginDate = new Date(user.createdDate);
+
+  const fromDateFilter =
+    !filters.fromDate ||
+    loginDate >= new Date(filters.fromDate);
+
+  const toDateFilter =
+    !filters.toDate ||
+    loginDate <= new Date(filters.toDate);
+
+  return (
+    search &&
+    userNameFilter &&
+    roleFilter &&
+    departmentFilter &&
+    statusFilter &&
+    fromDateFilter &&
+    toDateFilter
+  );
+});
 
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * itemsPerPage,
@@ -301,76 +324,134 @@ const TenantUserTable = () => {
               </button>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-                Tenant Name
-              </label>
-              <input
-                type="text"
-                value={filters.userName}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    userName: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
-                placeholder="Enter user name..."
-              />
-            </div>
+         <label className="block text-sm font-medium mb-2">
+  User Name
+</label>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Role</label>
+<input
+  type="text"
+  value={filters.userName}
+  onChange={(e) =>
+    setFilters((f) => ({
+      ...f,
+      userName: e.target.value,
+    }))
+  }
+  className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+  placeholder="Enter User Name"
+/>
 
-              <select
-                value={filters.role}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    role: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
-              >
-                <option value="">Select Role</option>
-                <option value="User">User</option>
-                <option value="Admin">Admin</option>
-              </select>
-            </div>
+          <div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Role
+  </label>
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">Status</label>
+  <select
+    value={filters.role}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        role: e.target.value,
+      }))
+    }
+    className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+  >
+    <option value="">Select Status</option>
+    <option value="Admin">Admin</option>
+    <option value="Teacher">Teacher</option>
+    <option value="Student">Student</option>
+  </select>
+</div>
 
-              <select
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    status: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
-              >
-                <option value="">Select Status</option>
-                <option value="Active">Active</option>
-                <option value="Trial">Trial</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Expiring Soon">Expiring Soon</option>
-              </select>
-            </div>
+       <div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Department
+  </label>
+
+  <select
+    value={filters.department}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        department: e.target.value,
+      }))
+    }
+    className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+  >
+    <option value="">Select Status</option>
+    <option value="Administration">Administration</option>
+    <option value="Arabic">Arabic</option>
+    <option value="Quran">Quran</option>
+  </select>
+</div>
+<div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Status
+  </label>
+
+  <select
+    value={filters.status}
+    onChange={(e) =>
+      setFilters((f) => ({
+        ...f,
+        status: e.target.value,
+      }))
+    }
+    className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+  >
+    <option value="">Select Status</option>
+    <option value="Active">Active</option>
+    <option value="Inactive">Inactive</option>
+  </select>
+</div>
+<div className="mb-5">
+  <label className="block text-sm font-medium mb-2">
+    Last Login
+  </label>
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <input
+      type="date"
+      value={filters.fromDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          fromDate: e.target.value,
+        }))
+      }
+      className="dark:bg-[#2c2c2c] rounded-lg px-3 py-2.5"
+    />
+
+    <input
+      type="date"
+      value={filters.toDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          toDate: e.target.value,
+        }))
+      }
+      className="dark:bg-[#2c2c2c] rounded-lg px-3 py-2.5"
+    />
+
+  </div>
+</div>
 
             <div className="flex gap-4 mt-auto justify-end">
               <button
                 type="button"
                 className="border border-[#576CBC] bg-white text-[#576CBC] rounded-lg px-6 py-2 font-semibold"
-                onClick={() =>
-                  setFilters({
-                    userName: "",
-                    role: "",
-                    status: "",
-                    department: "",
-                  })
-                }
+              onClick={() =>
+  setFilters({
+    userName: "",
+    role: "",
+    department: "",
+    status: "",
+    fromDate: "",
+    toDate: "",
+  })
+}
               >
                 Reset
               </button>

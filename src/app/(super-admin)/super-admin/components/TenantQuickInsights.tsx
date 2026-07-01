@@ -37,13 +37,13 @@ const insights = [
 
 export default function QuickInsights() {
   return (
-    <div className="bg-white rounded-2xl border border-[#ECECEC] shadow-sm h-full">
+    <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-sm h-full">
 
       {/* Header */}
 
       <div className="px-5 pt-5 pb-2">
 
-        <h2 className="text-[20px] font-semibold text-[#1E293B]">
+        <h2 className="text-[20px] font-semibold text-[#1E293B] dark:text-white">
           Quick Insights
         </h2>
 
@@ -72,11 +72,11 @@ export default function QuickInsights() {
 
             <div>
 
-              <h4 className="text-[14px] font-medium text-[#1E293B]">
+              <h4 className="text-[14px] font-medium text-[#1E293B] dark:text-white">
                 {item.title}
               </h4>
 
-              <p className="text-[12px] text-[#8A94A6] mt-1">
+              <p className="text-[12px] text-[#8A94A6] dark:text-gray-300 mt-1">
                 {item.subtitle}
               </p>
 

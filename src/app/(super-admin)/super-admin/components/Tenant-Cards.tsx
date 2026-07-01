@@ -55,7 +55,7 @@ export default function TenantStats() {
         return (
           <div
             key={index}
-            className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300"
+            className="bg-white dark:bg-[#343434] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300"
           >
             <div className="flex items-center justify-between">
               <div
@@ -68,7 +68,7 @@ export default function TenantStats() {
                 <h4 className={`text-sm font-medium ${item.color}`}>
                   {item.title}
                 </h4>
-                <p className="text-3xl font-bold text-gray-800 mt-1">
+                <p className="text-3xl font-bold text-gray-800 dark:text-white mt-1">
                   {item.count}
                 </p>
               </div>
@@ -76,7 +76,7 @@ export default function TenantStats() {
 
             <div className="mt-4 flex items-center gap-1 text-sm">
               <span className="text-red-500 font-semibold">↑ 14%</span>
-              <span className="text-gray-500">vs last Month</span>
+              <span className="text-gray-500 dark:text-gray-300">vs last Month</span>
             </div>
           </div>
         );

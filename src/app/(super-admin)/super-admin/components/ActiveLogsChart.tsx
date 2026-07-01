@@ -46,7 +46,7 @@ const ActiveLogsChart = () => {
 
   return (
     <div className="grid grid-cols-12 gap-4 items-stretch auto-rows-fr">
-      <div className="col-span-12 lg:col-span-5 xl:col-span-5 bg-white rounded-2xl p-6 border border-[#ECECEC] shadow-sm">
+      <div className="col-span-12 lg:col-span-5 xl:col-span-5 bg-white dark:bg-[#343434] rounded-2xl p-6  shadow-sm">
 
   <div className="flex items-center gap-6">
 
@@ -58,12 +58,12 @@ const ActiveLogsChart = () => {
           "conic-gradient(#45B95C 0deg 288deg,#FDBA3B 288deg 331deg,#E04B4B 331deg 360deg)",
       }}
     >
-      <div className="absolute inset-[28px] bg-white rounded-full flex flex-col items-center justify-center">
-        <h2 className="text-[40px] font-bold text-[#111827] leading-none">
+      <div className="absolute inset-[28px] bg-white dark:bg-[#343434] rounded-full flex flex-col items-center justify-center">
+        <h2 className="text-[40px] font-bold text-[#111827] dark:text-white leading-none">
           900
         </h2>
 
-        <p className="text-[14px] text-[#6B7280] mt-1">
+        <p className="text-[14px] text-[#6B7280] dark:text-gray-300 mt-1">
           Activities
         </p>
       </div>
@@ -91,13 +91,13 @@ const ActiveLogsChart = () => {
                 style={{ backgroundColor: activity.color }}
               />
 
-              <span className="text-[16px] font-medium text-[#1E293B]">
+              <span className="text-[16px] font-medium text-[#1E293B] dark:text-white">
                 {activity.name}
               </span>
 
             </div>
 
-            <span className="text-[16px] font-medium text-[#1E293B]">
+            <span className="text-[16px] font-medium text-[#1E293B] dark:text-white">
               {activity.count} ({activity.percentage}%)
             </span>
 
@@ -116,19 +116,19 @@ const ActiveLogsChart = () => {
   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
     {/* Successful */}
-    <div className="bg-white border border-[#ECECEC] rounded-xl px-4 py-3">
+    <div className="bg-white  rounded-xl px-4 py-3 dark:bg-[#343434] ">
       <div className="flex items-start gap-3">
 
-        <div className="w-12 h-12 rounded-full bg-[#EAF8EE] flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center">
           <CheckCircle size={22} className="text-[#3CBF61]" />
         </div>
 
         <div>
-          <h4 className="text-[15px] font-semibold text-[#111827]">
+          <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white">
             Successful
           </h4>
 
-          <p className="text-[28px] font-bold leading-none mt-1">
+          <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
             {dashboardData.stats.successful}
           </p>
 
@@ -147,7 +147,7 @@ const ActiveLogsChart = () => {
     </div>
 
     {/* Warning */}
-    <div className="bg-white border border-[#ECECEC] rounded-xl px-4 py-3">
+    <div className="bg-white dark:bg-[#343434]  rounded-xl px-4 py-3">
       <div className="flex items-start gap-3">
 
         <div className="w-12 h-12 rounded-full bg-[#FFF7E7] flex items-center justify-center">
@@ -155,11 +155,11 @@ const ActiveLogsChart = () => {
         </div>
 
         <div>
-          <h4 className="text-[15px] font-semibold text-[#111827]">
+          <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white">
             Warning
           </h4>
 
-          <p className="text-[28px] font-bold leading-none mt-1">
+          <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
             {dashboardData.stats.warning}
           </p>
 
@@ -178,7 +178,7 @@ const ActiveLogsChart = () => {
     </div>
 
     {/* Failed */}
-    <div className="bg-white border border-[#ECECEC] rounded-xl px-4 py-3">
+    <div className="bg-white dark:bg-[#343434]  rounded-xl px-4 py-3">
       <div className="flex items-start gap-3">
 
         <div className="w-12 h-12 rounded-full bg-[#FDECEC] flex items-center justify-center">
@@ -186,11 +186,11 @@ const ActiveLogsChart = () => {
         </div>
 
         <div>
-          <h4 className="text-[15px] font-semibold text-[#111827]">
+          <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white">
             Failed
           </h4>
 
-          <p className="text-[28px] font-bold leading-none mt-1">
+          <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
             {dashboardData.stats.failed}
           </p>
 
@@ -209,7 +209,7 @@ const ActiveLogsChart = () => {
     </div>
 
     {/* Total Activities */}
-    <div className="bg-white border border-[#ECECEC] rounded-xl px-4 py-3">
+    <div className="bg-white dark:bg-[#343434]  rounded-xl px-4 py-3">
       <div className="flex items-start gap-3">
 
         <div className="w-12 h-12 rounded-full bg-[#ECEBFF] flex items-center justify-center">
@@ -217,11 +217,11 @@ const ActiveLogsChart = () => {
         </div>
 
         <div>
-          <h4 className="text-[15px] font-semibold">
+          <h4 className="text-[15px] font-semibold dark:text-white">
             Total Activities
           </h4>
 
-          <p className="text-[28px] font-bold leading-none mt-1">
+          <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
             {dashboardData.stats.totalActivities}
           </p>
 
@@ -234,7 +234,7 @@ const ActiveLogsChart = () => {
     </div>
 
     {/* Unique Users */}
-    <div className="bg-white border border-[#ECECEC] rounded-xl px-4 py-3">
+    <div className="bg-white dark:bg-[#343434]  rounded-xl px-4 py-3">
       <div className="flex items-start gap-3">
 
         <div className="w-12 h-12 rounded-full bg-[#F2EDFF] flex items-center justify-center">
@@ -242,11 +242,11 @@ const ActiveLogsChart = () => {
         </div>
 
         <div>
-          <h4 className="text-[15px] font-semibold ">
+          <h4 className="text-[15px] font-semibold dark:text-white">
             Unique Users
           </h4>
 
-          <p className="text-[28px] font-bold leading-none mt-1">
+          <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
             {dashboardData.stats.uniqueUsers}
           </p>
 
@@ -259,7 +259,7 @@ const ActiveLogsChart = () => {
     </div>
 
     {/* Today Activities */}
-    <div className="bg-white border border-[#ECECEC] rounded-xl px-4 py-3">
+    <div className="bg-white dark:bg-[#343434]  rounded-xl px-4 py-3">
       <div className="flex items-start gap-3">
 
         <div className="w-12 h-12 rounded-full bg-[#EAF4FF] flex items-center justify-center">
@@ -267,11 +267,11 @@ const ActiveLogsChart = () => {
         </div>
 
         <div>
-          <h4 className="text-[15px] font-semibold">
+          <h4 className="text-[15px] font-semibold dark:text-white">
             Today Activities
           </h4>
 
-          <p className="text-[28px] font-bold leading-none mt-1">
+          <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
             {dashboardData.stats.todayActivities}
           </p>
 

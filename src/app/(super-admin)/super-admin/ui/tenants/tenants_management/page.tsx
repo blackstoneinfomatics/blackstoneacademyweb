@@ -83,9 +83,9 @@ const Page = () => {
   return (
     <BaseSuperLayout>
       <SuperAdminHeader currentSection="Tenant Management" />
-      <div className="p-6 ">
+      <div className="min-h-screen   p-6 text-slate-900 dark:text-white">
         {/* Tabs */}
-        <div className="flex flex-wrap gap-6 border-b mb-6">
+        <div className="flex flex-wrap gap-6 border-b border-gray-200 mb-6">
           {tabs.map((tab) => (
             <button
               key={tab}
@@ -93,7 +93,7 @@ const Page = () => {
               className={`pb-3 font-medium ${
                 activeTab === tab
                   ? "text-[#576CBC] border-b-2 border-[#576CBC]"
-                  : "text-gray-500"
+                  : "text-gray-500 dark:text-gray-300"
               }`}
             >
               {tab}
@@ -103,8 +103,8 @@ const Page = () => {
 
         {/* Overview */}
         {activeTab === "Overview" && (
-          <div className="space-y-5 bg-white rounded-2xl">
-            <div className="bg-white rounded-xl px-6 py-5">
+          <div className="space-y-5  bg-white  dark:bg-[#343434]  rounded-2xl">
+            <div className="bg-whiterounded-xl px-6 py-5">
               <div className="flex items-start gap-8">
                 {/* Logo */}
                 <div className="w-[95px] h-[95px] rounded-full overflow-hidden">
@@ -117,15 +117,15 @@ const Page = () => {
 
                 {/* Right Side */}
                 <div className="flex flex-col">
-                  <h1 className="text-[34px] font-semibold leading-none text-[#111827]">
+                  <h1 className="text-[34px] font-semibold leading-none text-[#111827] dark:text-white">
                     {tenantDetails.name}
                   </h1>
 
-                  <p className="text-[16px] text-[#6B7280] mt-4">
+                  <p className="text-[16px] text-[#6B7280] dark:text-gray-300 mt-4">
                     {tenantDetails.domain}
                   </p>
 
-                  <p className="text-[14px] text-[#9CA3AF] mt-2">
+                  <p className="text-[14px] text-[#9CA3AF] dark:text-gray-400 mt-2">
                     Created on : {tenantDetails.createdDate}
                     <span className="text-[#576CBC] ml-2 font-medium">
                       ID: {tenantDetails.tenantId}
@@ -141,8 +141,8 @@ const Page = () => {
                       </div>
 
                       <div>
-                        <p className="text-[12px] text-[#7A7A7A] pt-1">Users</p>
-                        <p className="text-[16px] font-semibold">
+                        <p className="text-[12px] text-[#7A7A7A] dark:text-gray-300 pt-1">Users</p>
+                        <p className="text-[16px] font-semibold dark:text-white">
                           {tenantDetails.stats.users}
                         </p>
                       </div>
@@ -155,8 +155,8 @@ const Page = () => {
                       </div>
 
                       <div>
-                        <p className="text-[12px] text-[#7A7A7A] pt-1">Students</p>
-                        <p className="text-[16px] font-semibold">
+                        <p className="text-[12px] text-[#7A7A7A] dark:text-gray-300 pt-1">Students</p>
+                        <p className="text-[16px] font-semibold dark:text-white">
                           {tenantDetails.stats.students}
                         </p>
                       </div>
@@ -169,8 +169,8 @@ const Page = () => {
                       </div>
 
                       <div>
-                        <p className="text-[12px] text-[#7A7A7A] pt-1">Teachers</p>
-                        <p className="text-[16px] font-semibold">
+                        <p className="text-[12px] text-[#7A7A7A] dark:text-gray-300 pt-1">Teachers</p>
+                        <p className="text-[16px] font-semibold dark:text-white">
                           {tenantDetails.stats.teachers}
                         </p>
                       </div>
@@ -183,8 +183,8 @@ const Page = () => {
                       </div>
 
                       <div>
-                        <p className="text-[12px] text-[#7A7A7A] pt-1">Classes</p>
-                        <p className="text-[16px] font-semibold">
+                        <p className="text-[12px] text-[#7A7A7A] dark:text-gray-300 pt-1">Classes</p>
+                        <p className="text-[16px] font-semibold dark:text-white">
                           {tenantDetails.stats.classes}
                         </p>
                       </div>
@@ -196,8 +196,8 @@ const Page = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5 p-5 pt-5">
               {/* Company Information */}
-              <div className="bg-[#C7CEFC24] rounded-xl p-5">
-                <h3 className="text-[15px] font-semibold text-[#0B1533] mb-5">
+              <div className="bg-[#C7CEFC24] rounded-xl p-5 ">
+                <h3 className="text-[15px] font-semibold text-[#0B1533] mb-5 dark:text-white">
                   Company Information
                 </h3>
 
@@ -209,11 +209,11 @@ const Page = () => {
                         key={key}
                         className="grid grid-cols-[120px_1fr] gap-4"
                       >
-                        <span className="text-[#7A7A7A] capitalize">
+                        <span className="text-[#7A7A7A] dark:text-gray-300 capitalize">
                           {key.replace(/([A-Z])/g, " $1")}
                         </span>
 
-                        <span className="text-[#1F2A44] font-medium break-words">
+                        <span className="text-[#1F2A44] dark:text-white font-medium break-words">
                           {value}
                         </span>
                       </div>
@@ -223,14 +223,14 @@ const Page = () => {
               </div>
 
               {/* Subscription */}
-              <div className="bg-[#C7CEFC24] rounded-xl p-5">
-                <h3 className="text-[15px] font-semibold text-[#0B1533] mb-5">
+              <div className="bg-[#C7CEFC24]  rounded-xl p-5">
+                <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
                   Subscription
                 </h3>
 
                 <div className="space-y-4 text-[13px]">
                   <div className="grid grid-cols-[120px_1fr] gap-4">
-                    <span className="text-[#7A7A7A]">Plan</span>
+                    <span className="text-[#7A7A7A] dark:text-gray-300">Plan</span>
 
                     <span>
                       <span className="inline-flex items-center justify-center min-w-[75px] h-6 rounded-md text-[11px] font-medium bg-[#EAE5FF] text-[#7C5CFA]">
@@ -240,7 +240,7 @@ const Page = () => {
                   </div>
 
                   <div className="grid grid-cols-[120px_1fr] gap-4">
-                    <span className="text-[#7A7A7A]">Status</span>
+                    <span className="text-[#7A7A7A] dark:text-gray-300">Status</span>
 
                     <span>
                       <span className="inline-flex items-center justify-center min-w-[75px] h-6 rounded-md text-[11px] font-medium bg-[#DCFCE7] text-[#16A34A]">
@@ -250,32 +250,32 @@ const Page = () => {
                   </div>
 
                   <div className="grid grid-cols-[120px_1fr] gap-4">
-                    <span className="text-[#7A7A7A]">Current Period</span>
+                    <span className="text-[#7A7A7A] dark:text-gray-300">Current Period</span>
 
-                    <span className="font-medium text-[#1F2A44]">
+                    <span className="font-medium text-[#1F2A44] dark:text-white">
                       {tenantDetails.subscription.currentPeriod}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-[120px_1fr] gap-4">
-                    <span className="text-[#7A7A7A]">Next Billing</span>
+                    <span className="text-[#7A7A7A] dark:text-gray-300">Next Billing</span>
 
-                    <span className="font-medium text-[#1F2A44]">
+                    <span className="font-medium text-[#1F2A44] dark:text-white">
                       {tenantDetails.subscription.nextBilling}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-[120px_1fr] gap-4">
-                    <span className="text-[#7A7A7A]">Auto Renewal</span>
+                    <span className="text-[#7A7A7A] dark:text-gray-300">Auto Renewal</span>
 
-                    <span className="font-medium text-[#1F2A44]">Enabled</span>
+                    <span className="font-medium text-[#1F2A44] dark:text-white">Enabled</span>
                   </div>
                 </div>
               </div>
 
               {/* Module Access */}
-              <div className="bg-[#C7CEFC24] rounded-xl p-5">
-                <h3 className="text-[15px] font-semibold text-[#0B1533] mb-5">
+              <div className="bg-[#C7CEFC24]  rounded-xl p-5">
+                <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
                   Modules Access
                 </h3>
 
@@ -285,7 +285,7 @@ const Page = () => {
                       key={item.name}
                       className="grid grid-cols-[1fr_90px] items-center"
                     >
-                      <span className="text-[13px] text-[#7A7A7A]">
+                      <span className="text-[13px] text-[#7A7A7A] dark:text-gray-300">
                         {item.name}
                       </span>
 
@@ -304,8 +304,8 @@ const Page = () => {
               </div>
 
               {/* Feature Access */}
-              <div className="bg-[#C7CEFC24] rounded-xl p-5">
-                <h3 className="text-[15px] font-semibold text-[#0B1533] mb-5">
+              <div className="bg-[#C7CEFC24]  rounded-xl p-5">
+                <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
                   Features Access
                 </h3>
 
@@ -315,7 +315,7 @@ const Page = () => {
                       key={item.name}
                       className="grid grid-cols-[1fr_90px] items-center"
                     >
-                      <span className="text-[13px] text-[#7A7A7A]">
+                      <span className="text-[13px] text-[#7A7A7A] dark:text-gray-300">
                         {item.name}
                       </span>
 
@@ -331,43 +331,42 @@ const Page = () => {
         )}
 
         {activeTab === "Users" && (
-          <div className=" rounded-xl border">
+          <div className="rounded-xl ">
             <TenantAnalytics />
             <TenantUserTable />
           </div>
         )}
 
         {activeTab === "Subscriptions" && (
-          <div className="rounded-xl border">
+          <div className="rounded-xl">
             <SubscriptionCard />
             <BlackstoneInfomaticsTables />
           </div>
         )}
 
         {activeTab === "Features" && (
-          <div className="  rounded-xl border">
-<FeatureSummaryCards />
-<FeaturesTable />
-
+          <div className="rounded-xl ">
+            <FeatureSummaryCards />
+            <FeaturesTable />
           </div>
         )}
 
         {activeTab === "Active Logs" && (
-          <div className=" rounded-xl border">
+          <div className="rounded-xl border">
             <ActiveLogsChart />
             <ActiveLogsTable />
           </div>
         )}
 
         {activeTab === "Tickets" && (
-          <div className="rounded-xl border">
+          <div className="rounded-xl ">
             <TicketAnalyticsCards />
             <TicketsTable />
           </div>
         )}
 
         {activeTab === "Analytics" && (
-          <div className=" min-h-screen ">
+          <div className="min-h-screen bg-transparent">
 
       {/* Top Cards */}
       <DashboardCards />

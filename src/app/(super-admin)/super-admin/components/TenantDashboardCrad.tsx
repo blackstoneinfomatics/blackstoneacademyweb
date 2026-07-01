@@ -57,7 +57,7 @@ export default function DashboardCards() {
 
         <div
           key={card.id}
-          className="bg-white rounded-2xl border border-[#ECECEC] px-5 py-4 shadow-sm"
+          className="bg-white dark:bg-[#343434] rounded-2xl  px-5 py-4 shadow-sm"
         >
 
           <div className="flex items-start gap-4">
@@ -86,7 +86,7 @@ export default function DashboardCards() {
                 {card.title}
               </h3>
 
-              <h2 className="text-[34px] font-bold leading-none mt-2 text-[#1E293B]">
+              <h2 className="text-[34px] font-bold leading-none mt-2 text-[#1E293B] dark:text-white">
                 {card.value}
               </h2>
 
@@ -101,7 +101,7 @@ export default function DashboardCards() {
                   {card.change}
                 </span>
 
-                <span className="text-[13px] text-[#6B7280]">
+                <span className="text-[13px] text-[#6B7280] dark:text-gray-300">
                   {card.text}
                 </span>
 

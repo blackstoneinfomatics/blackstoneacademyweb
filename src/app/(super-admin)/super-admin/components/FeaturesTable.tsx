@@ -341,18 +341,17 @@ const [filters, setFilters] = useState({
             {/* Invoice ID */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">
-                Feature Name
-              </label>
+Category              </label>
               <input
                 type="text"
-                value={filters.featureName}
+                value={filters.category}
                 onChange={(e) =>
                   setFilters((f) => ({
                     ...f,
-                    featureName: e.target.value,
+                    category: e.target.value,
                   }))
                 }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
+                className="w-full border rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2c2c2c]"
                 placeholder="Enter Invoice ID"
               />
             </div>
@@ -368,7 +367,7 @@ const [filters, setFilters] = useState({
                     plan: e.target.value,
                   }))
                 }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
+                className="w-full border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4 py-2 bg-gray-50"
               >
                 <option value="">All Plans</option>
                 <option value="Basic">Basic</option>
@@ -391,7 +390,7 @@ const [filters, setFilters] = useState({
                     status: e.target.value,
                   }))
                 }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
+                className="w-full border rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2c2c2c] "
               >
                 <option value="">All</option>
                 <option value="Active">Active</option>
@@ -401,26 +400,7 @@ const [filters, setFilters] = useState({
             </div>
 
             {/* Payment Status */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">
-                Feature Status
-              </label>
-              <select
-                value={filters.featureStatus}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    featureStatus: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-                <option value="">All</option>
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
-                <option value="Failed">Failed</option>
-              </select>
-            </div>
+            
 
             <div className="flex gap-4 justify-end">
               <button
@@ -443,7 +423,7 @@ const [filters, setFilters] = useState({
                 type="submit"
                 className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold"
               >
-                Show Results
+                Show {filteredFeatures.length} Results
               </button>
             </div>
           </form>

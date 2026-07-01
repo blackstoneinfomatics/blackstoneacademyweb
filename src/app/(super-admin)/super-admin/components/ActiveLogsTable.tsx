@@ -93,6 +93,8 @@ const [filters, setFilters] = useState({
   category: "",
   status: "",
   ipAddress: "",
+  fromDate: "",
+  toDate: "",
 });
 
   const itemsPerPage = 10;
@@ -107,6 +109,14 @@ const [filters, setFilters] = useState({
     log.category.toLowerCase().includes(searchKeyword.toLowerCase()) ||
     log.details.toLowerCase().includes(searchKeyword.toLowerCase()) ||
     log.ipAddress.toLowerCase().includes(searchKeyword.toLowerCase());
+
+    const fromDateFilter =
+  !filters.fromDate ||
+  new Date(log.date) >= new Date(filters.fromDate);
+
+const toDateFilter =
+  !filters.toDate ||
+  new Date(log.date) <= new Date(filters.toDate);
 
   const userFilter =
     !filters.user ||
@@ -312,26 +322,10 @@ const [filters, setFilters] = useState({
             {/* Invoice ID */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">
-                User
+                Category
               </label>
               <input
                 type="text"
-                value={filters.user}
-                onChange={(e) =>
-                  setFilters((f) => ({
-                    ...f,
-                    user: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-                placeholder="Enter User"
-              />
-            </div>
-
-            {/* Plan */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Category</label>
-              <select
                 value={filters.category}
                 onChange={(e) =>
                   setFilters((f) => ({
@@ -339,10 +333,45 @@ const [filters, setFilters] = useState({
                     category: e.target.value,
                   }))
                 }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
-              >
-              </select>
+                className="w-full border rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2c2c2c]"
+                placeholder="Enter User"
+              />
             </div>
+
+            {/* Plan */}
+            <div className="mb-4">
+  <label className="block text-sm font-medium mb-2">
+    Date
+  </label>
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <input
+      type="date"
+      value={filters.fromDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          fromDate: e.target.value,
+        }))
+      }
+      className="w-full border  rounded-lg px-4 py-2.5 bg-white dark:bg-[#2c2c2c] "
+    />
+
+    <input
+      type="date"
+      value={filters.toDate}
+      onChange={(e) =>
+        setFilters((f) => ({
+          ...f,
+          toDate: e.target.value,
+        }))
+      }
+      className="w-full border  rounded-lg px-4 py-2.5 bg-white dark:bg-[#2c2c2c] "
+    />
+
+  </div>
+</div>
 
             {/* Feature Status */}
             <div className="mb-4">
@@ -355,7 +384,7 @@ const [filters, setFilters] = useState({
                     status: e.target.value,
                   }))
                 }
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f]"
+                className="w-full rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2c2c2c] "
               >
                 <option value="">All</option>
                 <option value="Active">Success</option>
@@ -373,6 +402,8 @@ const [filters, setFilters] = useState({
                     category: "",
                     status: "",
                     ipAddress: "",
+                    fromDate:"",
+                    toDate:""
                   })
                 }
               >
@@ -383,7 +414,7 @@ const [filters, setFilters] = useState({
                 type="submit"
                 className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold"
               >
-                Show Results
+                Show {filteredLogs.length}Results
               </button>
             </div>
           </form>

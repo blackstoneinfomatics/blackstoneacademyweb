@@ -46,7 +46,7 @@ export default function TicketAnalyticsCards() {
       {ticketStats.map((item, index) => (
         <div
           key={index}
-          className="bg-white border border-[#ECECEC] rounded-xl px-4 py-4 h-[120px]"
+          className="bg-white dark:bg-[#343434]  rounded-xl px-4 py-4 h-[120px]"
         >
           <div className="flex items-start gap-3">
 
@@ -85,7 +85,7 @@ export default function TicketAnalyticsCards() {
                 {item.title}
               </p>
 
-              <h3 className="text-[30px] font-bold leading-none mt-2 text-[#1F2937]">
+              <h3 className="text-[30px] font-bold leading-none mt-2 text-[#1F2937] dark:text-white">
                 {item.count}
               </h3>
 
@@ -99,7 +99,7 @@ export default function TicketAnalyticsCards() {
               {item.change}
             </span>
 
-            <span className="text-[#7A7A7A] text-[13px]">
+            <span className="text-[#7A7A7A] dark:text-gray-300 text-[13px]">
               {item.subtitle}
             </span>
 
