@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 interface Ticket {
   id: string;
   ticketId: string;
+  role: string;
   subject: string;
   category: string;
   priority: string;
@@ -20,7 +21,10 @@ interface Ticket {
 
 const TicketsTable = () => {
   const router = useRouter();
+const [showViewModal, setShowViewModal] = useState(false);
 
+const [selectedTicket, setSelectedTicket] =
+  useState<Ticket | null>(null);
 
  const [tickets, setTickets] = useState<Ticket[]>([
   {
@@ -29,6 +33,7 @@ const TicketsTable = () => {
     subject: "Unable to Login",
     category: "Authentication",
     priority: "High",
+    role: "Admin",
     status: "Open",
     requester: "John Smith",
     dateTime: "12 Sep 2025, 10:30 AM",
@@ -38,6 +43,7 @@ const TicketsTable = () => {
     ticketId: "TKT-1002",
     subject: "Course Access",
     category: "Course",
+    role: "User",
     priority: "Medium",
     status: "In Progress",
     requester: "Sarah Ahmed",
@@ -48,6 +54,7 @@ const TicketsTable = () => {
     ticketId: "TKT-1003",
     subject: "Payment Failed",
     category: "Billing",
+    role: "User",
     priority: "High",
     status: "Resolved",
     requester: "Mohammed Ali",
@@ -301,9 +308,16 @@ const totalPages = Math.ceil(
                           {openDropdownId === ticket.id && (
                             <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
                               
-                              <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]">
-                                View Details
-                              </button>
+                             <button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+  onClick={() => {
+    setSelectedTicket(ticket);
+    setShowViewModal(true);
+    setOpenDropdownId(null);
+  }}
+>
+  View Details
+</button>
 
                               <button
                                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
@@ -514,6 +528,150 @@ const totalPages = Math.ceil(
           <div className="fixed inset-0" onClick={() => setShowFilter(false)} />
         </div>
       )}
+
+      {showViewModal && selectedTicket && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+
+      {/* Header */}
+
+      <div className="flex justify-between items-center mb-6">
+
+        <h2 className="text-[22px] font-semibold text-[#1E293B] dark:text-white">
+          Tickets
+        </h2>
+
+        <button
+          onClick={() => setShowViewModal(false)}
+          className="text-3xl text-gray-400 hover:text-gray-600"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+
+        {/* Ticket ID */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Ticket ID
+          </label>
+
+          <input
+            readOnly
+            value={selectedTicket.ticketId}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Role */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Role
+          </label>
+
+          <input
+            readOnly
+            value={selectedTicket.role}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Requester */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Requester
+          </label>
+
+          <input
+            readOnly
+            value={selectedTicket.requester}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Date & Time */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Date & Time
+          </label>
+
+          <input
+            readOnly
+            value={selectedTicket.dateTime}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Subject */}
+
+        <div className="col-span-2">
+
+          <label className="block text-sm font-medium mb-2">
+            Subject
+          </label>
+
+          <textarea
+            readOnly
+            rows={3}
+            value={selectedTicket.subject}
+            className="w-full border rounded-lg px-4 py-3 resize-none bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+
+        </div>
+
+        {/* Priority */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Priority
+          </label>
+
+          <input
+            readOnly
+            value={selectedTicket.priority}
+            className={`w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] ${
+              selectedTicket.priority === "High"
+                ? "text-red-600"
+                : selectedTicket.priority === "Medium"
+                ? "text-yellow-600"
+                : "text-green-600"
+            }`}
+          />
+        </div>
+
+        {/* Status */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Status
+          </label>
+
+          <input
+            readOnly
+            value={selectedTicket.status}
+            className={`w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] ${
+              selectedTicket.status === "Open"
+                ? "text-blue-600"
+                : selectedTicket.status === "Resolved"
+                ? "text-green-600"
+                : "text-yellow-600"
+            }`}
+          />
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
     </div>
   );
 };

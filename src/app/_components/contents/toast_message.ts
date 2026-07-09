@@ -74,6 +74,7 @@ GROWTH_FETCH:
   ACCESS_UPDATE_FAILED: "Failed to update access",
   ACADEMIC_COACH_EVALUATION_FETCH: "Unable to fetch evaluation data",
   ACADEMIC_COACH_STUDENT_FETCH: "Unable to fetch student list",
+  SUPER_ADMIN_TENANT_CREATE :"Failed to Create New Tenant"
 
 });
 
@@ -82,6 +83,7 @@ export const AppSuccessToastMessages = Object.freeze({
   ASSIGNMENT_CREATED: "Assignment created successfully",
   ASSIGNMENT_ASSIGNED: "Assignment assigned successfully",
   MEETING_RESCHEDULE: "Meeting rescheduled successfully",
+  SUPER_ADMIN_TENANT_FAMILY :"New Tenant Created Sucessfully"
 
 });
 

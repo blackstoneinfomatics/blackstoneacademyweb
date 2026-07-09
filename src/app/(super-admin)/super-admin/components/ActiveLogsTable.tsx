@@ -20,7 +20,9 @@ interface ActivityLog {
 
 const FeaturesTable = () => {
   const router = useRouter();
+const [showViewModal, setShowViewModal] = useState(false);
 
+const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([
   {
     id: "1",
@@ -270,9 +272,16 @@ const toDateFilter =
 
                           {openDropdownId === log.id && (
                             <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
-                              <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]">
-                                View Details
-                              </button>
+                              <button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+  onClick={() => {
+    setSelectedLog(log);
+    setShowViewModal(true);
+    setOpenDropdownId(null);
+  }}
+>
+  View Details
+</button>
 
                               <button
                                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
@@ -422,6 +431,130 @@ const toDateFilter =
           <div className="fixed inset-0" onClick={() => setShowFilter(false)} />
         </div>
       )}
+
+      {showViewModal && selectedLog && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+
+      {/* Header */}
+
+      <div className="flex justify-between items-center mb-6">
+
+        <h2 className="text-[22px] font-semibold text-[#1F2A44] dark:text-white">
+          Active Logs
+        </h2>
+
+        <button
+          onClick={() => setShowViewModal(false)}
+          className="text-3xl text-gray-400 hover:text-gray-600"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+
+        {/* User */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            User
+          </label>
+
+          <input
+            readOnly
+            value={selectedLog.user}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Category */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Category
+          </label>
+
+          <input
+            readOnly
+            value={selectedLog.category}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Date */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Date
+          </label>
+
+          <input
+            readOnly
+            value={selectedLog.date}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* IP Address */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            IP Address
+          </label>
+
+          <input
+            readOnly
+            value={selectedLog.ipAddress}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Details */}
+
+        <div className="col-span-2">
+
+          <label className="block text-sm font-medium mb-2">
+            Details
+          </label>
+
+          <textarea
+            readOnly
+            rows={3}
+            value={selectedLog.details}
+            className="w-full border rounded-lg px-4 py-3 resize-none bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+
+        </div>
+
+        {/* Status */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Status
+          </label>
+
+          <input
+            readOnly
+            value={selectedLog.status}
+            className={`w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] ${
+              selectedLog.status === "Success"
+                ? "text-green-600"
+                : selectedLog.status === "Failed"
+                ? "text-red-600"
+                : "text-yellow-600"
+            }`}
+          />
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
     </div>
   );
 };

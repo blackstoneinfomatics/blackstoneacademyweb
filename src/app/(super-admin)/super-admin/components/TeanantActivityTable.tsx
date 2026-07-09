@@ -65,7 +65,10 @@ const activities = [
 
 export default function ActivityTable() {
      const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+const [showViewModal, setShowViewModal] = useState(false);
 
+const [selectedActivity, setSelectedActivity] =
+  useState<(typeof activities)[number] | null>(null);
 const toggleDropdown = (id: number) => {
   setOpenDropdownId((prev) => (prev === id ? null : id));
 };
@@ -129,7 +132,7 @@ const toggleDropdown = (id: number) => {
                   {row.details}
                 </td>
 
-                <td className="px-5 py-4">
+                <td className="px-5 py-4 relative">
                   <button 
                                               onClick={() => toggleDropdown(row.id)}
 className="text-[#6B7280] hover:text-[#576CBC]">
@@ -137,9 +140,16 @@ className="text-[#6B7280] hover:text-[#576CBC]">
                   </button>
                   {openDropdownId === row.id && (
                             <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
-                              <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]">
-                                View Details
-                              </button>
+                             <button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+  onClick={() => {
+    setSelectedActivity(row);
+    setShowViewModal(true);
+    setOpenDropdownId(null);
+  }}
+>
+  View Details
+</button>
 
                               <button
                                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
@@ -162,7 +172,97 @@ className="text-[#6B7280] hover:text-[#576CBC]">
         </table>
 
       </div>
+{showViewModal && selectedActivity && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
+    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+
+      {/* Header */}
+
+      <div className="flex justify-between items-center mb-6">
+
+        <h2 className="text-[22px] font-semibold text-[#1E293B] dark:text-white">
+          Activity
+        </h2>
+
+        <button
+          onClick={() => setShowViewModal(false)}
+          className="text-3xl text-gray-400 hover:text-gray-600"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+
+        {/* Role */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            ROLE
+          </label>
+
+          <input
+            readOnly
+            value={selectedActivity.role}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Date */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Date & time
+          </label>
+
+          <input
+            readOnly
+            value={selectedActivity.date}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Activity */}
+
+        <div className="col-span-2">
+
+          <label className="block text-sm font-medium mb-2">
+            Activity
+          </label>
+
+          <input
+            readOnly
+            value={selectedActivity.activity}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+
+        </div>
+
+        {/* Details */}
+
+        <div className="col-span-2">
+
+          <label className="block text-sm font-medium mb-2">
+            Details
+          </label>
+
+          <textarea
+            readOnly
+            rows={4}
+            value={selectedActivity.details}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 resize-none bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
     </div>
   );
 }

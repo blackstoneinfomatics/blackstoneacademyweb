@@ -6,6 +6,8 @@ import { UploadCloud, FileText ,Trash2,Check } from "lucide-react";
 import SuccessPopup from "@/app/(tenant)/modules/users/supervisor/components/successPopup";
 import FailedPopup from "@/app/(tenant)/modules/users/supervisor/components/failedPopup";
 import { Info, CloudUpload } from "lucide-react";
+import axios from "axios";
+import { AppFailureToastMessages, AppSuccessToastMessages } from "@/app/_components/contents/toast_message";
 type Props = {
   readonly onClose: () => void;
 };
@@ -258,22 +260,61 @@ comments:"",
     "Invite Admin",
   ];
 
-  const handleSubmit = async () => {
-    try {
-      // API Call
-      // await axios.post(...);
 
-      setSuccessMessage("Tenant has been created successfully.");
-      setSuccess(true);
+const handleSubmit = async () => {
+  try {
+    const payload = {
+      tenantName: formData.companyName,
+      tenantLogo: formData.logo?.name || "",
+      mobileNumber: formData.phone,
+      organizationName: formData.companyName,
+      phoneNumber: formData.phone,
+      state: formData.state,
+      city: formData.city,
+      street: formData.street,
+      country: formData.country,
+      companyRegistrationCertificate:
+        formData.registrationCertificate?.name || "",
+      addressProof: formData.addressProof?.name || "",
+      plan: formData.plan,
+      activeLicense: {},
+      timeZone: formData.timeZone,
+      currency: formData.currency,
+      emailId: formData.email,
+      faxNo: formData.faxNo,
+      gstNo: formData.gstNo,
+      panNo: formData.panNo,
+      postalCode: formData.pincode,
+      tenantJobCode: `TENANT-${Date.now()}`,
+      website: formData.website,
+      status: formData.status,
+      settings: [],
+      createdBy: formData.adminName,
+      lastUpdatedBy: formData.adminName,
+    };
 
-      onClose(); // optional if you want to close the wizard
-    } catch (error: any) {
-      setFailedMessage(
-        error?.response?.data?.message || "Failed to create tenant.",
-      );
-      setFailed(true);
-    }
-  };
+    const response = await axios.post(
+      "http://localhost:5001/tenant",
+      payload
+    );
+
+    console.log(response.data);
+
+    setSuccessMessage(AppSuccessToastMessages.SUPER_ADMIN_TENANT_FAMILY);
+    setSuccess(true);
+  } catch (err: any) {
+  console.error(err);
+
+  setFailedMessage(
+    err.response?.data?.message ||
+    AppFailureToastMessages.SUPER_ADMIN_TENANT_CREATE
+  );
+
+  setFailed(true);
+}
+};
+
+
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
@@ -929,7 +970,7 @@ comments:"",
             <button
               onClick={() => {
                 if (currentStep === 4) {
-                  setShowSuccess(true);
+                  handleSubmit();
 
                   return;
                 }

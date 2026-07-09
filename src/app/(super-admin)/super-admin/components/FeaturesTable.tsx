@@ -7,19 +7,22 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import Pagination from "@/components/Pagination";
 import { useRouter } from "next/navigation";
 
- interface Feature {
+interface Feature {
   id: string;
   featureName: string;
   category: string;
   description: string;
   plan: string;
+  date: string;
   status: string;
   featureStatus: string;
 }
-
 const FeaturesTable = () => {
   const router = useRouter();
+const [showViewModal, setShowViewModal] = useState(false);
 
+const [selectedFeature, setSelectedFeature] =
+  useState<Feature | null>(null);
 
  const [features, setFeatures] = useState<Feature[]>([
   {
@@ -28,6 +31,7 @@ const FeaturesTable = () => {
     category: "Core Module",
     description: "Manage students and enrollment",
     plan: "Enterprise",
+    date: "2023-08-15",
     status: "Active",
     featureStatus: "Enabled",
   },
@@ -37,6 +41,7 @@ const FeaturesTable = () => {
     category: "Academic",
     description: "Track daily attendance",
     plan: "Premium",
+    date: "2023-08-15",
     status: "Active",
     featureStatus: "Enabled",
   },
@@ -46,6 +51,7 @@ const FeaturesTable = () => {
     category: "Learning",
     description: "Conduct live online classes",
     plan: "Standard",
+    date: "2023-08-15",
     status: "Inactive",
     featureStatus: "Disabled",
   },
@@ -289,9 +295,16 @@ const [filters, setFilters] = useState({
                               <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]">
                                 Update Feature
                               </button>
-                              <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]">
-                                View Details
-                              </button>
+                             <button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+  onClick={() => {
+    setSelectedFeature(feature);
+    setShowViewModal(true);
+    setOpenDropdownId(null);
+  }}
+>
+  View Details
+</button>
 
                               <button
                                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
@@ -431,6 +444,138 @@ Category              </label>
           <div className="fixed inset-0" onClick={() => setShowFilter(false)} />
         </div>
       )}
+
+      {showViewModal && selectedFeature && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+
+      {/* Header */}
+
+      <div className="flex justify-between items-center mb-6">
+
+        <h2 className="text-[24px] font-semibold text-[#1E293B] dark:text-white">
+          Features Details
+        </h2>
+
+        <button
+          onClick={() => setShowViewModal(false)}
+          className="text-3xl text-gray-400 hover:text-gray-600"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+
+        {/* Features */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Features
+          </label>
+
+          <input
+            readOnly
+            value={selectedFeature.featureName}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Category */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Category
+          </label>
+
+          <input
+            readOnly
+            value={selectedFeature.category}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Description */}
+
+        <div className="col-span-2">
+
+          <label className="block text-sm font-medium mb-2">
+            Description
+          </label>
+
+          <textarea
+            readOnly
+            rows={3}
+            value={selectedFeature.description}
+            className="w-full border rounded-lg px-4 py-3 resize-none bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+
+        </div>
+
+        {/* Plan */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Plan
+          </label>
+
+          <input
+            readOnly
+            value={selectedFeature.plan}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Date */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Date
+          </label>
+
+          <input
+            readOnly
+            value={selectedFeature.date}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Tenant Status */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Tenant Status
+          </label>
+
+          <input
+            readOnly
+            value={selectedFeature.status}
+            className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Feature Status */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Features Status
+          </label>
+
+          <input
+            readOnly
+            value={selectedFeature.featureStatus}
+            className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
     </div>
   );
 };

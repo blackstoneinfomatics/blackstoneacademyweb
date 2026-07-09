@@ -15,10 +15,20 @@ interface TenantUser {
   department: string;
   status: string;
   createdDate: string;
+  phoneNumber?: string;
+  designation?: string;
+  reportingTo?: string;
+  accessLevel?: string;
 }
 
 const TenantUserTable = () => {
   const router = useRouter();
+const [showViewModal, setShowViewModal] = useState(false);
+const [showEditModal, setShowEditModal] = useState(false);
+
+const [selectedUser, setSelectedUser] = useState<TenantUser | null>(null);
+const [originalUser, setOriginalUser] = useState<TenantUser | null>(null);
+
   const [users, setUsers] = useState<TenantUser[]>([
     {
       id: "USR001",
@@ -28,24 +38,36 @@ const TenantUserTable = () => {
       department: "Administration",
       status: "Active",
       createdDate: "12 Sep 2025",
+      phoneNumber: "+91 9876543210",
+      designation: "Senior Admin",
+      reportingTo: "Super Admin",
+      accessLevel: "Full Access",
     },
     {
-      id: "USR002",
-      userName: "Sarah Ahmed",
-      email: "sarah@blackstoneacademy.com",
-      role: "Teacher",
-      department: "Arabic",
+      id: "USR0012",
+      userName: "John Smithssss",
+      email: "john@blackstoneacademy.com",
+      role: "Admin",
+      department: "Administration",
       status: "Active",
-      createdDate: "18 Sep 2025",
+      createdDate: "12 Sep 2025",
+      phoneNumber: "+91 9876543210",
+      designation: "Senior Admin",
+      reportingTo: "Super Admin",
+      accessLevel: "Full Access",
     },
     {
-      id: "USR003",
-      userName: "Mohammed Ali",
-      email: "mohammed@blackstoneacademy.com",
-      role: "Student",
-      department: "Quran",
-      status: "Inactive",
-      createdDate: "20 Sep 2025",
+      id: "USR0011",
+      userName: "John Smithaaaa",
+      email: "john@blackstoneacademy.com",
+      role: "Admin",
+      department: "Administration",
+      status: "Active",
+      createdDate: "12 Sep 2025",
+      phoneNumber: "+91 9876543210",
+      designation: "Senior Admin",
+      reportingTo: "Super Admin",
+      accessLevel: "Full Access",
     },
   ]);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -243,42 +265,28 @@ const [filters, setFilters] = useState({
 
                           {openDropdownId === user.id && (
                             <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
-                              <button
-                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-                                onClick={() => {
-                                  console.log("View", user.id);
-                                  setOpenDropdownId(null);
-                                  router.push(
-                                    "/super-admin/ui/tenants/tenants_management",
-                                  );
-                                }}
-                              >
-                                Update Plans
-                              </button>
-                              <button
-                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-                                onClick={() => {
-                                  console.log("View", user.id);
-                                  setOpenDropdownId(null);
-                                  router.push(
-                                    "/super-admin/ui/tenants/tenants_management",
-                                  );
-                                }}
-                              >
-                                View Details
-                              </button>
-                              <button
-                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-                                onClick={() => {
-                                  console.log("View", user.id);
-                                  setOpenDropdownId(null);
-                                  router.push(
-                                    "/super-admin/ui/tenants/tenants_management",
-                                  );
-                                }}
-                              >
-                                Edit
-                              </button>
+                            
+  <button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+  onClick={() => {
+    setSelectedUser(user);
+    setShowViewModal(true);
+    setOpenDropdownId(null);
+  }}
+>
+  View Details
+</button>
+<button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+  onClick={() => {
+    setSelectedUser({ ...user });
+    setOriginalUser({ ...user });
+    setShowEditModal(true);
+    setOpenDropdownId(null);
+  }}
+>
+  Edit
+</button>
                               <button
                                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
                                 onClick={() => {
@@ -469,6 +477,310 @@ const [filters, setFilters] = useState({
           <div className="fixed inset-0" onClick={() => setShowFilter(false)} />
         </div>
       )}
+      {showViewModal && selectedUser && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white rounded-2xl w-[900px] p-6">
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-[24px] font-semibold">
+          User Details
+        </h2>
+
+        <button
+          onClick={() => setShowViewModal(false)}
+          className="text-3xl text-gray-400"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+
+        <div>
+          <label>Name</label>
+          <input
+            readOnly
+            value={selectedUser.userName}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Email</label>
+          <input
+            readOnly
+            value={selectedUser.email}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Phone Number</label>
+          <input
+            readOnly
+            value={selectedUser.phoneNumber}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Role</label>
+          <input
+            readOnly
+            value={selectedUser.role}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Department</label>
+          <input
+            readOnly
+            value={selectedUser.department}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Designation</label>
+          <input
+            readOnly
+            value={selectedUser.designation}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Reporting To</label>
+          <input
+            readOnly
+            value={selectedUser.reportingTo}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Status</label>
+          <input
+            readOnly
+            value={selectedUser.status}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Created On</label>
+          <input
+            readOnly
+            value={selectedUser.createdDate}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+        <div>
+          <label>Access Level</label>
+          <input
+            readOnly
+            value={selectedUser.accessLevel}
+            className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+          />
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
+
+{showEditModal && selectedUser && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-[24px] font-semibold">
+          Edit
+        </h2>
+
+        <button
+          onClick={() => setShowEditModal(false)}
+          className="text-3xl text-gray-400"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+
+        <div>
+          <label>Name</label>
+          <input
+            value={selectedUser.userName}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                userName: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          />
+        </div>
+
+        <div>
+          <label>Email</label>
+          <input
+            value={selectedUser.email}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                email: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          />
+        </div>
+
+        <div>
+          <label>Phone Number</label>
+          <input
+            value={selectedUser.phoneNumber ?? ""}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                phoneNumber: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          />
+        </div>
+
+        <div>
+          <label>Role</label>
+
+          <select
+            value={selectedUser.role}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                role: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          >
+            <option>Admin</option>
+            <option>Teacher</option>
+            <option>Student</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Department</label>
+
+          <select
+            value={selectedUser.department}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                department: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          >
+            <option>Administration</option>
+            <option>Arabic</option>
+            <option>Quran</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Designation</label>
+
+          <input
+            value={selectedUser.designation ?? ""}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                designation: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          />
+        </div>
+
+        <div>
+          <label>Reporting To</label>
+
+          <select
+            value={selectedUser.reportingTo ?? ""}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                reportingTo: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          >
+            <option>Super Admin</option>
+            <option>Admin</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Status</label>
+
+          <select
+            value={selectedUser.status}
+            onChange={(e) =>
+              setSelectedUser({
+                ...selectedUser,
+                status: e.target.value,
+              })
+            }
+            className="w-full border rounded-lg px-4 py-2 mt-2"
+          >
+            <option>Active</option>
+            <option>Inactive</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div className="border-t mt-8 pt-5 flex justify-end gap-4">
+
+        <button
+          className="border border-[#576CBC] text-[#576CBC] rounded-lg px-6 py-2"
+          onClick={() => {
+            if (originalUser) {
+              setSelectedUser({ ...originalUser });
+            }
+          }}
+        >
+          Reset
+        </button>
+
+        <button
+          className="bg-[#576CBC] text-white rounded-lg px-6 py-2"
+          onClick={() => {
+            setUsers((prev) =>
+              prev.map((item) =>
+                item.id === selectedUser.id ? selectedUser : item
+              )
+            );
+
+            setShowEditModal(false);
+          }}
+        >
+          Save Changes
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
     </div>
   );
 };

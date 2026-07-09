@@ -2,17 +2,20 @@
 
 import React, { useEffect, useState } from "react";
 import TenantStats from "../../components/Tenant-Cards";
-import SupervisorHeader from "@/app/(tenant)/modules/users/supervisor/components/supervisorHeader";
 import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout"
 import { MdTune } from "react-icons/md";
-import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Pagination from "@/components/Pagination";
 import { useRouter } from "next/navigation";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
+import { useSearchParams } from "next/navigation";
+import { Search } from "lucide-react";
+import axios from "axios";
+
+
 
 interface TenantType {
-  id: string;
+  tenantCode: string;
   tenantName: string;
   domain: string;
   phoneNumber: string;
@@ -22,53 +25,89 @@ interface TenantType {
   users: number;
   renewalDate: string;
   status: string;
+  state: string;
+  country: string;
+  city: string;
+  pincode: string;
 }
+
+const capitalizeFirst = (value: string) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1) : "Basic";
+
+const formatDate = (value?: string) => {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const extractDomain = (value?: string) => {
+  if (!value) return "—";
+
+  try {
+    return new URL(value.includes("://") ? value : `https://${value}`).hostname.replace("www.", "");
+  } catch {
+    return value;
+  }
+};
 
 const page = () => {
   const router = useRouter();
-const [tenants, setTenants] = useState([
-  {
-    id: "TEN001",
-    tenantName: "Blackstone Academy",
-    domain: "blackstoneacademy.com",
-    phoneNumber: "1234567890",
-    email: "blackstone@gmail.com",
-    startDate: "Sep 12, 2023",
-    plan: "Standard",
-    users: 570,
-    renewalDate: "Sep 12, 2026",
-    status: "Active",
-  },
-  {
-    id: "TEN002",
-    tenantName: "Blackstone Institute",
-    domain: "blackstone.com",
-    phoneNumber: "1234567890",
-    email: "blackstone@gmail.com",
-    startDate: "Sep 12, 2023",
-    plan: "Premium",
-    users: 345,
-    renewalDate: "Sep 12, 2026",
-    status: "Trial",
-  },
-  {
-    id: "TEN003",
-    tenantName: "Future Academy",
-    domain: "future.com",
-    phoneNumber: "1234567890",
-    email: "future@gmail.com",
-    startDate: "Sep 12, 2023",
-    plan: "Basic",
-    users: 420,
-    renewalDate: "Sep 12, 2026",
-    status: "Inactive",
-  },
-]);
-const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+const searchParams = useSearchParams();
+const tenanttenantCode = searchParams.get("tenantCode");
+
+const [tenants, setTenants] = useState<TenantType[]>([]);
+useEffect(() => {
+  const fetchTenants = async () => {
+    try {
+      const response = await axios.get("http://localhost:5001/tenant");
+      const payload = Array.isArray(response?.data)
+        ? response.data
+        : response?.data?.data
+          ? response.data.data
+          : response?.data
+            ? [response.data]
+            : [];
+
+      const mappedTenants = payload.map((item: any, index: number): TenantType => ({
+        tenantCode: item.tenantJobCode || item.tenantCode || `TEN-${index + 1}`,
+        tenantName: item.tenantName || item.organizationName || "N/A",
+        domain: extractDomain(item.website || item.domain || item.emailId || ""),
+        phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
+        email: item.emailId || item.email || "N/A",
+        startDate: formatDate(item.createdAt),
+        plan: capitalizeFirst(item.plan || "basic"),
+        users: item.users || 0,
+        renewalDate: formatDate(item.renewalDate),
+        status: item.status || "Active",
+        state: item.state || "",
+        country: item.country || "",
+        city: item.city || "",
+        pincode: item.postalCode || item.pincode || "",
+      }));
+
+      setTenants(mappedTenants);
+    } catch (error) {
+      console.error("Failed to fetch tenants", error);
+    }
+  };
+
+  fetchTenants();
+}, []);
+const [openDropdowntenantCode, setOpenDropdowntenantCode] = useState<string | null>(null);
 const [searchKeyword, setSearchKeyword] = useState("");
 const [showFilter, setShowFilter] = useState(false);
 const [currentPage, setCurrentPage] = useState(1);
 const [activeTab, setActiveTab] = useState<"All" | "New">("All");
+const [showEditModal, setShowEditModal] = useState(false);
+
+const [selectedTenant, setSelectedTenant] = useState<TenantType | null>(null);
 const [filters, setFilters] = useState({
   tenantName: "",
   domain: "",
@@ -82,9 +121,9 @@ const [filters, setFilters] = useState({
 
 const itemsPerPage = 10;
 
-const toggleDropdown = (id: string) => {
-  setOpenDropdownId((prev) =>
-    prev === id ? null : id
+const toggleDropdown = (tenantCode: string) => {
+  setOpenDropdowntenantCode((prev) =>
+    prev === tenantCode ? null : tenantCode
   );
 }; 
 
@@ -286,9 +325,9 @@ const getPlanStyle = (plan: string) => {
                         "Renewal Date",
                         "Tenant Status",
                         "Action",
-                      ].map((header, idx) => (
+                      ].map((header, tenantCodex) => (
                         <th
-                          key={idx}
+                          key={tenantCodex}
                           className="px-2 py-1 border border-[#4C6993] text-left text-wrap break-words"
                         >
                           {header}
@@ -305,7 +344,7 @@ const getPlanStyle = (plan: string) => {
 
     return (
       <tr
-        key={tenant.id}
+        key={tenant.tenantCode}
         className={`text-[10px] ${rowBgClass}`}
       >
         <td className="px-3 py-3 break-words text-[11px] dark:text-white">
@@ -358,30 +397,41 @@ const getPlanStyle = (plan: string) => {
 
        <td className="px-3 py-3 text-left relative text-[12px]">
   <button
-    onClick={() => toggleDropdown(tenant.id)}
+    onClick={() => toggleDropdown(tenant.tenantCode)}
     className="text-gray-500 hover:text-gray-700"
   >
     <BsThreeDotsVertical />
   </button>
 
-  {openDropdownId === tenant.id && (
+  {openDropdowntenantCode === tenant.tenantCode && (
     <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#343434] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
       <button
         className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-         onClick={() => {
-    console.log("View", tenant.id);
-    setOpenDropdownId(null);
-    router.push(
-      "/super-admin/ui/tenants/tenants_management"
-    );
-  }}
+      onClick={() => {
+  setOpenDropdowntenantCode(null);
+  router.push(
+    `/super-admin/ui/tenants/tenants_management?tenantCode=${tenant.tenantCode}`
+  );
+}}
       >
         View
       </button>
+       <button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+  onClick={() => {
+    setSelectedTenant(tenant);
+    setShowEditModal(true);
+    setOpenDropdowntenantCode(null);
+  }}
+>
+  Edit
+
+ 
+</button>
       <button
         className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
         onClick={() => {
-          setOpenDropdownId(null);
+          setOpenDropdowntenantCode(null);
         }}
       >
         Cancel
@@ -484,7 +534,7 @@ const getPlanStyle = (plan: string) => {
     Date
   </label>
 
-  <div className="grid grid-cols-2 gap-3">
+  <div className="grtenantCode grtenantCode-cols-2 gap-3">
 
     <input
       type="date"
@@ -517,7 +567,7 @@ const getPlanStyle = (plan: string) => {
     Renewal Date
   </label>
 
-  <div className="grid grid-cols-2 gap-3">
+  <div className="grtenantCode grtenantCode-cols-2 gap-3">
 
     <input
       type="date"
@@ -604,8 +654,206 @@ const getPlanStyle = (plan: string) => {
     />
   </div>
 )}
+
+ {showEditModal && selectedTenant && (
+  <div className="  fixed inset-0 bg-black/40 flex justify-center items-center z-50 ">
+
+    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] max-h-[90vh] overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+
+      <div className="flex justify-between items-center mb-6">
+
+        <h2 className="text-2xl font-semibold">
+          Tenant Information
+        </h2>
+
+        <button
+          onClick={() => setShowEditModal(false)}
+          className="text-2xl"
+        >
+          ×
+        </button>
+
+      </div>
+
+<div className="grid grid-cols-2 gap-5">
+        {/* Tenant Name */}
+
+        <div>
+          <label className="text-sm font-medium">
+            Tenant Name
+          </label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.tenantName}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                tenantName: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        {/* Domain */}
+
+        <div>
+          <label className="text-sm font-medium">
+            Domain
+          </label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.domain}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                domain: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        {/* Email */}
+
+        <div>
+          <label>Email</label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.email}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                email: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        {/* Phone */}
+
+        <div>
+          <label>Phone Number</label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.phoneNumber}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                phoneNumber: e.target.value,
+              })
+            }
+          />
+        </div>
+
+  <div>
+          <label>Country</label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.country}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                country: e.target.value,
+              })
+            }
+          />
+        </div>  <div>
+          <label>State</label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.state}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                state: e.target.value,
+              })
+            }
+          />
+        </div>  <div>
+          <label>City</label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.city}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                city: e.target.value,
+              })
+            }
+          />
+        </div>  <div>
+          <label>Pincode</label>
+
+          <input
+            className="w-full border rounded-lg px-4 py-2 mt-1"
+            value={selectedTenant.pincode}
+            onChange={(e) =>
+              setSelectedTenant({
+                ...selectedTenant,
+                pincode: e.target.value,
+              })
+            }
+          />
+        </div>
+
+      </div>
+
+      {/* Address */}
+
+      <div className="mt-5">
+
+        <label>Address</label>
+
+        <textarea
+          rows={4}
+          className="w-full border rounded-lg px-4 py-2 mt-1"
+        />
+
+      </div>
+
+      {/* Buttons */}
+
+      <div className="flex justify-end gap-3 mt-8">
+
+        <button
+          onClick={() => setShowEditModal(false)}
+          className="border border-[#576CBC] text-[#576CBC] px-6 py-2 rounded-lg"
+        >
+          Reset
+        </button>
+
+        <button
+          className="bg-[#576CBC] text-white px-6 py-2 rounded-lg"
+          onClick={() => {
+            setTenants((prev) =>
+              prev.map((item) =>
+                item.tenantCode === selectedTenant.tenantCode
+                  ? selectedTenant
+                  : item
+              )
+            );
+
+            setShowEditModal(false);
+          }}
+        >
+          Save Changes
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
       </BaseSuperLayout>
     </div>
+    
   );
 };
 

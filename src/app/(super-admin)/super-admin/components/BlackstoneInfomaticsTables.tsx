@@ -31,7 +31,10 @@ const BlackstoneInfomaticsTables = () => {
     planStatus: string;
     paymentStatus: string;
   }
+const [showViewModal, setShowViewModal] = useState(false);
 
+const [selectedSubscription, setSelectedSubscription] =
+  useState<Subscription | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([
     {
       id: "1",
@@ -289,9 +292,16 @@ const BlackstoneInfomaticsTables = () => {
 
                           {openDropdownId === subscription.id && (
                             <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
-                              <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]">
-                                View Details
-                              </button>
+                           <button
+  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+  onClick={() => {
+    setSelectedSubscription(subscription);
+    setShowViewModal(true);
+    setOpenDropdownId(null);
+  }}
+>
+  View Details
+</button>
 
                               <button
                                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
@@ -473,6 +483,151 @@ const BlackstoneInfomaticsTables = () => {
           <div className="fixed inset-0" onClick={() => setShowFilter(false)} />
         </div>
       )}
+
+      {showViewModal && selectedSubscription && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+
+      {/* Header */}
+
+      <div className="flex justify-between items-center mb-6">
+
+        <h2 className="text-[24px] font-semibold text-[#1F2A44] dark:text-white">
+          Subscriptions Details
+        </h2>
+
+        <button
+          onClick={() => setShowViewModal(false)}
+          className="text-3xl text-gray-400 hover:text-gray-600"
+        >
+          ×
+        </button>
+
+      </div>
+
+      {/* Form */}
+
+      <div className="grid grid-cols-2 gap-5">
+
+        {/* Invoice ID */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Invoice ID
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.invoiceId}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Plan */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Plan
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.plan}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Amount */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Amount
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.amount}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Plan Cycle */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Plan Cycle
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.planCycle}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Payment Method */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Payment Method
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.paymentMethod}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Date */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Date
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.date}
+            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Plan Status */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Plan Status
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.planStatus}
+            className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+        {/* Payment Status */}
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Payment Status
+          </label>
+
+          <input
+            readOnly
+            value={selectedSubscription.paymentStatus}
+            className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+          />
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
     </div>
   );
 };
