@@ -62,7 +62,19 @@ type SuperAdminHeaderProps = {
   currentSection: string;
   showBackButton?: boolean;
   showBackPath?: string;
-  tenantActiveTab?: "plans" | "tenant-subscriptions" | "invoices" | "trials" | "analytics";
+  tenantActiveTab?:
+    | "plans"
+    | "tenant-subscriptions"
+    | "invoices"
+    | "trials"
+    | "analytics"
+    | "transactions"
+    | "refunds"
+    | "revenue"
+    | "billing"
+    | "invoice"
+    | "tax-gst"
+    | "analytics";
 };
 
 export default function SuperAdminHeader({
