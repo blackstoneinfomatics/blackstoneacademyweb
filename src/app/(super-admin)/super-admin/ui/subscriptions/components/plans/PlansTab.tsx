@@ -8,9 +8,9 @@ export default function PlansTab() {
     <div className="space-y-4">
       <StatsCards />
 
-      <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
-        <div className=""><Activities/></div>
-        <div className=""><TopPerformingPlan /></div>
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-4">
+        <Activities />
+        <TopPerformingPlan />
       </div>
 
       <PlansTable />

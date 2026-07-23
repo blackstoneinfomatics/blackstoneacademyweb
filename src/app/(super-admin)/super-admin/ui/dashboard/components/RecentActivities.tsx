@@ -1,5 +1,5 @@
 import React from "react";
-import { Users, DollarSign, UserPlus, Clock3 } from "lucide-react";
+import { Users } from "lucide-react";
 
 const RecentActivities = () => {
   return (

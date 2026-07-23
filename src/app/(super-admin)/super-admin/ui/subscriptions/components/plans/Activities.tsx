@@ -15,7 +15,7 @@ const Activities = () => {
         
         {/* Donut Chart */}
         <div
-          className="relative w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] rounded-full flex-shrink-0 mt-3"
+          className="relative w-[160px] h-[160px] sm:w-[171px] sm:h-[171px] rounded-full flex-shrink-0 mt-1"
           style={{
             background: `conic-gradient(
               #22C55E 0deg 288deg,
@@ -25,15 +25,15 @@ const Activities = () => {
           }}
         >
           <div className="absolute inset-[28px] bg-white rounded-full flex flex-col items-center justify-center">
-            <h2 className="text-[40px] font-bold text-[#111827] leading-none">
+            <h2 className="text-[30px] font-bold text-[#111827] leading-none">
               {total}
             </h2>
-            <p className="text-[14px] text-[#6B7280] mt-1">Total</p>
+            <p className="text-[13px] mt-0.5">Activities</p>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="flex-1 min-w-0 w-full space-y-3 items-center mt-12">
+        <div className="flex-1 min-w-0 w-full space-y-7 items-center mt-7 px-3">
           {stats.map((item) => (
             <div
               key={item.label}

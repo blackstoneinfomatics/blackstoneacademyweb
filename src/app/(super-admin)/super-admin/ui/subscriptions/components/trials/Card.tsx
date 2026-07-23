@@ -1,52 +1,56 @@
 import React from "react";
-import { Users} from "lucide-react";
+import { Users, DollarSign, UserPlus, Clock3 } from "lucide-react";
+import { HiArrowTrendingUp } from "react-icons/hi2";
+import { HiOutlineCurrencyDollar } from "react-icons/hi2";
 import { TbBrandDatabricks } from "react-icons/tb";
 import { FaCircleCheck } from "react-icons/fa6";
 import { IoWalletOutline } from "react-icons/io5";
-
+import { HiUsers } from "react-icons/hi";
+import { AiFillCloseCircle } from "react-icons/ai";
+import { PiSealCheckFill } from "react-icons/pi";
 
 
 
 const cards = [
   {
-    title: "Total Plans",
+    title: "Total Trials",
     value: "200",
-    icon: TbBrandDatabricks,
+    icon: HiUsers,
     iconBg: "bg-[#E5DFFD]",
     iconColor: "text-[#5225FC]",
     titleColor: "text-[#5225FC]",
-    trend: "All Subscriptions Plan"
+    trend: "All Time trials"
   },
     {
-    title: "Active Plan",
+    title: "Active Trials",
     value: "150",
     icon: FaCircleCheck,
     iconBg: "bg-[#E3F4E7]",
     iconColor: "text-[#40BD5F]",
     titleColor: "text-[#40BD5F]",
-    trend: "Currently Active Plan"
+    trend: "Currently  trials"
   },
-  {
-    title: "Total Tenants",
-    value: "50",
-    icon: Users,
-    iconBg: "bg-[#DEEEFD]",
-    iconColor: "text-[#1E92F8]",
-    titleColor: "text-[#1E92F8]",
-    trend: "Subscribed Tenants"
-  },
-  {
-    title: "Monthly Revenue",
+    {
+    title: "Expiried Trials",
     value: "$2,500",
-    icon: IoWalletOutline,
-    iconBg: "bg-[#FCF0DC]",
-    iconColor: "text-[#F59E0B]",
-    titleColor: "text-[#F59E0B]",
-    trend: "vs last Month"
-  }
-];
+    icon: AiFillCloseCircle,
+    iconBg: "bg-[#F8E4E4]",
+    iconColor: "text-[#D34645]",
+    titleColor: "text-[#D34645]",
+    trend: "Not Converted"
+  },
+  {
+    title: "Converted to paid",
+    value: "50",
+    icon: PiSealCheckFill,
+    iconBg: "bg-[#E7E9FE]",
+    iconColor: "text-[#5E6BFF]",
+    titleColor: "text-[#5E6BFF]",
+    trend: "This month"
+  },
 
-const StatsCards = () => {
+];
+const Card = () => {
   return (
     <div className="grid grid-cols-4 gap-4">
       {cards.map((card, index) => {
@@ -81,7 +85,7 @@ const StatsCards = () => {
         );
       })}
     </div>
-  );
-};
+  )
+}
 
-export default StatsCards;
+export default Card

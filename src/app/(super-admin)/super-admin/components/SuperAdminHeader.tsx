@@ -16,6 +16,7 @@ import "react-toastify/dist/ReactToastify.css";
 import AddNewTenant from "./AddNewTenant";
 import Stepper from "./AddNewTenant";
 import GenerateInvoice from "./SubscriptionInvoice";
+import CreatePlan from "./CreatePlan";
 
 type Props = {
   readonly currentSection: string;
@@ -89,19 +90,20 @@ export default function SuperAdminHeader({
      const [permissions, setPermissions] = useState({
    tenant:false,
     invoice: false,
-  
+    plan: false,
   });
   const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
+  const [showCreatePlan, setShowCreatePlan] = useState(false);
   const loadPermissions = () => {
     try {
-      const stored = localStorage.getItem("AdminRolePermission");
+      const stored = localStorage.getItem("SuperAdminRolePermission");
       if (stored) {
         const parsed = JSON.parse(stored);
+        const modules = parsed?.supervisormodules || parsed;
         setPermissions({
-          tenant: parsed?.leave?.write ?? parsed?.employees?.write ?? false,
-        
-          invoice: parsed?.invoice?.write ?? false,
-         
+          tenant: modules?.tenant?.write ?? modules?.leave?.write ?? modules?.employees?.write ?? false,
+          invoice: modules?.invoice?.write ?? false,
+          plan: modules?.plan?.write ?? false,
         });
       }
     } catch (err) {
@@ -120,18 +122,17 @@ export default function SuperAdminHeader({
         try {
           const roleAccess = JSON.parse(roleAccessRaw);
           const modules = roleAccess?.supervisormodules || roleAccess;
-  console.log("✅ Role Access:", roleAccess);
+          console.log("✅ Role Access:", roleAccess);
           console.log("✅ Modules being used:", modules);
           console.log("🔐 Dashboard write:", modules?.dashboard?.write);
           console.log("🔐 Leave write:", modules?.leave);
   
-  
           setDashboardWrite(modules?.dashboard?.write !== false);
-        setLeaveWrite(modules?.leave ?? modules?.dashboard?.write ?? false);
-        setCalendarWrite(modules?.schedule?.write !== false);
+          setLeaveWrite(modules?.leave ?? modules?.dashboard?.write ?? false);
+          setCalendarWrite(modules?.schedule?.write !== false);
           setTrailWrite(modules?.trailmanagement?.write !== false);
         } catch (error) {
-          console.error("❌ Invalid SupervisorRolePermission JSON", error);
+          console.error("❌ Invalid SuperAdminRolePermission JSON", error);
         }
       }
     }, []);
@@ -441,6 +442,8 @@ const fetchNotifications = async (token: string) => {
 
   const renderButton = () => {
     const path = pathname?.toLowerCase() ?? "";
+    console.log("🔍 renderButton() called", { path, currentSection, tenantActiveTab });
+    
     const isTenantManagementPage =
       path.includes("/super-admin/ui/tenants/tenants_management") ||
       path.includes("/super-admin/ui/tenants_management") ||
@@ -463,18 +466,26 @@ const fetchNotifications = async (token: string) => {
       );
     }
 
-    const isSubscriptionsInvoicesView =
-      (path.includes("/super-admin/ui/subscriptions") ||
-        path.includes("subscriptions")) &&
-      (tenantActiveTab === "invoices" || path.includes("invoices"));
+    // Show Create Plan button only on plans tab
+    if (currentSection?.toLowerCase() === "subscriptions" && tenantActiveTab === "plans") {
+      return (
+        <button
+          onClick={() => setShowCreatePlan(true)}
+          className="bg-[#576CBC] hover:bg-[#3a4f8a] text-white text-sm px-4 py-2 rounded-lg"
+        >
+         <span className="gap-2">+</span> Create Plan
+        </button>
+      );
+    }
 
-    if (isSubscriptionsInvoicesView && permissions.invoice) {
+    // Show Create Invoice button only on invoices tab
+    if (currentSection?.toLowerCase() === "subscriptions" && tenantActiveTab === "invoices") {
       return (
         <button
           onClick={() => setShowGenerateInvoice(true)}
           className="bg-[#576CBC] hover:bg-[#3a4f8a] text-white text-sm px-4 py-2 rounded-lg"
         >
-          Generate Invoice
+          Create Invoice
         </button>
       );
     }
@@ -496,6 +507,7 @@ const fetchNotifications = async (token: string) => {
       );
     }
 
+    console.log("❌ No button matched");
     return null;
   };
 
@@ -540,6 +552,9 @@ const fetchNotifications = async (token: string) => {
             <GenerateInvoice onClose={() => setShowGenerateInvoice(false)} />
           </div>
         </div>
+      )}
+      {showCreatePlan && (
+        <CreatePlan onClose={() => setShowCreatePlan(false)} />
       )}
             {showNotification && (
               <div className="absolute -ml-[360px] w-[90vw] sm:w-[470px] max-w-[95vw] mt-2 bg-white/90 dark:bg-[#252525]/80 backdrop-blur-md border rounded-lg shadow-2xl z-30 animate-fade-in-up">
