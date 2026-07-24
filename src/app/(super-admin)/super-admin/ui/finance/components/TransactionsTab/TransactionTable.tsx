@@ -10,8 +10,7 @@ const data = [
     tenant: "Blackstone Institute",
     type: "Subscription",
     amount: "2,999",
-    paymentMethod: "Visa",
-    cardLast4: "4236",
+    paymentMethod: "Google Pay",
     paymentDate: "Sep, 12 2023",
     dueDate: "Sep, 12 2023",
     status: "Paid",
@@ -22,8 +21,7 @@ const data = [
     tenant: "Blackstone Institute",
     type: "Refund",
     amount: "2,999",
-    paymentMethod: "Visa",
-    cardLast4: "4236",
+    paymentMethod: "Stripe",
     paymentDate: "Sep, 12 2023",
     dueDate: "Sep, 12 2023",
     status: "Refunded",
@@ -78,15 +76,10 @@ export default function TransactionTable() {
     header: "Payment Method",
     render: (row: any) => (
       <div className="flex items-center gap-3">
-        <Image
-          src="/icons/visa.svg"
-          alt="Visa"
-          width={38}
-          height={12}
-        />
+       
 
         <span className="text-[#344054]">
-          •••• •••• •••• {row.cardLast4}
+          {row.paymentMethod}
         </span>
       </div>
     ),
