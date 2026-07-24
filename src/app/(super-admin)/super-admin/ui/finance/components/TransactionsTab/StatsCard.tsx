@@ -25,10 +25,25 @@ const StatsCard = ({
   titleColor,
 }: StatsCardProps) => {
   return (
-    <div className="w-full rounded-2xl bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all duration-300 hover:shadow-lg">
-      <div className="flex items-start gap-4">
+    <div
+      className="w-full rounded-2xl bg-white transition-all duration-300 hover:shadow-lg"
+      style={{
+        padding: "clamp(14px, 1.2vw, 20px)",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+      }}
+    >
+      <div
+        className="flex items-start"
+        style={{
+          gap: "clamp(10px, 1vw, 16px)",
+        }}
+      >
         <div
-          className={`flex h-12 w-12 items-center justify-center rounded-full ${iconBg}`}
+          className={`flex items-center justify-center rounded-full ${iconBg}`}
+          style={{
+            width: "clamp(42px, 3vw, 48px)",
+            height: "clamp(42px, 3vw, 48px)",
+          }}
         >
           <Image
             src={image}
@@ -36,29 +51,65 @@ const StatsCard = ({
             width={24}
             height={24}
             className="object-contain"
+            style={{
+              width: "clamp(18px,1.4vw,24px)",
+              height: "clamp(18px,1.4vw,24px)",
+            }}
           />
         </div>
 
         <div className="flex-1">
-          <h3 className={`text-base font-normal leading-6 ${titleColor}`}>
+          <h3
+            className={`font-normal ${titleColor}`}
+            style={{
+              fontSize: "clamp(13px, 1vw, 16px)",
+              lineHeight: "1.4",
+            }}
+          >
             {title}
           </h3>
 
-          <p className="mt-1 text-xl font-semibold text-[#232323]">
+          <p
+            className="font-semibold text-[#232323]"
+            style={{
+              fontSize: "clamp(20px, 1.8vw, 28px)",
+              marginTop: "clamp(4px, 0.5vw, 8px)",
+            }}
+          >
             {value}
           </p>
 
-          <div className="mt-3 flex items-center gap-2 text-sm">
+          <div
+            className="flex items-center"
+            style={{
+              gap: "clamp(6px,0.6vw,10px)",
+              marginTop: "clamp(8px,0.8vw,12px)",
+              fontSize: "clamp(11px,0.8vw,14px)",
+            }}
+          >
             <span
               className={`flex items-center font-semibold ${
                 isPositive ? "text-[#2E9E44]" : "text-[#EF4444]"
               }`}
             >
               {isPositive ? (
-                <ArrowUp size={16} className="mr-1" />
+                <ArrowUp
+                  style={{
+                    width: "clamp(12px,1vw,16px)",
+                    height: "clamp(12px,1vw,16px)",
+                    marginRight: "4px",
+                  }}
+                />
               ) : (
-                <ArrowDown size={16} className="mr-1" />
+                <ArrowDown
+                  style={{
+                    width: "clamp(12px,1vw,16px)",
+                    height: "clamp(12px,1vw,16px)",
+                    marginRight: "4px",
+                  }}
+                />
               )}
+
               {percentage}%
             </span>
 

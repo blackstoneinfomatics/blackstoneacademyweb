@@ -191,8 +191,8 @@ ${column.headerClassName ?? ""}
 
                             <div
                               className="
-                              h-5
-                              w-5
+                              h-4
+                              w-4
                               rounded-md
                               border
                               border-[#576CBC]
