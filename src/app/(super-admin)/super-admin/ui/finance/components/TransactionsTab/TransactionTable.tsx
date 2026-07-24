@@ -1,7 +1,7 @@
-import DataTable from '@/app/(super-admin)/super-admin/components/DataTable'
-import { MoreVertical } from 'lucide-react'
-import React from 'react'
-import Image from 'next/image'
+import ActionDropdown from "@/app/(super-admin)/super-admin/components/ActionMenu";
+import DataTable from "@/app/(super-admin)/super-admin/components/DataTable";
+import { MoreVertical } from "lucide-react";
+import React, { useState } from "react";
 
 const data = [
   {
@@ -22,121 +22,224 @@ const data = [
     type: "Refund",
     amount: "2,999",
     paymentMethod: "Stripe",
-    paymentDate: "Sep, 12 2023",
-    dueDate: "Sep, 12 2023",
+    paymentDate: "Sep, 13 2023",
+    dueDate: "Sep, 13 2023",
+    status: "Refunded",
+  },
+  {
+    id: "3",
+    transactionId: "TN-1234558",
+    tenant: "Alpha Academy",
+    type: "Subscription",
+    amount: "4,999",
+    paymentMethod: "Credit Card",
+    paymentDate: "Sep, 14 2023",
+    dueDate: "Sep, 14 2023",
+    status: "Paid",
+  },
+  {
+    id: "4",
+    transactionId: "TN-1234559",
+    tenant: "Global School",
+    type: "Renewal",
+    amount: "3,499",
+    paymentMethod: "UPI",
+    paymentDate: "Sep, 15 2023",
+    dueDate: "Sep, 15 2023",
+    status: "Pending",
+  },
+  {
+    id: "5",
+    transactionId: "TN-1234560",
+    tenant: "Future Minds",
+    type: "Subscription",
+    amount: "5,999",
+    paymentMethod: "Razorpay",
+    paymentDate: "Sep, 16 2023",
+    dueDate: "Sep, 16 2023",
+    status: "Paid",
+  },
+  {
+    id: "6",
+    transactionId: "TN-1234561",
+    tenant: "Bright Stars",
+    type: "Refund",
+    amount: "1,999",
+    paymentMethod: "Stripe",
+    paymentDate: "Sep, 17 2023",
+    dueDate: "Sep, 17 2023",
+    status: "Refunded",
+  },
+  {
+    id: "7",
+    transactionId: "TN-1234562",
+    tenant: "Excel Public School",
+    type: "Renewal",
+    amount: "6,499",
+    paymentMethod: "Bank Transfer",
+    paymentDate: "Sep, 18 2023",
+    dueDate: "Sep, 18 2023",
+    status: "Pending",
+  },
+  {
+    id: "8",
+    transactionId: "TN-1234563",
+    tenant: "Scholars Academy",
+    type: "Subscription",
+    amount: "3,999",
+    paymentMethod: "Google Pay",
+    paymentDate: "Sep, 19 2023",
+    dueDate: "Sep, 19 2023",
+    status: "Paid",
+  },
+  {
+    id: "9",
+    transactionId: "TN-1234564",
+    tenant: "Vision International",
+    type: "Subscription",
+    amount: "7,999",
+    paymentMethod: "Credit Card",
+    paymentDate: "Sep, 20 2023",
+    dueDate: "Sep, 20 2023",
+    status: "Paid",
+  },
+  {
+    id: "10",
+    transactionId: "TN-1234565",
+    tenant: "Green Valley School",
+    type: "Refund",
+    amount: "2,499",
+    paymentMethod: "PayPal",
+    paymentDate: "Sep, 21 2023",
+    dueDate: "Sep, 21 2023",
     status: "Refunded",
   },
 ];
 
 export default function TransactionTable() {
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(
+    null,
+  );
+
+  const [open, setOpen] = useState(false);
+  const handleView = (row: any) => {
+    console.log("View", row);
+
+    // Open modal
+    setSelectedTransaction(row);
+    setOpen(true);
+  };
+
+  const handleEdit = (row: any) => {
+    console.log("Edit", row);
+
+    // Navigate or open edit modal
+  };
   return (
     <div>
       <DataTable
-  selectable={true}
-  columns={
-   [
-  {
-    key: "transactionId",
-    header: "Transactions ID",
-  },
+        heading="All Transactions"
+        selectable={true}
+        columns={[
+          {
+            key: "transactionId",
+            header: "Transactions ID",
+          },
 
-  {
-    key: "tenant",
-    header: "Tenant",
-  },
+          {
+            key: "tenant",
+            header: "Tenant",
+          },
 
-  {
-    key: "type",
-    header: "Type",
-    render: (row: any) => (
-      <span
-        className={`inline-flex items-center rounded-md px-3 py-1 text-xs font-medium ${
-          row.type === "Subscription"
-            ? "bg-[#ECE9FF] text-[#576CBC]"
-            : "bg-[#FDECEC] text-[#EF4444]"
-        }`}
-      >
-        {row.type}
-      </span>
-    ),
-  },
+          {
+            key: "type",
+            header: "Type",
+            render: (row: any) => (
+              <span
+                className={`inline-flex items-center rounded-md px-3 py-1 text-xs font-medium ${
+                  row.type === "Subscription"
+                    ? "bg-[#ECE9FF] text-[#576CBC]"
+                    : "bg-[#FDECEC] text-[#EF4444]"
+                }`}
+              >
+                {row.type}
+              </span>
+            ),
+          },
 
-  {
-    key: "amount",
-    header: "Amount",
-    render: (row: any) => (
-      <span className="font-medium text-[#344054]">
-        {row.amount}
-      </span>
-    ),
-  },
+          {
+            key: "amount",
+            header: "Amount",
+            render: (row: any) => (
+              <span className="font-medium text-[#344054]">{row.amount}</span>
+            ),
+          },
 
-  {
-    key: "paymentMethod",
-    header: "Payment Method",
-    render: (row: any) => (
-       
-        <span className="text-[#344054]">
-          {row.paymentMethod}
-        </span>
-    ),
-  },
+          {
+            key: "paymentMethod",
+            header: "Payment Method",
+            render: (row: any) => (
+              <span className="text-[#344054]">{row.paymentMethod}</span>
+            ),
+          },
 
-  {
-    key: "paymentDate",
-    header: "Payment Date",
-    render: (row: any) => (
-      <span className="text-[#2E62B8]">
-        {row.paymentDate}
-      </span>
-    ),
-  },
+          {
+            key: "paymentDate",
+            header: "Payment Date",
+            render: (row: any) => (
+              <span className="text-[#2E62B8]">{row.paymentDate}</span>
+            ),
+          },
 
-  {
-    key: "dueDate",
-    header: "Due Date",
-    render: (row: any) => (
-      <span className="text-[#2E62B8]">
-        {row.dueDate}
-      </span>
-    ),
-  },
+          {
+            key: "dueDate",
+            header: "Due Date",
+            render: (row: any) => (
+              <span className="text-[#2E62B8]">{row.dueDate}</span>
+            ),
+          },
 
-  {
-    key: "status",
-    header: "Payment Status",
-    render: (row: any) => (
-      <span
-        className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
-          row.status === "Paid"
-            ? "bg-[#E8F8EC] text-[#2E9E44]"
-            : row.status === "Refunded"
-            ? "bg-[#E7E5FF] text-[#576CBC]"
-            : "bg-[#FFF4DE] text-[#F59E0B]"
-        }`}
-      >
-        {row.status}
-      </span>
-    ),
-  },
+          {
+            key: "status",
+            header: "Payment Status",
+            render: (row: any) => (
+              <span
+                className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
+                  row.status === "Paid"
+                    ? "bg-[#E8F8EC] text-[#2E9E44]"
+                    : row.status === "Refunded"
+                      ? "bg-[#E7E5FF] text-[#576CBC]"
+                      : "bg-[#FFF4DE] text-[#F59E0B]"
+                }`}
+              >
+                {row.status}
+              </span>
+            ),
+          },
 
-  {
-    key: "action",
-    header: "Action",
-    align: "center",
-    render: () => (
-      <button className="rounded-md p-1 hover:bg-gray-100">
-        <MoreVertical
-          size={18}
-          className="text-[#667085]"
-        />
-      </button>
-    ),
-  },
-]
-}
-  data={data}
-/>
+          {
+            key: "action",
+            header: "Action",
+            align: "center",
+            render: (row: any) => (
+              <ActionDropdown
+                row={row}
+                items={[
+                  {
+                    label: "View",
+                    onClick: handleView,
+                  },
+                  {
+                    label: "Edit",
+                    onClick: handleEdit,
+                  },
+                ]}
+              />
+            ),
+          },
+        ]}
+        data={data}
+      />
     </div>
-  )
+  );
 }

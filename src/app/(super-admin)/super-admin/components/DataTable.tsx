@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import TableToolbar from "./TableToolbar";
+import Pagination from "./Pagination";
 
 interface Column<T> {
   key: keyof T | string;
@@ -14,6 +16,15 @@ interface Column<T> {
 }
 
 interface TableProps<T> {
+  heading?: string;
+  columns: Column<T>[];
+  data: T[];
+  selectable?: boolean;
+  loading?: boolean;
+  emptyMessage?: string;
+}
+
+interface TableProps<T> {
   columns: Column<T>[];
   data: T[];
   selectable?: boolean;
@@ -22,6 +33,7 @@ interface TableProps<T> {
 }
 
 export default function DataTable<T extends { id: string }>({
+  heading,
   columns,
   data,
   selectable = false,
@@ -29,6 +41,9 @@ export default function DataTable<T extends { id: string }>({
   emptyMessage = "No records found",
 }: TableProps<T>) {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+
 
   useEffect(() => {
     setSelectedRows((prev) =>
@@ -55,11 +70,31 @@ export default function DataTable<T extends { id: string }>({
   };
 
   return (
-    <div className="w-full overflow-hidden  shadow-sm">
+    <div className="w-full overflow-hidden">
+      {heading && (
+        <h2
+          className="mb-4 font-medium text-[#010E30E5]/90"
+          style={{
+            fontSize: "clamp(18px, 1.2vw, 20px)",
+            lineHeight: "1.4",
+          }}
+        >
+          {heading}
+        </h2>
+      )}{" "}
       <div className="w-full max-w-full overflow-x-auto">
         <div className="origin-top-left lg:scale-95 xl:scale-100">
+          <TableToolbar
+            search={search}
+            onSearchChange={setSearch}
+            total={data.length}
+            showing={data.length}
+            searchPlaceholder="Search By Keyword"
+            onFilterClick={() => console.log("Filter clicked")}
+          />
           <table className="w-full min-w-full border-separate border-spacing-0">
             {/* Header */}
+
             <thead className="sticky top-0 z-20 bg-[#566F97]">
               <tr
                 style={{
@@ -171,7 +206,7 @@ ${column.headerClassName ?? ""}
                     transition-colors
                     duration-200
                     hover:bg-[#F8FAFC]
-                    ${index % 2 === 0 ? "bg-white" : "bg-[#FCFCFD]"}
+                    ${index % 2 === 0 ? "bg-[#FFFFFF]" : "bg-[#F8F8F8]"}
                   `}
                   >
                     {selectable && (
@@ -251,7 +286,14 @@ ${column.className ?? ""}
             </tbody>
           </table>
         </div>
+        
       </div>
+       <Pagination
+      currentPage={page}
+      totalPages={10}
+      onPageChange={setPage}
+    />
     </div>
+    
   );
 }

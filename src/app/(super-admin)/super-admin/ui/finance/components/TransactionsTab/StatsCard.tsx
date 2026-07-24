@@ -72,7 +72,7 @@ const StatsCard = ({
           <p
             className="font-semibold text-[#232323]"
             style={{
-              fontSize: "clamp(20px, 1.8vw, 28px)",
+              fontSize: "clamp(18px, 1.8vw, 24px)",
               marginTop: "clamp(4px, 0.5vw, 8px)",
             }}
           >
