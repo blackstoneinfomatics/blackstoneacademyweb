@@ -131,7 +131,7 @@ ${column.headerClassName ?? ""}
                     style={{
                       width: column.width,
                       minWidth: column.minWidth ?? column.width,
-                      fontSize: "clamp(11px, 0.75vw, 13px)",
+                      fontSize: "clamp(12px, 0.75vw, 14px)",
                       padding: "clamp(8px, 0.8vw, 12px)",
                     }}
                   >
@@ -236,7 +236,7 @@ ${
 ${column.className ?? ""}
 `}
                         style={{
-                          fontSize: "clamp(11px, 0.75vw, 13px)",
+                          fontSize: "clamp(12px, 0.75vw, 14px)",
                           padding: "clamp(8px, 0.8vw, 12px)",
                         }}
                       >
