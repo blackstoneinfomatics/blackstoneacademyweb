@@ -11,7 +11,7 @@ import { TbAlertTriangleFilled } from "react-icons/tb";
 
 const transactionStats = [
   {
-    title: "Total Transactions",
+    title: "Total\nTransactions",
     value: 28,
     percentage: 14,
     isPositive: true,
@@ -20,7 +20,7 @@ const transactionStats = [
     titleColor: "text-[#5B4CF7]",
   },
   {
-    title: "Successful Transactions",
+    title: "Successful\nTransactions",
     value: 28,
     percentage: 14,
     isPositive: true,
@@ -29,7 +29,7 @@ const transactionStats = [
     titleColor: "text-[#36B24A]",
   },
   {
-    title: "Pending Transactions",
+    title: "Pending\nTransactions",
     value: 28,
     percentage: 14,
     isPositive: false,
@@ -38,7 +38,7 @@ const transactionStats = [
     titleColor: "text-[#F59E0B]",
   },
   {
-    title: "Failed Transactions",
+    title: "Failed\nTransactions",
     value: 10,
     percentage: 14,
     isPositive: false,

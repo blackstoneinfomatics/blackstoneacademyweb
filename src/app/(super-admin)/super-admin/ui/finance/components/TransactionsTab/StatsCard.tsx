@@ -60,9 +60,9 @@ const StatsCard = ({
 
         <div className="flex-1">
           <h3
-            className={`font-normal ${titleColor}`}
+            className={`whitespace-pre-line font-normal ${titleColor}`}
             style={{
-              fontSize: "clamp(13px, 1vw, 16px)",
+              fontSize: "clamp(14px, 1vw, 16px)",
               lineHeight: "1.4",
             }}
           >
@@ -84,7 +84,7 @@ const StatsCard = ({
             style={{
               gap: "clamp(6px,0.6vw,10px)",
               marginTop: "clamp(8px,0.8vw,12px)",
-              fontSize: "clamp(11px,0.8vw,14px)",
+              fontSize: "clamp(14px,0.8vw,16px)",
             }}
           >
             <span
