@@ -75,13 +75,10 @@ export default function TransactionTable() {
     key: "paymentMethod",
     header: "Payment Method",
     render: (row: any) => (
-      <div className="flex items-center gap-3">
        
-
         <span className="text-[#344054]">
           {row.paymentMethod}
         </span>
-      </div>
     ),
   },
 

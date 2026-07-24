@@ -47,39 +47,138 @@ const handleRowSelect = (id: string) => {
   );
 };
   return (
-   <div className="w-full overflow-hidden shadow-sm">
+  <div className="w-full rounded-lg border border-gray-200 bg-white shadow-sm">
   <div className="w-full overflow-x-auto">
-        <table className="w-full min-w-[1200px] border-separate border-spacing-0">
-          {/* Header */}
-          <thead className="sticky top-0 z-10">
-            <tr className="h-[48px] bg-[#566F97] ">
+    <table className="w-full min-w-max border-separate border-spacing-0">
+      {/* Header */}
+      <thead className="sticky top-0 z-20 bg-[#566F97]">
+        <tr className="h-12">
+          {selectable && (
+            <th className="sticky left-0 z-30 w-14 bg-[#566F97] px-3">
+              <div className="flex items-center justify-center">
+                <label className="relative flex h-5 w-5 cursor-pointer items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={handleSelectAll}
+                    className="peer sr-only"
+                  />
+
+                  <div
+                    className="
+                      h-5
+                      w-5
+                      rounded-md
+                      border-2
+                      border-white
+                      bg-[#566F97]
+                      transition-all
+                      peer-checked:bg-white
+                    "
+                  />
+
+                  <svg
+                    className="absolute hidden h-3 w-3 text-[#576CBC] peer-checked:block"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 6L9 17L4 12" />
+                  </svg>
+                </label>
+              </div>
+            </th>
+          )}
+
+          {columns.map((column) => (
+            <th
+              key={column.header}
+              style={{ width: column.width }}
+              className={`
+                bg-[#566F97]
+                px-3
+                py-3
+                text-xs
+                sm:text-sm
+                font-medium
+                text-white
+                whitespace-nowrap
+                ${
+                  column.align === "center"
+                    ? "text-center"
+                    : column.align === "right"
+                    ? "text-right"
+                    : "text-left"
+                }
+              `}
+            >
+              {column.header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+
+      {/* Body */}
+      <tbody>
+        {loading ? (
+          <tr>
+            <td
+              colSpan={columns.length + (selectable ? 1 : 0)}
+              className="py-16 text-center text-gray-500"
+            >
+              Loading...
+            </td>
+          </tr>
+        ) : data.length === 0 ? (
+          <tr>
+            <td
+              colSpan={columns.length + (selectable ? 1 : 0)}
+              className="py-16 text-center text-gray-500"
+            >
+              {emptyMessage}
+            </td>
+          </tr>
+        ) : (
+          data.map((row, index) => (
+            <tr
+              key={row.id}
+              className={`
+                border-b
+                border-[#F2F4F7]
+                transition-colors
+                hover:bg-[#F8FAFC]
+                ${index % 2 === 0 ? "bg-white" : "bg-[#FCFCFD]"}
+              `}
+            >
               {selectable && (
-                <th className="w-14 px-3">
+                <td className="sticky left-0 z-10 bg-inherit px-3 py-4">
                   <div className="flex items-center justify-center">
                     <label className="relative flex h-5 w-5 cursor-pointer items-center justify-center">
-<input
-  type="checkbox"
-  checked={allSelected}
-  onChange={handleSelectAll}
-  className="peer sr-only"
-/>
+                      <input
+                        type="checkbox"
+                        checked={isSelected(row.id)}
+                        onChange={() => handleRowSelect(row.id)}
+                        className="peer sr-only"
+                      />
+
                       <div
                         className="
-          h-5
-          w-5
-          rounded-[6px]
-          border-2
-          border-[#ffffff]
-          bg-[#566F97]
-          transition-all
-          duration-200
-          peer-checked:border-[#ffffff]
-          peer-checked:bg-[#ffffff]
-        "
+                          h-5
+                          w-5
+                          rounded-md
+                          border
+                          border-[#576CBC]
+                          bg-white
+                          transition-all
+                          peer-checked:bg-[#576CBC]
+                        "
                       />
 
                       <svg
-          className="absolute hidden h-3 w-3 text-[#576CBC] peer-checked:block"
+                        className="absolute hidden h-3 w-3 text-white peer-checked:block"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -91,144 +190,39 @@ const handleRowSelect = (id: string) => {
                       </svg>
                     </label>
                   </div>
-                </th>
+                </td>
               )}
 
               {columns.map((column) => (
-                <th
+                <td
                   key={column.header}
-                  style={{ width: column.width }}
                   className={`
-                px-3
-                py-3
-                text-[13px]
-                bg-[#566F97]
-border-0
-outline-none
-    shadow-none
-
-                font-medium
-                text-white
-                whitespace-nowrap
-                ${
-                  column.align === "center"
-                    ? "text-center"
-                    : column.align === "right"
-                      ? "text-right"
-                      : "text-left"
-                }
-              `}
-                >
-                  {column.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          {/* Body */}
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={columns.length + (selectable ? 1 : 0)}
-                  className="py-20 text-center text-gray-500"
-                >
-                  Loading...
-                </td>
-              </tr>
-            ) : data.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length + (selectable ? 1 : 0)}
-                  className="py-20 text-center text-gray-500"
-                >
-                  {emptyMessage}
-                </td>
-              </tr>
-            ) : (
-              data.map((row, index) => (
-                <tr
-                  key={row.id}
-                  className={`
-                h-[64px]
-                border-b
-                border-[#F2F4F7]
-                transition-all
-                hover:bg-[#F8FAFC]
-                ${index % 2 === 0 ? "bg-white" : "bg-[#FCFCFD]"}
-              `}
-                >
-                  {selectable && (
-                    <td className="px-3">
-                      <div className="flex items-center justify-center">
-                        <label className="relative flex h-5 w-5 cursor-pointer items-center justify-center">
-<input
-  type="checkbox"
-  checked={isSelected(row.id)}
-  onChange={() => handleRowSelect(row.id)}
-  className="peer sr-only"
-/>
-                          <div
-                            className="
-          h-5
-          w-5
-          rounded-[6px]
-          border
-          border-[#576CBC]
-          bg-white
-          transition-all
-          duration-200
-          peer-checked:border-[#576CBC]
-          peer-checked:bg-[#576CBC]
-        "
-                          />
-
-                          <svg
-  className="absolute hidden h-3 w-3 text-white peer-checked:block"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M20 6L9 17L4 12" />
-                          </svg>
-                        </label>
-                      </div>
-                    </td>
-                  )}
-
-                  {columns.map((column) => (
-                    <td
-                      key={column.header}
-                      className={`
                     px-3
-                    py-3
-                    text-[14px]
-                    font-normal
-                    text-[#010E30E5]/90
+                    py-4
+                    text-sm
+                    text-[#010E30E5]
+                    align-middle
                     whitespace-nowrap
                     ${
                       column.align === "center"
                         ? "text-center"
                         : column.align === "right"
-                          ? "text-right"
-                          : "text-left"
+                        ? "text-right"
+                        : "text-left"
                     }
                   `}
-                    >
-                      {column.render
-                        ? column.render(row)
-                        : (row[column.key as keyof T] as React.ReactNode)}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                >
+                  {column.render
+                    ? column.render(row)
+                    : (row[column.key as keyof T] as React.ReactNode)}
+                </td>
+              ))}
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
   );
 }
