@@ -105,38 +105,49 @@ export default function DataTable<T extends { id: string }>({
                 </th>
               )}
 
-              {columns.map((column) => (
-                <th
-                  key={column.header}
-                  style={{
-                    width: column.width,
-                    minWidth: column.minWidth ?? column.width,
-                  }}
-                  className={`
-                    bg-[#566F97]
-                    px-3
-                    lg:px-4
-                    py-3
-                    text-xs
-                    sm:text-sm
-                    lg:text-[12px]
-                    xl:text-[13px]
-                    font-medium
-                    text-white
-                    whitespace-nowrap
-                    ${
-                      column.align === "center"
-                        ? "text-center"
-                        : column.align === "right"
-                        ? "text-right"
-                        : "text-left"
-                    }
-                    ${column.headerClassName ?? ""}
-                  `}
-                >
-                  {column.header}
-                </th>
-              ))}
+            {columns.map((column, index) => {
+  const isLast = index === columns.length - 1;
+
+  return (
+    <th
+      key={column.header}
+      style={{
+        width: column.width,
+        minWidth: column.minWidth ?? column.width,
+      }}
+      className={`
+        bg-[#566F97]
+        px-3
+        lg:px-4
+        py-3
+        text-xs
+        sm:text-sm
+        lg:text-[12px]
+        xl:text-[13px]
+        font-medium
+        text-white
+        whitespace-nowrap
+        ${
+          column.align === "center"
+            ? "text-center"
+            : column.align === "right"
+            ? "text-right"
+            : "text-left"
+        }
+
+        ${
+          isLast
+            ? "sticky right-0 z-30 bg-[#566F97] shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.12)]"
+            : ""
+        }
+
+        ${column.headerClassName ?? ""}
+      `}
+    >
+      {column.header}
+    </th>
+  );
+})}
             </tr>
           </thead>
 
@@ -218,36 +229,48 @@ export default function DataTable<T extends { id: string }>({
                     </td>
                   )}
 
-                  {columns.map((column) => (
-                    <td
-                      key={column.header}
-                      className={`
-                        px-3
-                        lg:px-4
-                        py-3
-                        lg:py-4
-                        text-xs
-                        sm:text-sm
-                        lg:text-[12px]
-                        xl:text-[13px]
-                        text-[#010E30E5]
-                        align-middle
-                        whitespace-nowrap
-                        ${
-                          column.align === "center"
-                            ? "text-center"
-                            : column.align === "right"
-                            ? "text-right"
-                            : "text-left"
-                        }
-                        ${column.className ?? ""}
-                      `}
-                    >
-                      {column.render
-                        ? column.render(row)
-                        : (row[column.key as keyof T] as React.ReactNode)}
-                    </td>
-                  ))}
+             {columns.map((column, index) => {
+  const isLast = index === columns.length - 1;
+
+  return (
+    <td
+      key={column.header}
+      className={`
+        px-3
+        lg:px-4
+        py-3
+        lg:py-4
+        text-xs
+        sm:text-sm
+        lg:text-[12px]
+        xl:text-[13px]
+        text-[#010E30E5]
+        whitespace-nowrap
+        align-middle
+
+        ${
+          column.align === "center"
+            ? "text-center"
+            : column.align === "right"
+            ? "text-right"
+            : "text-left"
+        }
+
+        ${
+          isLast
+            ? "sticky right-0 z-10 bg-inherit shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]"
+            : ""
+        }
+
+        ${column.className ?? ""}
+      `}
+    >
+      {column.render
+        ? column.render(row)
+        : (row[column.key as keyof T] as React.ReactNode)}
+    </td>
+  );
+})}
                 </tr>
               ))
             )}
