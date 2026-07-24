@@ -51,31 +51,14 @@ const SignIn: React.FC = () => {
   }, [error]);
 
   const signIn = async (username: string, password: string) => {
-    try {
-      const url = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.LOGIN}`;
-      const payload = {
-        username,
-        password,
-      };
-      // Request payload prepared for submission.
+    const url = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.LOGIN}`;
+    const payload = {
+      username,
+      password,
+    };
 
-      const response = await axios.post(url, payload);
-      // Received response from server.
-
-      if (response.status === 200) {
-        return response.data;
-      }
-
-      throw new Error("Unexpected error occurred");
-    } catch (error: any) {
-      // Error handled below.
-
-      if (error.response && error.response.status === 404) {
-        throw new Error("Email not found");
-      }
-
-      throw new Error(error.message || "Login failed");
-    }
+    const response = await axios.post(url, payload);
+    return response.data;
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -85,22 +68,35 @@ const SignIn: React.FC = () => {
 
     try {
       const data = await signIn(username1, password);
-      const { accessToken, role, _id, username } = data;
+      const { accessToken, role, _id } = data;
+      const portalName: string = data.userName ?? data.username ?? "";
       const userEmail: string = data.email ?? data.userEmail ?? "";
-
-      const course = data.student.course || data.student.courseName || (Array.isArray(data.student.courses) ? data.student.courses[0] : "");
+      const tenantId: string | null = data.tenantId ?? null;
+      const tenantCode: string | null = data.tenantJobCode ?? data.tenantCode ?? null;
 
       localStorage.setItem("SuperAdminAuthToken", accessToken);
       localStorage.setItem("SuperAdminPortalId", _id);
-      localStorage.setItem("SuperAdmincourseName", course);
-      localStorage.setItem("SuperAdminPortalName", username);
-      localStorage.setItem("SuperAdminPackage", data.student.package);
+      localStorage.setItem("SuperAdminPortalName", portalName);
       localStorage.setItem("SuperAdminPortalEmail", userEmail);
       localStorage.setItem("SuperAdminRole", role);
-      // localStorage saved for authenticated session.
-      if (role?.includes("Student")) {
-        router.push("/super-admin/dashboard");
+      if (!/SUPER[_\s-]*ADMIN/i.test(String(role ?? ""))) {
+        const permissionMessage = "Only Super Admin users are allowed to log in.";
+        toast.error(permissionMessage);
+        setError(permissionMessage);
+        return;
       }
+      if (tenantId) {
+        localStorage.setItem("tenantId", tenantId);
+      }
+      if (tenantCode) {
+        localStorage.setItem("tenantCode", tenantCode);
+      }
+      // localStorage saved for authenticated session.
+      router.push(
+        tenantId
+          ? `/super-admin/ui/dashboard?tenantId=${tenantId}`
+          : "/super-admin/ui/dashboard"
+      );
     } catch (error: any) {
       if (error.response) {
         const { status, data } = error.response;
@@ -233,6 +229,12 @@ const SignIn: React.FC = () => {
         localStorage.setItem("SuperAdminPortalName", portalName);
         localStorage.setItem("SuperAdminPackage", result.data.package);
         localStorage.setItem("SuperAdmincourseName", course);
+        if (result.data.tenantId) {
+          localStorage.setItem("tenantId", result.data.tenantId);
+        }
+        if (result.data.tenantJobCode || result.data.tenantCode) {
+          localStorage.setItem("tenantCode", result.data.tenantJobCode ?? result.data.tenantCode);
+        }
         console.log("superAdmin sign-in localStorage:", {
           SuperAdminAuthToken: result.data.accessToken,
           SuperAdminPortalId: result.data.id,
@@ -241,7 +243,11 @@ const SignIn: React.FC = () => {
           SuperAdmincourseName: course,
           FullData: result.data // Log full object
         });
-        router.push("/super-admin/dashboard");
+        router.push(
+          result.data.tenantId
+            ? `/super-admin/ui/dashboard?tenantId=${result.data.tenantId}`
+            : "/super-admin/ui/dashboard"
+        );
       } else {
         toast.error(AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL);
         setError(AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL);
@@ -344,6 +350,55 @@ const SignIn: React.FC = () => {
     />
   </div>
 
+  {/* Slide carousel */}
+  <div className="pb-2">
+    <AnimatePresence mode="wait">
+      <motion.p
+        key={currentIndex}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.4 }}
+        className="min-h-[48px] text-center text-[15px] font-medium text-[#374151]"
+      >
+        {slides[currentIndex].text}
+      </motion.p>
+    </AnimatePresence>
+
+    <div className="mt-4 flex items-center justify-center gap-4">
+      <button
+        type="button"
+        onClick={() =>
+          setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length)
+        }
+        className="flex h-6 w-6 items-center justify-center text-[#8C9AD6] transition hover:text-[#5575F6]"
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      <div className="flex items-center gap-2">
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setCurrentIndex(i)}
+            className={`h-2 rounded-full transition-all ${
+              i === currentIndex ? "w-4 bg-[#5575F6]" : "w-2 bg-[#C7D0FA]"
+            }`}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setCurrentIndex((prev) => (prev + 1) % slides.length)}
+        className="flex h-6 w-6 items-center justify-center text-[#8C9AD6] transition hover:text-[#5575F6]"
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  </div>
+
 </div>
 {/* ================= RIGHT SIDE ================= */}
 
@@ -374,6 +429,7 @@ const SignIn: React.FC = () => {
           type="text"
           required
           autoComplete="username"
+          suppressHydrationWarning
           value={username1}
           onChange={(e) => setUsername1(e.target.value)}
           placeholder="Enter your username"
@@ -389,6 +445,7 @@ const SignIn: React.FC = () => {
           <input
             type={showPassword ? "text" : "password"}
             id="password"
+            suppressHydrationWarning
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"

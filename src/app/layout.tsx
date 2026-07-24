@@ -22,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={poppins.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={poppins.className} suppressHydrationWarning>
         <ApiSetupInitializer />
         <ThemeProvider>
           <GoogleOAuthProvider clientId="672400357916-n7nem2lvccl389dtpg50guj2i6gdsl8t.apps.googleusercontent.com">
