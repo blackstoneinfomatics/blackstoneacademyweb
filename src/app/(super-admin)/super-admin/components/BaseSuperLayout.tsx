@@ -45,7 +45,7 @@ const SuperSidebarItems = [
   },
   {
     name: "Users & Roles",
-    href: "/super-admin/ui/usersroles",
+    href: "/super-admin/ui/users&roles",
     icon: FaUsers,
   },
   {
