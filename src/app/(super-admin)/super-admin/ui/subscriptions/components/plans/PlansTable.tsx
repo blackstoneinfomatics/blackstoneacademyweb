@@ -3,116 +3,170 @@
 import React, { useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiPoliceBadgeFill } from "react-icons/ri";
+import {
+  Search,
+  SlidersHorizontal,
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
 
 
-const recentItems = [
+const plans = [
   {
-    planName: "Blackstone Academy",
-    price: "John Doe",
-    billingCycle: "Premium",
-    CreatedDate: "2026-12-31",
-    features: 250,
-    subscribedTenants: 250,
-    status: "Active",
+    name: "Basic",
+    price: "$ 8,500",
+    billing: "Monthly",
+    date: "Sep, 12 2023",
+    features: 10,
+    tenants: 15,
   },
   {
-    planName: "Srashtalk",
-    price: "Sarah Ali",
-    billingCycle: "Basic",
-    CreatedDate: "2026-10-15",
-    features: 120,
-    subscribedTenants: 120,
-    status: "Expired",
+    name: "Standard",
+    price: "9,500",
+    billing: "Monthly",
+    date: "Sep, 12 2023",
+    features: 10,
+    tenants: 15,
   },
   {
-    planName: "Zotal AI",
-    price: "Rahul Kumar",
-    billingCycle: "Premium",
-    CreatedDate: "2027-01-20",
-    features: 500,
-    subscribedTenants: 500,
-    status: "Active",
+    name: "Premium",
+    price: "12,500",
+    billing: "Monthly",
+    date: "Sep, 12 2023",
+    features: 10,
+    tenants: 15,
+  },
+  {
+    name: "Basic",
+    price: "8,500",
+    billing: "Monthly",
+    date: "Sep, 12 2023",
+    features: 10,
+    tenants: 15,
+  },
+  {
+    name: "Standard",
+    price: "8,500",
+    billing: "Monthly",
+    date: "Sep, 12 2023",
+    features: 10,
+    tenants: 15,
   },
 ];
 
-export default function PlansTable() {
-  const [openMenu, setOpenMenu] = useState<number | null>(null);
+const badgeColors: Record<string, string> = {
+  Basic: "bg-cyan-100 text-cyan-600",
+  Standard: "bg-blue-100 text-blue-600",
+  Premium: "bg-indigo-100 text-indigo-600",
+};
+
+const PlansTable = () => {
+
+    const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-
   return (
-    <>
-      <div className="bg-white rounded-xl shadow-lg dark:bg-[#343434]">
-        <h2 className="text-[19px] font-semibold text-[#000] dark:text-[#fff] mb-0 px-5 py-3">
-          Plan
-        </h2>
+    <div className="w-full">
+      {/* Title */}
+      <h2 className="mb-4 text-[30px] font-semibold text-[#1F2A44]">Plan</h2>
 
-        <div className="overflow-x-auto scrollbar-none h-full">
-          <div className="h-[380px] rounded-b-xl scrollbar-none">
-            <table className="min-w-full text-xs border-collapse table-fixed">
-              <thead className="text-[13px] bg-[#4C6993] text-white dark:bg-[#44699d]">
-                <tr>
-                  {[
-                    "Plan Name",
-                    "Price",
-                    "Billing Cycle",
-                    "Created Date",
-                    "Features",
-                    "Subscribed Tenants",
-                    "Status",
-                    "Action",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="py-4 px-2 font-semibold text-left border border-[#466993]"
+      {/* Card */}
+      <div className="overflow-hidden rounded-lg border border-[#E6EAF2] bg-white">
+        {/* Top Bar */}
+        <div className="grid grid-cols-3 border-b border-[#E6EAF2]">
+          {/* Search */}
+          <div className="flex h-12 items-center border-r border-[#E6EAF2] px-4">
+            <Search size={17} className="text-[#A5AAB4]" />
+            <input
+              type="text"
+              placeholder="Search by keyword"
+              className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4]"
+            />
+          </div>
+
+          {/* Filter */}
+          <button className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal size={16} />
+              Filter
+            </div>
+
+            <ChevronDown size={16} />
+          </button>
+
+          {/* Count */}
+          <div className="flex h-12 items-center px-4 text-sm text-[#80848E]">
+            Showing 10 Of 50
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="h-10 bg-[#496A96] text-left text-[13px] font-medium text-white">
+                <th className="px-4">Plan Name</th>
+                <th className="px-4">Price</th>
+                <th className="px-4">Billing Cycle</th>
+                <th className="px-4">Created Date</th>
+                <th className="px-4">Features</th>
+                <th className="px-4">Subscribed Tenants</th>
+                <th className="px-4">Status</th>
+                <th className="px-4 text-center">Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {plans.map((item, index) => (
+                <tr
+                  key={index}
+                  className={`text-[12px] ${
+                              index % 2 === 0
+                                ? "bg-[#fff] dark:bg-[#2C2C2C] "
+                                : "bg-[#F8F8F8] dark:bg-[#303030]"
+                            }`}
+                >
+                  <td className="px-4 py-5">
+                    <span
+                      className={`rounded-md px-3 py-1 text-xs font-medium ${
+                        badgeColors[item.name]
+                      }`}
                     >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+                      {item.name}
+                    </span>
+                  </td>
 
-              <tbody>
-                {recentItems.map((item, index) => (
-                  <tr
-                    key={index}
-                    className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff]"
-                  >
-                    <td className="py-4 px-2">{item.planName}</td>
-                    <td className="py-4 px-2">{item.price}</td>
-                    <td className="py-4 px-2">{item.billingCycle}</td>
-                    <td className="py-4 px-2">{item.CreatedDate}</td>
-                    <td className="py-4 px-2">{item.features}</td>
-                    <td className="py-4 px-2">{item.subscribedTenants}</td>
-                    <td className="py-4 px-2">
-                      <span
-                        className={`px-2 text-[12px] py-[3px] rounded-md ${
-                          item.status === "Active"
-                            ? "bg-[#E4F4E8] text-[#40BD5F]"
-                            : item.status === "Expired"
-                              ? "bg-[#F6E0E0] text-[#EA4F4F]"
-                              : "bg-[#F6EcDC] text-[#EFA133]"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
+                  <td className="px-4">{item.price}</td>
 
-                    <td className="py-4 px-2 relative">
-                      <button
-                        onClick={() =>
+                  <td className="px-4">{item.billing}</td>
+
+                  <td className="px-4 text-[#4D74AE]">{item.date}</td>
+
+                  <td className="px-4">{item.features}</td>
+
+                  <td className="px-4">{item.tenants}</td>
+
+                  <td className="px-4">
+                    <span className="rounded-md bg-[#EAF8EC] px-3 py-1 text-xs font-medium text-[#34A853]">
+                      Active
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-4 relative">
+                    <div className="flex justify-center">
+                      <button className="rounded-md p-1 hover:bg-gray-100" onClick={() =>
                           setOpenMenu(openMenu === index ? null : index)
-                        }
-                        className="p-2 rounded-md hover:bg-gray-200"
-                      >
-                        <BsThreeDotsVertical size={16} />
+                        }>
+                        <MoreVertical size={18} className="text-[#6B7280]" />
                       </button>
 
                       {openMenu === index && (
                         <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
                           <button
-                            className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
+                            className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
                             onClick={() => {
                               setSelectedPlan(item);
                               setShowModal(true);
@@ -134,13 +188,27 @@ export default function PlansTable() {
                           </button>
                         </div>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      </div>
+      <div className="flex justify-end gap-2 px-4 py-3">
+        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50">
+          <ChevronLeft size={18} />
+        </button>
+
+        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#496A96] bg-white font-medium text-[#496A96]">
+          1
+        </button>
+
+        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50">
+          <ChevronRight size={18} />
+        </button>
       </div>
 
       {/* Modal */}
@@ -465,6 +533,9 @@ export default function PlansTable() {
           </div>
         </div>
       )}
-    </>
+
+    </div>
   );
-}
+};
+
+export default PlansTable;

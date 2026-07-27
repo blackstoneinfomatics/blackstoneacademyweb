@@ -33,7 +33,7 @@ const cards = [
     trend: "Subscribed Tenants",
   },
   {
-    title: "Expiring this month",
+    title: "Overdue Invoices",
     value: "$2,500",
     icon: GoAlertFill,
     iconBg: "bg-[#F8E4E4]",

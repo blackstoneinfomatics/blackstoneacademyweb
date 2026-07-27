@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { MdError } from "react-icons/md";
+import { Check, Info, ShieldCheck } from "lucide-react";
+import { PiInfoFill } from "react-icons/pi";
 
 type Props = {
   readonly onClose: () => void;
@@ -24,6 +27,69 @@ const features = [
   "Notification",
   "Inventory",
 ];
+
+const roles = [
+  "Admin",
+  "Supervisor",
+  "Academic Coach",
+  "Teacher",
+  "Student",
+] as const;
+
+type Role = (typeof roles)[number];
+
+const permissions = [
+  "Attendance",
+  "Dashboard",
+  "Reports",
+  "Fees",
+  "Exams",
+  "Library",
+  "Transport",
+  "Student Management",
+  "Staff",
+  "Parent Portal",
+  "Notification",
+  "Inventory",
+];
+
+const permissionsByRole: Record<Role, string[]> = {
+  Admin: permissions,
+  Supervisor: [
+    "Attendance",
+    "Dashboard",
+    "Reports",
+    "Fees",
+    "Exams",
+    "Student Management",
+    "Staff",
+    "Notification",
+  ],
+  "Academic Coach": [
+    "Attendance",
+    "Dashboard",
+    "Reports",
+    "Exams",
+    "Student Management",
+    "Notification",
+  ],
+  Teacher: [
+    "Attendance",
+    "Dashboard",
+    "Exams",
+    "Library",
+    "Student Management",
+    "Notification",
+  ],
+  Student: [
+    "Dashboard",
+    "Exams",
+    "Library",
+    "Transport",
+    "Parent Portal",
+    "Notification",
+  ],
+};
 
 const variants = {
   initial: (direction: number) => ({
@@ -53,6 +119,43 @@ const variants = {
 const CreatePlan = ({ onClose }: Props) => {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
+
+  const [activeRole, setActiveRole] = useState<Role>("Admin");
+
+  const [selectedPermissions, setSelectedPermissions] = useState<
+    Record<Role, string[]>
+  >({
+    Admin: [],
+    Supervisor: [],
+    "Academic Coach": [],
+    Teacher: [],
+    Student: [],
+  });
+
+  const togglePermission = (permission: string) => {
+    setSelectedPermissions((prev) => {
+      const current = prev[activeRole];
+
+      return {
+        ...prev,
+        [activeRole]: current.includes(permission)
+          ? current.filter((p) => p !== permission)
+          : [...current, permission],
+      };
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedPermissions((prev) => ({
+      ...prev,
+      [activeRole]:
+        prev[activeRole].length === permissionsByRole[activeRole].length
+          ? []
+          : permissionsByRole[activeRole],
+    }));
+  };
+
+  const activePermissions = permissionsByRole[activeRole];
 
   const next = () => {
     setDirection(1);
@@ -97,45 +200,48 @@ const CreatePlan = ({ onClose }: Props) => {
           </button>
         </div>
         {/* Stepper */}
-        <div className="px-8 pt-6">
-          <div className="flex items-center">
-            {steps.map((item, index) => (
-              <React.Fragment key={item}>
-                <div className="flex items-center justify-center flex-shrink-0">
-                  <motion.div
-                    animate={{
-                      backgroundColor:
-                        step >= index + 1 ? "#576CBC" : "#D4D4D4",
-                      color: step >= index + 1 ? "#FFFFFF" : "#5E5E5E",
-                      scale: step === index + 1 ? 1.15 : 1,
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 260,
-                      damping: 18,
-                    }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
-                  >
-                    {item}
-                  </motion.div>
-                </div>
+        <div className="px-5 pt-4 pb-6">
+          {/* Circles */}
+          <div className="grid grid-cols-4 place-items-center">
+            {steps.map((item) => (
+              <motion.div
+                key={item}
+                animate={{
+                  backgroundColor: step >= item ? "#576CBC" : "#D9D9D9",
+                  color: step >= item ? "#fff" : "#555",
+                }}
+                transition={{ duration: 0.25 }}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-base font-semibold"
+              >
+                {item}
+              </motion.div>
+            ))}
+          </div>
 
-                {index !== steps.length - 1 && (
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      backgroundColor: step > index + 1 ? "#576CBC" : "#D4D4D4",
-                    }}
-                    transition={{ duration: 0.45, ease: "easeInOut" }}
-                    className="flex-1 h-[2px]"
-                  />
-                )}
-              </React.Fragment>
+          {/* Progress Bars */}
+          <div className="grid grid-cols-4 gap-1 mt-2">
+            {steps.map((item) => (
+              <div
+                key={item}
+                className="h-[5px] rounded-full bg-[#D9D9D9] overflow-hidden"
+              >
+                <motion.div
+                  initial={false}
+                  animate={{
+                    width: step >= item ? "100%" : "0%",
+                  }}
+                  transition={{
+                    duration: 0.35,
+                    ease: "easeInOut",
+                  }}
+                  className="h-full bg-[#576CBC] rounded-full"
+                />
+              </div>
             ))}
           </div>
         </div>
         {/* Body */}
-        <div className="p-6 min-h-[430px] overflow-hidden">
+        <div className="p-4 px-6 min-h-[430px] overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={step}
@@ -152,9 +258,7 @@ const CreatePlan = ({ onClose }: Props) => {
                 <div className="gap-5 w-full">
                   {/* Header */}
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold">
-                      Basic Information
-                    </h2>
+                    <h2 className="text-lg font-semibold">Basic Information</h2>
                   </div>
 
                   <div className="grid grid-cols-2 gap-5">
@@ -165,24 +269,26 @@ const CreatePlan = ({ onClose }: Props) => {
                       transition={{ delay: 0.1 }}
                       className="col-span-2"
                     >
-                      <label className="block text-sm font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] font-medium mb-2">
                         Plan Name
                       </label>
 
                       <input
                         placeholder="Premium Plus"
-                        className="w-full h-8 text-xs rounded-lg border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC]"
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
                       />
                     </motion.div>
 
                     {/* Role */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] font-medium mb-2">
                         Role
                       </label>
 
-                      <select className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2">
+                      <select className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 focus:border-[#576CBC] outline-none">
                         <option>Admin</option>
+                        <option>Academic Coach</option>
+                        <option>Supervisor</option>
                         <option>Teacher</option>
                         <option>Student</option>
                       </select>
@@ -190,19 +296,21 @@ const CreatePlan = ({ onClose }: Props) => {
 
                     {/* Student Limit */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] font-medium mb-2">
                         Student Limit
                       </label>
 
-                      <select className="w-full h-8 text-xs rounded-lg border border-[#D4D4D4] px-2">
+                      <select className="w-full h-8 text-xs rounded-lg border border-[#D4D4D4] px-2 focus:border-[#576CBC] outline-none">
                         <option>1 - 100</option>
                         <option>100 - 300</option>
+                        <option>300 - 600</option>
+                        <option>600 - 1000</option>
                       </select>
                     </div>
 
                     {/* Billing Cycle */}
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium mb-3">
+                      <label className="block text-sm text-[#010E30] font-medium mb-3">
                         Billing Cycle
                       </label>
 
@@ -211,7 +319,7 @@ const CreatePlan = ({ onClose }: Props) => {
                           (item) => (
                             <label
                               key={item}
-                              className="h-8 border border-[#D4D4D4] rounded-sm flex items-center px-2 gap-2 cursor-pointer hover:border-[#576CBC]"
+                              className="h-8 border border-[#D4D4D4] rounded-sm text-[#343e59] flex items-center px-2 gap-2 cursor-pointer hover:border-[#576CBC] focus:border-[#576CBC] outline-none"
                             >
                               <input
                                 type="radio"
@@ -227,34 +335,35 @@ const CreatePlan = ({ onClose }: Props) => {
 
                     {/* Description */}
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] font-medium mb-2">
                         Plan Description
                       </label>
 
                       <textarea
                         placeholder="Advanced plan for growing institutions with all essential features."
-                        className="w-full rounded-sm border border-[#D4D4D4] p-2 text-xs resize-none"
+                        className="w-full rounded-sm border border-[#D4D4D4] p-2 text-xs resize-none placeholder:text-[#343e59] focus:border-[#576CBC] outline-none"
                       />
                     </div>
 
                     {/* Status */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] font-medium mb-2">
                         Status
                       </label>
 
-                      <select className="w-full h-8 rounded-lg border border-[#D4D4D4] px-2 text-xs">
+                      <select className="w-full h-8 rounded-lg border border-[#D4D4D4] px-2 text-xs focus:border-[#576CBC] outline-none">
                         <option>Active</option>
+                        <option>In Active</option>
                       </select>
                     </div>
 
                     {/* Plan Status */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] font-medium mb-2">
                         Plan Status
                       </label>
 
-                      <select className="w-full h-8 rounded-lg border border-[#D4D4D4] px-2 text-xs">
+                      <select className="w-full h-8 rounded-lg border border-[#D4D4D4] px-2 text-xs focus:border-[#576CBC] outline-none">
                         <option>Most Popular</option>
                       </select>
                     </div>
@@ -263,109 +372,266 @@ const CreatePlan = ({ onClose }: Props) => {
               )}
               {/* STEP 2 */}
               {step === 2 && (
-                <div className="grid grid-cols-2 gap-5">
-                  <div>
-                    <label>Monthly Price</label>
-                    <input
-                      className="mt-2 w-full border rounded-md px-3 py-2"
-                      placeholder="$344"
-                    />
+                <div className="gap-5 w-full">
+                  {/* Header */}
+                  <div className="mb-6">
+                    <h2 className="text-lg font-semibold">
+                      Pricing Configuration
+                    </h2>
                   </div>
+                  <div className="grid grid-cols-2 gap-5">
+                    <div>
+                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                        Monthly Price
+                      </label>
+                      <input
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        placeholder="$344"
+                      />
+                    </div>
 
-                  <div>
-                    <label>Yearly Price</label>
-                    <input
-                      className="mt-2 w-full border rounded-md px-3 py-2"
-                      placeholder="$2444"
-                    />
-                  </div>
+                    <div>
+                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                        Yearly Price
+                      </label>
+                      <input
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        placeholder="$2444"
+                      />
+                    </div>
 
-                  <div>
-                    <label>Setup Fee</label>
-                    <input
-                      className="mt-2 w-full border rounded-md px-3 py-2"
-                      placeholder="$3"
-                    />
-                  </div>
+                    <div>
+                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                        Setup Fee
+                      </label>
+                      <input
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        placeholder="$3"
+                      />
+                    </div>
 
-                  <div>
-                    <label>Free Trial Days</label>
-                    <input
-                      className="mt-2 w-full border rounded-md px-3 py-2"
-                      placeholder="14"
-                    />
-                  </div>
+                    <div>
+                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                        Free Trial Days
+                      </label>
+                      <input
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        placeholder="14"
+                      />
+                    </div>
 
-                  <div className="col-span-2">
-                    <label>GST / Tax</label>
-                    <input
-                      className="mt-2 w-full border rounded-md px-3 py-2"
-                      placeholder="18%"
-                    />
-                  </div>
+                    <div className="col-span-2">
+                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                        GST / Tax
+                      </label>
+                      <input
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        placeholder="18%"
+                      />
+                    </div>
 
-                  <div className="col-span-2 border border-dashed rounded-lg p-10 text-center text-gray-500">
-                    Upload PDF / JPG / PNG
+                    <div className="col-span-2 flex gap-2 bg-[#E5EBFF] border border-dashed rounded-lg p-6 mt-6 text-center text-[#010E30]">
+                      <MdError size={23} color="#576CBC" />
+                      Accepted formats: PDF, JPG, PNG (Max size: 5MB each)
+                    </div>
                   </div>
                 </div>
               )}
               {/* STEP 3 */}
               {step === 3 && (
-                <div className="grid grid-cols-3 gap-4">
-                  {features.map((feature, index) => (
-                    <motion.label
-                      key={feature}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        delay: index * 0.05,
-                      }}
-                      whileHover={{ x: 5 }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <input type="checkbox" />
-                      {feature}
-                    </motion.label>
-                  ))}
+                <div>
+                  <h2 className="text-lg font-semibold mb-5">Feature Access</h2>
+
+                  {/* Tabs */}
+                  <div className="flex gap-3 mb-5 overflow-x-auto scrollbar-none">
+                    {roles.map((role) => (
+                      <button
+                        key={role}
+                        onClick={() => setActiveRole(role)}
+                        className={`px-5 h-11 rounded-xl whitespace-nowrap text-sm font-medium transition-all ${
+                          activeRole === role
+                            ? "bg-[#E9EDFF] text-[#576CBC]"
+                            : "text-[#010E30]"
+                        }`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Permission Box */}
+                  <div className="border border-[#D4D4D4] rounded-xl p-5">
+                    {/* Select All */}
+                    <label className="flex items-center gap-2 mb-7 cursor-pointer">
+                      <span className="relative flex h-4 w-4 items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedPermissions[activeRole].length ===
+                            activePermissions.length
+                          }
+                          onChange={toggleSelectAll}
+                          className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+                        />
+
+                        <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
+                          <svg
+                            viewBox="0 0 16 16"
+                            className="h-3 w-3"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path
+                              d="M3.5 8.5L6.5 11.5L12.5 4.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      </span>
+
+                      <span className="text-sm text-[#010E30]">Select All</span>
+                    </label>
+
+                    {/* Permissions */}
+                    <div className="grid grid-cols-3 gap-y-7">
+                      {activePermissions.map((permission) => (
+                        <label
+                          key={permission}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <span className="relative flex h-4 w-4 items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedPermissions[activeRole].includes(
+                                permission,
+                              )}
+                              onChange={() => togglePermission(permission)}
+                              className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+                            />
+
+                            <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
+                              <svg
+                                viewBox="0 0 16 16"
+                                className="h-3 w-3"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path
+                                  d="M3.5 8.5L6.5 11.5L12.5 4.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </span>
+                          </span>
+
+                          <span className="text-sm text-[#010E30]">
+                            {permission}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
               {/* STEP 4 */}
               {step === 4 && (
                 <motion.div
-                  initial={{
-                    opacity: 0,
-                    scale: 0.9,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    scale: 1,
-                  }}
-                  transition={{
-                    duration: 0.45,
-                    delay: 0.2,
-                  }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4 }}
                 >
-                  <div className="max-w-xl mx-auto border rounded-xl p-5">
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg text-white p-5">
-                      <h3 className="text-2xl font-bold">Premium Plus</h3>
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-[#010E30]">
+                      Plan Preview
+                    </h2>
 
-                      <p className="mt-3 text-4xl font-bold">
-                        $344
-                        <span className="text-base font-normal"> / month</span>
-                      </p>
+                    <span className="bg-[#E9F9EE] text-[#3D9A57] text-sm font-medium px-4 py-2 rounded-lg">
+                      Live Preview
+                    </span>
+                  </div>
 
-                      <span className="mt-3 inline-block bg-white/20 px-3 py-1 rounded-full text-xs">
-                        Billed Monthly
+                  {/* Plan Card */}
+                  <div className="relative rounded-xl overflow-hidden bg-gradient-to-r from-[#7352F6] to-[#5D44F0] text-white p-3">
+                    {/* Badge */}
+                    <div className="absolute top-4 right-4 bg-[#EDE9FE] rounded-sm px-2 py-1 flex items-center gap-2">
+                      <div className="w-[15px] h-[15px] rounded-[2px] p-0.5 bg-[#DDD6FD] flex items-center justify-center">
+                        <svg
+                          width="100"
+                          height="90"
+                          viewBox="0 0 120 140"
+                          fill="none"
+                        >
+                          {/* Shield */}
+                          <path
+                            d="M60 0
+         C70 12 92 20 108 24
+         V72
+         C108 102 84 122 60 140
+         C36 122 12 102 12 72
+         V24
+         C28 20 50 12 60 0Z"
+                            fill="#5A6FCB"
+                          />
+
+                          {/* Star */}
+                          <path
+                            d="M60 38
+         L68 58
+         L90 60
+         L74 74
+         L79 96
+         L60 84
+         L41 96
+         L46 74
+         L30 60
+         L52 58
+         Z"
+                            fill="#EAE7F7"
+                          />
+                        </svg>
+                      </div>
+                      <span className="text-[#576CBC] text-[12px] font-medium">
+                        Most Popular
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mt-6">
-                      {features.slice(0, 10).map((item) => (
-                        <div key={item} className="text-sm">
-                          ✅ {item}
-                        </div>
-                      ))}
+                    <h2 className="text-2xl font-bold">Premium Plus</h2>
+
+                    <p className="text-sm text-white/90">
+                      Advanced plan for growing institutions
+                    </p>
+
+                    <div className="mt-4 flex items-end gap-2">
+                      <span className="text-3xl font-medium">$344</span>
+                      <span className="text-xl">/month</span>
                     </div>
+
+                    <p className="mt-3 text-sm">Billed Monthly</p>
+                  </div>
+
+                  {/* Features */}
+                  <div className="grid grid-cols-3 gap-y-3 mt-4">
+                    {features.slice(0, 9).map((item) => (
+                      <div key={item} className="flex items-center gap-1">
+                        <Check size={16} className="text-[#1DBA41] font-bold" />
+
+                        <span className="text-[12px] text-[#010E30]">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Info */}
+                  <div className="mt-8 bg-[#E5EBFF] rounded-xl px-5 py-4 flex items-center gap-3">
+                    <PiInfoFill size={22} className="text-[#576CBC]" />
+
+                    <p className="text-[#010E30]">
+                      This plan will be available for tenants to subscribe.
+                    </p>
                   </div>
                 </motion.div>
               )}
@@ -377,7 +643,7 @@ const CreatePlan = ({ onClose }: Props) => {
           {step > 1 && (
             <button
               onClick={back}
-              className="border border-gray-300 px-4 py-2 rounded-md text-sm hover:bg-gray-50"
+              className="border border-gray-300 hover:bg-gray-50 px-4 text-xs py-2 rounded-md"
             >
               Back
             </button>
@@ -398,7 +664,7 @@ const CreatePlan = ({ onClose }: Props) => {
               Next
             </motion.button>
           ) : (
-            <button className="bg-[#4F46E5] text-white px-6 py-2 rounded-md hover:bg-[#4338CA]">
+            <button className="bg-[#576CBC] text-xs text-white px-6 py-2 rounded-md hover:bg-[#4338CA]">
               Create Plan
             </button>
           )}
