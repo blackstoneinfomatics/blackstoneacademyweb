@@ -1,0 +1,143 @@
+/* ===========================
+   Calendar Container
+=========================== */
+
+.alf-calendar {
+  width: 230px;
+  border: none;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  font-family: inherit;
+}
+
+/* ===========================
+   Header
+=========================== */
+
+.alf-calendar .react-datepicker__header {
+  background: #a5abc5;
+  border-bottom: none;
+  padding: 14px 0 12px;
+}
+
+.alf-calendar .react-datepicker__current-month {
+  margin: 0;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+/* ===========================
+   Navigation
+=========================== */
+
+.alf-calendar .react-datepicker__navigation {
+  top: 13px;
+  width: 28px;
+  height: 28px;
+}
+
+.alf-calendar .react-datepicker__navigation--previous {
+  left: 12px;
+}
+
+.alf-calendar .react-datepicker__navigation--next {
+  right: 12px;
+}
+
+.alf-calendar .react-datepicker__navigation:hover *::before {
+  border-color: #fff;
+}
+
+.alf-calendar .react-datepicker__navigation-icon::before {
+  border-color: #fff;
+  border-width: 2px 2px 0 0;
+}
+
+/* ===========================
+   Week Names
+=========================== */
+
+.alf-calendar .react-datepicker__day-names {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+  margin-top: 12px;
+}
+
+.alf-calendar .react-datepicker__day-name {
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  margin: 0;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ===========================
+   Month
+=========================== */
+
+.alf-calendar .react-datepicker__month {
+  margin: 8px 10px 10px;
+}
+
+.alf-calendar .react-datepicker__week {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ===========================
+   Days
+=========================== */
+
+.alf-calendar .react-datepicker__day {
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  margin: 2px 0;
+  border-radius: 50%;
+  font-size: 13px;
+  transition: all .2s ease;
+}
+
+.alf-calendar .react-datepicker__day:hover {
+  background: #576cbc;
+  color: #fff;
+}
+
+.alf-calendar .react-datepicker__day--selected,
+.alf-calendar .react-datepicker__day--keyboard-selected {
+  background: #576cbc !important;
+  color: #fff !important;
+}
+
+.alf-calendar .react-datepicker__day--today {
+  font-weight: 700;
+  color: #576cbc;
+}
+
+.alf-calendar .react-datepicker__day--outside-month {
+  color: #cfcfcf;
+}
+
+/* ===========================
+   Remove Defaults
+=========================== */
+
+.react-datepicker__triangle {
+  display: none;
+}
+
+.react-datepicker {
+  border: none !important;
+  border-radius: 14px;
+}
+
+.alf-datepicker-popper {
+  z-index: 9999;
+}

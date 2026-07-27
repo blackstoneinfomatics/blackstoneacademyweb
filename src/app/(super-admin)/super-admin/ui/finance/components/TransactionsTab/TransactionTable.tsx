@@ -1,5 +1,9 @@
 import ActionDropdown from "@/app/(super-admin)/super-admin/components/ActionMenu";
 import DataTable from "@/app/(super-admin)/super-admin/components/DataTable";
+import FilterDrawer, {
+  FilterField,
+} from "@/app/(super-admin)/super-admin/components/FilterDrawer";
+import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolbar";
 import { MoreVertical } from "lucide-react";
 import React, { useState } from "react";
 
@@ -115,11 +119,77 @@ const data = [
     status: "Refunded",
   },
 ];
+const transactionFields: FilterField[] = [
+  {
+    key: "tenant",
+    label: "Tenant Name",
+    type: "text",
+    placeholder: "Enter Tenant Name",
+  },
+
+  {
+    key: "type",
+    label: "Type",
+    type: "select",
+    placeholder: "Select Type",
+    options: [
+      {
+        label: "Subscription",
+        value: "Subscription",
+      },
+      {
+        label: "Refund",
+        value: "Refund",
+      },
+      {
+        label: "Renewal",
+        value: "Renewal",
+      },
+    ],
+  },
+
+  {
+    key: "paymentMethod",
+    label: "Payment Method",
+    type: "select",
+    placeholder: "Select Payment Method",
+    options: [
+      {
+        label: "Google Pay",
+        value: "Google Pay",
+      },
+      {
+        label: "Stripe",
+        value: "Stripe",
+      },
+      {
+        label: "UPI",
+        value: "UPI",
+      },
+    ],
+  },
+
+  {
+    key: "date",
+    label: "Date",
+    type: "dateRange",
+  },
+];
 
 export default function TransactionTable() {
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(
     null,
   );
+  const [openFilter, setOpenFilter] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const [filters, setFilters] = useState({
+    tenant: "",
+    type: "",
+    paymentMethod: "",
+    dateFrom: "",
+    dateTo: "",
+  });
 
   const [open, setOpen] = useState(false);
   const handleView = (row: any) => {
@@ -135,8 +205,40 @@ export default function TransactionTable() {
 
     // Navigate or open edit modal
   };
+  const filteredData = data.filter((item) => {
+    if (
+      filters.tenant &&
+      !item.tenant.toLowerCase().includes(filters.tenant.toLowerCase())
+    )
+      return false;
+
+    if (filters.type && item.type !== filters.type) return false;
+
+    if (filters.paymentMethod && item.paymentMethod !== filters.paymentMethod)
+      return false;
+
+    return true;
+  });
   return (
     <div>
+      <h2
+        className="mb-4 font-medium text-[#010E30E5]/90"
+        style={{
+          fontSize: "clamp(18px, 1.2vw, 20px)",
+          lineHeight: "1.4",
+        }}
+      >
+        {"All Transactions"}
+      </h2>
+
+      <TableToolbar
+        search={search}
+        onSearchChange={setSearch}
+        total={data.length}
+        showing={data.length}
+        searchPlaceholder="Search By Keyword"
+        onFilterClick={() => setOpenFilter(true)}
+      />
       <DataTable
         heading="All Transactions"
         selectable={true}
@@ -226,7 +328,7 @@ export default function TransactionTable() {
                 row={row}
                 items={[
                   {
-                    label: "View",
+                    label: "View Details",
                     onClick: handleView,
                   },
                   {
@@ -238,7 +340,31 @@ export default function TransactionTable() {
             ),
           },
         ]}
-        data={data}
+        data={filteredData}
+      />
+      <FilterDrawer
+        open={openFilter}
+        title="Filter by"
+        fields={transactionFields}
+        values={filters}
+        resultCount={data.length}
+        onClose={() => setOpenFilter(false)}
+        onReset={() =>
+          setFilters({
+            tenant: "",
+            type: "",
+            paymentMethod: "",
+            dateFrom: "",
+            dateTo: "",
+          })
+        }
+        onApply={(values: any) => {
+          console.log(values);
+
+          setFilters(values);
+
+          setOpenFilter(false);
+        }}
       />
     </div>
   );
