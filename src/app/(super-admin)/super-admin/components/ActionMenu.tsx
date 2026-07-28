@@ -1,12 +1,7 @@
 "use client";
 
 import { MoreVertical } from "lucide-react";
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface ActionItem<T> {
@@ -28,7 +23,7 @@ export default function ActionDropdown<T>({
   const [mounted, setMounted] = useState(false);
 
   const triggerRef = useRef<HTMLDivElement>(null);
-
+  const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({
     top: 0,
     left: 0,
@@ -40,21 +35,23 @@ export default function ActionDropdown<T>({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+
       if (
-        triggerRef.current &&
-        !triggerRef.current.contains(e.target as Node)
+        triggerRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
       ) {
-        setOpen(false);
+        return;
       }
+
+      setOpen(false);
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
 
-    return () =>
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside,
-      );
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -107,7 +104,8 @@ export default function ActionDropdown<T>({
         open &&
         createPortal(
           <div
-            className="fixed z-[9999] flex w-40  flex-col overflow-hidden rounded-lg border border-[#E8E8E8] bg-white shadow-lg"
+            ref={menuRef}
+            className="fixed z-[9999] flex w-40 flex-col overflow-hidden rounded-lg border border-[#E8E8E8] bg-white shadow-lg"
             style={{
               top: position.top,
               left: position.left,
@@ -117,6 +115,7 @@ export default function ActionDropdown<T>({
               <button
                 key={index}
                 onClick={() => {
+                  console.log("Menu Item Clicked");
                   item.onClick(row);
                   setOpen(false);
                 }}

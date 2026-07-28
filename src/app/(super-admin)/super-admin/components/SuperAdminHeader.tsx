@@ -502,6 +502,19 @@ const fetchNotifications = async (token: string) => {
         </button>
       );
     }
+    if (
+  currentSection?.toLowerCase() === "finance" &&
+  tenantActiveTab === "invoice"
+) {
+  return (
+    <button
+      onClick={() => router.push("/super-admin/ui/finance/invoices/create")}
+      className="rounded-lg bg-[#576CBC] px-4 py-2 text-sm text-white hover:bg-[#3a4f8a]"
+    >
+      Create Invoice
+    </button>
+  );
+}
     
     if (
       path.includes("calendar") ||

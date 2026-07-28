@@ -239,7 +239,7 @@ ${column.headerClassName ?? ""}
                       <td
                         key={column.header}
                         className={`
-text-[#010E30E5]
+text-[#010E30E5]/90
 align-middle
 whitespace-nowrap
 ${

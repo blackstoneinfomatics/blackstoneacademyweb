@@ -4,7 +4,7 @@ import TransactionsTab from "./TransactionsTab/TransactionsTab";
 // import RefundsTab from "./components/RefundsTab";
 // import RevenueTab from "./components/RevenueTab";
 // import BillingTab from "./components/BillingTab";
-// import InvoiceTab from "./components/InvoiceTab";
+import InvoiceTab from "./InvoiceTab/InvoiceTab";
 // import TaxGstTab from "./components/TaxGstTab";
 // import AnalyticsTab from "./components/AnalyticsTab";
 
@@ -43,11 +43,11 @@ const tabs: Array<{ id: FinanceTab; label: string; component: JSX.Element }> = [
   //   label: "Billing",
   //   component: <BillingTab />,
   // },
-  // {
-  //   id: "invoice",
-  //   label: "Invoice",
-  //   component: <InvoiceTab />,
-  // },
+  {
+    id: "invoice",
+    label: "Invoice",
+    component: <InvoiceTab />,
+  },
   // {
   //   id: "tax-gst",
   //   label: "Tax & GST",
