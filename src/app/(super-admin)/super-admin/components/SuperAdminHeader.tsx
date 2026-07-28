@@ -14,9 +14,9 @@ import { toast } from "react-toastify";
 import { AppValidationMessages } from "@/app/_components/contents/validation_message";
 import "react-toastify/dist/ReactToastify.css";
 import AddNewTenant from "./AddNewTenant";
-import Stepper from "./AddNewTenant";
 import GenerateInvoice from "./SubscriptionInvoice";
 import CreatePlan from "./CreatePlan";
+import AddNewUser from "./AddNewUser";
 
 type Props = {
   readonly currentSection: string;
@@ -90,6 +90,7 @@ export default function SuperAdminHeader({
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [showAddMeeting, setAddMeetings] = useState(false);
   const [showAddTenant, setAddTenant] = useState(false);
+  const [showAddUser, setAddUser] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -522,6 +523,27 @@ const fetchNotifications = async (token: string) => {
     console.log("❌ No button matched");
     return null;
   };
+  const userrolesButton = () => {
+    const path = pathname?.toLowerCase() ?? "";
+    console.log("🔍 userrolesButton() called", { path, currentSection, tenantActiveTab });
+
+    const isUserUsersPage = path.includes("/super-admin/ui/users&roles/user_tenants");
+
+    if (isUserUsersPage) {
+      return (
+        <button
+          onClick={() => setAddUser(true)}
+          className="bg-[#576CBC] hover:bg-[#5a65d1] text-white text-sm px-4 py-2 rounded-lg"
+          disabled={!trailWrite}
+        >
+          Add User
+        </button>
+      );
+    }
+
+    console.log("❌ No button matched");
+    return null;
+  };
 
   return (
     <div>
@@ -538,6 +560,7 @@ const fetchNotifications = async (token: string) => {
           </h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {userrolesButton()}
           {renderButton()}
           <button
             onClick={() => router.push("/modules/users/supervisor/ui/calendar")}
@@ -706,6 +729,9 @@ const fetchNotifications = async (token: string) => {
       )}
       {showAddTenant && (
         <AddNewTenant onClose={() => setAddTenant(false)} />
+      )}
+      {showAddUser && (
+        <AddNewUser onClose={() => setAddUser(false)} />
       )}
       {showNotification && (
         <div

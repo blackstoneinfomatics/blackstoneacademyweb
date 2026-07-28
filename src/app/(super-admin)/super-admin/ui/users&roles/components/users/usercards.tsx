@@ -1,11 +1,10 @@
 import React from "react";
-import { ArrowUp, ArrowDown  } from "lucide-react";
-import { MdCheckCircle } from "react-icons/md";
-import { MdCancel } from "react-icons/md";
+import { ArrowUp, ArrowDown } from "lucide-react";
+import { MdCheckCircle, MdCancel } from "react-icons/md";
 import { HiUserGroup } from "react-icons/hi2";
 
-const userrole = [
-  {
+const data = {
+  tenants: {
     title: "Total Tenants",
     value: "28",
     icon: HiUserGroup,
@@ -15,9 +14,10 @@ const userrole = [
     trendColor: "text-green-600",
     percentage: "14%",
     isIncrease: true,
-    text: "vs last Month"
+    text: "vs last Month",
   },
-    {
+
+  totalUser: {
     title: "Total User",
     value: "28",
     icon: HiUserGroup,
@@ -27,38 +27,106 @@ const userrole = [
     trendColor: "text-green-600",
     percentage: "14%",
     isIncrease: true,
-    text: "vs last Month"
+    text: "vs last Month",
   },
-  {
-    title: "Active User",
-    value: "18",
-    icon: MdCheckCircle,
-    iconBg: "bg-[#E3F4E7]",
-    iconColor: "text-[#40BD5F]",
-    titleColor: "text-[#40BD5F]",
-    trendColor: "text-red-500",   
-    percentage: "14%",
-    isIncrease: false,
-    text: "vs last Month"
-  },
-  {
-    title: "Inactive User",
-    value: "10",
-    icon: MdCancel,
-    iconBg: "bg-[#F8E4E4]",
-    iconColor: "text-[#D34645]",
-    titleColor: "text-[#D34645]",
-    trendColor: "text-green-600",
-    percentage: "14%",
-    isIncrease: true,
-    text: "vs last Month"
-  }
-];
-            
+
+  cards: [
+    {
+      title: "Active User",
+      value: "18",
+      icon: MdCheckCircle,
+      iconBg: "bg-[#E3F4E7]",
+      iconColor: "text-[#40BD5F]",
+      titleColor: "text-[#40BD5F]",
+      trendColor: "text-red-500",
+      percentage: "14%",
+      isIncrease: false,
+      text: "vs last Month",
+    },
+    {
+      title: "Inactive User",
+      value: "10",
+      icon: MdCancel,
+      iconBg: "bg-[#F8E4E4]",
+      iconColor: "text-[#D34645]",
+      titleColor: "text-[#D34645]",
+      trendColor: "text-green-600",
+      percentage: "14%",
+      isIncrease: true,
+      text: "vs last Month",
+    },
+  ],
+};
+
 const Usercards = () => {
+
   return (
     <div className="grid grid-cols-4 gap-4">
-      {userrole.map((card, index) => {
+
+      {/* Large Card */}
+<div className="col-span-2 bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
+
+  <div className="flex items-center justify-between">
+
+    {/* Left */}
+    <div className="flex items-center gap-4">
+
+      {/* Logo */}
+      <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+        <img
+          src="/assets/images/black_logo1.jpg" 
+          alt="Tenant Logo"
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {/* Details */}
+      <div>
+        <div className="flex items-center gap-2">
+
+          <h2 className="text-[20px] font-semibold text-[#1B1B1B]">
+            Blackstone Academy
+          </h2>
+
+          <span className="text-[12px] font-medium text-[#2FB344]">
+            Active
+          </span>
+
+        </div>
+
+        <p className="text-[14px] text-gray-500 mt-1">
+          blackstoneacademy.com
+        </p>
+
+        <div className="flex items-center gap-1 mt-1 text-[12px]">
+
+          <span className="text-gray-400">
+            Created on 02,July,2000 |
+          </span>
+
+          <span className="font-medium text-[#576CBC]">
+            ID: TEN 22001
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    {/* Right Badge */}
+    <div>
+      <span className="px-3 py-1 rounded-md bg-[#E9F1FF] text-[#4F7DF3] text-xs font-medium">
+        Standard
+      </span>
+    </div>
+
+  </div>
+
+</div>
+
+      {/* Small Cards */}
+      {data.cards.map((card, index) => {
         const Icon = card.icon;
 
         return (
@@ -87,10 +155,10 @@ const Usercards = () => {
         <div className="flex items-center text-[16px] gap-2 mt-6 ml-[72px]">
           <div className={`flex items-center ${card.trendColor}`}>
             {card.isIncrease ? (
-              <ArrowUp className="w-4 h-4" />
-            ) : (
-              <ArrowDown className="w-4 h-4" />
-            )}
+  <ArrowUp className="w-4 h-4" />
+) : (
+  <ArrowDown className="w-4 h-4" />
+)}
             <span className="font-medium text-[14px] text-sm ml-1">
               {card.percentage}
             </span>

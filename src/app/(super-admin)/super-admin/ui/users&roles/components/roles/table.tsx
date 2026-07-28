@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune } from "react-icons/md";
@@ -62,8 +63,28 @@ const recentItems = [
     status: "Expiring Soon",
   },
 ];
+
 const Table = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const openMenuRef = useRef<HTMLTableCellElement | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        openMenu !== null &&
+        openMenuRef.current &&
+        !openMenuRef.current.contains(event.target as Node)
+      ) {
+        setOpenMenu(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openMenu]);
 
   return (
 <div className="space-y-4">
@@ -175,7 +196,7 @@ const Table = () => {
 
   <td className="py-4 px-3">
     <span
-      className={`px-3 py-1 rounded-full text-[11px] font-medium ${
+      className={`px-3 py-1 rounded-md text-[11px] font-medium ${
         item.status === "Active"
           ? "bg-[#E8F8EC] text-[#2E9D4D]"
           : item.status === "Inactive"
@@ -187,7 +208,10 @@ const Table = () => {
     </span>
   </td>
 
-  <td className="py-4 px-3 relative">
+  <td
+    className="py-4 px-3 relative"
+    ref={openMenu === index ? openMenuRef : null}
+  >
     <button
       onClick={() => setOpenMenu(openMenu === index ? null : index)}
       className="p-2 rounded-md hover:bg-gray-100"
@@ -198,17 +222,17 @@ const Table = () => {
     {openMenu === index && (
       <div className="absolute right-4 top-12 w-36 bg-white dark:bg-[#2c2c2c] rounded-lg shadow-lg border z-50">
         <button
-          className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
-          onClick={() => setOpenMenu(null)}
+          className="w-full text-center px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={() => {
+            setOpenMenu(null);
+            router.push(
+              `/super-admin/ui/users&roles/user_tenants?tenantName=${encodeURIComponent(
+                item.tenantName
+              )}`
+            );
+          }}
         >
           View Details
-        </button>
-
-        <button
-          className="w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-          onClick={() => setOpenMenu(null)}
-        >
-          Cancel
         </button>
       </div>
     )}

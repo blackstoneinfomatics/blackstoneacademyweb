@@ -2,6 +2,7 @@ import React from 'react'
 import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout";
 import SuperAdminHeader from "../../../components/SuperAdminHeader";
 import Usercards from '../components/users/usercards';
+import Usertable from '../components/users/usertable';
 
 const page = () => {
   return (
@@ -9,6 +10,7 @@ const page = () => {
       <div className="flex flex-col gap-4">
         <SuperAdminHeader currentSection="Users & Roles" />
         <Usercards />
+        <Usertable />
       </div>
     </BaseSuperLayout>
   )
