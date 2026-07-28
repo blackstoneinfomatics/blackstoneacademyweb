@@ -274,6 +274,7 @@ function renderField(
           updateField(`${field.key}From`, date)
         }
         placeholder="Jan 20, 2020"
+       inputClassName=" h-11 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-sm text-[#010E30CC] outline-none focus:border-[#576CBC] "
       />
 
       <DatePickerInput
@@ -282,6 +283,8 @@ function renderField(
           updateField(`${field.key}To`, date)
         }
         placeholder="Jan 24, 2020"
+               inputClassName=" h-11 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-sm text-[#010E30CC] outline-none focus:border-[#576CBC] "
+
       />
     </div>
   );

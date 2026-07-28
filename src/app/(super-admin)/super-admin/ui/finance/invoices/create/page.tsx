@@ -6,6 +6,7 @@ import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSupe
 import SuperAdminHeader from "@/app/(super-admin)/super-admin/components/SuperAdminHeader";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
+import DatePickerInput from "@/app/(super-admin)/super-admin/components/DatePickerInput";
 
 interface InvoiceItem {
   service: string;
@@ -17,14 +18,14 @@ interface InvoiceItem {
 
 export default function CreateInvoicePage() {
   const [loading, setLoading] = useState(false);
-const router = useRouter();
+  const router = useRouter();
   const [form, setForm] = useState({
     tenant: "",
     plan: "Enterprise",
     billingCycle: "Month",
     invoiceNumber: "SUB-INV-2024-000146",
-    invoiceDate: "",
-    dueDate: "",
+    invoiceDate: null as Date | null,
+    dueDate: null as Date | null,
     currency: "INR - Indian Rupee (₹)",
     paymentTerms: "15",
     notes: "Thank you for choosing Blackstone Nexus.",
@@ -113,36 +114,36 @@ const router = useRouter();
       <div className="mx-auto w-full max-w-[1600px] p-[clamp(14px,2vw,24px)] bg-[#ffffff]">
         {/* Header */}
 
-       <div className="mb-6 flex items-start gap-3">
-  <button
-    type="button"
-    onClick={() => router.push("/super-admin/ui/finance?tab=invoice")}
-    className="mt-1 flex h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white transition hover:bg-[#F9FAFB]"
-  >
-    <ArrowLeft size={20} className="text-[#344054]" />
-  </button>
+        <div className="mb-6 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/super-admin/ui/finance?tab=invoice")}
+            className="mt-1 flex h-10 w-10 items-center justify-center rounded-lg border border-[#D0D5DD] bg-white transition hover:bg-[#F9FAFB]"
+          >
+            <ArrowLeft size={20} className="text-[#344054]" />
+          </button>
 
-  <div>
-    <h1
-      className="font-medium leading-tight text-[#010E30]"
-      style={{
-        fontSize: "clamp(18px,1.3vw,20px)",
-      }}
-    >
-      Create Custom Service Invoice
-    </h1>
+          <div>
+            <h1
+              className="font-medium leading-tight text-[#010E30]"
+              style={{
+                fontSize: "clamp(18px,1.3vw,20px)",
+              }}
+            >
+              Create Custom Service Invoice
+            </h1>
 
-    <p
-      className="mt-1 max-w-3xl leading-6 text-[#667085]"
-      style={{
-        fontSize: "clamp(13px,0.9vw,14px)",
-      }}
-    >
-      Generate an invoice for custom features, updates, or special
-      requests raised by a tenant.
-    </p>
-  </div>
-</div>
+            <p
+              className="mt-1 max-w-3xl leading-6 text-[#667085]"
+              style={{
+                fontSize: "clamp(13px,0.9vw,14px)",
+              }}
+            >
+              Generate an invoice for custom features, updates, or special
+              requests raised by a tenant.
+            </p>
+          </div>
+        </div>
 
         {/* Tenant & Subscription Details */}
         <section className="mt-1 rounded-xl border-2 border-[#E4E8EF] bg-[#ffffff] p-[clamp(16px,1.8vw,20px)]">
@@ -288,19 +289,24 @@ const router = useRouter();
                 Invoice Date
               </label>
 
-              <input
-                type="date"
-                name="invoiceDate"
+              <DatePickerInput
                 value={form.invoiceDate}
-                onChange={handleChange}
-                className="w-full rounded-md border border-[#D4D4D4] px-3 text-[#344054] outline-none transition-all focus:border-[#576CBC]"
+                onChange={(date) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    invoiceDate: date,
+                  }))
+                }
+                className="w-full"
+                inputClassName="w-full rounded-md border border-[#D4D4D4] px-3 pr-10 text-[#344054] outline-none transition-all focus:border-[#576CBC]"
                 style={{
+                  width: "clamp(280px, 35vw, 390px)",
+
                   height: "clamp(38px,2.7vw,42px)",
                   fontSize: "clamp(12px,0.9vw,14px)",
                 }}
               />
             </div>
-
             {/* Due Date */}
             <div>
               <label
@@ -311,14 +317,17 @@ const router = useRouter();
               >
                 Due Date
               </label>
-
-              <input
-                type="date"
-                name="dueDate"
+              <DatePickerInput
                 value={form.dueDate}
-                onChange={handleChange}
-                className="w-full rounded-md border border-[#D4D4D4] px-3 text-[#344054] outline-none transition-all focus:border-[#576CBC]"
+                onChange={(date) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    dueDate: date,
+                  }))
+                }
+                inputClassName="w-full rounded-md border border-[#D4D4D4] px-3 pr-10 text-[#344054] outline-none transition-all focus:border-[#576CBC]"
                 style={{
+                  width: "clamp(280px, 35vw, 390px)",
                   height: "clamp(38px,2.7vw,42px)",
                   fontSize: "clamp(12px,0.9vw,14px)",
                 }}
@@ -490,9 +499,7 @@ const router = useRouter();
                             fontSize: "clamp(14px,.9vw,16px)",
                           }}
                         >
-                          <option value="">
-                            Enter the service
-                          </option>{" "}
+                          <option value="">Enter the service</option>{" "}
                         </select>
 
                         <ChevronDown
@@ -509,13 +516,13 @@ const router = useRouter();
                       }}
                     >
                       <input
-  placeholder="Enter the Description"
-  className="w-full rounded-md border border-[#D4D4D4] px-4 text-[#010E30] placeholder:text-[#010E30CC] outline-none transition focus:border-[#5C73B8]"
-  style={{
-    height: "clamp(46px,3vw,50px)",
-    fontSize: "clamp(14px,.9vw,16px)",
-  }}
-/>
+                        placeholder="Enter the Description"
+                        className="w-full rounded-md border border-[#D4D4D4] px-4 text-[#010E30] placeholder:text-[#010E30CC] outline-none transition focus:border-[#5C73B8]"
+                        style={{
+                          height: "clamp(46px,3vw,50px)",
+                          fontSize: "clamp(14px,.9vw,16px)",
+                        }}
+                      />
                     </td>
 
                     {/* Price */}
@@ -606,130 +613,126 @@ const router = useRouter();
             </table>
           </div>
         </section>
-       <section
-  className="mt-6 rounded-xl border-2 border-[#E4E8EF] bg-[#ffffff]"
-  style={{
-            padding: "clamp(14px,1.6vw,20px)",
-  }}
->
-  {/* Title */}
-   <h2
-              className="font-semibold text-[#101828]"
-              style={{
-                fontSize: "clamp(15px,1.1vw,18px)",
-              }}
-            >
-    Notes
-  </h2>
-
-  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mt-2">
-    {/* Customer Notes */}
-    <div>
-      <label
-        className="mb-2 block font-normal text-[#010E30]"
-        style={{
-          fontSize: "clamp(13px,.9vw,15px)",
-        }}
-      >
-        Customer Notes ( Visible to Tenant )
-      </label>
-
-      <textarea
-        rows={3}
-        name="notes"
-        value={form.notes}
-        onChange={handleChange}
-        placeholder="Thank you for choosing Blackstone Nexus."
-        className="w-full resize-none rounded-md border border-[#D4D4D4] px-4 py-3 text-[#010E30CC]/80 placeholder:text-[#667085] outline-none focus:border-[#576CBC]"
-        style={{
-          minHeight: "70px",
-          fontSize: "clamp(10px,.8vw,12px)",
-        }}
-      />
-    </div>
-
-    {/* Upload */}
-    <div>
-      <label
-       className="mb-2 block font-normal text-[#010E30]"
-        style={{
-          fontSize: "clamp(13px,.9vw,15px)",
-        }}
-      >
-        Currency
-      </label>
-
-      <label
-        htmlFor="fileUpload"
-        className="flex cursor-pointer items-center rounded-xl bg-[#F3F3F3]"
-        style={{
-          minHeight: "70px",
-          padding: "clamp(14px,1.2vw,18px)",
-        }}
-      >
-        {/* Icon */}
-        <div
-          className="mr-4 flex items-center justify-center rounded-xl bg-[#576CBC]"
+        <section
+          className="mt-6 rounded-xl border-2 border-[#E4E8EF] bg-[#ffffff]"
           style={{
-            width: "42px",
-            height: "42px",
+            padding: "clamp(14px,1.6vw,20px)",
           }}
         >
-          <img
-            src="/assets/images/Vector (4).svg"
-            alt=""
-            className="h-6 w-6"
-          />
-        </div>
-
-        {/* Text */}
-        <div className="flex flex-col">
-          <div className="flex items-center gap-3">
-            <span
-              className="font-normal text-[#010E30]"
-              style={{
-                fontSize: "clamp(14px,.95vw,16px)",
-              }}
-            >
-              Upload Files
-            </span>
-
-            <span
-              className="text-[#010E30]"
-              style={{
-                fontSize: "clamp(11px,.8vw,13px)",
-              }}
-            >
-              PDF, DOC, PPT, JPG, PNG
-            </span>
-          </div>
-
-          <span
-            className="mt-1 text-[#576CBC] underline"
+          {/* Title */}
+          <h2
+            className="font-semibold text-[#101828]"
             style={{
-              fontSize: "clamp(13px,.9vw,14px)",
+              fontSize: "clamp(15px,1.1vw,18px)",
             }}
           >
-            Choose a file
-          </span>
-        </div>
+            Notes
+          </h2>
 
-        <input
-          id="fileUpload"
-          type="file"
-          className="hidden"
-        />
-      </label>
-    </div>
-  </div>
-</section>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mt-2">
+            {/* Customer Notes */}
+            <div>
+              <label
+                className="mb-2 block font-normal text-[#010E30]"
+                style={{
+                  fontSize: "clamp(13px,.9vw,15px)",
+                }}
+              >
+                Customer Notes ( Visible to Tenant )
+              </label>
 
-         {/* Footer */}
-<div className="mt-2 flex justify-end gap-4  pt-5">
-  <button
-      onClick={() => router.push("/super-admin/ui/finance?tab=invoice")}
-    type="button"
-    className="
+              <textarea
+                rows={3}
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
+                placeholder="Thank you for choosing Blackstone Nexus."
+                className="w-full resize-none rounded-md border border-[#D4D4D4] px-4 py-3 text-[#010E30CC]/80 placeholder:text-[#667085] outline-none focus:border-[#576CBC]"
+                style={{
+                  minHeight: "70px",
+                  fontSize: "clamp(10px,.8vw,12px)",
+                }}
+              />
+            </div>
+
+            {/* Upload */}
+            <div>
+              <label
+                className="mb-2 block font-normal text-[#010E30]"
+                style={{
+                  fontSize: "clamp(13px,.9vw,15px)",
+                }}
+              >
+                Currency
+              </label>
+
+              <label
+                htmlFor="fileUpload"
+                className="flex cursor-pointer items-center rounded-xl bg-[#F3F3F3]"
+                style={{
+                  minHeight: "70px",
+                  padding: "clamp(14px,1.2vw,18px)",
+                }}
+              >
+                {/* Icon */}
+                <div
+                  className="mr-4 flex items-center justify-center rounded-xl bg-[#576CBC]"
+                  style={{
+                    width: "42px",
+                    height: "42px",
+                  }}
+                >
+                  <img
+                    src="/assets/images/Vector (4).svg"
+                    alt=""
+                    className="h-6 w-6"
+                  />
+                </div>
+
+                {/* Text */}
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="font-normal text-[#010E30]"
+                      style={{
+                        fontSize: "clamp(14px,.95vw,16px)",
+                      }}
+                    >
+                      Upload Files
+                    </span>
+
+                    <span
+                      className="text-[#010E30]"
+                      style={{
+                        fontSize: "clamp(11px,.8vw,13px)",
+                      }}
+                    >
+                      PDF, DOC, PPT, JPG, PNG
+                    </span>
+                  </div>
+
+                  <span
+                    className="mt-1 text-[#576CBC] underline"
+                    style={{
+                      fontSize: "clamp(13px,.9vw,14px)",
+                    }}
+                  >
+                    Choose a file
+                  </span>
+                </div>
+
+                <input id="fileUpload" type="file" className="hidden" />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <div className="mt-2 flex justify-end gap-4  pt-5">
+          <button
+            onClick={() => router.push("/super-admin/ui/finance?tab=invoice")}
+            type="button"
+            className="
       min-w-[140px]
       rounded-lg
       border
@@ -742,15 +745,15 @@ const router = useRouter();
       transition
       hover:bg-[#F5F7FF]
     "
-  >
-    Cancel
-  </button>
+          >
+            Cancel
+          </button>
 
-  <button
-    type="button"
-    onClick={handleSubmit}
-    disabled={loading}
-    className="
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="
       min-w-[180px]
       rounded-lg
       bg-[#576CBC]
@@ -764,10 +767,10 @@ const router = useRouter();
       disabled:cursor-not-allowed
       disabled:opacity-60
     "
-  >
-    {loading ? "Saving..." : "Save Invoice"}
-  </button>
-</div>
+          >
+            {loading ? "Saving..." : "Save Invoice"}
+          </button>
+        </div>
       </div>
     </BaseSuperLayout>
   );

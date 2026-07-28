@@ -28,7 +28,7 @@ export default function ViewDetailsModal({
       <div
         className="w-full rounded-xl bg-white shadow-xl"
         style={{
-          maxWidth: "clamp(760px,65vw,980px)",
+          maxWidth: "clamp(660px,55vw,880px)",
         }}
       >
         {/* Header */}
