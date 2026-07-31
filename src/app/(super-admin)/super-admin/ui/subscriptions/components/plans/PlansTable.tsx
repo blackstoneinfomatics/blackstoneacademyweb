@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiPoliceBadgeFill } from "react-icons/ri";
 import {
@@ -11,50 +11,51 @@ import {
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
+import axios from "axios";
 
 
-const plans = [
-  {
-    name: "Basic",
-    price: "$ 8,500",
-    billing: "Monthly",
-    date: "Sep, 12 2023",
-    features: 10,
-    tenants: 15,
-  },
-  {
-    name: "Standard",
-    price: "9,500",
-    billing: "Monthly",
-    date: "Sep, 12 2023",
-    features: 10,
-    tenants: 15,
-  },
-  {
-    name: "Premium",
-    price: "12,500",
-    billing: "Monthly",
-    date: "Sep, 12 2023",
-    features: 10,
-    tenants: 15,
-  },
-  {
-    name: "Basic",
-    price: "8,500",
-    billing: "Monthly",
-    date: "Sep, 12 2023",
-    features: 10,
-    tenants: 15,
-  },
-  {
-    name: "Standard",
-    price: "8,500",
-    billing: "Monthly",
-    date: "Sep, 12 2023",
-    features: 10,
-    tenants: 15,
-  },
-];
+// const plans = [
+//   {
+//     name: "Basic",
+//     price: "$ 8,500",
+//     billing: "Monthly",
+//     date: "Sep, 12 2023",
+//     features: 10,
+//     tenants: 15,
+//   },
+//   {
+//     name: "Standard",
+//     price: "9,500",
+//     billing: "Monthly",
+//     date: "Sep, 12 2023",
+//     features: 10,
+//     tenants: 15,
+//   },
+//   {
+//     name: "Premium",
+//     price: "12,500",
+//     billing: "Monthly",
+//     date: "Sep, 12 2023",
+//     features: 10,
+//     tenants: 15,
+//   },
+//   {
+//     name: "Basic",
+//     price: "8,500",
+//     billing: "Monthly",
+//     date: "Sep, 12 2023",
+//     features: 10,
+//     tenants: 15,
+//   },
+//   {
+//     name: "Standard",
+//     price: "8,500",
+//     billing: "Monthly",
+//     date: "Sep, 12 2023",
+//     features: 10,
+//     tenants: 15,
+//   },
+// ];
 
 const badgeColors: Record<string, string> = {
   Basic: "bg-cyan-100 text-cyan-600",
@@ -64,10 +65,50 @@ const badgeColors: Record<string, string> = {
 
 const PlansTable = () => {
 
-    const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+const getBadgeStyle = (planName: string) => {
+  const name = planName.toLowerCase();
+
+  if (name.includes("basic")) {
+    return "bg-[#DEF5FA] text-[#18BCDC]";
+  }
+
+  if (name.includes("standard")) {
+    return "bg-[#DAE4F6] text-[#2668EF]";
+  }
+
+  if (name.includes("premium")) {
+    return "bg-[#E7E8FA] text-[#585BDC]";
+  }
+
+  return "bg-gray-100 text-gray-600";
+};
+
+  useEffect(() => {
+  fetchPlans();
+}, []);
+
+const fetchPlans = async () => {
+  try {
+    setLoading(true);
+
+    const response = await axios.get(
+      "http://localhost:5001/plans"
+    );
+
+    setPlans(response.data.data || []);
+  } catch (error) {
+    console.error("Error fetching plans:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
     <div className="w-full">
       {/* Title */}
@@ -104,6 +145,7 @@ const PlansTable = () => {
         </div>
 
         {/* Table */}
+        
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
@@ -120,39 +162,62 @@ const PlansTable = () => {
             </thead>
 
             <tbody>
-              {plans.map((item, index) => (
-                <tr
-                  key={index}
-                  className={`text-[12px] ${
-                              index % 2 === 0
-                                ? "bg-[#fff] dark:bg-[#2C2C2C] "
-                                : "bg-[#F8F8F8] dark:bg-[#303030]"
-                            }`}
-                >
-                  <td className="px-4 py-5">
-                    <span
-                      className={`rounded-md px-3 py-1 text-xs font-medium ${
-                        badgeColors[item.name]
-                      }`}
-                    >
-                      {item.name}
-                    </span>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center">
+                    Loading...
                   </td>
+                </tr>
+              ) : (
+                plans.map((item, index) => (
+                  <tr
+                    key={index}
+                    className={`text-[12px] ${
+                                index % 2 === 0
+                                  ? "bg-[#fff] dark:bg-[#2C2C2C] "
+                                  : "bg-[#F8F8F8] dark:bg-[#303030]"
+                              }`}
+                >
+<td className="px-4 py-5">
+  <span
+    className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
+      item.planName
+    )}`}
+  >
+    {item.planName}
+  </span>
+</td>
 
-                  <td className="px-4">{item.price}</td>
+                  <td className="px-4">${item.monthlyPrice}</td>
 
-                  <td className="px-4">{item.billing}</td>
+                  <td className="px-4">{item.billingCycle}</td>
 
-                  <td className="px-4 text-[#4D74AE]">{item.date}</td>
+<td className="px-4 text-[#4D74AE]">
+  {item.createdDate
+    ? (() => {
+        const date = new Date(item.createdDate);
+        const month = date.toLocaleString("en-US", { month: "short" });
+        const day = date.getDate();
+        const year = date.getFullYear();
+        return `${month}, ${day} ${year}`;
+      })()
+    : "-"}
+</td>
 
-                  <td className="px-4">{item.features}</td>
+                  <td className="px-4">{Object.values(item.features || {}).flat().length}</td>
 
-                  <td className="px-4">{item.tenants}</td>
+                  <td className="px-4">{item.subscribedTenants || 0}</td>
 
                   <td className="px-4">
-                    <span className="rounded-md bg-[#EAF8EC] px-3 py-1 text-xs font-medium text-[#34A853]">
-                      Active
-                    </span>
+                    <span
+    className={`rounded-md px-3 py-1 text-xs font-medium ${
+      item.status === "Active"
+        ? "bg-[#EAF8EC] text-[#34A853]"
+        : "bg-red-100 text-red-600"
+    }`}
+  > 
+  {item.status}
+  </span>
                   </td>
 
                   <td className="px-4 py-4 relative">
@@ -192,7 +257,8 @@ const PlansTable = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+              ))
+            )}
             </tbody>
           </table>
         </div>
