@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 
+import { X } from "lucide-react";
+
+
 const recentItems = [
   {
     tenantName: "Blackstone Academy",
@@ -42,13 +45,15 @@ const recentItems = [
 ];
 const Table = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+const [selectedAnalytics, setSelectedAnalytics] = useState<any>(null);
 
   return (
     <div className="bg-white shadow-lg dark:bg-[#343434] rounded-2xl">
       <div className="overflow-x-auto scrollbar-none h-full rounded-2xl">
         <div className=" h-[380px] rounded-b-xl scrollbar-none">
           <table className="min-w-full text-xs border-collapse table-fixed">
-            <thead className="text-[13px] bg-[#4C6993] text-white dark:bg-[#44699d]">
+            <thead className="text-[14px] bg-[#4C6993] text-white dark:bg-[#44699d]">
               <tr>
                 {[
                   "Date & time",
@@ -59,7 +64,7 @@ const Table = () => {
                 ].map((header) => (
                   <th
                     key={header}
-                    className="py-4 px-2 font-semibold text-left border border-[#466993]"
+                    className="py-4 px-2 font-medium text-left border border-[#466993]"
                   >
                     {header}
                   </th>
@@ -105,9 +110,10 @@ const Table = () => {
                           <button
                             className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
                             onClick={() => {
-                              console.log("View Details", item);
-                              setOpenMenu(null);
-                            }}
+  setSelectedAnalytics(item);
+  setShowAnalyticsModal(true);
+  setOpenMenu(null);
+}}
                           >
                             View Details
                           </button>
@@ -137,6 +143,89 @@ const Table = () => {
           </table>
         </div>
       </div>
+
+      {showAnalyticsModal && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+    <div className="w-full max-w-[650px] rounded-xl bg-white shadow-2xl">
+
+      {/* Header */}
+      <div className="flex items-center justify-between border-b px-5 py-4">
+        <h2 className="text-[20px] font-semibold text-[#101B41]">
+          Analytics Details
+        </h2>
+
+        <button onClick={() => setShowAnalyticsModal(false)}>
+          <X size={22} className="text-gray-400 hover:text-black" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="p-5">
+        <div className="rounded-xl border border-[#E4E8F1] p-4">
+
+          {/* Tenant Name */}
+          <div className="mb-5">
+            <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
+              Tenant Name
+            </label>
+
+            <input
+              readOnly
+              value={selectedAnalytics?.tenantName || ""}
+              className="h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 text-sm text-[#4B5563] outline-none"
+            />
+          </div>
+
+          {/* Date & Activity */}
+
+          <div className="mb-5 grid grid-cols-2 gap-4">
+
+            <div>
+              <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
+                Trial Start Date
+              </label>
+
+              <input
+                readOnly
+                value={selectedAnalytics?.date || ""}
+                className="h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 text-sm text-[#4B5563] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
+                Activity
+              </label>
+
+              <input
+                readOnly
+                value={selectedAnalytics?.activity || ""}
+                className="h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 text-sm text-[#4B5563] outline-none"
+              />
+            </div>
+
+          </div>
+
+          {/* Details */}
+
+          <div>
+            <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
+              Details
+            </label>
+
+            <input
+              readOnly
+              value={selectedAnalytics?.details || ""}
+              className="h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 text-sm text-[#4B5563] outline-none"
+            />
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
   );
 }
