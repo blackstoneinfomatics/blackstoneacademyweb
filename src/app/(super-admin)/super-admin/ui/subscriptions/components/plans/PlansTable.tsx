@@ -10,109 +10,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  CalendarDays,
-  X,
 } from "lucide-react";
 import axios from "axios";
+import Image from "next/image"
 
-import Image from "next/image";
-
-// const plans = [
-//   {
-//     name: "Basic",
-//     price: "$ 8,500",
-//     billing: "Monthly",
-//     date: "Sep, 12 2023",
-//     features: 10,
-//     tenants: 15,
-//   },
-//   {
-//     name: "Standard",
-//     price: "9,500",
-//     billing: "Monthly",
-//     date: "Sep, 12 2023",
-//     features: 10,
-//     tenants: 15,
-//   },
-//   {
-//     name: "Premium",
-//     price: "12,500",
-//     billing: "Monthly",
-//     date: "Sep, 12 2023",
-//     features: 10,
-//     tenants: 15,
-//   },
-//   {
-//     name: "Basic",
-//     price: "8,500",
-//     billing: "Monthly",
-//     date: "Sep, 12 2023",
-//     features: 10,
-//     tenants: 15,
-//   },
-//   {
-//     name: "Standard",
-//     price: "8,500",
-//     billing: "Monthly",
-//     date: "Sep, 12 2023",
-//     features: 10,
-//     tenants: 15,
-//   },
-// ];
-
-type Plan = (typeof plans)[number];
-
-type FilterState = {
-  planName: string;
-  billingCycle: string;
-  fromDate: string;
-  toDate: string;
-  status: string;
-};
-
-const INITIAL_FILTERS: FilterState = {
-  planName: "All",
-  billingCycle: "All",
-  fromDate: "",
-  toDate: "",
-  status: "All",
-};
-
-const parseRowDate = (value: string) => new Date(value.replace(",", ""));
-
-const applyFilters = (items: Plan[], search: string, filters: FilterState) => {
-  const term = search.toLowerCase().trim();
-
-  return items.filter((item) => {
-    const matchesSearch =
-      !term ||
-      [item.name, item.price, item.billing, item.date, item.status]
-        .join(" ")
-        .toLowerCase()
-        .includes(term);
-
-    const matchesPlan =
-      filters.planName === "All" || item.name === filters.planName;
-    const matchesBilling =
-      filters.billingCycle === "All" || item.billing === filters.billingCycle;
-    const matchesStatus =
-      filters.status === "All" || item.status === filters.status;
-
-    const rowDate = parseRowDate(item.date);
-    const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
-    const toDate = filters.toDate ? new Date(filters.toDate) : null;
-    const matchesDate =
-      (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
-
-    return (
-      matchesSearch &&
-      matchesPlan &&
-      matchesBilling &&
-      matchesStatus &&
-      matchesDate
-    );
-  });
-};
 
 const badgeColors: Record<string, string> = {
   Basic: "bg-cyan-100 text-cyan-600",
@@ -148,58 +49,52 @@ const ToggleSwitch = ({
 };
 
 const PlansTable = () => {
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+  const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [search, setSearch] = useState("");
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [draftFilters, setDraftFilters] =
-    useState<FilterState>(INITIAL_FILTERS);
-  const [appliedFilters, setAppliedFilters] =
-    useState<FilterState>(INITIAL_FILTERS);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+const getBadgeStyle = (planName: string) => {
+  const name = planName.toLowerCase();
 
-  const itemsPerPage = 5;
-  const planOptions = Array.from(new Set(plans.map((item) => item.name)));
-  const billingOptions = Array.from(new Set(plans.map((item) => item.billing)));
-  const statusOptions = Array.from(new Set(plans.map((item) => item.status)));
+  if (name.includes("basic")) {
+    return "bg-[#DEF5FA] text-[#18BCDC]";
+  }
 
-  const filteredPlans = applyFilters(plans, search, appliedFilters);
-  const previewFilteredPlans = applyFilters(plans, search, draftFilters);
+  if (name.includes("standard")) {
+    return "bg-[#DAE4F6] text-[#2668EF]";
+  }
 
-  const [customDomain, setCustomDomain] = useState(true);
-  const [backup, setBackup] = useState(true);
-  const [apiAccess, setApiAccess] = useState(true);
-  const [whiteLabel, setWhiteLabel] = useState(true);
-  const [prioritySupport, setPrioritySupport] = useState(true);
+  if (name.includes("premium")) {
+    return "bg-[#E7E8FA] text-[#585BDC]";
+  }
 
-  const activeFilterCount = Object.entries(appliedFilters).filter(
-    ([, value]) => value && value !== "" && value !== "All",
-  ).length;
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredPlans.length / itemsPerPage),
-  );
-  const currentPageSafe = Math.min(currentPage, totalPages);
-  const startIndex = (currentPageSafe - 1) * itemsPerPage;
-  const paginatedPlans = filteredPlans.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
-  const showingStart = filteredPlans.length === 0 ? 0 : startIndex + 1;
+  return "bg-gray-100 text-gray-600";
+};
 
   useEffect(() => {
-    setCurrentPage(1);
-    setOpenMenu(null);
-  }, [search, appliedFilters]);
+  fetchPlans();
+}, []);
 
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+const fetchPlans = async () => {
+  try {
+    setLoading(true);
 
-  const featureItems = [
+    const response = await axios.get(
+      "http://localhost:5001/plans"
+    );
+
+    setPlans(response.data.data || []);
+  } catch (error) {
+    console.error("Error fetching plans:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const featureItems = [
     { key: "customDomain", label: "Custom Domain" },
     { key: "backup", label: "Backup" },
     { key: "apiAccess", label: "API Access" },
@@ -213,12 +108,13 @@ const PlansTable = () => {
     whiteLabel: true,
     prioritySupport: true,
   });
+
   return (
     <div className="w-full">
       {/* Title */}
       <h2 className="mb-0 text-[22px] p-2 font-semibold text-[#1F2A44]">
         Plan
-      </h2>
+        </h2>
 
       {/* Card */}
       <div className="overflow-hidden rounded-lg border border-[#E6EAF2] bg-white">
@@ -229,39 +125,24 @@ const PlansTable = () => {
             <Search size={17} className="text-[#A5AAB4]" />
             <input
               type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by keyword"
               className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4]"
             />
           </div>
 
           {/* Filter */}
-          <div className="border-r border-[#E6EAF2]">
-            <button
-              onClick={() => {
-                setDraftFilters(appliedFilters);
-                setShowFilterPanel(true);
-              }}
-              className="flex h-12 w-full items-center justify-between px-4 text-sm text-[#80848E] hover:bg-gray-50"
-            >
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal size={16} />
-                Filter
-                {activeFilterCount > 0 && (
-                  <span className="rounded-full bg-[#576CBC] px-2 py-[2px] text-[11px] text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </div>
+          <button className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal size={16} />
+              Filter
+            </div>
 
-              <ChevronDown size={16} />
-            </button>
-          </div>
+            <ChevronDown size={16} />
+          </button>
 
           {/* Count */}
           <div className="flex h-12 items-center px-4 text-sm text-[#80848E]">
-            Showing {showingStart} of {filteredPlans.length}
+            Showing 10 Of 50
           </div>
         </div>
 
@@ -283,311 +164,121 @@ const PlansTable = () => {
             </thead>
 
             <tbody>
-              {paginatedPlans.map((item, index) => {
-                const rowId = `${item.name}-${item.date}-${startIndex + index}`;
-
-                return (
-                  <tr
-                    key={rowId}
-                    className={`text-[12px] ${
-                      index % 2 === 0
-                        ? "bg-[#fff] dark:bg-[#2C2C2C] "
-                        : "bg-[#F8F8F8] dark:bg-[#303030]"
-                    }`}
-                  >
-                    <td className="px-4 py-5">
-                      <span
-                        className={`rounded-md px-3 py-1 text-xs font-medium ${
-                          badgeColors[item.name]
-                        }`}
-                      >
-                        {item.name}
-                      </span>
-                    </td>
-
-                    <td className="px-4">{item.price}</td>
-
-                    <td className="px-4">{item.billing}</td>
-
-                    <td className="px-4 text-[#4D74AE]">{item.date}</td>
-
-                    <td className="px-4">{item.features}</td>
-
-                    <td className="px-4">{item.tenants}</td>
-
-                    <td className="px-4">
-                      <span
-                        className={`rounded-md px-3 py-1 text-xs font-medium ${
-                          item.status === "Active"
-                            ? "bg-[#EAF8EC] text-[#34A853]"
-                            : item.status === "Expired"
-                              ? "bg-[#F6E0E0] text-[#EA4F4F]"
-                              : "bg-[#F6EcDC] text-[#EFA133]"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 relative">
-                      <div className="flex justify-center">
-                        <button
-                          className="rounded-md p-1 hover:bg-gray-100"
-                          onClick={() =>
-                            setOpenMenu(openMenu === rowId ? null : rowId)
-                          }
-                        >
-                          <MoreVertical size={18} className="text-[#6B7280]" />
-                        </button>
-
-                        {openMenu === rowId && (
-                          <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
-                            <button
-                              className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
-                              onClick={() => {
-                                setSelectedPlan(item);
-                                setShowModal(true);
-                                setOpenMenu(null);
-                              }}
-                            >
-                              View Details
-                            </button>
-
-                            <button
-                              className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
-                              onClick={() => {
-                                setSelectedPlan(item);
-                                setShowUpdateModal(true);
-                                setOpenMenu(null);
-                              }}
-                            >
-                              Update
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {paginatedPlans.length === 0 && (
+              {loading ? (
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="px-4 py-6 text-center text-sm text-[#80848E]"
-                  >
-                    No data available
+                  <td colSpan={8} className="p-8 text-center">
+                    Loading...
                   </td>
                 </tr>
-              )}
+              ) : (
+                plans.map((item, index) => (
+                  <tr
+                    key={index}
+                    className={`text-[12px] ${
+                                index % 2 === 0
+                                  ? "bg-[#fff] dark:bg-[#2C2C2C] "
+                                  : "bg-[#F8F8F8] dark:bg-[#303030]"
+                              }`}
+                >
+<td className="px-4 py-5">
+  <span
+    className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
+      item.planName
+    )}`}
+  >
+    {item.planName}
+  </span>
+</td>
+
+                  <td className="px-4">${item.monthlyPrice}</td>
+
+                  <td className="px-4">{item.billingCycle}</td>
+
+<td className="px-4 text-[#4D74AE]">
+  {item.createdDate
+    ? (() => {
+        const date = new Date(item.createdDate);
+        const month = date.toLocaleString("en-US", { month: "short" });
+        const day = date.getDate();
+        const year = date.getFullYear();
+        return `${month}, ${day} ${year}`;
+      })()
+    : "-"}
+</td>
+
+                  <td className="px-4">{Object.values(item.features || {}).flat().length}</td>
+
+                  <td className="px-4">{item.subscribedTenants || 0}</td>
+
+                  <td className="px-4">
+                    <span
+    className={`rounded-md px-3 py-1 text-xs font-medium ${
+      item.status === "Active"
+        ? "bg-[#EAF8EC] text-[#34A853]"
+        : "bg-red-100 text-red-600"
+    }`}
+  > 
+  {item.status}
+  </span>
+                  </td>
+
+                  <td className="px-4 py-4 relative">
+                    <div className="flex justify-center">
+                      <button className="rounded-md p-1 hover:bg-gray-100" onClick={() =>
+                          setOpenMenu(openMenu === index ? null : index)
+                        }>
+                        <MoreVertical size={18} className="text-[#6B7280]" />
+                      </button>
+
+                      {openMenu === index && (
+                        <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
+                          <button
+                            className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
+                            onClick={() => {
+                              setSelectedPlan(item);
+                              setShowModal(true);
+                              setOpenMenu(null);
+                            }}
+                          >
+                            View Details
+                          </button>
+
+                          <button
+                            className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
+                            onClick={() => {
+                              setSelectedPlan(item);
+                              setShowUpdateModal(true);
+                              setOpenMenu(null);
+                            }}
+                          >
+                            Update
+                          </button>
+                        </div>
+                      )}
+
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
             </tbody>
           </table>
         </div>
       </div>
       <div className="flex justify-end gap-2 px-4 py-3">
-        <button
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          disabled={currentPageSafe === 1}
-          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
           <ChevronLeft size={18} />
         </button>
 
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-          <button
-            key={page}
-            onClick={() => setCurrentPage(page)}
-            className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${
-              currentPageSafe === page
-                ? "border-[#496A96] bg-white text-[#496A96]"
-                : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
+        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#496A96] bg-white font-medium text-[#496A96]">
+          1
+        </button>
 
-        <button
-          onClick={() =>
-            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-          }
-          disabled={currentPageSafe === totalPages}
-          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50">
           <ChevronRight size={18} />
         </button>
       </div>
-
-      {showFilterPanel && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] bg-white p-5 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-2xl font-semibold leading-none text-[#101B41]">
-                Filter by
-              </h3>
-              <button
-                onClick={() => setShowFilterPanel(false)}
-                className="text-[#B8C0D3] hover:text-[#6E7891]"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-lg text-[#101B41]">
-                  Plan
-                </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.planName}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        planName: e.target.value,
-                      }))
-                    }
-                    className="h-[42px] w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Plan</option>
-                    {planOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-lg text-[#101B41]">
-                  Billing Cycle
-                </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.billingCycle}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        billingCycle: e.target.value,
-                      }))
-                    }
-                    className="h-[42px] w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Billing Cycle</option>
-                    {billingOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-lg text-[#101B41]">
-                  Date
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={draftFilters.fromDate}
-                      onChange={(e) =>
-                        setDraftFilters((prev) => ({
-                          ...prev,
-                          fromDate: e.target.value,
-                        }))
-                      }
-                      className="h-[42px] w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
-                    />
-                    <CalendarDays
-                      size={17}
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={draftFilters.toDate}
-                      onChange={(e) =>
-                        setDraftFilters((prev) => ({
-                          ...prev,
-                          toDate: e.target.value,
-                        }))
-                      }
-                      className="h-[42px] w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
-                    />
-                    <CalendarDays
-                      size={17}
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-lg text-[#101B41]">
-                  Status
-                </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.status}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        status: e.target.value,
-                      }))
-                    }
-                    className="h-[42px] w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Status</option>
-                    {statusOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="my-5 h-px bg-[#E4E8F1]" />
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setDraftFilters(INITIAL_FILTERS)}
-                className="h-[42px] rounded-lg border border-[#576CBC] text-sm font-semibold text-[#576CBC]"
-              >
-                Reset
-              </button>
-
-              <button
-                onClick={() => {
-                  setAppliedFilters(draftFilters);
-                  setShowFilterPanel(false);
-                }}
-                className="h-[42px] rounded-lg bg-[#576CBC] text-sm font-semibold text-white"
-              >
-                Show {previewFilteredPlans.length} results
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {/* Modal */}
       {showModal && selectedPlan && (
@@ -1057,6 +748,7 @@ const PlansTable = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

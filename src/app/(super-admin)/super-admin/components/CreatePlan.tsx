@@ -164,11 +164,11 @@ const [planData,setPlanData] = useState<PlanPayload>({
   planDescription: "",
   planStatus: "",
 
-  monthlyPrice: 0,
-  yearlyPrice: 0,
-  setupFee: 0,
-  trialDays: 0,
-  gstAndTax: 0,
+  monthlyPrice: "",
+  yearlyPrice: "",
+  setupFee: "",
+  trialDays: "",
+  gstAndTax: "",
 
   allowedRoles: [],
 
@@ -573,7 +573,7 @@ const handleChange = (
                       <input
                       type="number"
                       name="monthlyPrice"
-                       value={planData.monthlyPrice}
+                       value={planData.monthlyPrice === 0 ? "" : planData.monthlyPrice}
                         onChange={handleChange}
                         className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
                         placeholder="$344"
@@ -587,7 +587,7 @@ const handleChange = (
                       <input
                       type="number"
                       name="yearlyPrice"
-                       value={planData.yearlyPrice}
+                      value={planData.yearlyPrice === 0 ? "" : planData.yearlyPrice}
                         onChange={handleChange}
                         className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
                         placeholder="$2444"
@@ -601,7 +601,7 @@ const handleChange = (
                       <input
                       type="number"
                       name="setupFee"
-                      value={planData.setupFee}
+                      value={planData.setupFee === 0 ? "" : planData.setupFee}
                         onChange={handleChange}
                         className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
                         placeholder="$3"
@@ -615,7 +615,7 @@ const handleChange = (
                       <input
                       type="number"
                       name="trialDays"
-                       value={planData.trialDays}
+                      value={planData.trialDays === 0 ? "" : planData.trialDays}
                         onChange={handleChange}
                         className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
                         placeholder="14"
@@ -629,7 +629,7 @@ const handleChange = (
                       <input
                       type="number"
                       name="gstAndTax"
-                       value={planData.gstAndTax}
+                      value={planData.gstAndTax === 0 ? "" : planData.gstAndTax}
                         onChange={handleChange}
                         className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
                         placeholder="18%"
@@ -830,47 +830,27 @@ const handleChange = (
                   </div>
 
                   {/* Features */}
-{/* Feature Access Preview */}
-<div className="mt-5">
-  <h3 className="text-sm font-semibold text-[#010E30] mb-4">
-    Feature Access
-  </h3>
+<div className="max-h-64 overflow-y-scroll scrollbar-none pr-2">
+  <div className="space-y-5">
+    {allowedRoles.map((role) => (
+      <div key={role}>
+        <h4 className="text-sm font-semibold text-[#576CBC] mb-3">
+          {role.replaceAll("_", " ")}
+        </h4>
 
-  {allowedRoles.length > 0 ? (
-    <div className="space-y-5">
-      {allowedRoles.map((role) => (
-        <div key={role}>
-          {/* Role Heading */}
-          <h4 className="text-sm font-semibold text-[#576CBC] mb-3">
-            {role.replaceAll("_", " ")}
-          </h4>
-
-          {/* Permissions */}
-          <div className="grid grid-cols-3 gap-y-3">
-            {(featureAccessByRole[role] || []).map((permission) => (
-              <div
-                key={permission}
-                className="flex items-center gap-2"
-              >
-                <Check
-                  size={16}
-                  className="text-[#1DBA41] flex-shrink-0"
-                />
-
-                <span className="text-[12px] text-[#010E30]">
-                  {permission}
-                </span>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-3 gap-y-3">
+          {(featureAccessByRole[role] || []).map((permission) => (
+            <div key={permission} className="flex items-center gap-2">
+              <Check size={16} className="text-[#1DBA41]" />
+              <span className="text-[12px] text-[#010E30]">
+                {permission}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
-  ) : (
-    <p className="text-sm text-gray-500">
-      No Features Selected
-    </p>
-  )}
+      </div>
+    ))}
+  </div>
 </div>
 
                   {/* Info */}

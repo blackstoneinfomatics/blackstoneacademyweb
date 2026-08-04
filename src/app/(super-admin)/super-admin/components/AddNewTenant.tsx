@@ -77,7 +77,6 @@ function DocumentRow({
   );
 }
 
-
 function ReviewRow({
   label,
   value,
@@ -132,7 +131,8 @@ function UploadCard({
           className="text-[#5967E8]"
         />
 
-<p className="text-gray-500 mt-1 text-xs">          Click or Drag & Drop
+<p className="text-gray-500 mt-1 text-xs">     
+       Click or Drag & Drop
         </p>
 
         <input
@@ -198,26 +198,22 @@ export default function AddNewTenant({ onClose }: Props) {
     panNo: "",
     faxNo: "",
     website: "",
-comments:"",
+    comments:"",
     status: "",
     timeZone: "",
     plan: "",
     currency: "",
-
     country: "",
     state: "",
     city: "",
     street: "",
     landmark: "",
     pincode: "",
-
     tenantBackup: false,
-
     logo: null as File | null,
     gstCertificate: null as File | null,
     registrationCertificate: null as File | null,
     addressProof: null as File | null,
-
     adminName: "",
     adminEmail: "",
     adminPhone: "",
