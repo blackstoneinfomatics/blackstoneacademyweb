@@ -159,7 +159,7 @@ const [failed, setFailed] = useState(false);
 const [activeRole, setActiveRole] = useState<Role>("Admin");
 const [planData,setPlanData] = useState<PlanPayload>({
   planName: "",
-  studentLimit: 0,
+  studentLimit: "",
   billingCycle: "",
   planDescription: "",
   planStatus: "",
@@ -454,22 +454,20 @@ const handleChange = (
                     </div>
 
                     {/* Student Limit */}
-                    <div>
-                      <label className="block text-sm text-[#010E30] font-medium mb-2">
-                        Student Limit
-                      </label>
+                                        <div>
+  <label className="block text-sm text-[#010E30] font-medium mb-2">
+    Student Limit
+  </label>
 
-                      <select
-                      name="studentLimit"
-                        value={planData.studentLimit}
-                        onChange={handleChange}
-                        className="w-full h-8 text-xs rounded-lg border border-[#D4D4D4] px-2 focus:border-[#576CBC] outline-none">
-                        <option value={100}>1 - 100</option>
-<option value={300}>100 - 300</option>
-<option value={600}>300 - 600</option>
-<option value={1000}>600 - 1000</option>
-                      </select>
-                    </div>
+  <input
+    type="number"
+    name="studentLimit"
+    value={planData.studentLimit}
+    onChange={handleChange}
+    placeholder="Enter student limit"
+    className="w-full h-8 text-xs rounded-lg border border-[#D4D4D4] px-2 focus:border-[#576CBC] outline-none"
+  />
+</div>
 
                     {/* Billing Cycle */}
                     <div className="col-span-2">

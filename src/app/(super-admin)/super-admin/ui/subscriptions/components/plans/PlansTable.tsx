@@ -15,12 +15,6 @@ import axios from "axios";
 import Image from "next/image"
 
 
-const badgeColors: Record<string, string> = {
-  Basic: "bg-cyan-100 text-cyan-600",
-  Standard: "bg-blue-100 text-blue-600",
-  Premium: "bg-indigo-100 text-indigo-600",
-};
-
 const ToggleSwitch = ({
   checked,
   onChange,
@@ -56,7 +50,7 @@ const PlansTable = () => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-const getBadgeStyle = (planName: string) => {
+  const getBadgeStyle = (planName: string) => {
   const name = planName.toLowerCase();
 
   if (name.includes("basic")) {
@@ -91,6 +85,82 @@ const fetchPlans = async () => {
     console.error("Error fetching plans:", error);
   } finally {
     setLoading(false);
+  }
+};
+
+const handleViewPlan = async (planId: string) => {
+  try {
+    const res = await axios.get(
+      `http://localhost:5001/plans/${planId}`
+    );
+
+    setSelectedPlan(res.data.data);
+    setShowModal(true);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const modules = selectedPlan
+  ? Object.values(selectedPlan.features as Record<string, string[]>).flat()
+  : [];
+
+const [formData, setFormData] = useState({
+  planName: "",
+  billingCycle: "MONTHLY",
+  planDescription: "",
+  monthlyPrice: 0,
+  yearlyPrice: 0,
+  studentLimit: 0,
+  allowedRoles: [] as string[],
+  features: {} as Record<string, string[]>,
+  canCreateCustomRole: false,
+  customDomain: false,
+  backup: false,
+  planStatus: "Active",
+  status: "Active",
+});
+
+const selectedModules: string[] = Object.values(formData.features || {}).flat();
+
+useEffect(() => {
+  if (showUpdateModal && selectedPlan?.planId) {
+    getPlanById(selectedPlan.planId);
+  }
+}, [showUpdateModal, selectedPlan]);
+
+const getPlanById = async (planId: string) => {
+  try {
+    const res = await axios.get(
+      `http://localhost:5001/plans/${planId}`
+    );
+
+    const plan = res.data.data;
+
+    setFormData({
+      planName: plan.planName,
+      billingCycle: plan.billingCycle,
+      planDescription: plan.planDescription,
+      monthlyPrice: plan.monthlyPrice,
+      yearlyPrice: plan.yearlyPrice,
+      studentLimit: plan.studentLimit,
+      allowedRoles: plan.allowedRoles || [],
+      features: plan.features || {},
+      canCreateCustomRole: plan.canCreateCustomRole,
+      customDomain: plan.customDomain,
+      backup: plan.backup,
+      planStatus: plan.planStatus,
+      status: plan.status,
+    });
+
+    setFeatures({
+      customDomain: plan.customDomain,
+      backup: plan.backup,
+      canCreateCustomRole: plan.canCreateCustomRole,
+    });
+
+  } catch (err) {
+    console.log(err);
   }
 };
 
@@ -235,6 +305,7 @@ const featureItems = [
                           <button
                             className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
                             onClick={() => {
+                              handleViewPlan(item.planId)
                               setSelectedPlan(item);
                               setShowModal(true);
                               setOpenMenu(null);
@@ -329,11 +400,18 @@ const featureItems = [
 
                   <div>
                     <div className="flex items-center gap-3 justify-between">
-                      <h3 className="text-lg font-semibold">Enterprise</h3>
+                      <h3 className="text-lg font-semibold">{selectedPlan.planName}</h3>
 
-                      <span className="px-3 py-1 rounded-sm bg-green-100 text-green-700 text-[10px] font-medium">
-                        Active
-                      </span>
+                      <span
+className={`px-3 py-1 rounded-sm text-[10px] font-medium
+${
+selectedPlan.planStatus === "Active"
+? "bg-green-100 text-green-700"
+: "bg-red-100 text-red-700"
+}`}
+>
+{selectedPlan.planStatus}
+</span>
                     </div>
 
                     <p className="text-gray-700 text-xs mt-1 font-medium">
@@ -349,12 +427,30 @@ const featureItems = [
 
               <div className="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 gap-4 mb-5">
                 {[
-                  ["Plan Type", "Enterprise"],
-                  ["Billing Cycle", "Monthly / Yearly"],
-                  ["Created Date", "Sep 12, 2023"],
-                  ["Last Updated", "May 20, 2024"],
-                  ["Created By", "Super Admin"],
-                ].map(([title, value]) => (
+  ["Plan Name", selectedPlan.planName],
+
+  ["Billing Cycle", selectedPlan.billingCycle],
+
+  [
+    "Created Date",
+    new Date(selectedPlan.createdDate).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+  ],
+
+  [
+    "Last Updated",
+    new Date(selectedPlan.updatedDate).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+  ],
+
+  ["Created By", selectedPlan.createdBy],
+].map(([title, value]) => (
                   <div key={title} className="bg-[#EEF1FF] rounded-md p-3">
                     <p className="text-xs text-[#010E30]">{title}</p>
 
@@ -378,7 +474,7 @@ const featureItems = [
                       <p className="text-sm opacity-90">Monthly Price</p>
 
                       <h2 className="text-lg font-medium mt-3">
-                        $8,500 <span>/ Month</span>
+                        ₹{selectedPlan.monthlyPrice} <span>/ Month</span>
                       </h2>
                     </div>
 
@@ -386,7 +482,7 @@ const featureItems = [
                       <p className="text-sm opacity-90">Yearly Price</p>
 
                       <h2 className="text-lg font-medium mt-3">
-                        $8,500 <span>/ Year</span>
+                        ₹{selectedPlan.yearlyPrice} <span>/ Year</span>
                       </h2>
 
                       <span className="inline-block mt-2 bg-[#D6FED5] text-green-800 px-3 py-1 rounded text-xs">
@@ -404,11 +500,14 @@ const featureItems = [
                   </h4>
 
                   {[
-                    ["Total Subscribed Tenant", "42"],
-                    ["Active Tenants", "32"],
-                    ["Monthly Revenue", "$8,500,000"],
-                    ["Yearly Revenue", "$8,500,000"],
-                  ].map(([k, v]) => (
+  ["Student Limit", selectedPlan.studentLimit],
+
+  ["Trial Days", selectedPlan.trialDays],
+
+  ["Setup Fee", `₹${selectedPlan.setupFee}`],
+
+  ["GST / Tax", `${selectedPlan.gstAndTax}%`],
+].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-[5px]">
                       <span className="text-[#010e30] text-[14px] font-normal">
                         {k}
@@ -429,23 +528,28 @@ const featureItems = [
                   <h4 className="font-medium text-base mb-2">Plan Limits</h4>
                   <div className="max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2">
                     {[
-                      ["Maximum Students", "500"],
-                      ["Maximum Staff / Users", "100"],
-                      ["Storage Limit", "250 GB"],
-                      ["Custom Domain", "Yes"],
-                      ["Backup", "Yes"],
-                      ["API Access", "Yes"],
-                      ["White Label", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                      ["Priority Support", "Yes"],
-                    ].map(([k, v]) => (
+["Maximum Students", selectedPlan.studentLimit],
+
+[
+"Custom Domain",
+selectedPlan.customDomain ? "Yes" : "No"
+],
+
+[
+"Backup",
+selectedPlan.backup ? "Yes" : "No"
+],
+
+[
+"Custom Role",
+selectedPlan.canCreateCustomRole ? "Yes" : "No"
+],
+
+[
+"Domain",
+selectedPlan.domain || "-"
+],
+].map(([k, v]) => (
                       <div key={k} className="flex justify-between py-2">
                         <span className="text-[#010e30] text-[14px] font-normal">
                           {k}
@@ -463,29 +567,11 @@ const featureItems = [
                     Included Modules
                   </h4>
 
-                  <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2">
-                    {[
-                      "Student Management",
-                      "Staff Management",
-                      "Attendance",
-                      "Fees Management",
-                      "Examination",
-                      "Transport Management",
-                      "Library Management",
-                      "Hostel Management",
-                      "HR & Payroll",
-                      "Performance Analytics",
-                      "Reports & Insights",
-                      "Mobile App Access",
-                    ].map((item) => (
-                      <div
-                        key={item}
-                        className="text-[#010e30] text-[14px] font-normal"
-                      >
-                        {item}
-                      </div>
-                    ))}
-                  </div>
+                    <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2 text-[#010e30] text-[14px] font-normal">
+                        {modules.map((item: string) => (
+      <div key={item}>{item}</div>
+    ))}
+                    </div>
                 </div>
               </div>
 
@@ -495,10 +581,29 @@ const featureItems = [
                 <h4 className="font-medium text-base mb-3">Timeline</h4>
 
                 {[
-                  ["Plan Created", "May 01, 2024"],
-                  ["Last Updated", "May 01, 2024"],
-                  ["Last Price Change", "May 01, 2024"],
-                ].map(([k, v]) => (
+  [
+    "Plan Created",
+    new Date(selectedPlan.createdDate).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+  ],
+
+  [
+    "Last Updated",
+    new Date(selectedPlan.updatedDate).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+  ],
+
+  [
+    "Last Updated By",
+    selectedPlan.lastUpdatedBy || "-",
+  ],
+].map(([k, v]) => (
                   <div key={k} className="flex justify-between py-2">
                     <span className="text-[#010e30] text-[14px] font-normal">
                       {k}
@@ -543,10 +648,15 @@ const featureItems = [
                     <label className="mb-1 block text-sm font-medium">
                       Plan Name
                     </label>
-                    <input
-                      type="text"
+                      <input type="text"
+  value={formData.planName}
+  onChange={(e) =>
+    setFormData({
+      ...formData,
+      planName: e.target.value,
+    })
+  }
                       className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
-                      placeholder="Name of the subscription plan."
                     />
                   </div>
 
@@ -571,8 +681,14 @@ const featureItems = [
 
                   <textarea
                     rows={3}
+                     value={formData.planDescription}
+  onChange={(e) =>
+    setFormData({
+      ...formData,
+      planDescription: e.target.value,
+    })
+  }
                     className="w-full rounded border border-[#d4d4d4] p-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
-                    placeholder="Short explanation about the plan and its features."
                   />
                 </div>
 
@@ -583,8 +699,14 @@ const featureItems = [
                     </label>
 
                     <input
-                      type="text"
-                      defaultValue="$8,800"
+                      type="number"
+  value={formData.monthlyPrice}
+  onChange={(e) =>
+    setFormData({
+      ...formData,
+      monthlyPrice: Number(e.target.value),
+    })
+  }
                       className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -595,8 +717,14 @@ const featureItems = [
                     </label>
 
                     <input
-                      type="text"
-                      defaultValue="$86,500"
+                      type="number"
+  value={formData.yearlyPrice}
+  onChange={(e) =>
+    setFormData({
+      ...formData,
+      yearlyPrice: Number(e.target.value),
+    })
+  }
                       className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -608,17 +736,23 @@ const featureItems = [
                 <h3 className="mb-4 text-[15px] font-semibold">Plan Limits</h3>
 
                 <div className="grid grid-cols-3 gap-5">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Students
-                    </label>
+ <div>
+  <label className="mb-1 block text-sm font-medium">
+    Students
+  </label>
 
-                    <select className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs">
-                      <option>Unlimited</option>
-                      <option>100</option>
-                      <option>500</option>
-                    </select>
-                  </div>
+  <input
+    type="number"
+    value={formData.studentLimit}
+    onChange={(e) =>
+      setFormData({
+        ...formData,
+        studentLimit: Number(e.target.value),
+      })
+    }
+    className="h-8 w-full rounded border border-[#d4d4d4] px-3 text-xs outline-none focus:border-indigo-500"
+  />
+</div>
 
                   <div>
                     <label className="mb-1 block text-sm font-medium">
@@ -666,57 +800,68 @@ const featureItems = [
 
               {/* Included Modules */}
 
-              <div className="rounded-lg border border-gray-200 p-5">
-                <h3 className="mb-4 text-[15px] font-semibold">
-                  Included Modules
-                </h3>
+       <div className="grid grid-cols-2 gap-3">
+  {[
+    "Student Management",
+    "Staff Management",
+    "Attendance",
+    "Fees Management",
+    "Examination",
+    "Transport Management",
+    "Library Management",
+    "Hostel Management",
+    "HR & Payroll",
+    "Performance Analytics",
+  ].map((item, index) => (
+    <label
+      key={index}
+      className="flex items-center gap-2 cursor-pointer text-[13px]"
+    >
+      <span className="relative flex h-[13px] w-[13px] items-center justify-center">
+        <input
+          type="checkbox"
+          className="peer absolute inset-0 h-[13px] w-[13px] cursor-pointer opacity-0"
+          checked={selectedModules.includes(item)}
+          onChange={(e) => {
+            let modules = [...selectedModules];
 
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    "Student Management",
-                    "Staff Management",
-                    "Attendance",
-                    "Fees Management",
-                    "Examination",
-                    "Transport Management",
-                    "Student Management",
-                    "Student Management",
-                    "Library Management",
-                    "Hostel Management",
-                    "HR & Payroll",
-                    "Performance Analytics",
-                  ].map((item, index) => (
-                    <label
-                      key={index}
-                      className="flex items-center gap-2 cursor-pointer text-[13px]"
-                    >
-                      <span className="relative flex h-[13px] w-[13px] items-center justify-center">
-                        <input
-                          type="checkbox"
-                          className="peer absolute inset-0 h-[13px] w-[13px] cursor-pointer opacity-0"
-                        />
+            if (e.target.checked) {
+              modules.push(item);
+            } else {
+              modules = modules.filter((m) => m !== item);
+            }
 
-                        <span className="flex h-[13px] w-[13px] items-center justify-center rounded-[3px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
-                          <svg
-                            viewBox="0 0 16 16"
-                            className="h-3 w-3"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path
-                              d="M3.5 8.5L6.5 11.5L12.5 4.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </span>
-                      </span>
-                      {item}
-                    </label>
-                  ))}
-                </div>
-              </div>
+            setFormData((prev) => ({
+              ...prev,
+              features: {
+                ...prev.features,
+                Modules: modules,
+              },
+            }));
+          }}
+        />
+
+        <span className="flex h-[13px] w-[13px] items-center justify-center rounded-[3px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
+          <svg
+            viewBox="0 0 16 16"
+            className="h-3 w-3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              d="M3.5 8.5L6.5 11.5L12.5 4.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+      </span>
+
+      {item}
+    </label>
+  ))}
+</div>
 
               {/* Status */}
 
