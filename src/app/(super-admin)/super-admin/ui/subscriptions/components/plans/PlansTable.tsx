@@ -153,11 +153,12 @@ const getPlanById = async (planId: string) => {
       status: plan.status,
     });
 
-    setFeatures({
-      customDomain: plan.customDomain,
-      backup: plan.backup,
-      canCreateCustomRole: plan.canCreateCustomRole,
-    });
+    setFeatures((prev) => ({
+      ...prev,
+      customDomain: Boolean(plan.customDomain),
+      backup: Boolean(plan.backup),
+      canCreateCustomRole: Boolean(plan.canCreateCustomRole),
+    }));
 
   } catch (err) {
     console.log(err);
@@ -177,6 +178,7 @@ const featureItems = [
     apiAccess: true,
     whiteLabel: true,
     prioritySupport: true,
+    canCreateCustomRole: false,
   });
 
   return (

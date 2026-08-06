@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MdError } from "react-icons/md";
 import { Check } from "lucide-react";
 import { PiInfoFill } from "react-icons/pi";
 import { AppFailureToastMessages, AppSuccessToastMessages } from "@/app/_components/contents/toast_message";
@@ -38,20 +37,20 @@ interface PlanPayload {
 
 const steps = [1, 2, 3, 4];
 
-const features = [
-  "Student Management",
-  "Attendance",
-  "Dashboard",
-  "Reports",
-  "Fees",
-  "Exams",
-  "Library",
-  "Transport",
-  "Staff",
-  "Parent Portal",
-  "Notification",
-  "Inventory",
-];
+// const features = [
+//   "Student Management",
+//   "Attendance",
+//   "Dashboard",
+//   "Reports",
+//   "Fees",
+//   "Exams",
+//   "Library",
+//   "Transport",
+//   "Staff",
+//   "Parent Portal",
+//   "Notification",
+//   "Inventory",
+// ];
 
 const roles = [
   "Admin",
@@ -159,16 +158,16 @@ const [failed, setFailed] = useState(false);
 const [activeRole, setActiveRole] = useState<Role>("Admin");
 const [planData,setPlanData] = useState<PlanPayload>({
   planName: "",
-  studentLimit: "",
+  studentLimit: 0,
   billingCycle: "",
   planDescription: "",
   planStatus: "",
 
-  monthlyPrice: "",
-  yearlyPrice: "",
-  setupFee: "",
-  trialDays: "",
-  gstAndTax: "",
+  monthlyPrice: 0,
+  yearlyPrice: 0,
+  setupFee: 0,
+  trialDays: 0,
+  gstAndTax: 0,
 
   allowedRoles: [],
 
@@ -317,10 +316,6 @@ const handleChange = (
     setDirection(-1);
     if (step > 1) setStep(step - 1);
   };
-
-  const previewFeatures: string[] = Array.from(
-    new Set(Object.values(selectedPermissions).flat()),
-  );
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5">
