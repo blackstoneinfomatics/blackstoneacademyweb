@@ -5,7 +5,10 @@ import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { PiInfoFill } from "react-icons/pi";
-import { AppFailureToastMessages, AppSuccessToastMessages } from "@/app/_components/contents/toast_message";
+import {
+  AppFailureToastMessages,
+  AppSuccessToastMessages,
+} from "@/app/_components/contents/toast_message";
 import axios from "axios";
 
 type Props = {
@@ -151,116 +154,106 @@ const variants = {
 const CreatePlan = ({ onClose }: Props) => {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
-const [successMessage, setSuccessMessage] = useState("");
-const [failedMessage, setFailedMessage] = useState("");
-const [success, setSuccess] = useState(false);
-const [failed, setFailed] = useState(false);
-const [activeRole, setActiveRole] = useState<Role>("Admin");
-const [planData,setPlanData] = useState<PlanPayload>({
-  planName: "",
-  studentLimit: 0,
-  billingCycle: "",
-  planDescription: "",
-  planStatus: "",
+  const [successMessage, setSuccessMessage] = useState("");
+  const [failedMessage, setFailedMessage] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [activeRole, setActiveRole] = useState<Role>("Admin");
+  const [planData, setPlanData] = useState<PlanPayload>({
+    planName: "",
+    studentLimit: 0,
+    billingCycle: "",
+    planDescription: "",
+    planStatus: "",
 
-  monthlyPrice: 0,
-  yearlyPrice: 0,
-  setupFee: 0,
-  trialDays: 0,
-  gstAndTax: 0,
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    setupFee: 0,
+    trialDays: 0,
+    gstAndTax: 0,
 
-  allowedRoles: [],
+    allowedRoles: [],
 
-  features: {},
+    features: {},
 
-  canCreateCustomRole: false,
-  status: "Active",
-  createdBy: "SUPER_ADMIN",
-  lastUpdatedBy: "SUPER_ADMIN",
-});
+    canCreateCustomRole: false,
+    status: "Active",
+    createdBy: "SUPER_ADMIN",
+    lastUpdatedBy: "SUPER_ADMIN",
+  });
 
-const handleSubmit = async () => {
-  try {
-    const rolesFromPermissions = Object.keys(selectedPermissions)
-      .filter(
-        (role) => selectedPermissions[role as Role].length > 0
-      )
-      .map((role) => roleMap[role as Role]);
+  const handleSubmit = async () => {
+    try {
+      const rolesFromPermissions = Object.keys(selectedPermissions)
+        .filter((role) => selectedPermissions[role as Role].length > 0)
+        .map((role) => roleMap[role as Role]);
 
-    const allowedRoles =
-      rolesFromPermissions.length > 0
-        ? rolesFromPermissions
-        : [roleMap[activeRole]];
+      const allowedRoles =
+        rolesFromPermissions.length > 0
+          ? rolesFromPermissions
+          : [roleMap[activeRole]];
 
-    const features = Object.fromEntries(
-      Object.entries(selectedPermissions)
-        .filter(([, value]) => value.length > 0)
-        .map(([key, value]) => [
-          roleMap[key as Role],
-          value,
-        ])
-    );
+      const features = Object.fromEntries(
+        Object.entries(selectedPermissions)
+          .filter(([, value]) => value.length > 0)
+          .map(([key, value]) => [roleMap[key as Role], value]),
+      );
 
-    const payload: PlanPayload = {
-      planName: planData.planName,
-      studentLimit: Number(planData.studentLimit),
-      billingCycle: planData.billingCycle,
-      planDescription: planData.planDescription,
-      planStatus: planData.planStatus,
+      const payload: PlanPayload = {
+        planName: planData.planName,
+        studentLimit: Number(planData.studentLimit),
+        billingCycle: planData.billingCycle,
+        planDescription: planData.planDescription,
+        planStatus: planData.planStatus,
 
-      monthlyPrice: Number(planData.monthlyPrice),
-      yearlyPrice: Number(planData.yearlyPrice),
-      setupFee: Number(planData.setupFee),
-      trialDays: Number(planData.trialDays),
-      gstAndTax: Number(planData.gstAndTax),
+        monthlyPrice: Number(planData.monthlyPrice),
+        yearlyPrice: Number(planData.yearlyPrice),
+        setupFee: Number(planData.setupFee),
+        trialDays: Number(planData.trialDays),
+        gstAndTax: Number(planData.gstAndTax),
 
-      allowedRoles,
-      features,
+        allowedRoles,
+        features,
 
-      canCreateCustomRole: allowedRoles.includes("ADMIN"),
+        canCreateCustomRole: allowedRoles.includes("ADMIN"),
 
-      status: planData.status,
-      createdBy: planData.createdBy,
-      lastUpdatedBy: planData.lastUpdatedBy,
-    };
+        status: planData.status,
+        createdBy: planData.createdBy,
+        lastUpdatedBy: planData.lastUpdatedBy,
+      };
 
-    console.log(payload);
+      console.log(payload);
 
-    const response = await axios.post(
-      "http://localhost:5001/plans",
-      payload
-    );
+      const response = await axios.post("http://localhost:5001/plans", payload);
 
-    console.log(response.data);
+      console.log(response.data);
 
-    setSuccessMessage(AppSuccessToastMessages.CREATE_PLAN_SUCCESS);
-    setSuccess(true);
+      setSuccessMessage(AppSuccessToastMessages.CREATE_PLAN_SUCCESS);
+      setSuccess(true);
+    } catch (err: any) {
+      console.error(err);
 
-  } catch (err: any) {
-    console.error(err);
+      setFailedMessage(
+        err.response?.data?.message ||
+          AppFailureToastMessages.CREATE_PLAN_FAILED,
+      );
 
-    setFailedMessage(
-      err.response?.data?.message ||
-      AppFailureToastMessages.CREATE_PLAN_FAILED
-    );
+      setFailed(true);
+    }
+  };
 
-    setFailed(true);
-  }
-};
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
+    const { name, value, type } = e.target;
 
-
-const handleChange = (
-  e: React.ChangeEvent<
-    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-  >
-) => {
-  const { name, value, type } = e.target;
-
-  setPlanData((prev) => ({
-    ...prev,
-    [name]: type === "number" ? Number(value) : value,
-  }));
-};
+    setPlanData((prev) => ({
+      ...prev,
+      [name]: type === "number" ? Number(value) : value,
+    }));
+  };
 
   const [selectedPermissions, setSelectedPermissions] = useState<
     Record<Role, string[]>
@@ -317,8 +310,10 @@ const handleChange = (
     if (step > 1) setStep(step - 1);
   };
 
+  const isDark = document.documentElement.classList.contains("dark");
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5">
+    <div className="fixed inset-0 bg-black/70 dark:bg-black/70 flex items-center justify-center z-50 p-5">
       <motion.div
         initial={{
           opacity: 0,
@@ -337,14 +332,14 @@ const handleChange = (
         transition={{
           duration: 0.35,
         }}
-        className="bg-white rounded-xl w-full max-w-xl shadow-xl"
+        className="bg-white dark:bg-[#252525] rounded-xl w-full max-w-xl shadow-xl"
       >
         {" "}
         {/* Header */}
         <div className="relative p-2">
           <button
             onClick={onClose}
-            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center text-gray-500 transition hover:bg-gray-100 hover:text-black"
+            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center text-gray-500 transition hover:bg-gray-100 dark:hover:bg-[#343434] hover:text-black dark:hover:text-[#ccc] rounded-md"
           >
             <X size={15} />
           </button>
@@ -357,8 +352,9 @@ const handleChange = (
               <motion.div
                 key={item}
                 animate={{
-                  backgroundColor: step >= item ? "#576CBC" : "#D9D9D9",
-                  color: step >= item ? "#fff" : "#555",
+                  backgroundColor:
+                    step >= item ? "#576CBC" : isDark ? "#343434" : "#D9D9D9",
+                  color: step >= item ? "#fff" : isDark ? "#a2a2a2" : "#555",
                 }}
                 transition={{ duration: 0.25 }}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-base font-semibold"
@@ -373,7 +369,7 @@ const handleChange = (
             {steps.map((item) => (
               <div
                 key={item}
-                className="h-[5px] rounded-full bg-[#D9D9D9] overflow-hidden"
+                className="h-[5px] rounded-full bg-[#D9D9D9] dark:bg-[#343434] overflow-hidden"
               >
                 <motion.div
                   initial={false}
@@ -419,7 +415,7 @@ const handleChange = (
                       transition={{ delay: 0.1 }}
                       className="col-span-2"
                     >
-                      <label className="block text-sm text-[#010E30] font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-2">
                         Plan Name
                       </label>
 
@@ -428,18 +424,17 @@ const handleChange = (
                         placeholder="Premium Plus"
                         value={planData.planName}
                         onChange={handleChange}
-                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        className="w-full h-8 text-xs dark:bg-[#343434] rounded-sm border border-[#D4D4D4] dark:border-[#5c5c5c] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:placeholder:text-[#808080]"
                       />
                     </motion.div>
 
                     {/* Role */}
                     <div>
-                      <label className="block text-sm text-[#010E30] font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-2">
                         Role
                       </label>
 
-                      <select
-                       className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 focus:border-[#576CBC] outline-none">
+                      <select className="w-full dark:bg-[#343434] h-8 text-xs rounded-sm border border-[#D4D4D4] dark:border-[#5c5c5c] px-2 focus:border-[#576CBC] outline-none">
                         <option>Admin</option>
                         <option>Academic Coach</option>
                         <option>Supervisor</option>
@@ -449,58 +444,56 @@ const handleChange = (
                     </div>
 
                     {/* Student Limit */}
-                                        <div>
-  <label className="block text-sm text-[#010E30] font-medium mb-2">
-    Student Limit
-  </label>
+                    <div>
+                      <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-2">
+                        Student Limit
+                      </label>
 
-  <input
-    type="number"
-    name="studentLimit"
-    value={planData.studentLimit}
-    onChange={handleChange}
-    placeholder="Enter student limit"
-    className="w-full h-8 text-xs rounded-lg border border-[#D4D4D4] px-2 focus:border-[#576CBC] outline-none"
-  />
-</div>
+                      <input
+                        type="number"
+                        name="studentLimit"
+                        value={planData.studentLimit}
+                        onChange={handleChange}
+                        placeholder="Enter student limit"
+                        className="w-full dark:bg-[#343434] h-8 text-xs rounded-lg border border-[#D4D4D4] dark:border-[#5c5c5c] px-2 focus:border-[#576CBC] outline-none"
+                      />
+                    </div>
 
                     {/* Billing Cycle */}
                     <div className="col-span-2">
-                      <label className="block text-sm text-[#010E30] font-medium mb-3">
+                      <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-3">
                         Billing Cycle
                       </label>
 
                       <div className="grid grid-cols-4 gap-2">
                         {[
-  { label: "Monthly", value: "MONTHLY" },
-  { label: "3 Months", value: "QUARTERLY" },
-  { label: "6 Months", value: "HALF_YEARLY" },
-  { label: "Yearly", value: "YEARLY" },
-  { label: "Lifetime", value: "LIFETIME" },
-].map(
-                          (item) => (
-                            <label
-                              key={item.value}
-                              className="h-8 border border-[#D4D4D4] rounded-sm text-[#343e59] flex items-center px-2 gap-2 cursor-pointer hover:border-[#576CBC] focus:border-[#576CBC] outline-none"
-                            >
-                              <input
-                                type="radio"
-                                checked={planData.billingCycle === item.value}
-                                value={item.value}
-                                onChange={handleChange}
-                                name="billingCycle"
-                                className="accent-[#576CBC]"
-                              />
-                              <span className="text-xs">{item.label}</span>
-                            </label>
-                          ),
-                        )}
+                          { label: "Monthly", value: "MONTHLY" },
+                          { label: "3 Months", value: "QUARTERLY" },
+                          { label: "6 Months", value: "HALF_YEARLY" },
+                          { label: "Yearly", value: "YEARLY" },
+                          { label: "Lifetime", value: "LIFETIME" },
+                        ].map((item) => (
+                          <label
+                            key={item.value}
+                            className="h-8 dark:text-[#ccc] border border-[#D4D4D4] dark:border-[#5c5c5c] rounded-sm text-[#343e59] flex items-center px-2 gap-2 cursor-pointer hover:border-[#576CBC] focus:border-[#576CBC] outline-none"
+                          >
+                            <input
+                              type="radio"
+                              checked={planData.billingCycle === item.value}
+                              value={item.value}
+                              onChange={handleChange}
+                              name="billingCycle"
+                              className="accent-[#576CBC] dark:accent-[#576CBC] focus:ring-0 focus:outline-none"
+                            />
+                            <span className="text-xs">{item.label}</span>
+                          </label>
+                        ))}
                       </div>
                     </div>
 
                     {/* Description */}
                     <div className="col-span-2">
-                      <label className="block text-sm text-[#010E30] font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-2">
                         Plan Description
                       </label>
 
@@ -509,21 +502,22 @@ const handleChange = (
                         value={planData.planDescription}
                         onChange={handleChange}
                         placeholder="Advanced plan for growing institutions with all essential features."
-                        className="w-full rounded-sm border border-[#D4D4D4] p-2 text-xs resize-none placeholder:text-[#343e59] focus:border-[#576CBC] outline-none"
+                        className="w-full dark:bg-[#343434] rounded-sm border border-[#D4D4D4] dark:border-[#5c5c5c] p-2 text-xs resize-none placeholder:text-[#343e59] dark:placeholder:text-[#808080] focus:border-[#576CBC] outline-none"
                       />
                     </div>
 
                     {/* Status */}
                     <div>
-                      <label className="block text-sm text-[#010E30] font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-2">
                         Status
                       </label>
 
-                      <select 
-                      name="status"
+                      <select
+                        name="status"
                         value={planData.status}
                         onChange={handleChange}
-                      className="w-full h-8 rounded-lg border border-[#D4D4D4] px-2 text-xs focus:border-[#576CBC] outline-none">
+                        className="w-full dark:bg-[#343434] h-8 rounded-lg border border-[#D4D4D4] dark:border-[#5c5c5c] px-2 text-xs focus:border-[#576CBC] outline-none"
+                      >
                         <option value="Active">Active</option>
                         <option value="In Active">In Active</option>
                       </select>
@@ -531,19 +525,20 @@ const handleChange = (
 
                     {/* Plan Status */}
                     <div>
-                      <label className="block text-sm text-[#010E30] font-medium mb-2">
+                      <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-2">
                         Plan Status
                       </label>
 
-                      <select 
-                      name="planStatus"
-                      value={planData.planStatus}
-                      onChange={handleChange}
-                        className="w-full h-8 rounded-lg border border-[#D4D4D4] px-2 text-xs focus:border-[#576CBC] outline-none">
-                          <option value="">Select Status</option>
-  <option value="Active">Active</option>
-  <option value="In active">In active</option>
-  <option value="MOST_POPULAR">MOST POPULAR</option>
+                      <select
+                        name="planStatus"
+                        value={planData.planStatus}
+                        onChange={handleChange}
+                        className="w-full dark:bg-[#343434] h-8 rounded-lg border border-[#D4D4D4] dark:border-[#5c5c5c] px-2 text-xs focus:border-[#576CBC] outline-none"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="Active">Active</option>
+                        <option value="In active">In active</option>
+                        <option value="MOST_POPULAR">MOST POPULAR</option>
                       </select>
                     </div>
                   </div>
@@ -560,75 +555,85 @@ const handleChange = (
                   </div>
                   <div className="grid grid-cols-2 gap-5">
                     <div>
-                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                      <label className="text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-4">
                         Monthly Price
                       </label>
                       <input
-                      type="number"
-                      name="monthlyPrice"
-                       value={planData.monthlyPrice === 0 ? "" : planData.monthlyPrice}
+                        type="number"
+                        name="monthlyPrice"
+                        value={
+                          planData.monthlyPrice === 0
+                            ? ""
+                            : planData.monthlyPrice
+                        }
                         onChange={handleChange}
-                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:placeholder:text-[#808080] dark:bg-[#343434] dark:border-[#5c5c5c]"
                         placeholder="$344"
                       />
                     </div>
 
                     <div>
-                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                      <label className="text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-4">
                         Yearly Price
                       </label>
                       <input
-                      type="number"
-                      name="yearlyPrice"
-                      value={planData.yearlyPrice === 0 ? "" : planData.yearlyPrice}
+                        type="number"
+                        name="yearlyPrice"
+                        value={
+                          planData.yearlyPrice === 0 ? "" : planData.yearlyPrice
+                        }
                         onChange={handleChange}
-                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:placeholder:text-[#808080] dark:bg-[#343434] dark:border-[#5c5c5c]"
                         placeholder="$2444"
                       />
                     </div>
 
                     <div>
-                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                      <label className="text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-4">
                         Setup Fee
                       </label>
                       <input
-                      type="number"
-                      name="setupFee"
-                      value={planData.setupFee === 0 ? "" : planData.setupFee}
+                        type="number"
+                        name="setupFee"
+                        value={planData.setupFee === 0 ? "" : planData.setupFee}
                         onChange={handleChange}
-                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:placeholder:text-[#808080] dark:bg-[#343434] dark:border-[#5c5c5c]"
                         placeholder="$3"
                       />
                     </div>
 
                     <div>
-                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                      <label className="text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-4">
                         Free Trial Days
                       </label>
                       <input
-                      type="number"
-                      name="trialDays"
-                      value={planData.trialDays === 0 ? "" : planData.trialDays}
+                        type="number"
+                        name="trialDays"
+                        value={
+                          planData.trialDays === 0 ? "" : planData.trialDays
+                        }
                         onChange={handleChange}
-                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:placeholder:text-[#808080] dark:bg-[#343434] dark:border-[#5c5c5c]"
                         placeholder="14"
                       />
                     </div>
 
                     <div className="col-span-2">
-                      <label className="text-sm text-[#010E30] font-medium mb-4">
+                      <label className="text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-4">
                         GST / Tax
                       </label>
                       <input
-                      type="number"
-                      name="gstAndTax"
-                      value={planData.gstAndTax === 0 ? "" : planData.gstAndTax}
+                        type="number"
+                        name="gstAndTax"
+                        value={
+                          planData.gstAndTax === 0 ? "" : planData.gstAndTax
+                        }
                         onChange={handleChange}
-                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                        className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:placeholder:text-[#808080] dark:bg-[#343434] dark:border-[#5c5c5c]"
                         placeholder="18%"
                       />
                     </div>
-{/* 
+                    {/* 
                     <div className="col-span-2 flex gap-2 bg-[#E5EBFF] border border-dashed rounded-lg p-6 mt-6 text-center text-[#010E30]">
                       <MdError size={23} color="#576CBC" />
                       Accepted formats: PDF, JPG, PNG (Max size: 5MB each)
@@ -649,8 +654,8 @@ const handleChange = (
                         onClick={() => setActiveRole(role)}
                         className={`px-5 h-11 rounded-xl whitespace-nowrap text-sm font-medium transition-all ${
                           activeRole === role
-                            ? "bg-[#E9EDFF] text-[#576CBC]"
-                            : "text-[#010E30]"
+                            ? "bg-[#E9EDFF] dark:bg-[#343434] text-[#576CBC]"
+                            : "text-[#010E30] dark:text-[#ccc]"
                         }`}
                       >
                         {role}
@@ -673,7 +678,7 @@ const handleChange = (
                           className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
                         />
 
-                        <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white dark:bg-[#ccc] text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
                           <svg
                             viewBox="0 0 16 16"
                             className="h-3 w-3"
@@ -690,7 +695,7 @@ const handleChange = (
                         </span>
                       </span>
 
-                      <span className="text-sm text-[#010E30]">Select All</span>
+                      <span className="text-sm text-[#010E30] dark:text-[#ccc]">Select All</span>
                     </label>
 
                     {/* Permissions */}
@@ -710,7 +715,7 @@ const handleChange = (
                               className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
                             />
 
-                            <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white dark:bg-[#ccc] text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
                               <svg
                                 viewBox="0 0 16 16"
                                 className="h-3 w-3"
@@ -727,7 +732,7 @@ const handleChange = (
                             </span>
                           </span>
 
-                          <span className="text-sm text-[#010E30]">
+                          <span className="text-sm text-[#010E30] dark:text-[#ccc]">
                             {permission}
                           </span>
                         </label>
@@ -745,7 +750,7 @@ const handleChange = (
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-[#010E30]">
+                    <h2 className="text-xl font-semibold text-[#010E30] dark:text-[#ccc]">
                       Plan Preview
                     </h2>
 
@@ -800,51 +805,54 @@ const handleChange = (
                     </div>
 
                     <h2 className="text-2xl font-bold">
-  {planData.planName || "Plan Name"}
-</h2>
+                      {planData.planName || "Plan Name"}
+                    </h2>
 
-<p className="text-sm text-white/90">
-  {planData.planDescription || "No description"}
-</p>
+                    <p className="text-sm text-white/90">
+                      {planData.planDescription || "No description"}
+                    </p>
 
-<div className="mt-4 flex items-end gap-2">
-  <span className="text-3xl font-medium">
-    ₹{planData.monthlyPrice || 0}
-  </span>
+                    <div className="mt-4 flex items-end gap-2">
+                      <span className="text-3xl font-medium">
+                        ₹{planData.monthlyPrice || 0}
+                      </span>
 
-  <span className="text-xl">
-    /{planData.billingCycle.replace("_", " ")}
-  </span>
-</div>
+                      <span className="text-xl">
+                        /{planData.billingCycle.replace("_", " ")}
+                      </span>
+                    </div>
 
-<p className="mt-3 text-sm">
-  {planData.billingCycle}
-</p>
+                    <p className="mt-3 text-sm">{planData.billingCycle}</p>
                   </div>
 
                   {/* Features */}
-<div className="max-h-64 overflow-y-scroll scrollbar-none pr-2">
-  <div className="space-y-5">
-    {allowedRoles.map((role) => (
-      <div key={role}>
-        <h4 className="text-sm font-semibold text-[#576CBC] mb-3">
-          {role.replaceAll("_", " ")}
-        </h4>
+                  <div className="max-h-64 overflow-y-scroll scrollbar-none pr-2">
+                    <div className="space-y-5">
+                      {allowedRoles.map((role) => (
+                        <div key={role}>
+                          <h4 className="text-sm font-semibold text-[#576CBC] mb-3">
+                            {role.replaceAll("_", " ")}
+                          </h4>
 
-        <div className="grid grid-cols-3 gap-y-3">
-          {(featureAccessByRole[role] || []).map((permission) => (
-            <div key={permission} className="flex items-center gap-2">
-              <Check size={16} className="text-[#1DBA41]" />
-              <span className="text-[12px] text-[#010E30]">
-                {permission}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
+                          <div className="grid grid-cols-3 gap-y-3">
+                            {(featureAccessByRole[role] || []).map(
+                              (permission) => (
+                                <div
+                                  key={permission}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Check size={16} className="text-[#1DBA41]" />
+                                  <span className="text-[12px] text-[#010E30]">
+                                    {permission}
+                                  </span>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Info */}
                   <div className="mt-8 bg-[#E5EBFF] rounded-xl px-5 py-4 flex items-center gap-3">
@@ -864,7 +872,7 @@ const handleChange = (
           {step > 1 && (
             <button
               onClick={back}
-              className="border border-gray-300 hover:bg-gray-50 px-4 text-xs py-2 rounded-md"
+              className="border border-gray-300 dark:border-[#5c5c5c] hover:bg-gray-50 dark:hover:bg-[#343434] px-4 text-xs py-2 rounded-md"
             >
               Back
             </button>
@@ -886,11 +894,11 @@ const handleChange = (
             </motion.button>
           ) : (
             <button
-  onClick={handleSubmit}
-  className="bg-[#576CBC] text-xs text-white px-6 py-2 rounded-md hover:bg-[#4338CA]"
->
-  Create Plan
-</button>
+              onClick={handleSubmit}
+              className="bg-[#576CBC] text-xs text-white px-6 py-2 rounded-md hover:bg-[#4338CA]"
+            >
+              Create Plan
+            </button>
           )}
         </div>
       </motion.div>
@@ -899,5 +907,3 @@ const handleChange = (
 };
 
 export default CreatePlan;
-
-

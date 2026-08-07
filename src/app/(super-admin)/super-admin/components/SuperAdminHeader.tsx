@@ -85,7 +85,7 @@ export default function SuperAdminHeader({
 }: Readonly<SuperAdminHeaderProps>) {
   const theme: any = useTheme();
   const darkMode = theme?.darkMode ?? false;
-  const toggleDarkMode = theme?.toggleDarkMode ?? (() => { });
+  const toggleDarkMode = theme?.toggleDarkMode ?? (() => {});
   const [showNotification, setShowNotification] = useState(false);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [showAddMeeting, setAddMeetings] = useState(false);
@@ -96,12 +96,12 @@ export default function SuperAdminHeader({
   const notificationRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<"Seen" | "Unseen">("Unseen");
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
-    const [dashboardWrite, setDashboardWrite] = useState(true);
-    const [leaveWrite, setLeaveWrite] = useState(true);
-    const [trailWrite, setTrailWrite] = useState(true);
-      const [calendarWrite, setCalendarWrite] = useState(true); // For Add Meeting - Default true
-     const [permissions, setPermissions] = useState({
-   tenant:false,
+  const [dashboardWrite, setDashboardWrite] = useState(true);
+  const [leaveWrite, setLeaveWrite] = useState(true);
+  const [trailWrite, setTrailWrite] = useState(true);
+  const [calendarWrite, setCalendarWrite] = useState(true); // For Add Meeting - Default true
+  const [permissions, setPermissions] = useState({
+    tenant: false,
     invoice: false,
     plan: false,
   });
@@ -114,7 +114,11 @@ export default function SuperAdminHeader({
         const parsed = JSON.parse(stored);
         const modules = parsed?.supervisormodules || parsed;
         setPermissions({
-          tenant: modules?.tenant?.write ?? modules?.leave?.write ?? modules?.employees?.write ?? false,
+          tenant:
+            modules?.tenant?.write ??
+            modules?.leave?.write ??
+            modules?.employees?.write ??
+            false,
           invoice: modules?.invoice?.write ?? false,
           plan: modules?.plan?.write ?? false,
         });
@@ -129,100 +133,100 @@ export default function SuperAdminHeader({
     window.addEventListener("storage", loadPermissions);
     return () => window.removeEventListener("storage", loadPermissions);
   }, []);
-    useEffect(() => {
-      const roleAccessRaw = localStorage.getItem("SuperAdminRolePermission");
-      if (roleAccessRaw) {
-        try {
-          const roleAccess = JSON.parse(roleAccessRaw);
-          const modules = roleAccess?.supervisormodules || roleAccess;
-          console.log("✅ Role Access:", roleAccess);
-          console.log("✅ Modules being used:", modules);
-          console.log("🔐 Dashboard write:", modules?.dashboard?.write);
-          console.log("🔐 Leave write:", modules?.leave);
-  
-          setDashboardWrite(modules?.dashboard?.write !== false);
-          setLeaveWrite(modules?.leave ?? modules?.dashboard?.write ?? false);
-          setCalendarWrite(modules?.schedule?.write !== false);
-          setTrailWrite(modules?.trailmanagement?.write !== false);
-        } catch (error) {
-          console.error("❌ Invalid SuperAdminRolePermission JSON", error);
-        }
+  useEffect(() => {
+    const roleAccessRaw = localStorage.getItem("SuperAdminRolePermission");
+    if (roleAccessRaw) {
+      try {
+        const roleAccess = JSON.parse(roleAccessRaw);
+        const modules = roleAccess?.supervisormodules || roleAccess;
+        console.log("✅ Role Access:", roleAccess);
+        console.log("✅ Modules being used:", modules);
+        console.log("🔐 Dashboard write:", modules?.dashboard?.write);
+        console.log("🔐 Leave write:", modules?.leave);
+
+        setDashboardWrite(modules?.dashboard?.write !== false);
+        setLeaveWrite(modules?.leave ?? modules?.dashboard?.write ?? false);
+        setCalendarWrite(modules?.schedule?.write !== false);
+        setTrailWrite(modules?.trailmanagement?.write !== false);
+      } catch (error) {
+        console.error("❌ Invalid SuperAdminRolePermission JSON", error);
       }
-    }, []);
+    }
+  }, []);
   const [notificationCount, setNotificationCount] = useState(0);
   // Fetch old notifications
   const userId =
     typeof window !== "undefined"
       ? localStorage.getItem("SuperAdminPortalId")
       : null;
-const fetchNotifications = async (token: string) => {
-  try {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("SuperAdminAuthToken")
-        : null;
+  const fetchNotifications = async (token: string) => {
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("SuperAdminAuthToken")
+          : null;
 
-    const userId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("SuperAdminPortalId")
-        : null;
+      const userId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("SuperAdminPortalId")
+          : null;
 
-    if (!token) {
-      console.error("❌ Authentication token not found");
-      return;
-    }
+      if (!token) {
+        console.error("❌ Authentication token not found");
+        return;
+      }
 
-    if (!userId) {
-      console.error("❌ SuperAdmin ID not found");
-      return;
-    }
+      if (!userId) {
+        console.error("❌ SuperAdmin ID not found");
+        return;
+      }
 
-    const { data } = await axios.get(
-      `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.GET_LIST}?receiverId=${userId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const { data } = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.GET_LIST}?receiverId=${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      }
-    );
+      );
 
-    const notificationList = data?.data?.notifications ?? [];
+      const notificationList = data?.data?.notifications ?? [];
 
-    setNotifications(notificationList);
+      setNotifications(notificationList);
 
-    const unreadCount = notificationList.filter(
-      (n: NotificationType) => !n.isRead
-    ).length;
+      const unreadCount = notificationList.filter(
+        (n: NotificationType) => !n.isRead,
+      ).length;
 
-    setNotificationCount(unreadCount);
-  } catch (error: any) {
-    console.error("❌ Failed to fetch notifications:", error);
+      setNotificationCount(unreadCount);
+    } catch (error: any) {
+      console.error("❌ Failed to fetch notifications:", error);
 
-    if (axios.isAxiosError(error)) {
-      switch (error.response?.status) {
-        case 401:
-          console.error("Session expired");
-          break;
+      if (axios.isAxiosError(error)) {
+        switch (error.response?.status) {
+          case 401:
+            console.error("Session expired");
+            break;
 
-        case 403:
-          console.error("Permission denied");
-          break;
+          case 403:
+            console.error("Permission denied");
+            break;
 
-        case 404:
-          console.error("Notifications not found");
-          break;
+          case 404:
+            console.error("Notifications not found");
+            break;
 
-        case 500:
-          console.error("Server error");
-          break;
+          case 500:
+            console.error("Server error");
+            break;
 
-        default:
-          console.error("Unable to load notifications");
+          default:
+            console.error("Unable to load notifications");
+        }
       }
     }
-  }
-};
+  };
 
   // Mark as Seen
   const handleNotificationClick = async (notificationId: string) => {
@@ -248,15 +252,15 @@ const fetchNotifications = async (token: string) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       setNotifications((prev) =>
         prev.map((n) =>
           n._id === notificationId
             ? { ...n, isRead: true, notificationStatus: "Seen" }
-            : n
-        )
+            : n,
+        ),
       );
 
       setNotificationCount((prev) => Math.max(prev - 1, 0));
@@ -311,7 +315,8 @@ const fetchNotifications = async (token: string) => {
       }
     }
     document.addEventListener("mousedown", handleNotificationOutside);
-    return () => document.removeEventListener("mousedown", handleNotificationOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleNotificationOutside);
   }, []);
 
   const handleLogOut = () => {
@@ -329,134 +334,127 @@ const fetchNotifications = async (token: string) => {
       }
     }
   }, [userId]);
- const getNotificationIcon = (type: string) => {
-  switch (type) {
-    case "TENANT_CREATED":
-      return "🏢";
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "TENANT_CREATED":
+        return "🏢";
 
-    case "TENANT_UPDATED":
-      return "✏️";
+      case "TENANT_UPDATED":
+        return "✏️";
 
-    case "TENANT_ACTIVATED":
-      return "✅";
+      case "TENANT_ACTIVATED":
+        return "✅";
 
-    case "TENANT_SUSPENDED":
-      return "🚫";
+      case "TENANT_SUSPENDED":
+        return "🚫";
 
-    case "TRIAL_EXPIRING":
-      return "⏳";
+      case "TRIAL_EXPIRING":
+        return "⏳";
 
-    case "TRIAL_EXPIRED":
-      return "⌛";
+      case "TRIAL_EXPIRED":
+        return "⌛";
 
-    case "SUBSCRIPTION_PURCHASED":
-      return "💳";
+      case "SUBSCRIPTION_PURCHASED":
+        return "💳";
 
-    case "SUBSCRIPTION_RENEWED":
-      return "🔄";
+      case "SUBSCRIPTION_RENEWED":
+        return "🔄";
 
-    case "SUBSCRIPTION_EXPIRED":
-      return "❌";
+      case "SUBSCRIPTION_EXPIRED":
+        return "❌";
 
-    case "PAYMENT_SUCCESS":
-      return "💰";
+      case "PAYMENT_SUCCESS":
+        return "💰";
 
-    case "PAYMENT_FAILED":
-      return "⚠️";
+      case "PAYMENT_FAILED":
+        return "⚠️";
 
-    case "USER_LIMIT_REACHED":
-      return "👥";
+      case "USER_LIMIT_REACHED":
+        return "👥";
 
-    case "STORAGE_LIMIT_REACHED":
-      return "📦";
+      case "STORAGE_LIMIT_REACHED":
+        return "📦";
 
-    case "SUPPORT_TICKET_CREATED":
-      return "🎫";
+      case "SUPPORT_TICKET_CREATED":
+        return "🎫";
 
-    case "SYSTEM_MAINTENANCE":
-      return "🛠️";
+      case "SYSTEM_MAINTENANCE":
+        return "🛠️";
 
-    case "SECURITY_ALERT":
-      return "🔒";
+      case "SECURITY_ALERT":
+        return "🔒";
 
-    case "PLATFORM_ANNOUNCEMENT":
-      return "📢";
+      case "PLATFORM_ANNOUNCEMENT":
+        return "📢";
 
-    default:
-      return "🔔";
-  }
-};
- const handleNotificationRedirect = (
-  notification: NotificationType
-) => {
-  const { notificationType, senderId } = notification;
+      default:
+        return "🔔";
+    }
+  };
+  const handleNotificationRedirect = (notification: NotificationType) => {
+    const { notificationType, senderId } = notification;
 
-  switch (notificationType) {
-    case "TENANT_CREATED":
-    case "TENANT_UPDATED":
-    case "TENANT_ACTIVATED":
-    case "TENANT_SUSPENDED":
-      router.push(
-        `/modules/users/super-admin/ui/tenantmanagement?tenantId=${senderId}`
-      );
-      break;
+    switch (notificationType) {
+      case "TENANT_CREATED":
+      case "TENANT_UPDATED":
+      case "TENANT_ACTIVATED":
+      case "TENANT_SUSPENDED":
+        router.push(
+          `/modules/users/super-admin/ui/tenantmanagement?tenantId=${senderId}`,
+        );
+        break;
 
-    case "TRIAL_EXPIRING":
-    case "TRIAL_EXPIRED":
-    case "SUBSCRIPTION_PURCHASED":
-    case "SUBSCRIPTION_RENEWED":
-    case "SUBSCRIPTION_EXPIRED":
-    case "PAYMENT_SUCCESS":
-    case "PAYMENT_FAILED":
-      router.push(
-        `/modules/users/superadmin/ui/subscription?tenantId=${senderId}`
-      );
-      break;
+      case "TRIAL_EXPIRING":
+      case "TRIAL_EXPIRED":
+      case "SUBSCRIPTION_PURCHASED":
+      case "SUBSCRIPTION_RENEWED":
+      case "SUBSCRIPTION_EXPIRED":
+      case "PAYMENT_SUCCESS":
+      case "PAYMENT_FAILED":
+        router.push(
+          `/modules/users/superadmin/ui/subscription?tenantId=${senderId}`,
+        );
+        break;
 
-    case "USER_LIMIT_REACHED":
-    case "STORAGE_LIMIT_REACHED":
-      router.push(
-        `/modules/users/superadmin/ui/tenantmanagement?tenantId=${senderId}`
-      );
-      break;
+      case "USER_LIMIT_REACHED":
+      case "STORAGE_LIMIT_REACHED":
+        router.push(
+          `/modules/users/superadmin/ui/tenantmanagement?tenantId=${senderId}`,
+        );
+        break;
 
-    case "SUPPORT_TICKET_CREATED":
-      router.push(
-        `/modules/users/superadmin/ui/support?ticketId=${senderId}`
-      );
-      break;
+      case "SUPPORT_TICKET_CREATED":
+        router.push(
+          `/modules/users/superadmin/ui/support?ticketId=${senderId}`,
+        );
+        break;
 
-    case "SYSTEM_MAINTENANCE":
-      router.push(
-        `/modules/users/superadmin/ui/systemsettings`
-      );
-      break;
+      case "SYSTEM_MAINTENANCE":
+        router.push(`/modules/users/superadmin/ui/systemsettings`);
+        break;
 
-    case "SECURITY_ALERT":
-      router.push(
-        `/modules/users/superadmin/ui/security`
-      );
-      break;
+      case "SECURITY_ALERT":
+        router.push(`/modules/users/superadmin/ui/security`);
+        break;
 
-    case "PLATFORM_ANNOUNCEMENT":
-      router.push(
-        `/modules/users/superadmin/ui/dashboard`
-      );
-      break;
+      case "PLATFORM_ANNOUNCEMENT":
+        router.push(`/modules/users/superadmin/ui/dashboard`);
+        break;
 
-    default:
-      console.warn(
-        "Unknown notification type:",
-        notificationType
-      );
-      break;
-  }
-};
+      default:
+        console.warn("Unknown notification type:", notificationType);
+        break;
+    }
+  };
 
   const renderButton = () => {
     const path = pathname?.toLowerCase() ?? "";
-    console.log("🔍 renderButton() called", { path, currentSection, tenantActiveTab });
-    
+    console.log("🔍 renderButton() called", {
+      path,
+      currentSection,
+      tenantActiveTab,
+    });
+
     const isTenantManagementPage =
       path.includes("/super-admin/ui/tenants/tenants_management") ||
       path.includes("/super-admin/ui/tenants_management") ||
@@ -480,19 +478,25 @@ const fetchNotifications = async (token: string) => {
     }
 
     // Show Create Plan button only on plans tab
-    if (currentSection?.toLowerCase() === "subscriptions" && tenantActiveTab === "plans") {
+    if (
+      currentSection?.toLowerCase() === "subscriptions" &&
+      tenantActiveTab === "plans"
+    ) {
       return (
         <button
           onClick={() => setShowCreatePlan(true)}
           className="bg-[#576CBC] hover:bg-[#3a4f8a] text-white text-sm px-4 py-2 rounded-lg"
         >
-         <span className="gap-2">+</span> Create Plan
+          <span className="gap-2">+</span> Create Plan
         </button>
       );
     }
 
     // Show Create Invoice button only on invoices tab
-    if (currentSection?.toLowerCase() === "subscriptions" && tenantActiveTab === "invoices") {
+    if (
+      currentSection?.toLowerCase() === "subscriptions" &&
+      tenantActiveTab === "invoices"
+    ) {
       return (
         <button
           onClick={() => setShowGenerateInvoice(true)}
@@ -503,19 +507,19 @@ const fetchNotifications = async (token: string) => {
       );
     }
     if (
-  currentSection?.toLowerCase() === "finance" &&
-  tenantActiveTab === "invoice"
-) {
-  return (
-    <button
-      onClick={() => router.push("/super-admin/ui/finance/invoices/create")}
-      className="rounded-lg bg-[#576CBC] px-4 py-2 text-sm text-white hover:bg-[#3a4f8a]"
-    >
-      Create Invoice
-    </button>
-  );
-}
-    
+      currentSection?.toLowerCase() === "finance" &&
+      tenantActiveTab === "invoice"
+    ) {
+      return (
+        <button
+          onClick={() => router.push("/super-admin/ui/finance/invoices/create")}
+          className="rounded-lg bg-[#576CBC] px-4 py-2 text-sm text-white hover:bg-[#3a4f8a]"
+        >
+          Create Invoice
+        </button>
+      );
+    }
+
     if (
       path.includes("calendar") ||
       path.includes("meeting") ||
@@ -538,9 +542,15 @@ const fetchNotifications = async (token: string) => {
   };
   const userrolesButton = () => {
     const path = pathname?.toLowerCase() ?? "";
-    console.log("🔍 userrolesButton() called", { path, currentSection, tenantActiveTab });
+    console.log("🔍 userrolesButton() called", {
+      path,
+      currentSection,
+      tenantActiveTab,
+    });
 
-    const isUserUsersPage = path.includes("/super-admin/ui/users&roles/user_tenants");
+    const isUserUsersPage = path.includes(
+      "/super-admin/ui/users&roles/user_tenants",
+    );
 
     if (isUserUsersPage) {
       return (
@@ -594,23 +604,28 @@ const fetchNotifications = async (token: string) => {
                 </span>
               )}
             </button>
-{showGenerateInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <GenerateInvoice onClose={() => setShowGenerateInvoice(false)} />
-          </div>
-        </div>
-      )}
-      {showCreatePlan && (
-        <CreatePlan onClose={() => setShowCreatePlan(false)} />
-      )}
+            {showGenerateInvoice && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="relative bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[#4E709D] scrollbar-track-[#F0F2F9] dark:bg-[#252525]">
+                  <GenerateInvoice
+                    onClose={() => setShowGenerateInvoice(false)}
+                  />
+                </div>
+              </div>
+            )}
+            {showCreatePlan && (
+              <CreatePlan onClose={() => setShowCreatePlan(false)} />
+            )}
             {showNotification && (
               <div className="absolute -ml-[360px] w-[90vw] sm:w-[470px] max-w-[95vw] mt-2 bg-white/90 dark:bg-[#252525]/80 backdrop-blur-md border rounded-lg shadow-2xl z-30 animate-fade-in-up">
                 <div className="pt-3 pb-2 pl-4 border-b border-white flex justify-between items-center dark:border-[#252525]">
                   <h4 className="font-semibold text-[#010E30] text-lg dark:text-white">
                     Notifications
                   </h4>
-                  <button onClick={() => setShowNotification(false)} className="mr-3">
+                  <button
+                    onClick={() => setShowNotification(false)}
+                    className="mr-3"
+                  >
                     <X size={18} className="text-red-600 dark:text-white" />
                   </button>
                 </div>
@@ -642,7 +657,7 @@ const fetchNotifications = async (token: string) => {
                       .filter((n) =>
                         activeTab === "Seen"
                           ? n.notificationStatus === "Seen"
-                          : n.notificationStatus !== "Seen"
+                          : n.notificationStatus !== "Seen",
                       )
                       .map((notification) => (
                         <button
@@ -670,7 +685,8 @@ const fetchNotifications = async (token: string) => {
                           <div className="flex-1">
                             <div className="flex justify-between">
                               <h4 className="text-xs font-semibold dark:text-white">
-                                {notification.senderName?.toLowerCase() || "Unknown"}
+                                {notification.senderName?.toLowerCase() ||
+                                  "Unknown"}
                               </h4>
                               <span className="text-xs text-gray-500 dark:text-[#bbb0b099]">
                                 {new Date(notification.createdDate)
@@ -686,9 +702,15 @@ const fetchNotifications = async (token: string) => {
                               </span>
                             </div>
                             <div className="text-xs mt-0.5 text-gray-800 flex items-center gap-1">
-                              <span>{getNotificationIcon(notification.notificationType)}</span>
+                              <span>
+                                {getNotificationIcon(
+                                  notification.notificationType,
+                                )}
+                              </span>
                               <span
-                                onClick={() => handleNotificationRedirect(notification)}
+                                onClick={() =>
+                                  handleNotificationRedirect(notification)
+                                }
                                 className="text-xs text-[#43424299] dark:text-[#bbb0b099] dark:hover:text-white cursor-pointer hover:underline transition"
                               >
                                 {notification.messages}
@@ -740,12 +762,8 @@ const fetchNotifications = async (token: string) => {
           </button>
         </div>
       )}
-      {showAddTenant && (
-        <AddNewTenant onClose={() => setAddTenant(false)} />
-      )}
-      {showAddUser && (
-        <AddNewUser onClose={() => setAddUser(false)} />
-      )}
+      {showAddTenant && <AddNewTenant onClose={() => setAddTenant(false)} />}
+      {showAddUser && <AddNewUser onClose={() => setAddUser(false)} />}
       {showNotification && (
         <div
           ref={notificationRef}
@@ -772,10 +790,11 @@ const fetchNotifications = async (token: string) => {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as "Seen" | "Unseen")}
-                  className={`relative text-sm px-2 py-1 font-medium transition-all text-black ${activeTab === tab
+                  className={`relative text-sm px-2 py-1 font-medium transition-all text-black ${
+                    activeTab === tab
                       ? "text-[#576CBC] dark:text-[#576CBC]"
                       : "dark:text-white"
-                    }`}
+                  }`}
                 >
                   {tab}
                   {activeTab === tab && (
@@ -792,7 +811,7 @@ const fetchNotifications = async (token: string) => {
                 .filter((n) =>
                   activeTab === "Seen"
                     ? n.notificationStatus === "Seen"
-                    : n.notificationStatus !== "Seen"
+                    : n.notificationStatus !== "Seen",
                 )
                 .map((notification) => (
                   <button
@@ -802,11 +821,12 @@ const fetchNotifications = async (token: string) => {
                         handleNotificationClick(notification._id);
                       }
                     }}
-                    disabled = {!dashboardWrite}
-                    className={`w-full text-left p-2   flex items-start gap-3 transition-all duration-200 border-b border-[#D9D9D9]  ${notification.notificationStatus === "Seen"
+                    disabled={!dashboardWrite}
+                    className={`w-full text-left p-2   flex items-start gap-3 transition-all duration-200 border-b border-[#D9D9D9]  ${
+                      notification.notificationStatus === "Seen"
                         ? "bg-white/20 text-gray-900 hover:bg-white/50 dark:bg-[#252525]"
                         : " text-gray-900 font-medium hover:bg-[#bfc5e8] dark:bg-[#252525] dark:hover:bg-[#5a5858]"
-                      }`}
+                    }`}
                   >
                     <div className="w-8 h-8 rounded-lg bg-[#E4E7F4] flex items-center justify-center relative shrink-0 dark:bg-[#343434] ">
                       <span className="text-sm font-semibold text-[#576CBC] ">
