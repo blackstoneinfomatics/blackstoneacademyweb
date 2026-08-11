@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   Search,
@@ -20,6 +21,26 @@ type FieldProps = {
   value: string | number | undefined;
 };
 
+type InvoiceItem = {
+  invoiceId: string;
+  invoiceNumber: string;
+  tenant: {
+    tenantId?: string;
+    tenantCode?: string;
+    tenantName?: string;
+  };
+  subscriptionPlan: {
+    planId?: string;
+    planName?: string;
+    billingCycle?: string;
+  };
+  invoiceDate?: string;
+  dueDate?: string;
+  currency?: string;
+  totalAmount?: number;
+  status?: string;
+};
+
 const Field = ({ label, value }: FieldProps) => (
   <div>
     <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
@@ -33,68 +54,8 @@ const Field = ({ label, value }: FieldProps) => (
     />
   </div>
 );
-const recentItems = [
-  {
-    invoiceNo: "INV-00-01",
-    tenant: "Blackstone Institute",
-    plan: "Premium",
-    billingCycle: "Month",
-    invoiceDate: "2026-12-31",
-    dueDate: "2026-12-31",
-    amount: 2999,
-    paymentStatus: "Paid",
-    status: "Active",
-    payment: "Paid",
-  },
-  {
-    invoiceNo: "INV-00-02",
-    tenant: "Blackstone Institute",
-    plan: "Basic",
-    billingCycle: "Month",
-    invoiceDate: "2026-10-15",
-    dueDate: "2026-10-15",
-    amount: 2999,
-    paymentStatus: "Paid",
-    status: "Expired",
-    payment: "Pending",
-  },
-  {
-    invoiceNo: "INV-00-03",
-    tenant: "Blackstone Institute",
-    plan: "Standard",
-    billingCycle: "Month",
-    invoiceDate: "2027-01-20",
-    dueDate: "2027-01-20",
-    amount: 2999,
-    paymentStatus: "Paid",
-    status: "Active",
-    payment: "notPaid",
-  },
-  {
-    invoiceNo: "INV-00-04",
-    tenant: "Blackstone Institute",
-    plan: "Premium",
-    billingCycle: "Month",
-    invoiceDate: "2026-09-10",
-    dueDate: "2026-09-10",
-    amount: 2999,
-    paymentStatus: "Paid",
-    status: "Suspended",
-    payment: "Pending",
-  },
-  {
-    invoiceNo: "INV-00-05",
-    tenant: "Blackstone Institute",
-    plan: "Standard",
-    billingCycle: "Month",
-    invoiceDate: "2026-11-25",
-    dueDate: "2026-11-25",
-    amount: 2999,
-    paymentStatus: "Paid",
-    status: "Active",
-    payment: "notPaid",
-  },
-];
+
+
 
 type FilterState = {
   invoiceNo: string;
@@ -119,24 +80,31 @@ const INITIAL_FILTERS: FilterState = {
 };
 
 const applyFilters = (
-  items: typeof recentItems,
+  items: InvoiceItem[],
   search: string,
   filters: FilterState,
 ) => {
   const term = search.toLowerCase().trim();
 
   return items.filter((item) => {
+    const invoiceNumber = item.invoiceNumber ?? "";
+    const tenantName = item.tenant?.tenantName ?? "";
+    const planName = item.subscriptionPlan?.planName ?? "";
+    const billingCycle = item.subscriptionPlan?.billingCycle ?? "";
+    const totalAmount = item.totalAmount != null ? String(item.totalAmount) : "";
+    const status = item.status ?? "";
+
     const matchesSearch =
       !term ||
       [
-        item.invoiceNo,
-        item.tenant,
-        item.plan,
-        item.billingCycle,
+        invoiceNumber,
+        tenantName,
+        planName,
+        billingCycle,
         item.invoiceDate,
         item.dueDate,
-        item.amount,
-        item.status,
+        totalAmount,
+        status,
       ]
         .join(" ")
         .toLowerCase()
@@ -144,21 +112,22 @@ const applyFilters = (
 
     const matchesInvoiceNo =
       !filters.invoiceNo ||
-      item.invoiceNo.toLowerCase().includes(filters.invoiceNo.toLowerCase());
+      invoiceNumber.toLowerCase().includes(filters.invoiceNo.toLowerCase());
 
     const matchesTenant =
       !filters.tenant ||
-      item.tenant.toLowerCase().includes(filters.tenant.toLowerCase());
+      tenantName.toLowerCase().includes(filters.tenant.toLowerCase());
 
-    const matchesPlan = filters.plan === "All" || item.plan === filters.plan;
+    const matchesPlan =
+      filters.plan === "All" || planName === filters.plan;
     const matchesBillingCycle =
-      filters.billingCycle === "All" || item.billingCycle === filters.billingCycle;
+      filters.billingCycle === "All" || billingCycle === filters.billingCycle;
     const matchesStatus =
-      filters.status === "All" || item.status === filters.status;
+      filters.status === "All" || status === filters.status;
     const matchesPayment =
-      filters.payment === "All" || item.payment === filters.payment;
+      filters.payment === "All" || status === filters.payment;
 
-    const rowDate = new Date(item.invoiceDate);
+    const rowDate = new Date(item.invoiceDate ?? "");
     const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
     const toDate = filters.toDate ? new Date(filters.toDate) : null;
 
@@ -178,35 +147,76 @@ const applyFilters = (
   });
 };
 
+const formatDateLabel = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
 const Table = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  // const [loading, setLoading] = useState(true);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [draftFilters, setDraftFilters] = useState<FilterState>(INITIAL_FILTERS);
   const [appliedFilters, setAppliedFilters] =
     useState<FilterState>(INITIAL_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [showViewDetails, setShowViewDetails] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceItem | null>(null);
 
   const itemsPerPage = 5;
-  const planOptions = Array.from(new Set(recentItems.map((item) => item.plan)));
+  const planOptions = Array.from(
+    new Set(items.map((item) => item.subscriptionPlan?.planName ?? "")),
+  ).filter(Boolean);
   const billingOptions = Array.from(
-    new Set(recentItems.map((item) => item.billingCycle)),
-  );
-  const statusOptions = Array.from(new Set(recentItems.map((item) => item.status)));
-  const paymentOptions = Array.from(new Set(recentItems.map((item) => item.payment)));
-const [showViewDetails, setShowViewDetails] = useState(false);
-const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const filteredItems = applyFilters(recentItems, search, appliedFilters);
-  const previewFilteredItems = applyFilters(recentItems, search, draftFilters);
+    new Set(items.map((item) => item.subscriptionPlan?.billingCycle ?? "")),
+  ).filter(Boolean);
+  const statusOptions = Array.from(
+    new Set(items.map((item) => item.status ?? "")),
+  ).filter(Boolean);
+  const paymentOptions = Array.from(
+    new Set(items.map((item) => item.status ?? "")),
+  ).filter(Boolean);
+
+  const filteredItems = applyFilters(items, search, appliedFilters);
+  const previewFilteredItems = applyFilters(items, search, draftFilters);
+
+  const fetchInvoices = async () => {
+  try {
+    // setLoading(true);
+
+    const response = await axios.get(
+      "http://localhost:5001/subscription-invoices"
+    );
+
+    const responseData = response.data?.data;
+    const invoiceItems = Array.isArray(responseData)
+      ? responseData
+      : responseData?.items ?? [];
+
+    setItems(invoiceItems);
+  } catch (error) {
+    console.error("Error fetching invoices:", error);
+  } finally {
+    // setLoading(false);
+  }
+};
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
 
   const activeFilterCount = Object.entries(appliedFilters).filter(
-    ([key, value]) =>
-      value &&
-      !(
-        (key === "tenantName" && value === "") ||
-        (key !== "tenantName" && value === "All")
-      ),
+    ([, value]) => value && value !== "All",
   ).length;
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
@@ -215,13 +225,13 @@ const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
 
   const showingStart = filteredItems.length === 0 ? 0 : startIndex + 1;
-  const visibleIds = paginatedItems.map((item) => item.invoiceNo);
+  const visibleIds = paginatedItems.map((item) => item.invoiceNumber);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedRows.includes(id));
   const someVisibleSelected = visibleIds.some((id) => selectedRows.includes(id));
 
-  const selectedItems = recentItems.filter((item) => selectedRows.includes(item.invoiceNo));
+  const selectedItems = items.filter((item) => selectedRows.includes(item.invoiceNumber));
 
-  const buildCsv = (rows: typeof recentItems) => {
+  const buildCsv = (rows: InvoiceItem[]) => {
     const headers = [
       "Invoice No",
       "Tenant",
@@ -237,16 +247,16 @@ const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
       headers.join(","),
       ...rows.map((row) =>
         [
-          row.invoiceNo,
-          row.tenant,
-          row.plan,
-          row.billingCycle,
+          row.invoiceNumber,
+          row.tenant?.tenantName,
+          row.subscriptionPlan?.planName,
+          row.subscriptionPlan?.billingCycle,
           row.invoiceDate,
           row.dueDate,
-          row.amount,
-          row.paymentStatus,
+          row.totalAmount != null ? row.totalAmount : "",
+          row.status,
         ]
-          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
           .join(","),
       ),
     ];
@@ -382,8 +392,8 @@ const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
               <tbody>
                 {paginatedItems.length > 0 ? (
-                  paginatedItems.map((item, index) => {
-                    const rowId = item.invoiceNo;
+                  paginatedItems.map((item) => {
+                    const rowId = item.invoiceNumber;
 
                     return (
                       <tr
@@ -404,24 +414,24 @@ const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
                             className="h-4 w-4 accent-[#496A96]"
                           />
                         </td>
-                        <td className="px-2 py-4">{item.invoiceNo}</td>
-                        <td className="px-2 py-4">{item.tenant}</td>
-                        <td className="px-2 py-4">{item.plan}</td>
-                        <td className="px-2 py-4">{item.billingCycle}</td>
-                        <td className="px-2 py-4">{item.invoiceDate}</td>
-                        <td className="px-2 py-4">{item.dueDate}</td>
-                        <td className="px-2 py-4">{item.amount}</td>
+                        <td className="px-2 py-4">{item.invoiceNumber}</td>
+                        <td className="px-2 py-4">{item.tenant?.tenantName}</td>
+                        <td className="px-2 py-4">{item.subscriptionPlan?.planName}</td>
+                        <td className="px-2 py-4">{item.subscriptionPlan?.billingCycle}</td>
+                        <td className="px-2 py-4">{formatDateLabel(item.invoiceDate)}</td>
+                        <td className="px-2 py-4">{formatDateLabel(item.dueDate)}</td>
+                        <td className="px-2 py-4">{item.totalAmount}</td>
                         <td className="px-2 py-4">
                           <span
                             className={`rounded-md px-2 py-[3px] text-[12px] ${
-                              item.payment === "Paid"
+                              item.status === "Paid"
                                 ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
-                                : item.payment === "notPaid"
+                                : item.status === "notPaid"
                                   ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
                                   : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
                             }`}
                           >
-                            {item.payment}
+                            {item.status}
                           </span>
                         </td>
                         <td className="relative px-2 py-4">
@@ -746,37 +756,41 @@ const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
             <Field
               label="Invoice ID"
-              value={selectedInvoice?.invoiceNo}
+              value={selectedInvoice?.invoiceNumber}
             />
 
             <Field
               label="Tenant Name"
-              value={selectedInvoice?.tenant}
+              value={selectedInvoice?.tenant?.tenantName}
             />
 
             <Field
               label="Plan"
-              value={selectedInvoice?.plan}
+              value={selectedInvoice?.subscriptionPlan?.planName}
             />
 
             <Field
               label="Billing Cycle"
-              value={selectedInvoice?.billingCycle}
+              value={selectedInvoice?.subscriptionPlan?.billingCycle}
             />
 
             <Field
               label="Invoice Date"
-              value={selectedInvoice?.invoiceDate}
+              value={formatDateLabel(selectedInvoice?.invoiceDate)}
             />
 
             <Field
               label="Due Date"
-              value={selectedInvoice?.dueDate}
+              value={formatDateLabel(selectedInvoice?.dueDate)}
             />
 
             <Field
               label="Amount"
-              value={`$${selectedInvoice?.amount}`}
+              value={
+                selectedInvoice?.totalAmount != null
+                  ? `$${selectedInvoice.totalAmount}`
+                  : undefined
+              }
             />
 
             <div>
@@ -786,11 +800,11 @@ const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
               <input
                 readOnly
-                value={selectedInvoice?.payment}
+                value={selectedInvoice?.status}
                 className={`h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 outline-none ${
-                  selectedInvoice?.payment === "Paid"
+                  selectedInvoice?.status === "Paid"
                     ? "text-green-600"
-                    : selectedInvoice?.payment === "Pending"
+                    : selectedInvoice?.status === "Pending"
                     ? "text-yellow-500"
                     : "text-red-500"
                 }`}
@@ -808,3 +822,4 @@ const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 };
 
 export default Table;
+

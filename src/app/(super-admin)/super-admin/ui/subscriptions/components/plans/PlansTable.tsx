@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { RiPoliceBadgeFill } from "react-icons/ri";
 import {
   Search,
   SlidersHorizontal,
@@ -12,7 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import axios from "axios";
-import Image from "next/image"
+import Image from "next/image";
 
 
 const ToggleSwitch = ({
@@ -251,7 +249,7 @@ const featureItems = [
                                   ? "bg-[#fff] dark:bg-[#2C2C2C] "
                                   : "bg-[#F8F8F8] dark:bg-[#303030]"
                               }`}
-                >
+                  >
 <td className="px-4 py-5">
   <span
     className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
