@@ -10,6 +10,7 @@ import {
   AppSuccessToastMessages,
 } from "@/app/_components/contents/toast_message";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 type Props = {
   readonly onClose: () => void;
@@ -230,15 +231,21 @@ const CreatePlan = ({ onClose }: Props) => {
 
       setSuccessMessage(AppSuccessToastMessages.CREATE_PLAN_SUCCESS);
       setSuccess(true);
+      toast.success("Plan Created Successfully");
+
+      // close the modal after a short delay to allow toast/animation to show
+      setTimeout(() => {
+        onClose();
+      }, 400);
     } catch (err: any) {
       console.error(err);
 
-      setFailedMessage(
-        err.response?.data?.message ||
-          AppFailureToastMessages.CREATE_PLAN_FAILED,
-      );
+      const message =
+        err.response?.data?.message || AppFailureToastMessages.CREATE_PLAN_FAILED;
 
+      setFailedMessage(message);
       setFailed(true);
+      toast.error(message);
     }
   };
 
