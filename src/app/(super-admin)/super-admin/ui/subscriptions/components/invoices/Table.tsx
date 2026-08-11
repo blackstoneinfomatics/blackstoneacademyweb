@@ -162,7 +162,7 @@ const formatDateLabel = (value?: string) => {
 const Table = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  // const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [draftFilters, setDraftFilters] = useState<FilterState>(INITIAL_FILTERS);
   const [appliedFilters, setAppliedFilters] =
@@ -191,12 +191,12 @@ const Table = () => {
   const previewFilteredItems = applyFilters(items, search, draftFilters);
 
   const fetchInvoices = async () => {
-  try {
-    // setLoading(true);
+    try {
+      setLoading(true);
 
-    const response = await axios.get(
-      "http://localhost:5001/subscription-invoices"
-    );
+      const response = await axios.get(
+        "http://localhost:5001/subscription-invoices"
+      );
 
     const responseData = response.data?.data;
     const invoiceItems = Array.isArray(responseData)
@@ -207,7 +207,7 @@ const Table = () => {
   } catch (error) {
     console.error("Error fetching invoices:", error);
   } finally {
-    // setLoading(false);
+    setLoading(false);
   }
 };
 
@@ -391,7 +391,13 @@ const Table = () => {
               </thead>
 
               <tbody>
-                {paginatedItems.length > 0 ? (
+                {loading ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center">
+                    Loading...
+                  </td>
+                </tr>
+              ) : paginatedItems.length > 0 ? (
                   paginatedItems.map((item) => {
                     const rowId = item.invoiceNumber;
 
