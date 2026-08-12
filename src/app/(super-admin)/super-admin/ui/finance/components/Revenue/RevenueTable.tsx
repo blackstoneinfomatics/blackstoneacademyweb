@@ -10,77 +10,112 @@ import {
   ChevronRight,
   CalendarDays,
   X,
+  Download,
 } from "lucide-react";
 
+type FieldProps = {
+  label: string;
+  value: string | number | undefined;
+};
+
+const Field = ({ label, value }: FieldProps) => (
+  <div>
+    <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
+      {label}
+    </label>
+
+    <input
+      readOnly
+      value={value ?? ""}
+      className="h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 text-[#4B5563] outline-none"
+    />
+  </div>
+);
 const recentItems = [
   {
-    planName: "Blackstone Academy",
-    price: "John Doe",
-    billingCycle: "Premium",
-    CreatedDate: "2026-12-31",
-    features: 250,
-    subscribedTenants: 250,
+    refundId: "REF-00-01",
+    tenant: "Blackstone Institute",
+    invoiceId: "INV-00-01",
+    paymentDate: "2026-12-31",
+    requestDate: "2026-12-31",
+    refundWindow: "2",
+    amount: 2999,
+    paymentStatus: "Paid",
     status: "Active",
     payment: "Paid",
   },
   {
-    planName: "Srashtalk",
-    price: "Sarah Ali",
-    billingCycle: "Basic",
-    CreatedDate: "2026-10-15",
-    features: 120,
-    subscribedTenants: 120,
+    refundId: "REF-00-02",
+    tenant: "Blackstone Institute",
+    invoiceId: "INV-00-02",
+    paymentDate: "2026-10-15",
+    requestDate: "2026-10-15",
+    refundWindow: "6",
+    amount: 2999,
+    paymentStatus: "Paid",
     status: "Expired",
     payment: "Pending",
   },
   {
-    planName: "Zotal AI",
-    price: "Rahul Kumar",
-    billingCycle: "Premium",
-    CreatedDate: "2027-01-20",
-    features: 500,
-    subscribedTenants: 500,
+    refundId: "REF-00-03",
+    tenant: "Blackstone Institute",
+    invoiceId: "INV-00-03",
+    paymentDate: "2027-01-20",
+    requestDate: "2027-01-20",
+    refundWindow: "2",
+    amount: 2999,
+    paymentStatus: "Paid",
     status: "Active",
-    payment: "Paid",
+    payment: "notPaid",
   },
   {
-    planName: "ERP School",
-    price: "Aisha Khan",
-    billingCycle: "Standard",
-    CreatedDate: "2026-09-10",
-    features: 180,
-    subscribedTenants: 180,
+    refundId: "REF-00-04",
+    tenant: "Blackstone Institute",
+    invoiceId: "INV-00-04",
+    paymentDate: "2026-09-10",
+    requestDate: "2026-09-10",
+    refundWindow: "8",
+    amount: 2999,
+    paymentStatus: "Paid",
     status: "Suspended",
     payment: "Pending",
   },
   {
-    planName: "EduPortal",
-    price: "Ali Hassan",
-    billingCycle: "Basic",
-    CreatedDate: "2026-11-25",
-    features: 320,
-    subscribedTenants: 320,
+    refundId: "REF-00-05",
+    tenant: "Blackstone Institute",
+    invoiceId: "INV-00-05",
+    paymentDate: "2026-11-25",
+    requestDate: "2026-11-25",
+    refundWindow: "20",
+    amount: 2999,
+    paymentStatus: "Paid",
     status: "Active",
-    payment: "Paid",
+    payment: "notPaid",
   },
 ];
 
 type FilterState = {
-  tenantName: string;
-  plan: string;
-  billingCycle: string;
-  fromDate: string;
-  toDate: string;
+  refundId: string;
+  tenant: string;
+  invoiceId: string;
+  paymentDate: string;
+  requestDate: string;
+  refundWindow: string;
+  amount: string;
+  paymentStatus: string;
   status: string;
   payment: string;
 };
 
 const INITIAL_FILTERS: FilterState = {
-  tenantName: "",
-  plan: "All",
-  billingCycle: "All",
-  fromDate: "",
-  toDate: "",
+  refundId: "",
+  tenant: "",
+  invoiceId: "All",
+  paymentDate: "All",
+  requestDate: "",
+  refundWindow: "",
+  amount: "",
+  paymentStatus: "",
   status: "All",
   payment: "All",
 };
@@ -96,43 +131,53 @@ const applyFilters = (
     const matchesSearch =
       !term ||
       [
-        item.planName,
-        item.price,
-        item.billingCycle,
-        item.CreatedDate,
-        item.status,
+        item.refundId,
+        item.tenant,
+        item.invoiceId,
+        item.paymentDate,
+        item.requestDate,
+        item.refundWindow,
+        item.amount,
+        item.paymentStatus,
       ]
         .join(" ")
         .toLowerCase()
         .includes(term);
 
-    const matchesTenantName =
-      !filters.tenantName ||
-      item.planName.toLowerCase().includes(filters.tenantName.toLowerCase()) ||
-      item.price.toLowerCase().includes(filters.tenantName.toLowerCase());
+    const matchesRefundId =
+      !filters.refundId ||
+      item.refundId.toLowerCase().includes(filters.refundId.toLowerCase());
 
-    const matchesPlan =
-      filters.plan === "All" || item.planName === filters.plan;
-    const matchesBillingCycle =
-      filters.billingCycle === "All" ||
-      item.billingCycle === filters.billingCycle;
+    const matchesTenant =
+      !filters.tenant ||
+      item.tenant.toLowerCase().includes(filters.tenant.toLowerCase());
+
+    const matchesInvoiceId =
+      filters.invoiceId === "All" || item.invoiceId === filters.invoiceId;
+    const matchesPaymentDate =
+      filters.paymentDate === "All" || item.paymentDate === filters.paymentDate;
     const matchesStatus =
       filters.status === "All" || item.status === filters.status;
     const matchesPayment =
       filters.payment === "All" || item.payment === filters.payment;
 
-    const rowDate = new Date(item.CreatedDate);
-    const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
-    const toDate = filters.toDate ? new Date(filters.toDate) : null;
+    const rowDate = new Date(item.paymentDate);
+    const paymentDate = filters.paymentDate
+      ? new Date(filters.paymentDate)
+      : null;
+    const requestDate = filters.requestDate
+      ? new Date(filters.requestDate)
+      : null;
 
     const matchesDate =
-      (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+      (!paymentDate || rowDate >= paymentDate) &&
+      (!requestDate || rowDate <= requestDate);
 
     return (
       matchesSearch &&
-      matchesTenantName &&
-      matchesPlan &&
-      matchesBillingCycle &&
+      matchesInvoiceId &&
+      matchesTenant &&
+      matchesPaymentDate &&
       matchesStatus &&
       matchesPayment &&
       matchesDate
@@ -140,7 +185,7 @@ const applyFilters = (
   });
 };
 
-const Table = () => {
+const RevenueTable = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -149,17 +194,14 @@ const Table = () => {
   const [appliedFilters, setAppliedFilters] =
     useState<FilterState>(INITIAL_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
-
-  const [showTrialModal, setShowTrialModal] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedTrial, setSelectedTrial] = useState<any>(null);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   const itemsPerPage = 5;
   const planOptions = Array.from(
-    new Set(recentItems.map((item) => item.planName)),
+    new Set(recentItems.map((item) => item.invoiceId)),
   );
   const billingOptions = Array.from(
-    new Set(recentItems.map((item) => item.billingCycle)),
+    new Set(recentItems.map((item) => item.paymentDate)),
   );
   const statusOptions = Array.from(
     new Set(recentItems.map((item) => item.status)),
@@ -167,7 +209,8 @@ const Table = () => {
   const paymentOptions = Array.from(
     new Set(recentItems.map((item) => item.payment)),
   );
-
+  const [showViewDetails, setShowViewDetails] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const filteredItems = applyFilters(recentItems, search, appliedFilters);
   const previewFilteredItems = applyFilters(recentItems, search, draftFilters);
 
@@ -192,10 +235,69 @@ const Table = () => {
   );
 
   const showingStart = filteredItems.length === 0 ? 0 : startIndex + 1;
+  const visibleIds = paginatedItems.map((item) => item.refundId);
+  const allVisibleSelected =
+    visibleIds.length > 0 &&
+    visibleIds.every((id) => selectedRows.includes(id));
+  const someVisibleSelected = visibleIds.some((id) =>
+    selectedRows.includes(id),
+  );
+
+  const selectedItems = recentItems.filter((item) =>
+    selectedRows.includes(item.refundId),
+  );
+
+  const buildCsv = (rows: typeof recentItems) => {
+    const headers = [
+      "Refund ID",
+      "Tenant",
+      "Invoice ID",
+      "Payment Date",
+      "Request Date",
+      "Refund Window",
+      "Amount",
+      "Payment Status",
+    ];
+
+    const lines = [
+      headers.join(","),
+      ...rows.map((row) =>
+        [
+          row.refundId,
+          row.tenant,
+          row.invoiceId,
+          row.paymentDate,
+          row.requestDate,
+          row.refundWindow,
+          row.amount,
+          row.paymentStatus,
+        ]
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(","),
+      ),
+    ];
+
+    return lines.join("\n");
+  };
+
+  const handleDownloadSelected = () => {
+    if (selectedItems.length === 0) return;
+
+    const blob = new Blob([buildCsv(selectedItems)], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "selected-invoices.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
     setOpenMenu(null);
+    setSelectedRows([]);
   }, [search, appliedFilters]);
 
   useEffect(() => {
@@ -206,11 +308,22 @@ const Table = () => {
 
   return (
     <div>
-      <h2 className="mb-0 px-2 py-3 text-[19px] font-semibold text-[#000] dark:text-[#fff]">
-        All Trails
-      </h2>
+      <div className="mb-3 flex items-center justify-between px-2 py-1">
+        <h2 className="text-[19px] font-semibold text-[#000] dark:text-[#fff]">
+          Revenue Summary
+        </h2>
 
-      <div className="overflow-hidden rounded-xl border-t border-[#E6EAF2] bg-white shadow-lg dark:border-[#3F3F3F] dark:bg-[#343434]">
+        <button
+          onClick={handleDownloadSelected}
+          disabled={selectedItems.length === 0}
+          className="flex items-center gap-2 rounded-md bg-[#496A96] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download size={16} />
+          Download Invoice
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-b-xl rounded-t-xl border-t border-[#E6EAF2] bg-white shadow-lg dark:border-[#3F3F3F] dark:bg-[#343434]">
         <div className="grid grid-cols-1 border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:grid-cols-3">
           <div className="flex h-12 items-center border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F] md:border-b-0 md:border-r">
             <Search size={17} className="text-[#A5AAB4]" />
@@ -255,12 +368,38 @@ const Table = () => {
             <table className="min-w-full table-fixed border-collapse text-xs">
               <thead className="bg-[#4C6993] text-[14px] text-white dark:bg-[#44699d]">
                 <tr>
+                  <th className="border border-[#466993] px-2 py-4 text-left font-medium">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      ref={(input) => {
+                        if (input)
+                          input.indeterminate =
+                            !allVisibleSelected && someVisibleSelected;
+                      }}
+                      onChange={(e) => {
+                        const nextIds = e.target.checked
+                          ? Array.from(
+                              new Set([...selectedRows, ...visibleIds]),
+                            )
+                          : selectedRows.filter(
+                              (id) => !visibleIds.includes(id),
+                            );
+
+                        setSelectedRows(nextIds);
+                      }}
+                      className="h-4 w-4 accent-[#496A96]"
+                    />
+                  </th>
                   {[
-                    "Tenant",
-                    "Trial Start",
-                    "Trial End",
-                    "Days Left",
-                    "Status",
+                    "Period",
+                    "Gross Revenue",
+                    "Discounts",
+                    "Refunds",
+                    "Net Revenue",
+                    "Collected Revenue",
+                    "Pending Revenue",
+                    "Growth",
                     "Action",
                   ].map((header) => (
                     <th
@@ -276,23 +415,53 @@ const Table = () => {
               <tbody>
                 {paginatedItems.length > 0 ? (
                   paginatedItems.map((item, index) => {
-                    const rowId = `${item.planName}-${item.CreatedDate}-${index}`;
+                    const rowId = item.invoiceId;
 
                     return (
                       <tr
                         key={rowId}
                         className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]"
                       >
-                        <td className="px-2 py-4">{item.planName}</td>
-                        <td className="px-2 py-4">{item.price}</td>
-                        <td className="px-2 py-4">{item.billingCycle}</td>
-                        <td className="px-2 py-4">{item.CreatedDate}</td>
+                        <td className="px-2 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.includes(rowId)}
+                            onChange={(e) => {
+                              setSelectedRows((prev) =>
+                                e.target.checked
+                                  ? Array.from(new Set([...prev, rowId]))
+                                  : prev.filter((id) => id !== rowId),
+                              );
+                            }}
+                            className="h-4 w-4 accent-[#496A96]"
+                          />
+                        </td>
+                        <td className="px-2 py-4">{item.refundId}</td>
+                        <td className="px-2 py-4">{item.tenant}</td>
+                        <td className="px-2 py-4">{item.invoiceId}</td>
+                        <td className="px-2 py-4">{item.paymentDate}</td>
+                        <td className="px-2 py-4">{item.requestDate}</td>
+                        <td className="px-2 py-4">{item.refundWindow}</td>
+                        <td className="px-2 py-4">{item.amount}</td>
                         <td className="px-2 py-4">
                           <span
                             className={`rounded-md px-2 py-[3px] text-[12px] ${
-                              item.status === "Active"
+                              item.status === "Approved"
                                 ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
                                 : item.status === "Expired"
+                                  ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
+                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                            }`}
+                          >
+                            {item.payment}
+                          </span>
+                        </td>
+                        <td className="px-2 py-4">
+                          <span
+                            className={`rounded-md px-2 py-[3px] text-[12px] ${
+                              item.payment === "Paid"
+                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                                : item.payment === "notPaid"
                                   ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
                                   : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
                             }`}
@@ -311,28 +480,16 @@ const Table = () => {
                           </button>
 
                           {openMenu === rowId && (
-                            <div className="absolute right-4 top-12 z-50 w-full rounded-lg border bg-white shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c]">
+                            <div className="absolute right-4 top-12 z-50 w-36 rounded-lg border bg-white shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c]">
                               <button
-                                className="w-full px-4 py-2 border-b text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
+                                className="w-full px-4 py-2 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
                                 onClick={() => {
-                                  setSelectedTrial(item);
-                                  setIsEditMode(false);
-                                  setShowTrialModal(true);
+                                  setSelectedInvoice(item);
+                                  setShowViewDetails(true);
                                   setOpenMenu(null);
                                 }}
                               >
                                 View Details
-                              </button>
-                              <button
-                                className="w-full px-4 border-b py-2 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
-                                onClick={() => {
-                                  setSelectedTrial(item);
-                                  setIsEditMode(true);
-                                  setShowTrialModal(true);
-                                  setOpenMenu(null);
-                                }}
-                              >
-                                Edit Details
                               </button>
 
                               <button
@@ -352,7 +509,7 @@ const Table = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={8} className="p-4 text-center">
+                    <td colSpan={9} className="p-4 text-center">
                       No data available
                     </td>
                   </tr>
@@ -401,12 +558,12 @@ const Table = () => {
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] bg-white p-5 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-semibold font-sans text-[#101B41]">
+              <h3 className="text-lg font-semibold text-[#101B41]">
                 Filter by
               </h3>
               <button
                 onClick={() => setShowFilterPanel(false)}
-                className="text-[#B8C0D3] hover:text-[#6E7891]"
+                className="text-[#404754] hover:text-[#637197]"
               >
                 <X size={20} />
               </button>
@@ -415,77 +572,52 @@ const Table = () => {
             <div className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm text-[#101B41]">
-                  Tenant Name
+                  Refund Id
                 </label>
                 <input
-                  value={draftFilters.tenantName}
+                  value={draftFilters.invoiceId}
                   onChange={(e) =>
                     setDraftFilters((prev) => ({
                       ...prev,
-                      tenantName: e.target.value,
+                      refundId: e.target.value,
                     }))
                   }
                   placeholder="Select Status"
-                  className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                  className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm text-[#101B41]">
-                  Plan
+                  Tenant
                 </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.plan}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        plan: e.target.value,
-                      }))
-                    }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Status</option>
-                    {planOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
+                <input
+                  value={draftFilters.tenant}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      tenant: e.target.value,
+                    }))
+                  }
+                  placeholder="Tenant name"
+                  className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                />
               </div>
-
               <div>
                 <label className="mb-2 block text-sm text-[#101B41]">
-                  Billing Cycle
+                  Invoice Id
                 </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.billingCycle}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        billingCycle: e.target.value,
-                      }))
-                    }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Status</option>
-                    {billingOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
+                <input
+                  value={draftFilters.invoiceId}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      invoiceId: e.target.value,
+                    }))
+                  }
+                  placeholder="Invoice Id"
+                  className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                />
               </div>
 
               <div>
@@ -496,28 +628,36 @@ const Table = () => {
                   <div className="relative">
                     <input
                       type="date"
-                      value={draftFilters.fromDate}
+                      value={draftFilters.paymentDate}
                       onChange={(e) =>
                         setDraftFilters((prev) => ({
                           ...prev,
-                          fromDate: e.target.value,
+                          paymentDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                      className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    />
+                    <CalendarDays
+                      size={17}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
                     />
                   </div>
 
                   <div className="relative">
                     <input
                       type="date"
-                      value={draftFilters.toDate}
+                      value={draftFilters.requestDate}
                       onChange={(e) =>
                         setDraftFilters((prev) => ({
                           ...prev,
-                          toDate: e.target.value,
+                          requestDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                      className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    />
+                    <CalendarDays
+                      size={17}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
                     />
                   </div>
                 </div>
@@ -536,7 +676,7 @@ const Table = () => {
                         status: e.target.value,
                       }))
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
                   >
                     <option value="All">Select Status</option>
                     {statusOptions.map((option) => (
@@ -565,9 +705,9 @@ const Table = () => {
                         payment: e.target.value,
                       }))
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
                   >
-                    <option value="All">Select Status</option>
+                    <option value="All">Select Payment</option>
                     {paymentOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -587,7 +727,7 @@ const Table = () => {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setDraftFilters(INITIAL_FILTERS)}
-                className="h-8 rounded-lg border border-[#576CBC] text-xs font-medium text-[#576CBC]"
+                className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"
               >
                 Reset
               </button>
@@ -597,7 +737,7 @@ const Table = () => {
                   setAppliedFilters(draftFilters);
                   setShowFilterPanel(false);
                 }}
-                className="h-8 rounded-lg bg-[#576CBC] text-xs font-medium text-white"
+                className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white"
               >
                 Show {previewFilteredItems.length} results
               </button>
@@ -606,115 +746,70 @@ const Table = () => {
         </div>
       )}
 
-      {showTrialModal && (
+      {showViewDetails && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-[720px] rounded-xl bg-white shadow-xl">
+          <div className="w-full max-w-[780px] rounded-2xl bg-white shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <h2 className="text-[20px] font-semibold text-[#101B41]">
-                {isEditMode ? "Edit Trial" : "Trial Details"}
+            <div className="flex items-center justify-between border-b px-6 py-5">
+              <h2 className="text-[18px] font-semibold text-[#101B41]">
+                Subscriptions Details
               </h2>
 
-              <button onClick={() => setShowTrialModal(false)}>
-                <X className="text-gray-400" size={22} />
+              <button
+                onClick={() => setShowViewDetails(false)}
+                className="text-gray-400 hover:text-black"
+              >
+                <X size={24} />
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-5">
-              <div className="rounded-xl border border-[#E6EAF2] p-4">
-                <div className="space-y-5">
-                  {/* Tenant */}
+            <div className="p-6">
+              <div className="rounded-xl border border-[#E5E7EB] p-5">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                  <Field
+                    label="Invoice ID"
+                    value={selectedInvoice?.invoiceNo}
+                  />
+
+                  <Field label="Tenant Name" value={selectedInvoice?.tenant} />
+
+                  <Field label="Plan" value={selectedInvoice?.plan} />
+
+                  <Field
+                    label="Billing Cycle"
+                    value={selectedInvoice?.billingCycle}
+                  />
+
+                  <Field
+                    label="Invoice Date"
+                    value={selectedInvoice?.invoiceDate}
+                  />
+
+                  <Field label="Due Date" value={selectedInvoice?.dueDate} />
+
+                  <Field label="Amount" value={`$${selectedInvoice?.amount}`} />
 
                   <div>
                     <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
-                      Tenant Name
+                      Payment Status
                     </label>
 
                     <input
-                      readOnly={!isEditMode}
-                      defaultValue={selectedTrial?.planName}
-                      className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
+                      readOnly
+                      value={selectedInvoice?.payment}
+                      className={`h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 outline-none ${
+                        selectedInvoice?.payment === "Paid"
+                          ? "text-green-600"
+                          : selectedInvoice?.payment === "Pending"
+                            ? "text-yellow-500"
+                            : "text-red-500"
+                      }`}
                     />
-                  </div>
-
-                  {/* Dates */}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="mb-2 block text-[15px] font-medium">
-                        Trial Start Date
-                      </label>
-
-                      <input
-                        type="date"
-                        readOnly={!isEditMode}
-                        defaultValue={selectedTrial?.CreatedDate}
-                        className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-[15px] font-medium">
-                        Trial End Date
-                      </label>
-
-                      <input
-                        type="date"
-                        readOnly={!isEditMode}
-                        defaultValue={selectedTrial?.CreatedDate}
-                        className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Days Left */}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="mb-2 block text-[15px] font-medium">
-                        Days Left
-                      </label>
-
-                      <input
-                        readOnly={!isEditMode}
-                        defaultValue="9 Days"
-                        className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-[15px] font-medium">
-                        Status
-                      </label>
-
-                      <input
-                        readOnly={!isEditMode}
-                        defaultValue={selectedTrial?.status}
-                        className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 text-green-600 outline-none"
-                      />
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Footer (Only Edit Mode) */}
-
-            {isEditMode && (
-              <div className="flex justify-end gap-4 border-t px-5 py-4">
-                <button
-                  onClick={() => setShowTrialModal(false)}
-                  className="rounded-md border border-[#576CBC] px-8 py-2 text-[#576CBC] font-medium"
-                >
-                  Reset
-                </button>
-
-                <button className="rounded-md bg-[#576CBC] px-8 py-2 text-white font-medium">
-                  Save Changes
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -722,4 +817,4 @@ const Table = () => {
   );
 };
 
-export default Table;
+export default RevenueTable;

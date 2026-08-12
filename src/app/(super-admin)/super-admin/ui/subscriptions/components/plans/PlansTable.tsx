@@ -8,10 +8,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  X,
+  CalendarDays,
 } from "lucide-react";
 import axios from "axios";
 import Image from "next/image";
-
 
 const ToggleSwitch = ({
   checked,
@@ -41,6 +42,21 @@ const ToggleSwitch = ({
 };
 
 const PlansTable = () => {
+  type FilterState = {
+    planName: string;
+    billingCycle: string;
+    status: string;
+    fromDate: string;
+    toDate: string;
+  };
+
+  const INITIAL_FILTERS: FilterState = {
+    planName: "",
+    billingCycle: "All",
+    status: "All",
+    fromDate: "",
+    toDate: "",
+  };
 
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
@@ -48,122 +64,207 @@ const PlansTable = () => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const getBadgeStyle = (planName: string) => {
-  const name = planName.toLowerCase();
+  const [search, setSearch] = useState("");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [draftFilters, setDraftFilters] =
+    useState<FilterState>(INITIAL_FILTERS);
+  const [appliedFilters, setAppliedFilters] =
+    useState<FilterState>(INITIAL_FILTERS);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
-  if (name.includes("basic")) {
-    return "bg-[#DEF5FA] text-[#18BCDC]";
-  }
+  const billingOptions = Array.from(
+    new Set(plans.map((plan) => plan.billingCycle)),
+  ).filter(Boolean);
 
-  if (name.includes("standard")) {
-    return "bg-[#DAE4F6] text-[#2668EF]";
-  }
+  const statusOptions = Array.from(
+    new Set(plans.map((plan) => plan.status)),
+  ).filter(Boolean);
 
-  if (name.includes("premium")) {
-    return "bg-[#E7E8FA] text-[#585BDC]";
-  }
+  const applyFilters = (
+    items: any[],
+    searchText: string,
+    filters: FilterState,
+  ) => {
+    const term = searchText.toLowerCase().trim();
 
-  return "bg-gray-100 text-gray-600";
-};
+    return items.filter((item) => {
+      const planName = item.planName || "";
+      const billingCycle = item.billingCycle || "";
+      const status = item.status || "";
+      const createdDate = item.createdDate ? new Date(item.createdDate) : null;
+
+      const matchesSearch =
+        !term ||
+        [planName, billingCycle, status, item.monthlyPrice, item.yearlyPrice]
+          .join(" ")
+          .toLowerCase()
+          .includes(term);
+
+      const matchesPlanName =
+        !filters.planName ||
+        planName.toLowerCase().includes(filters.planName.toLowerCase());
+
+      const matchesBillingCycle =
+        filters.billingCycle === "All" || billingCycle === filters.billingCycle;
+
+      const matchesStatus =
+        filters.status === "All" || status === filters.status;
+
+      const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
+      const toDate = filters.toDate ? new Date(filters.toDate) : null;
+      const matchesDate =
+        (!fromDate || (createdDate && createdDate >= fromDate)) &&
+        (!toDate || (createdDate && createdDate <= toDate));
+
+      return (
+        matchesSearch &&
+        matchesPlanName &&
+        matchesBillingCycle &&
+        matchesStatus &&
+        matchesDate
+      );
+    });
+  };
+
+  const filteredPlans = applyFilters(plans, search, appliedFilters);
+  const previewFilteredPlans = applyFilters(plans, search, draftFilters);
+
+  const activeFilterCount = Object.entries(appliedFilters).filter(
+    ([key, value]) =>
+      value &&
+      !(
+        (key === "planName" && value === "") ||
+        ((key === "billingCycle" || key === "status") && value === "All")
+      ),
+  ).length;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPlans.length / itemsPerPage),
+  );
+  const currentPageSafe = Math.min(currentPage, totalPages);
+  const startIndex = (currentPageSafe - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredPlans.length);
+  const paginatedPlans = filteredPlans.slice(startIndex, endIndex);
+  const showingStart = filteredPlans.length === 0 ? 0 : startIndex + 1;
+  const showingEnd = filteredPlans.length === 0 ? 0 : endIndex;
 
   useEffect(() => {
-  fetchPlans();
-}, []);
+    setCurrentPage(1);
+  }, [search, appliedFilters]);
 
-const fetchPlans = async () => {
-  try {
-    setLoading(true);
+  const getBadgeStyle = (planName: string) => {
+    const name = planName.toLowerCase();
 
-    const response = await axios.get(
-      "http://localhost:5001/plans"
-    );
+    if (name.includes("basic")) {
+      return "bg-[#DEF5FA] text-[#18BCDC]";
+    }
 
-    setPlans(response.data.data || []);
-  } catch (error) {
-    console.error("Error fetching plans:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+    if (name.includes("standard")) {
+      return "bg-[#DAE4F6] text-[#2668EF]";
+    }
 
-const handleViewPlan = async (planId: string) => {
-  try {
-    const res = await axios.get(
-      `http://localhost:5001/plans/${planId}`
-    );
+    if (name.includes("premium")) {
+      return "bg-[#E7E8FA] text-[#585BDC]";
+    }
 
-    setSelectedPlan(res.data.data);
-    setShowModal(true);
-  } catch (err) {
-    console.error(err);
-  }
-};
+    return "bg-gray-100 text-gray-600";
+  };
 
-const modules = selectedPlan
-  ? Object.values(selectedPlan.features as Record<string, string[]>).flat()
-  : [];
+  useEffect(() => {
+    fetchPlans();
+  }, []);
 
-const [formData, setFormData] = useState({
-  planName: "",
-  billingCycle: "MONTHLY",
-  planDescription: "",
-  monthlyPrice: 0,
-  yearlyPrice: 0,
-  studentLimit: 0,
-  allowedRoles: [] as string[],
-  features: {} as Record<string, string[]>,
-  canCreateCustomRole: false,
-  customDomain: false,
-  backup: false,
-  planStatus: "Active",
-  status: "Active",
-});
+  const fetchPlans = async () => {
+    try {
+      setLoading(true);
 
-const selectedModules: string[] = Object.values(formData.features || {}).flat();
+      const response = await axios.get("http://localhost:5001/plans");
 
-useEffect(() => {
-  if (showUpdateModal && selectedPlan?.planId) {
-    getPlanById(selectedPlan.planId);
-  }
-}, [showUpdateModal, selectedPlan]);
+      setPlans(response.data.data || []);
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const getPlanById = async (planId: string) => {
-  try {
-    const res = await axios.get(
-      `http://localhost:5001/plans/${planId}`
-    );
+  const handleViewPlan = async (planId: string) => {
+    try {
+      const res = await axios.get(`http://localhost:5001/plans/${planId}`);
 
-    const plan = res.data.data;
+      setSelectedPlan(res.data.data);
+      setShowModal(true);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-    setFormData({
-      planName: plan.planName,
-      billingCycle: plan.billingCycle,
-      planDescription: plan.planDescription,
-      monthlyPrice: plan.monthlyPrice,
-      yearlyPrice: plan.yearlyPrice,
-      studentLimit: plan.studentLimit,
-      allowedRoles: plan.allowedRoles || [],
-      features: plan.features || {},
-      canCreateCustomRole: plan.canCreateCustomRole,
-      customDomain: plan.customDomain,
-      backup: plan.backup,
-      planStatus: plan.planStatus,
-      status: plan.status,
-    });
+  const modules = selectedPlan
+    ? Object.values(selectedPlan.features as Record<string, string[]>).flat()
+    : [];
 
-    setFeatures((prev) => ({
-      ...prev,
-      customDomain: Boolean(plan.customDomain),
-      backup: Boolean(plan.backup),
-      canCreateCustomRole: Boolean(plan.canCreateCustomRole),
-    }));
+  const [formData, setFormData] = useState({
+    planName: "",
+    billingCycle: "MONTHLY",
+    planDescription: "",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    studentLimit: 0,
+    allowedRoles: [] as string[],
+    features: {} as Record<string, string[]>,
+    canCreateCustomRole: false,
+    customDomain: false,
+    backup: false,
+    planStatus: "Active",
+    status: "Active",
+  });
 
-  } catch (err) {
-    console.log(err);
-  }
-};
+  const selectedModules: string[] = Object.values(
+    formData.features || {},
+  ).flat();
 
-const featureItems = [
+  useEffect(() => {
+    if (showUpdateModal && selectedPlan?.planId) {
+      getPlanById(selectedPlan.planId);
+    }
+  }, [showUpdateModal, selectedPlan]);
+
+  const getPlanById = async (planId: string) => {
+    try {
+      const res = await axios.get(`http://localhost:5001/plans/${planId}`);
+
+      const plan = res.data.data;
+
+      setFormData({
+        planName: plan.planName,
+        billingCycle: plan.billingCycle,
+        planDescription: plan.planDescription,
+        monthlyPrice: plan.monthlyPrice,
+        yearlyPrice: plan.yearlyPrice,
+        studentLimit: plan.studentLimit,
+        allowedRoles: plan.allowedRoles || [],
+        features: plan.features || {},
+        canCreateCustomRole: plan.canCreateCustomRole,
+        customDomain: plan.customDomain,
+        backup: plan.backup,
+        planStatus: plan.planStatus,
+        status: plan.status,
+      });
+
+      setFeatures((prev) => ({
+        ...prev,
+        customDomain: Boolean(plan.customDomain),
+        backup: Boolean(plan.backup),
+        canCreateCustomRole: Boolean(plan.canCreateCustomRole),
+      }));
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const featureItems = [
     { key: "customDomain", label: "Custom Domain" },
     { key: "backup", label: "Backup" },
     { key: "apiAccess", label: "API Access" },
@@ -184,7 +285,7 @@ const featureItems = [
       {/* Title */}
       <h2 className="mb-0 text-[22px] p-2 font-semibold text-[#1F2A44]">
         Plan
-        </h2>
+      </h2>
 
       {/* Card */}
       <div className="overflow-hidden rounded-lg border border-[#E6EAF2] bg-white">
@@ -195,16 +296,29 @@ const featureItems = [
             <Search size={17} className="text-[#A5AAB4]" />
             <input
               type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by keyword"
               className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4]"
             />
           </div>
 
           {/* Filter */}
-          <button className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50">
+          <button
+            onClick={() => {
+              setDraftFilters(appliedFilters);
+              setShowFilterPanel(true);
+            }}
+            className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50"
+          >
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={16} />
               Filter
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-[#576CBC] px-2 py-[2px] text-[11px] text-white">
+                  {activeFilterCount}
+                </span>
+              )}
             </div>
 
             <ChevronDown size={16} />
@@ -212,12 +326,12 @@ const featureItems = [
 
           {/* Count */}
           <div className="flex h-12 items-center px-4 text-sm text-[#80848E]">
-            Showing 10 Of 50
+            Showing {showingStart} - {showingEnd} of {filteredPlans.length}
           </div>
         </div>
 
         {/* Table */}
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
@@ -240,116 +354,290 @@ const featureItems = [
                     Loading...
                   </td>
                 </tr>
+              ) : filteredPlans.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-[#6B7280]">
+                    No plans found.
+                  </td>
+                </tr>
               ) : (
-                plans.map((item, index) => (
+                paginatedPlans.map((item, index) => (
                   <tr
                     key={index}
                     className={`text-[12px] ${
-                                index % 2 === 0
-                                  ? "bg-[#fff] dark:bg-[#2C2C2C] "
-                                  : "bg-[#F8F8F8] dark:bg-[#303030]"
-                              }`}
+                      index % 2 === 0
+                        ? "bg-[#fff] dark:bg-[#2C2C2C] "
+                        : "bg-[#F8F8F8] dark:bg-[#303030]"
+                    }`}
                   >
-<td className="px-4 py-5">
-  <span
-    className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
-      item.planName
-    )}`}
-  >
-    {item.planName}
-  </span>
-</td>
+                    <td className="px-4 py-5">
+                      <span
+                        className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
+                          item.planName,
+                        )}`}
+                      >
+                        {item.planName}
+                      </span>
+                    </td>
 
-                  <td className="px-4">${item.monthlyPrice}</td>
+                    <td className="px-4">${item.monthlyPrice}</td>
 
-                  <td className="px-4">{item.billingCycle}</td>
+                    <td className="px-4">{item.billingCycle}</td>
 
-<td className="px-4 text-[#4D74AE]">
-  {item.createdDate
-    ? (() => {
-        const date = new Date(item.createdDate);
-        const month = date.toLocaleString("en-US", { month: "short" });
-        const day = date.getDate();
-        const year = date.getFullYear();
-        return `${month}, ${day} ${year}`;
-      })()
-    : "-"}
-</td>
+                    <td className="px-4 text-[#4D74AE]">
+                      {item.createdDate
+                        ? (() => {
+                            const date = new Date(item.createdDate);
+                            const month = date.toLocaleString("en-US", {
+                              month: "short",
+                            });
+                            const day = date.getDate();
+                            const year = date.getFullYear();
+                            return `${month}, ${day} ${year}`;
+                          })()
+                        : "-"}
+                    </td>
 
-                  <td className="px-4">{Object.values(item.features || {}).flat().length}</td>
+                    <td className="px-4">
+                      {Object.values(item.features || {}).flat().length}
+                    </td>
 
-                  <td className="px-4">{item.subscribedTenants || 0}</td>
+                    <td className="px-4">{item.subscribedTenants || 0}</td>
 
-                  <td className="px-4">
-                    <span
-    className={`rounded-md px-3 py-1 text-xs font-medium ${
-      item.status === "Active"
-        ? "bg-[#EAF8EC] text-[#34A853]"
-        : "bg-red-100 text-red-600"
-    }`}
-  > 
-  {item.status}
-  </span>
-                  </td>
+                    <td className="px-4">
+                      <span
+                        className={`rounded-md px-3 py-1 text-xs font-medium ${
+                          item.status === "Active"
+                            ? "bg-[#EAF8EC] text-[#34A853]"
+                            : "bg-red-100 text-red-600"
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-4 relative">
-                    <div className="flex justify-center">
-                      <button className="rounded-md p-1 hover:bg-gray-100" onClick={() =>
-                          setOpenMenu(openMenu === index ? null : index)
-                        }>
-                        <MoreVertical size={18} className="text-[#6B7280]" />
-                      </button>
+                    <td className="px-4 py-4 relative">
+                      <div className="flex justify-center">
+                        <button
+                          className="rounded-md p-1 hover:bg-gray-100"
+                          onClick={() =>
+                            setOpenMenu(openMenu === index ? null : index)
+                          }
+                        >
+                          <MoreVertical size={18} className="text-[#6B7280]" />
+                        </button>
 
-                      {openMenu === index && (
-                        <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
-                          <button
-                            className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
-                            onClick={() => {
-                              handleViewPlan(item.planId)
-                              setSelectedPlan(item);
-                              setShowModal(true);
-                              setOpenMenu(null);
-                            }}
-                          >
-                            View Details
-                          </button>
+                        {openMenu === index && (
+                          <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
+                            <button
+                              className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              onClick={() => {
+                                handleViewPlan(item.planId);
+                                setSelectedPlan(item);
+                                setShowModal(true);
+                                setOpenMenu(null);
+                              }}
+                            >
+                              View Details
+                            </button>
 
-                          <button
-                            className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
-                            onClick={() => {
-                              setSelectedPlan(item);
-                              setShowUpdateModal(true);
-                              setOpenMenu(null);
-                            }}
-                          >
-                            Update
-                          </button>
-                        </div>
-                      )}
-
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
+                            <button
+                              className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              onClick={() => {
+                                setSelectedPlan(item);
+                                setShowUpdateModal(true);
+                                setOpenMenu(null);
+                              }}
+                            >
+                              Update
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
-      <div className="flex justify-end gap-2 px-4 py-3">
-        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
+      {showFilterPanel && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-[360px] overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold font-sans text-[#111827]">
+                  Filter by
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFilterPanel(false)}
+                className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="grid gap-4 md:grid-cols-1">
+                <div>
+                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                    Plan Name
+                  </label>
+                  <input
+                    type="text"
+                    value={draftFilters.planName}
+                    onChange={(e) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        planName: e.target.value,
+                      }))
+                    }
+                    placeholder="Search plan name"
+                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                    Billing Cycle
+                  </label>
+                  <select
+                    value={draftFilters.billingCycle}
+                    onChange={(e) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        billingCycle: e.target.value,
+                      }))
+                    }
+                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                  >
+                    <option value="All">All</option>
+                    {billingOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                    Status
+                  </label>
+                  <select
+                    value={draftFilters.status}
+                    onChange={(e) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        status: e.target.value,
+                      }))
+                    }
+                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                  >
+                    <option value="All">All</option>
+                    {statusOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                    Created From
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={draftFilters.fromDate}
+                      onChange={(e) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          fromDate: e.target.value,
+                        }))
+                      }
+                      className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                    Created To
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={draftFilters.toDate}
+                      onChange={(e) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          toDate: e.target.value,
+                        }))
+                      }
+                      className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] px-5 py-4 bg-[#F9FAFB]">
+              <button
+                type="button"
+                onClick={() => setDraftFilters(INITIAL_FILTERS)}
+                className="rounded-md border border-[#d5d5d5] px-4 py-2 text-xs text-[#4B5563] hover:bg-gray-50"
+              >
+                Reset
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAppliedFilters(draftFilters);
+                  setShowFilterPanel(false);
+                }}
+                className="rounded-md bg-[#576CBC] px-4 py-2 text-xs font-medium text-white hover:bg-[#4A5A9A]"
+              >
+                Show {previewFilteredPlans.length} results
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-end gap-2 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPageSafe === 1}
+          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
           <ChevronLeft size={18} />
         </button>
 
-        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#496A96] bg-white font-medium text-[#496A96]">
-          1
-        </button>
+        <div className="flex h-8 min-w-[44px] items-center justify-center rounded border border-[#496A96] bg-white px-3 text-sm font-medium text-[#496A96]">
+          {currentPageSafe} / {totalPages}
+        </div>
 
-        <button className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50">
+        <button
+          type="button"
+          onClick={() =>
+            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+          }
+          disabled={currentPageSafe === totalPages}
+          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
           <ChevronRight size={18} />
         </button>
       </div>
-      
 
       {/* Modal */}
       {showModal && selectedPlan && (
@@ -400,18 +688,20 @@ const featureItems = [
 
                   <div>
                     <div className="flex items-center gap-3 justify-between">
-                      <h3 className="text-lg font-semibold">{selectedPlan.planName}</h3>
+                      <h3 className="text-lg font-semibold">
+                        {selectedPlan.planName}
+                      </h3>
 
                       <span
-className={`px-3 py-1 rounded-sm text-[10px] font-medium
+                        className={`px-3 py-1 rounded-sm text-[10px] font-medium
 ${
-selectedPlan.planStatus === "Active"
-? "bg-green-100 text-green-700"
-: "bg-red-100 text-red-700"
+  selectedPlan.planStatus === "Active"
+    ? "bg-green-100 text-green-700"
+    : "bg-red-100 text-red-700"
 }`}
->
-{selectedPlan.planStatus}
-</span>
+                      >
+                        {selectedPlan.planStatus}
+                      </span>
                     </div>
 
                     <p className="text-gray-700 text-xs mt-1 font-medium">
@@ -427,30 +717,36 @@ selectedPlan.planStatus === "Active"
 
               <div className="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 gap-4 mb-5">
                 {[
-  ["Plan Name", selectedPlan.planName],
+                  ["Plan Name", selectedPlan.planName],
 
-  ["Billing Cycle", selectedPlan.billingCycle],
+                  ["Billing Cycle", selectedPlan.billingCycle],
 
-  [
-    "Created Date",
-    new Date(selectedPlan.createdDate).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-  ],
+                  [
+                    "Created Date",
+                    new Date(selectedPlan.createdDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
+                  ],
 
-  [
-    "Last Updated",
-    new Date(selectedPlan.updatedDate).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-  ],
+                  [
+                    "Last Updated",
+                    new Date(selectedPlan.updatedDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
+                  ],
 
-  ["Created By", selectedPlan.createdBy],
-].map(([title, value]) => (
+                  ["Created By", selectedPlan.createdBy],
+                ].map(([title, value]) => (
                   <div key={title} className="bg-[#EEF1FF] rounded-md p-3">
                     <p className="text-xs text-[#010E30]">{title}</p>
 
@@ -500,14 +796,14 @@ selectedPlan.planStatus === "Active"
                   </h4>
 
                   {[
-  ["Student Limit", selectedPlan.studentLimit],
+                    ["Student Limit", selectedPlan.studentLimit],
 
-  ["Trial Days", selectedPlan.trialDays],
+                    ["Trial Days", selectedPlan.trialDays],
 
-  ["Setup Fee", `₹${selectedPlan.setupFee}`],
+                    ["Setup Fee", `₹${selectedPlan.setupFee}`],
 
-  ["GST / Tax", `${selectedPlan.gstAndTax}%`],
-].map(([k, v]) => (
+                    ["GST / Tax", `${selectedPlan.gstAndTax}%`],
+                  ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-[5px]">
                       <span className="text-[#010e30] text-[14px] font-normal">
                         {k}
@@ -528,28 +824,22 @@ selectedPlan.planStatus === "Active"
                   <h4 className="font-medium text-base mb-2">Plan Limits</h4>
                   <div className="max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2">
                     {[
-["Maximum Students", selectedPlan.studentLimit],
+                      ["Maximum Students", selectedPlan.studentLimit],
 
-[
-"Custom Domain",
-selectedPlan.customDomain ? "Yes" : "No"
-],
+                      [
+                        "Custom Domain",
+                        selectedPlan.customDomain ? "Yes" : "No",
+                      ],
 
-[
-"Backup",
-selectedPlan.backup ? "Yes" : "No"
-],
+                      ["Backup", selectedPlan.backup ? "Yes" : "No"],
 
-[
-"Custom Role",
-selectedPlan.canCreateCustomRole ? "Yes" : "No"
-],
+                      [
+                        "Custom Role",
+                        selectedPlan.canCreateCustomRole ? "Yes" : "No",
+                      ],
 
-[
-"Domain",
-selectedPlan.domain || "-"
-],
-].map(([k, v]) => (
+                      ["Domain", selectedPlan.domain || "-"],
+                    ].map(([k, v]) => (
                       <div key={k} className="flex justify-between py-2">
                         <span className="text-[#010e30] text-[14px] font-normal">
                           {k}
@@ -567,11 +857,11 @@ selectedPlan.domain || "-"
                     Included Modules
                   </h4>
 
-                    <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2 text-[#010e30] text-[14px] font-normal">
-                        {modules.map((item: string) => (
-      <div key={item}>{item}</div>
-    ))}
-                    </div>
+                  <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2 text-[#010e30] text-[14px] font-normal">
+                    {modules.map((item: string) => (
+                      <div key={item}>{item}</div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -581,29 +871,32 @@ selectedPlan.domain || "-"
                 <h4 className="font-medium text-base mb-3">Timeline</h4>
 
                 {[
-  [
-    "Plan Created",
-    new Date(selectedPlan.createdDate).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-  ],
+                  [
+                    "Plan Created",
+                    new Date(selectedPlan.createdDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
+                  ],
 
-  [
-    "Last Updated",
-    new Date(selectedPlan.updatedDate).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-  ],
+                  [
+                    "Last Updated",
+                    new Date(selectedPlan.updatedDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
+                  ],
 
-  [
-    "Last Updated By",
-    selectedPlan.lastUpdatedBy || "-",
-  ],
-].map(([k, v]) => (
+                  ["Last Updated By", selectedPlan.lastUpdatedBy || "-"],
+                ].map(([k, v]) => (
                   <div key={k} className="flex justify-between py-2">
                     <span className="text-[#010e30] text-[14px] font-normal">
                       {k}
@@ -648,14 +941,15 @@ selectedPlan.domain || "-"
                     <label className="mb-1 block text-sm font-medium">
                       Plan Name
                     </label>
-                      <input type="text"
-  value={formData.planName}
-  onChange={(e) =>
-    setFormData({
-      ...formData,
-      planName: e.target.value,
-    })
-  }
+                    <input
+                      type="text"
+                      value={formData.planName}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          planName: e.target.value,
+                        })
+                      }
                       className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -681,13 +975,13 @@ selectedPlan.domain || "-"
 
                   <textarea
                     rows={3}
-                     value={formData.planDescription}
-  onChange={(e) =>
-    setFormData({
-      ...formData,
-      planDescription: e.target.value,
-    })
-  }
+                    value={formData.planDescription}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        planDescription: e.target.value,
+                      })
+                    }
                     className="w-full rounded border border-[#d4d4d4] p-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -700,13 +994,13 @@ selectedPlan.domain || "-"
 
                     <input
                       type="number"
-  value={formData.monthlyPrice}
-  onChange={(e) =>
-    setFormData({
-      ...formData,
-      monthlyPrice: Number(e.target.value),
-    })
-  }
+                      value={formData.monthlyPrice}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          monthlyPrice: Number(e.target.value),
+                        })
+                      }
                       className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -718,13 +1012,13 @@ selectedPlan.domain || "-"
 
                     <input
                       type="number"
-  value={formData.yearlyPrice}
-  onChange={(e) =>
-    setFormData({
-      ...formData,
-      yearlyPrice: Number(e.target.value),
-    })
-  }
+                      value={formData.yearlyPrice}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          yearlyPrice: Number(e.target.value),
+                        })
+                      }
                       className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -736,23 +1030,23 @@ selectedPlan.domain || "-"
                 <h3 className="mb-4 text-[15px] font-semibold">Plan Limits</h3>
 
                 <div className="grid grid-cols-3 gap-5">
- <div>
-  <label className="mb-1 block text-sm font-medium">
-    Students
-  </label>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      Students
+                    </label>
 
-  <input
-    type="number"
-    value={formData.studentLimit}
-    onChange={(e) =>
-      setFormData({
-        ...formData,
-        studentLimit: Number(e.target.value),
-      })
-    }
-    className="h-8 w-full rounded border border-[#d4d4d4] px-3 text-xs outline-none focus:border-indigo-500"
-  />
-</div>
+                    <input
+                      type="number"
+                      value={formData.studentLimit}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          studentLimit: Number(e.target.value),
+                        })
+                      }
+                      className="h-8 w-full rounded border border-[#d4d4d4] px-3 text-xs outline-none focus:border-indigo-500"
+                    />
+                  </div>
 
                   <div>
                     <label className="mb-1 block text-sm font-medium">
@@ -800,68 +1094,68 @@ selectedPlan.domain || "-"
 
               {/* Included Modules */}
 
-       <div className="grid grid-cols-2 gap-3">
-  {[
-    "Student Management",
-    "Staff Management",
-    "Attendance",
-    "Fees Management",
-    "Examination",
-    "Transport Management",
-    "Library Management",
-    "Hostel Management",
-    "HR & Payroll",
-    "Performance Analytics",
-  ].map((item, index) => (
-    <label
-      key={index}
-      className="flex items-center gap-2 cursor-pointer text-[13px]"
-    >
-      <span className="relative flex h-[13px] w-[13px] items-center justify-center">
-        <input
-          type="checkbox"
-          className="peer absolute inset-0 h-[13px] w-[13px] cursor-pointer opacity-0"
-          checked={selectedModules.includes(item)}
-          onChange={(e) => {
-            let modules = [...selectedModules];
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  "Student Management",
+                  "Staff Management",
+                  "Attendance",
+                  "Fees Management",
+                  "Examination",
+                  "Transport Management",
+                  "Library Management",
+                  "Hostel Management",
+                  "HR & Payroll",
+                  "Performance Analytics",
+                ].map((item, index) => (
+                  <label
+                    key={index}
+                    className="flex items-center gap-2 cursor-pointer text-[13px]"
+                  >
+                    <span className="relative flex h-[13px] w-[13px] items-center justify-center">
+                      <input
+                        type="checkbox"
+                        className="peer absolute inset-0 h-[13px] w-[13px] cursor-pointer opacity-0"
+                        checked={selectedModules.includes(item)}
+                        onChange={(e) => {
+                          let modules = [...selectedModules];
 
-            if (e.target.checked) {
-              modules.push(item);
-            } else {
-              modules = modules.filter((m) => m !== item);
-            }
+                          if (e.target.checked) {
+                            modules.push(item);
+                          } else {
+                            modules = modules.filter((m) => m !== item);
+                          }
 
-            setFormData((prev) => ({
-              ...prev,
-              features: {
-                ...prev.features,
-                Modules: modules,
-              },
-            }));
-          }}
-        />
+                          setFormData((prev) => ({
+                            ...prev,
+                            features: {
+                              ...prev.features,
+                              Modules: modules,
+                            },
+                          }));
+                        }}
+                      />
 
-        <span className="flex h-[13px] w-[13px] items-center justify-center rounded-[3px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
-          <svg
-            viewBox="0 0 16 16"
-            className="h-3 w-3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path
-              d="M3.5 8.5L6.5 11.5L12.5 4.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-      </span>
+                      <span className="flex h-[13px] w-[13px] items-center justify-center rounded-[3px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
+                        <svg
+                          viewBox="0 0 16 16"
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            d="M3.5 8.5L6.5 11.5L12.5 4.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
+                    </span>
 
-      {item}
-    </label>
-  ))}
-</div>
+                    {item}
+                  </label>
+                ))}
+              </div>
 
               {/* Status */}
 
@@ -893,7 +1187,6 @@ selectedPlan.domain || "-"
           </div>
         </div>
       )}
-
     </div>
   );
 };

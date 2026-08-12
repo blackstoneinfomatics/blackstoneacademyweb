@@ -1,57 +1,60 @@
-"use client";
-
-import BillingCard from "@/app/(super-admin)/super-admin/components/BillingCard";
-import { FaCheckCircle } from "react-icons/fa";
-import { BsFillGrid3X3GapFill } from "react-icons/bs";
-import { FaMoneyBillAlt } from "react-icons/fa";
+import React from "react";
+import { IoIosWarning } from "react-icons/io";
+import { FaIndianRupeeSign } from "react-icons/fa6";
+import { FaCircleCheck } from "react-icons/fa6";
+import { AiFillDatabase } from "react-icons/ai";
 
 import Image from "next/image";
 
 const cards = [
   {
-    title: "Paid Expenses",
-    value: 28,
-    percentage: 14,
-    isPositive: true,
-    icon: FaCheckCircle,
-    iconColor: "text-[#40BD5F]",
-    iconBg: "bg-[#40BD5F24]",
-    titleColor: "text-[#40BD5F]",
-    trendValue: "14%",
-    trendLabel: "vs last Month",
-    trendColor: "text-[#377E36]",
-  },
-  {
-    title: "Expense Categories",
-    value: 28,
-    percentage: 14,
-    isPositive: true,
-    icon: BsFillGrid3X3GapFill,
+    title: "Total Revenue",
+    value: "200",
+    icon: AiFillDatabase,
+    iconBg: "bg-[#E5DFFD]",
     iconColor: "text-[#5225FC]",
-    iconBg: "bg-[#5225FC24]",
     titleColor: "text-[#5225FC]",
     trendValue: "14%",
     trendLabel: "vs last Month",
     trendColor: "text-[#377E36]",
   },
   {
-    title: "This Month Expenses",
-    value: 28,
-    percentage: 14,
-    isPositive: false,
-    icon: FaMoneyBillAlt,
-    iconColor: "text-[#3B82F6]",
-    iconBg: "bg-[#E2ECFC]",
-    titleColor: "text-[#3B82F6]",
+    title: "Collected",
+    value: "150",
+    icon: FaCircleCheck,
+    iconBg: "bg-[#E3F4E7]",
+    iconColor: "text-[#40BD5F]",
+    titleColor: "text-[#40BD5F]",
+    trendValue: "14%",
+    trendLabel: "vs last Month",
+    trendColor: "text-[#377E36]",
+  },
+  {
+    title: "Pending",
+    value: "50",
+    icon: FaIndianRupeeSign,
+    iconBg: "bg-[#FCF0DC]",
+    iconColor: "text-[#F59E0B]",
+    titleColor: "text-[#F59E0B]",
+    trendValue: "14%",
+    trendLabel: "vs last Month",
+    trendColor: "text-[#377E36]",
+  },
+  {
+    title: "Refunded",
+    value: "$2,500",
+    icon: IoIosWarning,
+    iconBg: "bg-[#F8E4E4]",
+    iconColor: "text-[#D34645]",
+    titleColor: "text-[#D34645]",
     trendValue: "14%",
     trendLabel: "vs last Month",
     trendColor: "text-[#377E36]",
   },
 ];
-
-function BillingOverviewCards() {
+const AnalyticsOverviewCard = () => {
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-4 gap-4">
       {cards.map((card, index) => {
         const Icon = card.icon;
 
@@ -102,6 +105,6 @@ function BillingOverviewCards() {
       })}
     </div>
   );
-}
+};
 
-export default BillingOverviewCards;
+export default AnalyticsOverviewCard;

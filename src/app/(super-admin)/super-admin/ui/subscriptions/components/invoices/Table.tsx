@@ -14,8 +14,6 @@ import {
   Download,
 } from "lucide-react";
 
-
-
 type FieldProps = {
   label: string;
   value: string | number | undefined;
@@ -55,8 +53,6 @@ const Field = ({ label, value }: FieldProps) => (
   </div>
 );
 
-
-
 type FilterState = {
   invoiceNo: string;
   tenant: string;
@@ -91,7 +87,8 @@ const applyFilters = (
     const tenantName = item.tenant?.tenantName ?? "";
     const planName = item.subscriptionPlan?.planName ?? "";
     const billingCycle = item.subscriptionPlan?.billingCycle ?? "";
-    const totalAmount = item.totalAmount != null ? String(item.totalAmount) : "";
+    const totalAmount =
+      item.totalAmount != null ? String(item.totalAmount) : "";
     const status = item.status ?? "";
 
     const matchesSearch =
@@ -118,12 +115,10 @@ const applyFilters = (
       !filters.tenant ||
       tenantName.toLowerCase().includes(filters.tenant.toLowerCase());
 
-    const matchesPlan =
-      filters.plan === "All" || planName === filters.plan;
+    const matchesPlan = filters.plan === "All" || planName === filters.plan;
     const matchesBillingCycle =
       filters.billingCycle === "All" || billingCycle === filters.billingCycle;
-    const matchesStatus =
-      filters.status === "All" || status === filters.status;
+    const matchesStatus = filters.status === "All" || status === filters.status;
     const matchesPayment =
       filters.payment === "All" || status === filters.payment;
 
@@ -164,14 +159,17 @@ const Table = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [draftFilters, setDraftFilters] = useState<FilterState>(INITIAL_FILTERS);
+  const [draftFilters, setDraftFilters] =
+    useState<FilterState>(INITIAL_FILTERS);
   const [appliedFilters, setAppliedFilters] =
     useState<FilterState>(INITIAL_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [showViewDetails, setShowViewDetails] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceItem | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceItem | null>(
+    null,
+  );
 
   const itemsPerPage = 5;
   const planOptions = Array.from(
@@ -195,21 +193,21 @@ const Table = () => {
       setLoading(true);
 
       const response = await axios.get(
-        "http://localhost:5001/subscription-invoices"
+        "http://localhost:5001/subscription-invoices",
       );
 
-    const responseData = response.data?.data;
-    const invoiceItems = Array.isArray(responseData)
-      ? responseData
-      : responseData?.items ?? [];
+      const responseData = response.data?.data;
+      const invoiceItems = Array.isArray(responseData)
+        ? responseData
+        : (responseData?.items ?? []);
 
-    setItems(invoiceItems);
-  } catch (error) {
-    console.error("Error fetching invoices:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+      setItems(invoiceItems);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchInvoices();
@@ -219,17 +217,29 @@ const Table = () => {
     ([, value]) => value && value !== "All",
   ).length;
 
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredItems.length / itemsPerPage),
+  );
   const currentPageSafe = Math.min(currentPage, totalPages);
   const startIndex = (currentPageSafe - 1) * itemsPerPage;
-  const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedItems = filteredItems.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
 
   const showingStart = filteredItems.length === 0 ? 0 : startIndex + 1;
   const visibleIds = paginatedItems.map((item) => item.invoiceNumber);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedRows.includes(id));
-  const someVisibleSelected = visibleIds.some((id) => selectedRows.includes(id));
+  const allVisibleSelected =
+    visibleIds.length > 0 &&
+    visibleIds.every((id) => selectedRows.includes(id));
+  const someVisibleSelected = visibleIds.some((id) =>
+    selectedRows.includes(id),
+  );
 
-  const selectedItems = items.filter((item) => selectedRows.includes(item.invoiceNumber));
+  const selectedItems = items.filter((item) =>
+    selectedRows.includes(item.invoiceNumber),
+  );
 
   const buildCsv = (rows: InvoiceItem[]) => {
     const headers = [
@@ -357,12 +367,18 @@ const Table = () => {
                       type="checkbox"
                       checked={allVisibleSelected}
                       ref={(input) => {
-                        if (input) input.indeterminate = !allVisibleSelected && someVisibleSelected;
+                        if (input)
+                          input.indeterminate =
+                            !allVisibleSelected && someVisibleSelected;
                       }}
                       onChange={(e) => {
                         const nextIds = e.target.checked
-                          ? Array.from(new Set([...selectedRows, ...visibleIds]))
-                          : selectedRows.filter((id) => !visibleIds.includes(id));
+                          ? Array.from(
+                              new Set([...selectedRows, ...visibleIds]),
+                            )
+                          : selectedRows.filter(
+                              (id) => !visibleIds.includes(id),
+                            );
 
                         setSelectedRows(nextIds);
                       }}
@@ -392,12 +408,12 @@ const Table = () => {
 
               <tbody>
                 {loading ? (
-                <tr>
-                  <td colSpan={9} className="p-8 text-center">
-                    Loading...
-                  </td>
-                </tr>
-              ) : paginatedItems.length > 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : paginatedItems.length > 0 ? (
                   paginatedItems.map((item) => {
                     const rowId = item.invoiceNumber;
 
@@ -422,10 +438,18 @@ const Table = () => {
                         </td>
                         <td className="px-2 py-4">{item.invoiceNumber}</td>
                         <td className="px-2 py-4">{item.tenant?.tenantName}</td>
-                        <td className="px-2 py-4">{item.subscriptionPlan?.planName}</td>
-                        <td className="px-2 py-4">{item.subscriptionPlan?.billingCycle}</td>
-                        <td className="px-2 py-4">{formatDateLabel(item.invoiceDate)}</td>
-                        <td className="px-2 py-4">{formatDateLabel(item.dueDate)}</td>
+                        <td className="px-2 py-4">
+                          {item.subscriptionPlan?.planName}
+                        </td>
+                        <td className="px-2 py-4">
+                          {item.subscriptionPlan?.billingCycle}
+                        </td>
+                        <td className="px-2 py-4">
+                          {formatDateLabel(item.invoiceDate)}
+                        </td>
+                        <td className="px-2 py-4">
+                          {formatDateLabel(item.dueDate)}
+                        </td>
                         <td className="px-2 py-4">{item.totalAmount}</td>
                         <td className="px-2 py-4">
                           <span
@@ -455,10 +479,10 @@ const Table = () => {
                               <button
                                 className="w-full px-4 py-2 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
                                 onClick={() => {
-  setSelectedInvoice(item);
-  setShowViewDetails(true);
-  setOpenMenu(null);
-}}
+                                  setSelectedInvoice(item);
+                                  setShowViewDetails(true);
+                                  setOpenMenu(null);
+                                }}
                               >
                                 View Details
                               </button>
@@ -515,7 +539,9 @@ const Table = () => {
         ))}
 
         <button
-          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+          onClick={() =>
+            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+          }
           disabled={currentPageSafe === totalPages}
           className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
         >
@@ -527,7 +553,7 @@ const Table = () => {
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] bg-white p-5 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-2xl font-semibold leading-none text-[#101B41]">
+              <h3 className="text-lg font-semibold font-sans text-[#101B41]">
                 Filter by
               </h3>
               <button
@@ -540,7 +566,9 @@ const Table = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-lg text-[#101B41]">Invoice No</label>
+                <label className="mb-2 block text-sm text-[#101B41]">
+                  Invoice No
+                </label>
                 <input
                   value={draftFilters.invoiceNo}
                   onChange={(e) =>
@@ -550,12 +578,14 @@ const Table = () => {
                     }))
                   }
                   placeholder="Select Status"
-                  className="h-[42px] w-full rounded-md border border-[#D8DDE8] px-3 text-sm text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                  className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-lg text-[#101B41]">Tenant</label>
+                <label className="mb-2 block text-sm text-[#101B41]">
+                  Tenant
+                </label>
                 <input
                   value={draftFilters.tenant}
                   onChange={(e) =>
@@ -565,19 +595,24 @@ const Table = () => {
                     }))
                   }
                   placeholder="Tenant name"
-                  className="h-[42px] w-full rounded-md border border-[#D8DDE8] px-3 text-sm text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                  className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-lg text-[#101B41]">Plan</label>
+                <label className="mb-2 block text-sm text-[#101B41]">
+                  Plan
+                </label>
                 <div className="relative">
                   <select
                     value={draftFilters.plan}
                     onChange={(e) =>
-                      setDraftFilters((prev) => ({ ...prev, plan: e.target.value }))
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        plan: e.target.value,
+                      }))
                     }
-                    className="h-[42px] w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
                   >
                     <option value="All">Select Plan</option>
                     {planOptions.map((option) => (
@@ -594,7 +629,7 @@ const Table = () => {
               </div>
 
               <div>
-                <label className="mb-2 block text-lg text-[#101B41]">
+                <label className="mb-2 block text-sm text-[#101B41]">
                   Billing Cycle
                 </label>
                 <div className="relative">
@@ -606,7 +641,7 @@ const Table = () => {
                         billingCycle: e.target.value,
                       }))
                     }
-                    className="h-[42px] w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
                   >
                     <option value="All">Select Billing Cycle</option>
                     {billingOptions.map((option) => (
@@ -615,15 +650,13 @@ const Table = () => {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-lg text-[#101B41]">Date</label>
+                <label className="mb-2 block text-sm text-[#101B41]">
+                  Date
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
                     <input
@@ -635,11 +668,7 @@ const Table = () => {
                           fromDate: e.target.value,
                         }))
                       }
-                      className="h-[42px] w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
-                    />
-                    <CalendarDays
-                      size={17}
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
+                      className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
                     />
                   </div>
 
@@ -653,25 +682,26 @@ const Table = () => {
                           toDate: e.target.value,
                         }))
                       }
-                      className="h-[42px] w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
-                    />
-                    <CalendarDays
-                      size={17}
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
+                      className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-lg text-[#101B41]">Status</label>
+                <label className="mb-2 block text-sm text-[#101B41]">
+                  Status
+                </label>
                 <div className="relative">
                   <select
                     value={draftFilters.status}
                     onChange={(e) =>
-                      setDraftFilters((prev) => ({ ...prev, status: e.target.value }))
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        status: e.target.value,
+                      }))
                     }
-                    className="h-[42px] w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
                   >
                     <option value="All">Select Status</option>
                     {statusOptions.map((option) => (
@@ -688,14 +718,19 @@ const Table = () => {
               </div>
 
               <div>
-                <label className="mb-2 block text-lg text-[#101B41]">Payment</label>
+                <label className="mb-2 block text-sm text-[#101B41]">
+                  Payment
+                </label>
                 <div className="relative">
                   <select
                     value={draftFilters.payment}
                     onChange={(e) =>
-                      setDraftFilters((prev) => ({ ...prev, payment: e.target.value }))
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        payment: e.target.value,
+                      }))
                     }
-                    className="h-[42px] w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-sm text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
                   >
                     <option value="All">Select Payment</option>
                     {paymentOptions.map((option) => (
@@ -717,7 +752,7 @@ const Table = () => {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setDraftFilters(INITIAL_FILTERS)}
-                className="h-[42px] rounded-lg border border-[#576CBC] text-sm font-semibold text-[#576CBC]"
+                className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"
               >
                 Reset
               </button>
@@ -727,7 +762,7 @@ const Table = () => {
                   setAppliedFilters(draftFilters);
                   setShowFilterPanel(false);
                 }}
-                className="h-[42px] rounded-lg bg-[#576CBC] text-sm font-semibold text-white"
+                className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white"
               >
                 Show {previewFilteredItems.length} results
               </button>
@@ -736,96 +771,91 @@ const Table = () => {
         </div>
       )}
 
-
       {showViewDetails && (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-    <div className="w-full max-w-[780px] rounded-2xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-[780px] rounded-2xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b px-6 py-5">
+              <h2 className="text-[18px] font-semibold text-[#101B41]">
+                Subscriptions Details
+              </h2>
 
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-6 py-5">
-        <h2 className="text-[18px] font-semibold text-[#101B41]">
-          Subscriptions Details
-        </h2>
-
-        <button
-          onClick={() => setShowViewDetails(false)}
-          className="text-gray-400 hover:text-black"
-        >
-          <X size={24} />
-        </button>
-      </div>
-
-      {/* Body */}
-      <div className="p-6">
-        <div className="rounded-xl border border-[#E5E7EB] p-5">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-
-            <Field
-              label="Invoice ID"
-              value={selectedInvoice?.invoiceNumber}
-            />
-
-            <Field
-              label="Tenant Name"
-              value={selectedInvoice?.tenant?.tenantName}
-            />
-
-            <Field
-              label="Plan"
-              value={selectedInvoice?.subscriptionPlan?.planName}
-            />
-
-            <Field
-              label="Billing Cycle"
-              value={selectedInvoice?.subscriptionPlan?.billingCycle}
-            />
-
-            <Field
-              label="Invoice Date"
-              value={formatDateLabel(selectedInvoice?.invoiceDate)}
-            />
-
-            <Field
-              label="Due Date"
-              value={formatDateLabel(selectedInvoice?.dueDate)}
-            />
-
-            <Field
-              label="Amount"
-              value={
-                selectedInvoice?.totalAmount != null
-                  ? `$${selectedInvoice.totalAmount}`
-                  : undefined
-              }
-            />
-
-            <div>
-              <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
-                Payment Status
-              </label>
-
-              <input
-                readOnly
-                value={selectedInvoice?.status}
-                className={`h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 outline-none ${
-                  selectedInvoice?.status === "Paid"
-                    ? "text-green-600"
-                    : selectedInvoice?.status === "Pending"
-                    ? "text-yellow-500"
-                    : "text-red-500"
-                }`}
-              />
+              <button
+                onClick={() => setShowViewDetails(false)}
+                className="text-gray-400 hover:text-black"
+              >
+                <X size={24} />
+              </button>
             </div>
 
+            {/* Body */}
+            <div className="p-6">
+              <div className="rounded-xl border border-[#E5E7EB] p-5">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                  <Field
+                    label="Invoice ID"
+                    value={selectedInvoice?.invoiceNumber}
+                  />
+
+                  <Field
+                    label="Tenant Name"
+                    value={selectedInvoice?.tenant?.tenantName}
+                  />
+
+                  <Field
+                    label="Plan"
+                    value={selectedInvoice?.subscriptionPlan?.planName}
+                  />
+
+                  <Field
+                    label="Billing Cycle"
+                    value={selectedInvoice?.subscriptionPlan?.billingCycle}
+                  />
+
+                  <Field
+                    label="Invoice Date"
+                    value={formatDateLabel(selectedInvoice?.invoiceDate)}
+                  />
+
+                  <Field
+                    label="Due Date"
+                    value={formatDateLabel(selectedInvoice?.dueDate)}
+                  />
+
+                  <Field
+                    label="Amount"
+                    value={
+                      selectedInvoice?.totalAmount != null
+                        ? `$${selectedInvoice.totalAmount}`
+                        : undefined
+                    }
+                  />
+
+                  <div>
+                    <label className="mb-2 block text-[15px] font-medium text-[#101B41]">
+                      Payment Status
+                    </label>
+
+                    <input
+                      readOnly
+                      value={selectedInvoice?.status}
+                      className={`h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 outline-none ${
+                        selectedInvoice?.status === "Paid"
+                          ? "text-green-600"
+                          : selectedInvoice?.status === "Pending"
+                            ? "text-yellow-500"
+                            : "text-red-500"
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };
 
 export default Table;
-

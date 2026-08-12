@@ -115,14 +115,14 @@ duration-200
                 setFilters({});
                 onReset?.();
               }}
-              className="flex-1 rounded-lg border border-[#576CBC] py-3 text-sm font-semibold text-[#576CBC] hover:bg-[#F5F7FF]"
+              className="flex-1 h-8 rounded-lg border border-[#576CBC] py-2 text-xs font-medium text-[#576CBC] hover:bg-[#F5F7FF]"
             >
               Reset
             </button>
 
             <button
               onClick={() => onApply(filters)}
-              className="flex-[1.5] rounded-lg bg-[#576CBC] py-3 text-sm font-semibold text-white hover:bg-[#475DB8]"
+              className="flex-[1.5] h-8 rounded-lg bg-[#576CBC] py-2 text-xs font-medium text-white hover:bg-[#475DB8]"
             >
               Show {resultCount} Results
             </button>
@@ -155,13 +155,13 @@ function renderField(
           placeholder={field.placeholder}
           onChange={(e) => updateField(field.key, e.target.value)}
           className="
-            h-11
+            h-8
             w-full
             rounded-lg
             border
-            border-[#D4D4D4]
+            border-[#d5d5d5]
             px-4
-            text-sm
+            text-xs
             text-[#010E30CC]/80
             outline-none
             transition
@@ -181,7 +181,7 @@ function renderField(
             value={filters[field.key] ?? ""}
             onChange={(e) => updateField(field.key, e.target.value)}
             className="
-              h-11
+              h-8
               w-full
               appearance-none
               rounded-lg
@@ -191,7 +191,7 @@ function renderField(
               px-4
               pr-10
              text-[#010E30CC]/80
-              text-sm
+              text-xs
               outline-none
               transition
               focus:border-[#576CBC]
@@ -232,14 +232,14 @@ function renderField(
             value={filters[field.key] ?? ""}
             onChange={(e) => updateField(field.key, e.target.value)}
             className="
-              h-11
+              h-8
               w-full
               rounded-lg
               border
               border-[#D4D4D4]
               px-4
               pr-10
-              text-sm
+              text-xs
              text-[#010E30CC]/80
               outline-none
               focus:border-[#576CBC]
@@ -265,30 +265,25 @@ function renderField(
         DATE RANGE
     ------------------------- */
 
-   case "dateRange":
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <DatePickerInput
-        value={filters[`${field.key}From`] || null}
-        onChange={(date) =>
-          updateField(`${field.key}From`, date)
-        }
-        placeholder="Jan 20, 2020"
-       inputClassName=" h-11 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-sm text-[#010E30CC] outline-none focus:border-[#576CBC] "
-      />
+    case "dateRange":
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          <DatePickerInput
+            value={filters[`${field.key}From`] || null}
+            onChange={(date) => updateField(`${field.key}From`, date)}
+            placeholder="Jan 20, 2020"
+            inputClassName=" h-8 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-xs text-[#010E30CC] outline-none focus:border-[#576CBC] "
+          />
 
-      <DatePickerInput
-        value={filters[`${field.key}To`] || null}
-        onChange={(date) =>
-          updateField(`${field.key}To`, date)
-        }
-        placeholder="Jan 24, 2020"
-               inputClassName=" h-11 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-sm text-[#010E30CC] outline-none focus:border-[#576CBC] "
-
-      />
-    </div>
-  );
-  default:
+          <DatePickerInput
+            value={filters[`${field.key}To`] || null}
+            onChange={(date) => updateField(`${field.key}To`, date)}
+            placeholder="Jan 24, 2020"
+            inputClassName=" h-8 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-xs text-[#010E30CC] outline-none focus:border-[#576CBC] "
+          />
+        </div>
+      );
+    default:
       return null;
   }
 }

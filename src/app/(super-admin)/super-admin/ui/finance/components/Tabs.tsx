@@ -1,13 +1,12 @@
 "use client";
 
 import TransactionsTab from "./TransactionsTab/TransactionsTab";
-// import RefundsTab from "./components/RefundsTab";
-// import RevenueTab from "./components/RevenueTab";
-// import BillingTab from "./components/BillingTab";
+import RefundTab from "./RefundsTab/RefundTab";
 import InvoiceTab from "./InvoiceTab/InvoiceTab";
 import BillingTab from "./BillingTab/BillingTab";
+import RevenueTab from "./Revenue/RevenueTab";
+import AnalyticsTab from "./analytics/AnalyticsTab";
 // import TaxGstTab from "./components/TaxGstTab";
-// import AnalyticsTab from "./components/AnalyticsTab";
 
 type FinanceTab =
   | "transactions"
@@ -29,16 +28,16 @@ const tabs: Array<{ id: FinanceTab; label: string; component: JSX.Element }> = [
     label: "Transactions",
     component: <TransactionsTab />,
   },
-  // {
-  //   id: "refunds",
-  //   label: "Refunds",
-  //   component: <RefundsTab />,
-  // },
-  // {
-  //   id: "revenue",
-  //   label: "Revenue",
-  //   component: <RevenueTab />,
-  // },
+  {
+    id: "refunds",
+    label: "Refunds",
+    component: <RefundTab />,
+  },
+  {
+    id: "revenue",
+    label: "Revenue",
+    component: <RevenueTab />,
+  },
   {
     id: "billing",
     label: "Billing",
@@ -54,11 +53,11 @@ const tabs: Array<{ id: FinanceTab; label: string; component: JSX.Element }> = [
   //   label: "Tax & GST",
   //   component: <TaxGstTab />,
   // },
-  // {
-  //   id: "analytics",
-  //   label: "Analytics",
-  //   component: <AnalyticsTab />,
-  // },
+  {
+    id: "analytics",
+    label: "Analytics",
+    component: <AnalyticsTab />,
+  },
 ];
 
 export default function Tabs({ activeTab, onTabChange }: TabsProps) {
