@@ -9,10 +9,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CalendarDays,
   X,
   Download,
 } from "lucide-react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type FieldProps = {
   label: string;
@@ -193,7 +193,7 @@ const Table = () => {
       setLoading(true);
 
       const response = await axios.get(
-        "http://localhost:5001/subscription-invoices",
+        (`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.INVOICE.GET_INVOICE_TABLE}`)
       );
 
       const responseData = response.data?.data;

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 const Activities = () => {
   const [dashboard, setDashboard] = useState({
@@ -29,9 +30,7 @@ const Activities = () => {
 
   const getDashboard = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:5001/plans/dashboard"
-      );
+      const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_ACTIVITY}`);
 
       setDashboard(response.data.data);
     } catch (error) {
@@ -72,7 +71,6 @@ const Activities = () => {
 
   const activeDeg = (stats[0].percentage / 100) * 360;
   const trialDeg = (stats[1].percentage / 100) * 360;
-  const expiredDeg = (stats[2].percentage / 100) * 360;
 
   return (
     <div className="bg-white rounded-xl p-5 border border-[#ECECEC] h-full">

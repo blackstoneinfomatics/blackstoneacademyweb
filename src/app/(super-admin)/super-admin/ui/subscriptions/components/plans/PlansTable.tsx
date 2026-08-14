@@ -9,10 +9,11 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  CalendarDays,
+
 } from "lucide-react";
 import axios from "axios";
 import Image from "next/image";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 const ToggleSwitch = ({
   checked,
@@ -180,9 +181,15 @@ const PlansTable = () => {
     try {
       setLoading(true);
 
-      const response = await axios.get("http://localhost:5001/plans");
+      const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`);
 
-      setPlans(response.data.data || []);
+      const responseData = response.data?.data ?? response.data;
+
+      const plansArray = Array.isArray(responseData)
+        ? responseData
+        : responseData?.plans ?? responseData?.items ?? [];
+
+      setPlans(plansArray);
     } catch (error) {
       console.error("Error fetching plans:", error);
     } finally {
@@ -192,7 +199,7 @@ const PlansTable = () => {
 
   const handleViewPlan = async (planId: string) => {
     try {
-      const res = await axios.get(`http://localhost:5001/plans/${planId}`);
+      const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
 
       setSelectedPlan(res.data.data);
       setShowModal(true);
@@ -233,7 +240,7 @@ const PlansTable = () => {
 
   const getPlanById = async (planId: string) => {
     try {
-      const res = await axios.get(`http://localhost:5001/plans/${planId}`);
+      const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
 
       const plan = res.data.data;
 

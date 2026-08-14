@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface DashboardData {
   topPerformingPlan: {
@@ -31,7 +32,7 @@ const TopPerformingPlan = () => {
       setLoading(true);
 
       const response = await axios.get(
-        "http://localhost:5001/plans/dashboard"
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_TOP_PERFORMING_PLAN}`
       );
 
       setDashboard(response.data.data);

@@ -6,6 +6,7 @@ import { Users } from "lucide-react";
 import { TbBrandDatabricks } from "react-icons/tb";
 import { FaCircleCheck } from "react-icons/fa6";
 import { IoWalletOutline } from "react-icons/io5";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 const StatsCards = () => {
   const [dashboard, setDashboard] = useState({
@@ -25,9 +26,7 @@ const StatsCards = () => {
     try {
       setLoading(true);
 
-      const response = await axios.get(
-        "http://localhost:5001/plans/dashboard"
-      );
+      const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_CARD_COUNT}`);
 
       setDashboard(response.data.data);
     } catch (error) {

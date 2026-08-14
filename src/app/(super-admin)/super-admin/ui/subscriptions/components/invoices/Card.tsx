@@ -6,6 +6,7 @@ import { FaRegClock } from "react-icons/fa";
 import { GoAlertFill } from "react-icons/go";
 import Image from "next/image";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface InvoiceDashboardData {
   totalInvoices: {
@@ -52,7 +53,7 @@ const Card = () => {
       setLoading(true);
 
       const response = await axios.get(
-        "http://localhost:5001/subscription-invoices/dashboard-count"
+        (`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.INVOICE.GET_INVOICE_CARD_COUNT}`)
       );
 
       if (response.data.success) {

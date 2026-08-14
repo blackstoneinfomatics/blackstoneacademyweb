@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
@@ -11,12 +11,14 @@ import {
 } from "@/app/_components/contents/toast_message";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type Props = {
   readonly onClose: () => void;
 };
 
 interface PlanPayload {
+  totalPrice: number;
   planName: string;
   studentLimit: number;
   billingCycle: string;
@@ -181,6 +183,7 @@ const CreatePlan = ({ onClose }: Props) => {
     status: "Active",
     createdBy: "SUPER_ADMIN",
     lastUpdatedBy: "SUPER_ADMIN",
+    totalPrice: 0,
   });
 
   const handleSubmit = async () => {
@@ -212,6 +215,7 @@ const CreatePlan = ({ onClose }: Props) => {
         setupFee: Number(planData.setupFee),
         trialDays: Number(planData.trialDays),
         gstAndTax: Number(planData.gstAndTax),
+        totalPrice: Number(planData.totalPrice),
 
         allowedRoles,
         features,
@@ -225,7 +229,7 @@ const CreatePlan = ({ onClose }: Props) => {
 
       console.log(payload);
 
-      const response = await axios.post("http://localhost:5001/plans", payload);
+      const response = await axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.CREATE_PLAN}`, payload);
 
       console.log(response.data);
 
@@ -248,6 +252,33 @@ const CreatePlan = ({ onClose }: Props) => {
       toast.error(message);
     }
   };
+
+  // Auto-calculate totalPrice based on monthlyPrice, billingCycle and setupFee
+  useEffect(() => {
+    const cycleDays: Record<string, number> = {
+      MONTHLY: 30,
+      QUARTERLY: 90,
+      HALF_YEARLY: 180,
+      YEARLY: 365,
+    };
+
+    const monthly = Number(planData.monthlyPrice) || 0;
+    const setup = Number(planData.setupFee) || 0;
+    const days =
+      cycleDays[planData.billingCycle as keyof typeof cycleDays] ?? 30;
+
+    const monthsEquivalent = days / 30; // convert days to month-equivalent
+    const computedTotal = monthly * monthsEquivalent + setup;
+
+    if (Number(planData.totalPrice) !== Number(computedTotal)) {
+      setPlanData((prev) => ({
+        ...prev,
+        totalPrice: Number(computedTotal),
+      }));
+    }
+    // only run when relevant fields change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planData.monthlyPrice, planData.billingCycle, planData.setupFee]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -478,7 +509,6 @@ const CreatePlan = ({ onClose }: Props) => {
                           { label: "3 Months", value: "QUARTERLY" },
                           { label: "6 Months", value: "HALF_YEARLY" },
                           { label: "Yearly", value: "YEARLY" },
-                          { label: "Lifetime", value: "LIFETIME" },
                         ].map((item) => (
                           <label
                             key={item.value}
@@ -625,7 +655,7 @@ const CreatePlan = ({ onClose }: Props) => {
                       />
                     </div>
 
-                    <div className="col-span-2">
+                    <div>
                       <label className="text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-4">
                         GST / Tax
                       </label>
@@ -640,6 +670,20 @@ const CreatePlan = ({ onClose }: Props) => {
                         placeholder="18%"
                       />
                     </div>
+
+<div>
+  <label className="mb-1.5 block text-xs font-medium text-slate-600">
+    Total Price
+  </label>
+
+  <input
+    type="number"
+    value={planData.totalPrice}
+    readOnly
+    className="w-full rounded-lg border border-slate-200 bg-gray-50 px-3 py-2 text-xs text-slate-700"
+  />
+</div>
+
                     {/* 
                     <div className="col-span-2 flex gap-2 bg-[#E5EBFF] border border-dashed rounded-lg p-6 mt-6 text-center text-[#010E30]">
                       <MdError size={23} color="#576CBC" />

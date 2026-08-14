@@ -54,7 +54,9 @@ export const AppApiEndpoints = {
     STUDENT_INVOICE: "/studentinvoice",
     STUDENT_INVOICE_LIST: "/studentinvoice/list",
     INVOICE_COUNTS: "/invoicecounts",
-    STUDENT_INVOICE_BYID:"/studentinvoiceById"
+    STUDENT_INVOICE_BYID:"/studentinvoiceById",
+    GET_INVOICE_CARD_COUNT: "/subscription-invoices/dashboard-count",
+    GET_INVOICE_TABLE: "/subscription-invoices",
   },
 
   CALENDAR: {
@@ -264,6 +266,15 @@ export const AppApiEndpoints = {
 
   PROFILE : {
     STUDENT_PROFILE : "/studentProfile"
+  },
+
+  PLAN : {
+    CREATE_PLAN : "/plans",
+    PLAN_CARD_COUNT : "/plans/dashboard",
+    PLAN_ACTIVITY : "/plans/dashboard",
+    GET_TOP_PERFORMING_PLAN : "/plans/dashboard",
+    PLAN_TABLE : "/plans",
+    GET_PLAN_BY_ID : "/plans/${planId}"
   }
 
 };
