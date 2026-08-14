@@ -2,142 +2,160 @@
 
 import React, { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import axios from "axios";
 import {
   Search,
   SlidersHorizontal,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CalendarDays,
   X,
 } from "lucide-react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-const recentItems = [
-  {
-    planName: "Blackstone Academy",
-    price: "John Doe",
-    billingCycle: "Premium",
-    CreatedDate: "2026-12-31",
-    features: 250,
-    subscribedTenants: 250,
-    status: "Active",
-    payment: "Paid",
-  },
-  {
-    planName: "Srashtalk",
-    price: "Sarah Ali",
-    billingCycle: "Basic",
-    CreatedDate: "2026-10-15",
-    features: 120,
-    subscribedTenants: 120,
-    status: "Expired",
-    payment: "Pending",
-  },
-  {
-    planName: "Zotal AI",
-    price: "Rahul Kumar",
-    billingCycle: "Premium",
-    CreatedDate: "2027-01-20",
-    features: 500,
-    subscribedTenants: 500,
-    status: "Active",
-    payment: "Paid",
-  },
-  {
-    planName: "ERP School",
-    price: "Aisha Khan",
-    billingCycle: "Standard",
-    CreatedDate: "2026-09-10",
-    features: 180,
-    subscribedTenants: 180,
-    status: "Suspended",
-    payment: "Pending",
-  },
-  {
-    planName: "EduPortal",
-    price: "Ali Hassan",
-    billingCycle: "Basic",
-    CreatedDate: "2026-11-25",
-    features: 320,
-    subscribedTenants: 320,
-    status: "Active",
-    payment: "Paid",
-  },
-];
+type TrialItem = {
+  _id?: string;
+  trialId?: string;
+  tenantName?: string;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  daysLeft?: number;
+  status?: string;
+  isConverted?: boolean;
+  convertedAt?: string | null;
+};
 
 type FilterState = {
   tenantName: string;
-  plan: string;
-  billingCycle: string;
   fromDate: string;
   toDate: string;
   status: string;
-  payment: string;
 };
 
 const INITIAL_FILTERS: FilterState = {
   tenantName: "",
-  plan: "All",
-  billingCycle: "All",
   fromDate: "",
   toDate: "",
   status: "All",
-  payment: "All",
 };
 
 const applyFilters = (
-  items: typeof recentItems,
+  items: TrialItem[],
   search: string,
   filters: FilterState,
 ) => {
   const term = search.toLowerCase().trim();
 
   return items.filter((item) => {
+    const tenantName = item.tenantName || "";
+    const status = item.status || "";
+    const trialId = item.trialId || item._id || "";
+
     const matchesSearch =
       !term ||
-      [
-        item.planName,
-        item.price,
-        item.billingCycle,
-        item.CreatedDate,
-        item.status,
-      ]
+      [tenantName, status, trialId]
         .join(" ")
         .toLowerCase()
         .includes(term);
 
     const matchesTenantName =
       !filters.tenantName ||
-      item.planName.toLowerCase().includes(filters.tenantName.toLowerCase()) ||
-      item.price.toLowerCase().includes(filters.tenantName.toLowerCase());
+      tenantName.toLowerCase().includes(filters.tenantName.toLowerCase());
 
-    const matchesPlan =
-      filters.plan === "All" || item.planName === filters.plan;
-    const matchesBillingCycle =
-      filters.billingCycle === "All" ||
-      item.billingCycle === filters.billingCycle;
-    const matchesStatus =
-      filters.status === "All" || item.status === filters.status;
-    const matchesPayment =
-      filters.payment === "All" || item.payment === filters.payment;
+    const matchesStatus = filters.status === "All" || status === filters.status;
 
-    const rowDate = new Date(item.CreatedDate);
+    const rowDate = item.trialStartDate ? new Date(item.trialStartDate) : null;
     const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
     const toDate = filters.toDate ? new Date(filters.toDate) : null;
 
     const matchesDate =
-      (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+      (!fromDate || (rowDate && rowDate >= fromDate)) &&
+      (!toDate || (rowDate && rowDate <= toDate));
 
     return (
       matchesSearch &&
       matchesTenantName &&
-      matchesPlan &&
-      matchesBillingCycle &&
       matchesStatus &&
-      matchesPayment &&
       matchesDate
     );
   });
+};
+
+const formatDate = (value?: string) => {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const formatStatusLabel = (status?: string) => {
+  if (!status) {
+    return "-";
+  }
+
+  return status
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const getDaysLeftStyle = (daysLeft?: number) => {
+  if (typeof daysLeft !== "number") {
+    return "text-[#6B7280]";
+  }
+
+  if (daysLeft < 0) {
+    return "text-[#E35D5D]";
+  }
+
+  if (daysLeft <= 4) {
+    return "text-[#F4A429]";
+  }
+
+  return "text-[#34A853]";
+};
+
+const getStatusBadgeStyle = (status?: string, daysLeft?: number) => {
+  const normalized = String(status || "").toUpperCase();
+
+  if (normalized === "ACTIVE") {
+    return "bg-[#EAF8EC] text-[#34A853]";
+  }
+
+  if (normalized === "EXPIRED" || normalized === "CANCELLED" || (typeof daysLeft === "number" && daysLeft < 0)) {
+    return "bg-[#FDEAEA] text-[#E35D5D]";
+  }
+
+  if (normalized === "EXPIRED_SOON" || (typeof daysLeft === "number" && daysLeft <= 4)) {
+    return "bg-[#FFF7E8] text-[#F4A429]";
+  }
+
+  return "bg-[#EEF3FF] text-[#4D74AE]";
+};
+
+const toDateInputValue = (value?: string) => {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().split("T")[0];
 };
 
 const Table = () => {
@@ -152,24 +170,18 @@ const Table = () => {
 
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedTrial, setSelectedTrial] = useState<any>(null);
+  const [selectedTrial, setSelectedTrial] = useState<TrialItem | null>(null);
+  const [trials, setTrials] = useState<TrialItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const itemsPerPage = 5;
-  const planOptions = Array.from(
-    new Set(recentItems.map((item) => item.planName)),
-  );
-  const billingOptions = Array.from(
-    new Set(recentItems.map((item) => item.billingCycle)),
-  );
+  const trialsList = Array.isArray(trials) ? trials : [];
   const statusOptions = Array.from(
-    new Set(recentItems.map((item) => item.status)),
-  );
-  const paymentOptions = Array.from(
-    new Set(recentItems.map((item) => item.payment)),
-  );
+    new Set(trialsList.map((item) => item.status)),
+  ).filter((option): option is string => Boolean(option));
 
-  const filteredItems = applyFilters(recentItems, search, appliedFilters);
-  const previewFilteredItems = applyFilters(recentItems, search, draftFilters);
+  const filteredItems = applyFilters(trialsList, search, appliedFilters);
+  const previewFilteredItems = applyFilters(trialsList, search, draftFilters);
 
   const activeFilterCount = Object.entries(appliedFilters).filter(
     ([key, value]) =>
@@ -203,6 +215,29 @@ const Table = () => {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    const fetchTrials = async () => {
+      try {
+        setLoading(true);
+
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TRIALS.GET_TRIALS}`,
+        );
+        const payload =
+          response.data?.data?.items ?? response.data?.items ?? response.data?.data;
+
+        setTrials(Array.isArray(payload) ? payload : []);
+      } catch (error) {
+        console.error("Error fetching trials:", error);
+        setTrials([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrials();
+  }, []);
 
   return (
     <div>
@@ -276,28 +311,28 @@ const Table = () => {
               <tbody>
                 {paginatedItems.length > 0 ? (
                   paginatedItems.map((item, index) => {
-                    const rowId = `${item.planName}-${item.CreatedDate}-${index}`;
+                    const rowId =
+                      item.trialId || item._id || `${item.tenantName || "trial"}-${index}`;
 
                     return (
                       <tr
                         key={rowId}
                         className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]"
                       >
-                        <td className="px-2 py-4">{item.planName}</td>
-                        <td className="px-2 py-4">{item.price}</td>
-                        <td className="px-2 py-4">{item.billingCycle}</td>
-                        <td className="px-2 py-4">{item.CreatedDate}</td>
+                        <td className="px-2 py-4">{item.tenantName || "-"}</td>
+                        <td className="px-2 py-4">{formatDate(item.trialStartDate)}</td>
+                        <td className="px-2 py-4">{formatDate(item.trialEndDate)}</td>
+                        <td className={`px-2 py-4 font-medium ${getDaysLeftStyle(item.daysLeft)}`}>
+                          {typeof item.daysLeft === "number" ? item.daysLeft : "-"}
+                        </td>
                         <td className="px-2 py-4">
                           <span
-                            className={`rounded-md px-2 py-[3px] text-[12px] ${
-                              item.status === "Active"
-                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
-                                : item.status === "Expired"
-                                  ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
-                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
-                            }`}
+                            className={`rounded-md px-2 py-[3px] text-[12px] ${getStatusBadgeStyle(
+                              item.status,
+                              item.daysLeft,
+                            )}`}
                           >
-                            {item.status}
+                            {formatStatusLabel(item.status)}
                           </span>
                         </td>
                         <td className="relative px-2 py-4">
@@ -353,7 +388,7 @@ const Table = () => {
                 ) : (
                   <tr>
                     <td colSpan={8} className="p-4 text-center">
-                      No data available
+                      {loading ? "Loading trials..." : "No data available"}
                     </td>
                   </tr>
                 )}
@@ -432,65 +467,7 @@ const Table = () => {
 
               <div>
                 <label className="mb-2 block text-sm text-[#101B41]">
-                  Plan
-                </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.plan}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        plan: e.target.value,
-                      }))
-                    }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Status</option>
-                    {planOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
-                  Billing Cycle
-                </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.billingCycle}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        billingCycle: e.target.value,
-                      }))
-                    }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Status</option>
-                    {billingOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
-                  Date
+                  Trial Date Range
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
@@ -541,7 +518,7 @@ const Table = () => {
                     <option value="All">Select Status</option>
                     {statusOptions.map((option) => (
                       <option key={option} value={option}>
-                        {option}
+                        {formatStatusLabel(option)}
                       </option>
                     ))}
                   </select>
@@ -552,34 +529,6 @@ const Table = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
-                  Payment
-                </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.payment}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        payment: e.target.value,
-                      }))
-                    }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
-                  >
-                    <option value="All">Select Status</option>
-                    {paymentOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="my-5 h-px bg-[#E4E8F1]" />
@@ -633,7 +582,7 @@ const Table = () => {
 
                     <input
                       readOnly={!isEditMode}
-                      defaultValue={selectedTrial?.planName}
+                      defaultValue={selectedTrial?.tenantName}
                       className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
                     />
                   </div>
@@ -649,7 +598,7 @@ const Table = () => {
                       <input
                         type="date"
                         readOnly={!isEditMode}
-                        defaultValue={selectedTrial?.CreatedDate}
+                        defaultValue={toDateInputValue(selectedTrial?.trialStartDate)}
                         className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
                       />
                     </div>
@@ -662,7 +611,7 @@ const Table = () => {
                       <input
                         type="date"
                         readOnly={!isEditMode}
-                        defaultValue={selectedTrial?.CreatedDate}
+                        defaultValue={toDateInputValue(selectedTrial?.trialEndDate)}
                         className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
                       />
                     </div>
@@ -678,7 +627,11 @@ const Table = () => {
 
                       <input
                         readOnly={!isEditMode}
-                        defaultValue="9 Days"
+                        defaultValue={
+                          typeof selectedTrial?.daysLeft === "number"
+                            ? `${selectedTrial.daysLeft} Days`
+                            : ""
+                        }
                         className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
                       />
                     </div>

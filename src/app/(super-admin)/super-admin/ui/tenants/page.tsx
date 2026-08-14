@@ -29,7 +29,10 @@ interface TenantType {
   country: string;
   city: string;
   pincode: string;
+  isNew: boolean;
 }
+
+const NEW_TENANT_WINDOW_DAYS = 30;
 
 const capitalizeFirst = (value: string) =>
   value ? value.charAt(0).toUpperCase() + value.slice(1) : "Basic";
@@ -67,30 +70,41 @@ useEffect(() => {
   const fetchTenants = async () => {
     try {
       const response = await axios.get("http://localhost:5001/tenant");
-      const payload = Array.isArray(response?.data)
-        ? response.data
-        : response?.data?.data
-          ? response.data.data
-          : response?.data
-            ? [response.data]
-            : [];
+      const payload = Array.isArray(response?.data?.tenants)
+        ? response.data.tenants
+        : Array.isArray(response?.data)
+          ? response.data
+          : response?.data?.data
+            ? response.data.data
+            : response?.data
+              ? [response.data]
+              : [];
 
-      const mappedTenants = payload.map((item: any, index: number): TenantType => ({
-        tenantCode: item.tenantJobCode || item.tenantCode || `TEN-${index + 1}`,
-        tenantName: item.tenantName || item.organizationName || "N/A",
-        domain: extractDomain(item.website || item.domain || item.emailId || ""),
-        phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
-        email: item.emailId || item.email || "N/A",
-        startDate: formatDate(item.createdAt),
-        plan: capitalizeFirst(item.plan || "basic"),
-        users: item.users || 0,
-        renewalDate: formatDate(item.renewalDate),
-        status: item.status || "Active",
-        state: item.state || "",
-        country: item.country || "",
-        city: item.city || "",
-        pincode: item.postalCode || item.pincode || "",
-      }));
+      const mappedTenants = payload.map((item: any, index: number): TenantType => {
+        const createdRaw = item.createdDate || item.createdAt || "";
+        const createdTime = createdRaw ? new Date(createdRaw).getTime() : NaN;
+        const isNew =
+          !Number.isNaN(createdTime) &&
+          Date.now() - createdTime <= NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+        return {
+          tenantCode: item.tenantCode || item.tenantJobCode || `TEN-${index + 1}`,
+          tenantName: item.tenantName || item.organizationName || "N/A",
+          domain: extractDomain(item.website || item.domain || item.emailId || ""),
+          phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
+          email: item.emailId || item.email || "N/A",
+          startDate: formatDate(createdRaw),
+          plan: capitalizeFirst(item.plan || "basic"),
+          users: item.users || 0,
+          renewalDate: formatDate(item.renewalDate || item.activeLicense?.expiryDate),
+          status: item.status || "Active",
+          state: item.state || "",
+          country: item.country || "",
+          city: item.city || "",
+          pincode: item.postalCode || item.pincode || "",
+          isNew,
+        };
+      });
 
       setTenants(mappedTenants);
     } catch (error) {
@@ -178,6 +192,8 @@ const filteredTenants = tenants.filter((tenant) => {
     !filters.renewalToDate ||
     renewalDate <= new Date(filters.renewalToDate);
 
+  const tabFilter = activeTab === "All" || tenant.isNew;
+
   return (
     search &&
     tenantFilter &&
@@ -187,7 +203,8 @@ const filteredTenants = tenants.filter((tenant) => {
     fromDateFilter &&
     toDateFilter &&
     renewalFromFilter &&
-    renewalToFilter
+    renewalToFilter &&
+    tabFilter
   );
 });
 
@@ -209,7 +226,7 @@ const tabOptions = [
   {
     type: "New" as const,
     label: "New Tenants",
-    count: 5,
+    count: tenants.filter((tenant) => tenant.isNew).length,
   },
 ];
 const getStatusStyle = (status: string) => {

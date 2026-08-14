@@ -73,13 +73,14 @@ const PlansTable = () => {
     useState<FilterState>(INITIAL_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const plansList = Array.isArray(plans) ? plans : [];
 
   const billingOptions = Array.from(
-    new Set(plans.map((plan) => plan.billingCycle)),
+    new Set(plansList.map((plan) => plan.billingCycle)),
   ).filter(Boolean);
 
   const statusOptions = Array.from(
-    new Set(plans.map((plan) => plan.status)),
+    new Set(plansList.map((plan) => plan.status)),
   ).filter(Boolean);
 
   const applyFilters = (
@@ -128,8 +129,8 @@ const PlansTable = () => {
     });
   };
 
-  const filteredPlans = applyFilters(plans, search, appliedFilters);
-  const previewFilteredPlans = applyFilters(plans, search, draftFilters);
+  const filteredPlans = applyFilters(plansList, search, appliedFilters);
+  const previewFilteredPlans = applyFilters(plansList, search, draftFilters);
 
   const activeFilterCount = Object.entries(appliedFilters).filter(
     ([key, value]) =>
@@ -173,6 +174,53 @@ const PlansTable = () => {
     return "bg-gray-100 text-gray-600";
   };
 
+  const formatTableDate = (value?: string) => {
+    if (!value) {
+      return "-";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const getStatusBadgeStyle = (status?: string) => {
+    const normalized = String(status || "").toUpperCase();
+
+    if (normalized === "ACTIVE") {
+      return "bg-[#EAF8EC] text-[#34A853]";
+    }
+
+    if (normalized === "EXPIRED") {
+      return "bg-[#FDEAEA] text-[#E35D5D]";
+    }
+
+    if (normalized === "EXPIRED_SOON" || normalized === "INACTIVE") {
+      return "bg-[#FFF7E8] text-[#F4A429]";
+    }
+
+    return "bg-[#EEF3FF] text-[#4D74AE]";
+  };
+
+  const formatStatusLabel = (status?: string) => {
+    if (!status) {
+      return "-";
+    }
+
+    return status
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
   useEffect(() => {
     fetchPlans();
   }, []);
@@ -190,6 +238,13 @@ const PlansTable = () => {
         : responseData?.plans ?? responseData?.items ?? [];
 
       setPlans(plansArray);
+      const payload =
+        response.data?.data?.items ??
+        response.data?.items ??
+        response.data?.data ??
+        response.data;
+
+      setPlans(Array.isArray(payload) ? payload : []);
     } catch (error) {
       console.error("Error fetching plans:", error);
     } finally {
@@ -392,17 +447,7 @@ const PlansTable = () => {
                     <td className="px-4">{item.billingCycle}</td>
 
                     <td className="px-4 text-[#4D74AE]">
-                      {item.createdDate
-                        ? (() => {
-                            const date = new Date(item.createdDate);
-                            const month = date.toLocaleString("en-US", {
-                              month: "short",
-                            });
-                            const day = date.getDate();
-                            const year = date.getFullYear();
-                            return `${month}, ${day} ${year}`;
-                          })()
-                        : "-"}
+                      {formatTableDate(item.createdDate)}
                     </td>
 
                     <td className="px-4">
@@ -413,13 +458,11 @@ const PlansTable = () => {
 
                     <td className="px-4">
                       <span
-                        className={`rounded-md px-3 py-1 text-xs font-medium ${
-                          item.status === "Active"
-                            ? "bg-[#EAF8EC] text-[#34A853]"
-                            : "bg-red-100 text-red-600"
-                        }`}
+                        className={`rounded-md px-3 py-1 text-xs font-medium ${getStatusBadgeStyle(
+                          item.status,
+                        )}`}
                       >
-                        {item.status}
+                        {formatStatusLabel(item.status)}
                       </span>
                     </td>
 

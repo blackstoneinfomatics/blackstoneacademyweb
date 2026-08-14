@@ -1,56 +1,109 @@
-import React from "react";
-import { Users, DollarSign, UserPlus, Clock3 } from "lucide-react";
-import { HiArrowTrendingUp } from "react-icons/hi2";
-import { HiOutlineCurrencyDollar } from "react-icons/hi2";
-import { TbBrandDatabricks } from "react-icons/tb";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import { FaCircleCheck } from "react-icons/fa6";
-import { IoWalletOutline } from "react-icons/io5";
 import { HiUsers } from "react-icons/hi";
 import { AiFillCloseCircle } from "react-icons/ai";
 import { PiSealCheckFill } from "react-icons/pi";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 
+type TrialsDashboardCounts = {
+  totalTrials: number;
+  activeTrials: number;
+  expiredTrials: number;
+  convertedTrials: number;
+};
 
-const cards = [
-  {
-    title: "Total Trials",
-    value: "200",
-    icon: HiUsers,
-    iconBg: "bg-[#E5DFFD]",
-    iconColor: "text-[#5225FC]",
-    titleColor: "text-[#5225FC]",
-    trend: "All Time trials"
-  },
-    {
-    title: "Active Trials",
-    value: "150",
-    icon: FaCircleCheck,
-    iconBg: "bg-[#E3F4E7]",
-    iconColor: "text-[#40BD5F]",
-    titleColor: "text-[#40BD5F]",
-    trend: "Currently  trials"
-  },
-    {
-    title: "Expiried Trials",
-    value: "$2,500",
-    icon: AiFillCloseCircle,
-    iconBg: "bg-[#F8E4E4]",
-    iconColor: "text-[#D34645]",
-    titleColor: "text-[#D34645]",
-    trend: "Not Converted"
-  },
-  {
-    title: "Converted to paid",
-    value: "50",
-    icon: PiSealCheckFill,
-    iconBg: "bg-[#E7E9FE]",
-    iconColor: "text-[#5E6BFF]",
-    titleColor: "text-[#5E6BFF]",
-    trend: "This month"
-  },
-
-];
 const Card = () => {
+  const [counts, setCounts] = useState<TrialsDashboardCounts>({
+    totalTrials: 0,
+    activeTrials: 0,
+    expiredTrials: 0,
+    convertedTrials: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardCounts = async () => {
+      try {
+        setLoading(true);
+
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TRIALS.GET_TRIALS_DASHBOARD_COUNT}`,
+        );
+
+        if (response.data?.success && response.data?.data) {
+          setCounts({
+            totalTrials: Number(response.data.data.totalTrials) || 0,
+            activeTrials: Number(response.data.data.activeTrials) || 0,
+            expiredTrials: Number(response.data.data.expiredTrials) || 0,
+            convertedTrials: Number(response.data.data.convertedTrials) || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching subscription trial dashboard counts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardCounts();
+  }, []);
+
+  const cards = [
+    {
+      title: "Total Trials",
+      value: counts.totalTrials,
+      icon: HiUsers,
+      iconBg: "bg-[#E5DFFD]",
+      iconColor: "text-[#5225FC]",
+      titleColor: "text-[#5225FC]",
+      trend: "All Time trials",
+    },
+    {
+      title: "Active Trials",
+      value: counts.activeTrials,
+      icon: FaCircleCheck,
+      iconBg: "bg-[#E3F4E7]",
+      iconColor: "text-[#40BD5F]",
+      titleColor: "text-[#40BD5F]",
+      trend: "Currently trials",
+    },
+    {
+      title: "Expired Trials",
+      value: counts.expiredTrials,
+      icon: AiFillCloseCircle,
+      iconBg: "bg-[#F8E4E4]",
+      iconColor: "text-[#D34645]",
+      titleColor: "text-[#D34645]",
+      trend: "Not Converted",
+    },
+    {
+      title: "Converted to paid",
+      value: counts.convertedTrials,
+      icon: PiSealCheckFill,
+      iconBg: "bg-[#E7E9FE]",
+      iconColor: "text-[#5E6BFF]",
+      titleColor: "text-[#5E6BFF]",
+      trend: "This month",
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((item) => (
+          <div
+            key={item}
+            className="h-[110px] rounded-2xl bg-gray-100 animate-pulse"
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-4 gap-4">
       {cards.map((card, index) => {
@@ -85,7 +138,7 @@ const Card = () => {
         );
       })}
     </div>
-  )
-}
+  );
+};
 
 export default Card

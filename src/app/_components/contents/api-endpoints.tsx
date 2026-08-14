@@ -275,6 +275,10 @@ export const AppApiEndpoints = {
     GET_TOP_PERFORMING_PLAN : "/plans/dashboard",
     PLAN_TABLE : "/plans",
     GET_PLAN_BY_ID : "/plans/${planId}"
+  },
+  TRIALS: {
+    GET_TRIALS: "/subscription-trials",
+    GET_TRIALS_DASHBOARD_COUNT: "/subscription-trials/dashboard-count",
   }
 
 };
