@@ -157,10 +157,10 @@ const variants = {
 const CreatePlan = ({ onClose }: Props) => {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [failedMessage, setFailedMessage] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [, setSuccessMessage] = useState("");
+  const [, setFailedMessage] = useState("");
+  const [, setSuccess] = useState(false);
+  const [, setFailed] = useState(false);
   const [activeRole, setActiveRole] = useState<Role>("Admin");
   const [planData, setPlanData] = useState<PlanPayload>({
     planName: "",
@@ -287,9 +287,25 @@ const CreatePlan = ({ onClose }: Props) => {
   ) => {
     const { name, value, type } = e.target;
 
+    const numericFields = new Set([
+      "studentLimit",
+      "monthlyPrice",
+      "yearlyPrice",
+      "setupFee",
+      "trialDays",
+      "gstAndTax",
+      "totalPrice",
+    ]);
+
+    const newValue = numericFields.has(name) || type === "number"
+      ? value === ""
+        ? 0
+        : Number(value)
+      : value;
+
     setPlanData((prev) => ({
       ...prev,
-      [name]: type === "number" ? Number(value) : value,
+      [name]: newValue,
     }));
   };
 
@@ -488,9 +504,9 @@ const CreatePlan = ({ onClose }: Props) => {
                       </label>
 
                       <input
-                        type="number"
+                        type="text"
                         name="studentLimit"
-                        value={planData.studentLimit}
+                        value={planData.studentLimit === 0 ? "" : String(planData.studentLimit)}
                         onChange={handleChange}
                         placeholder="Enter student limit"
                         className="w-full dark:bg-[#343434] h-8 text-xs rounded-lg border border-[#D4D4D4] dark:border-[#5c5c5c] px-2 focus:border-[#576CBC] outline-none"
