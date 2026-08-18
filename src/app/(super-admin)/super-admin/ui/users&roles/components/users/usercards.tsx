@@ -59,71 +59,56 @@ const data = {
 };
 
 const Usercards = () => {
-
   return (
     <div className="grid grid-cols-4 gap-4">
-
       {/* Large Card */}
-<div className="col-span-2 bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
+      <div className="col-span-2 bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
+        <div className="flex items-center justify-between">
+          {/* Left */}
+          <div className="flex items-center gap-4">
+            {/* Logo */}
+            <div className="p-4 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+              <img
+                src="/assets/images/bsicon.png"
+                alt="Tenant Logo"
+                className="w-[100px] h-full bg-center bg-cover object-contain"
+              />
+            </div>
 
-  <div className="flex items-center justify-between">
+            {/* Details */}
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[20px] font-semibold text-[#1B1B1B]">
+                  Blackstone Academy
+                </h2>
 
-    {/* Left */}
-    <div className="flex items-center gap-4">
+                <span className="text-[12px] font-medium text-[#2FB344]">
+                  Active
+                </span>
+              </div>
 
-      {/* Logo */}
-      <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
-        <img
-          src="/assets/images/black_logo1.jpg" 
-          alt="Tenant Logo"
-          className="w-full h-full object-cover"
-        />
-      </div>
+              <p className="text-[14px] text-gray-500 mt-1">
+                blackstoneacademy.com
+              </p>
 
-      {/* Details */}
-      <div>
-        <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 mt-1 text-[12px]">
+                <span className="text-gray-400">Created on 02,July,2000 |</span>
 
-          <h2 className="text-[20px] font-semibold text-[#1B1B1B]">
-            Blackstone Academy
-          </h2>
+                <span className="font-medium text-[#576CBC]">
+                  ID: TEN 22001
+                </span>
+              </div>
+            </div>
+          </div>
 
-          <span className="text-[12px] font-medium text-[#2FB344]">
-            Active
-          </span>
-
+          {/* Right Badge */}
+          <div>
+            <span className="px-3 py-1 rounded-md bg-[#E9F1FF] text-[#4F7DF3] text-xs font-medium">
+              Standard
+            </span>
+          </div>
         </div>
-
-        <p className="text-[14px] text-gray-500 mt-1">
-          blackstoneacademy.com
-        </p>
-
-        <div className="flex items-center gap-1 mt-1 text-[12px]">
-
-          <span className="text-gray-400">
-            Created on 02,July,2000 |
-          </span>
-
-          <span className="font-medium text-[#576CBC]">
-            ID: TEN 22001
-          </span>
-
-        </div>
-
       </div>
-
-    </div>
-
-    {/* Right Badge */}
-    <div>
-      <span className="px-3 py-1 rounded-md bg-[#E9F1FF] text-[#4F7DF3] text-xs font-medium">
-        Standard
-      </span>
-    </div>
-
-  </div>
-
-</div>
 
       {/* Small Cards */}
       {data.cards.map((card, index) => {
@@ -142,7 +127,9 @@ const Usercards = () => {
               </div>
 
               <div className="space-y-2">
-                <p className={`text-md mt-[4px] text-[15px] font-medium ${card.titleColor}`}>
+                <p
+                  className={`text-md mt-[4px] text-[15px] font-medium ${card.titleColor}`}
+                >
                   {card.title}
                 </p>
                 <h2 className="text-[19px] font-semibold text-gray-800 mt-1">
@@ -151,23 +138,21 @@ const Usercards = () => {
               </div>
             </div>
 
-               {/* Bottom */}
-        <div className="flex items-center text-[16px] gap-2 mt-6 ml-[72px]">
-          <div className={`flex items-center ${card.trendColor}`}>
-            {card.isIncrease ? (
-  <ArrowUp className="w-4 h-4" />
-) : (
-  <ArrowDown className="w-4 h-4" />
-)}
-            <span className="font-medium text-[14px] text-sm ml-1">
-              {card.percentage}
-            </span>
-          </div>
+            {/* Bottom */}
+            <div className="flex items-center text-[16px] gap-2 mt-6 ml-[72px]">
+              <div className={`flex items-center ${card.trendColor}`}>
+                {card.isIncrease ? (
+                  <ArrowUp className="w-4 h-4" />
+                ) : (
+                  <ArrowDown className="w-4 h-4" />
+                )}
+                <span className="font-medium text-[14px] text-sm ml-1">
+                  {card.percentage}
+                </span>
+              </div>
 
-          <span className="text-gray-500 text-[13px]">
-            {card.text}
-          </span>
-        </div>
+              <span className="text-gray-500 text-[13px]">{card.text}</span>
+            </div>
           </div>
         );
       })}

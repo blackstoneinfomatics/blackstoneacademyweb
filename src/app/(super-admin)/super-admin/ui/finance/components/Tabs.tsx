@@ -83,7 +83,7 @@ export default function Tabs({ activeTab, onTabChange }: TabsProps) {
               border-b-[2.5px]
               ${
                 active
-                  ? "border-[#576CBC] text-[#576CBC]"
+                  ? "border-[#576CBC] text-[#576CBC] dark:text-[#576CBC]"
                   : "border-transparent text-[#1E293B] hover:text-[#576CBC]"
               }
             `}
