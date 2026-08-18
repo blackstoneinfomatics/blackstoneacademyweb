@@ -1,308 +1,423 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import PaymentClient from "./PaymentClient";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-type Props = {
-  params: { id: string };
+type ObjectIdValue = { $oid?: string };
+
+type Invoice = {
+  _id?: string | ObjectIdValue;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  tenant: {
+    tenantId: string;
+    tenantName: string;
+    email?: string;
+    phoneNumber?: string;
+    status?: string;
+    domainName?: string;
+  };
+  subscriptionPlan: {
+    planId?: string | ObjectIdValue;
+    planName?: string;
+    billingCycle?: string;
+    gstAndTax?: number;
+  };
+  subscription: { subscriptionId?: string | ObjectIdValue };
+  invoiceDate?: string | { $date?: string };
+  dueDate?: string | { $date?: string };
+  currency?: string;
+  paymentTerms?: number;
+  discountAmount?: number;
+  subtotal?: number;
+  taxAmount?: number;
+  totalAmount?: number;
+  status?: string;
+  notes?: string;
+  attachments?: unknown[];
+  createdBy?: string;
+  updatedBy?: string | null;
+  deletedAt?: string | null;
+  createdAt?: string | { $date?: string };
+  updatedAt?: string | { $date?: string };
 };
 
-async function getInvoice(id: string) {
+type Props = { params: { id: string } };
+
+const getObjectId = (value: string | ObjectIdValue | undefined): string => {
+  if (!value) return "-";
+  if (typeof value === "string") return value;
+  return value.$oid || "-";
+};
+
+const getDateValue = (value?: string | { $date?: string }): string => {
+  if (!value) return "-";
+  const dateString = typeof value === "string" ? value : value.$date;
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatCurrency = (amount?: number, currency = "INR") => {
+  if (amount === undefined || amount === null) return "-";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
+async function getInvoice(id: string): Promise<Invoice | null> {
   try {
-    if (!process.env.FRONTEND_URL) return null;
-    const res = await fetch(`${process.env.FRONTEND_URL}/api/invoices/${id}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PAYMENT.GET_SUPERADMIN_SUBSCRIPTION}/${encodeURIComponent(id)}`,
+      { cache: "no-store" },
+    );
     if (!res.ok) return null;
-    return res.json();
+    const result = await res.json();
+    return result?.data || result;
   } catch (e) {
+    console.error("Error fetching invoice", e);
     return null;
   }
 }
 
 export default async function Page({ params }: Props) {
   const { id } = params;
-  const invoice = (await getInvoice(id)) ?? {
-    _id: id,
-    organization: {
-      name: "Blackstone School",
-      tenantId: "TEN-2026-00124",
-      adminName: "Robert James",
-      adminEmail: "john@blackstoneacademy.com",
-      domain: "blackstoneschool.com",
-      phone: "+91 98456 73433",
-    },
-    subscription: {
-      plan: "Basic Plan",
-      billingCycle: "Monthly",
-      planPrice: 4999,
-      studentLimit: 500,
-      storageLimit: "50 GB",
-      workspaceBackup: "Enabled",
-    },
-    items: [
-      { desc: "Basic Subscription", amount: 4999 },
-      { desc: "GST (%)", amount: 900 },
-    ],
-  };
+  const invoice = await getInvoice(id);
+  if (!invoice) {
+    return (
+      <div className="min-h-screen bg-[#EEF0FD] flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-[#CECECE] p-8 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <span className="text-red-600 text-2xl font-bold">!</span>
+          </div>
 
-  const total = (invoice.items || []).reduce(
-    (s: number, it: any) => s + (it.amount || 0),
-    0,
-  );
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
+            Invoice Not Found
+          </h2>
+
+          <p className="text-sm text-slate-500 mb-6">
+            We couldn't retrieve the subscription invoice. Please check the
+            invoice ID and try again.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const invoiceId =
+    typeof invoice._id === "string" ? invoice._id : getObjectId(invoice._id);
+  const planId = getObjectId(invoice.subscriptionPlan.planId);
+  // const subscriptionId = getObjectId(invoice.subscription.subscriptionId);
+  const currency = invoice.currency || "INR";
+  const subtotal = Number(invoice.subtotal || 0);
+  const discount = Number(invoice.discountAmount || 0);
+  const tax = Number(invoice.taxAmount || 0);
+  const total = Number(invoice.totalAmount || 0);
 
   return (
-    <div className="min-h-screen bg-[#EEF0FD] py-12 px-4 relative text-slate-700">
-      <div className="max-w-3xl mx-auto relative">
-        {/* Top Logo & Header */}
-        <header className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <Image
-              src="/assets/images/bsicon.png"
-              alt="Blackstone Academy Logo"
-              width={200}
-              height={200}
-            />
+    <div className="min-h-screen bg-[#eef1f6] py-8 sm:py-12 px-3 sm:px-6 text-slate-800">
+      {/* Invoice Container */}
+      <div className="max-w-[900px] mx-auto">
+        <div className="bg-white shadow-[0_8px_40px_rgba(15,23,42,0.08)] border border-slate-200 rounded-lg">
+          <div className="px-7 sm:px-12 pt-9 sm:pt-12 pb-8">
+            <div className="flex flex-col sm:flex-row justify-between gap-8">
+              {/* Company */}
+              <div className="flex items-start gap-4">
+                <div>
+                  <Image
+                    src="/assets/images/bsicon.png"
+                    alt="Blackstone Academy"
+                    width={200}
+                    height={200}
+                    className="object-contain"
+                  />
+                </div>
+              </div>
+
+              {/* Invoice Heading */}
+              <div className="sm:text-right">
+                <h1 className="text-[38px] leading-none font-black tracking-[0.08em] text-[#0D3FC1]">
+                  INVOICE
+                </h1>
+
+                <div className="mt-4 space-y-1">
+                  <p className="text-xs text-slate-400">Invoice Number</p>
+
+                  <p className="text-sm font-bold text-slate-900">
+                    {invoice.invoiceNumber || invoice.invoiceId || invoiceId}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-2">
-            Welcome to{" "}
-            <span className="text-[#0D3FC1]">BLACKSTONE ACADEMY</span>
-          </h1>
-          <p className="text-sm text-slate-500 max-w-lg mx-auto">
-            Your organization has been successfully registered.
-            <br />
-            Complete your subscription payment to activate your workspace.
-          </p>
-        </header>
 
-        <main className="space-y-5">
-            {/* Invoice Details */}
-                      <section className="bg-white rounded-xl p-6 shadow-sm border border-[#CECECE]">
-            <h3 className="text-base font-semibold text-[#010E30] mb-4">
-              Invoice Details
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-2 text-xs">
+          {/* Blue divider */}
+          <div className="h-[3px] bg-[#0D3FC1]" />
+
+          {/* ================= BILLING ================= */}
+          <div className="px-7 sm:px-12 py-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
+              {/* From */}
               <div>
-                <div className="text-[#010E30] font-medium mb-1">Invoice ID</div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.tenantId}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-4 rounded-full bg-[#0D3FC1]" />
+
+                  <h3 className="text-[10px] uppercase tracking-[0.15em] font-extrabold text-slate-500">
+                    From
+                  </h3>
                 </div>
+
+                <p className="text-sm font-bold text-[#101b36]">
+                  BLACKSTONE ACADEMY
+                </p>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Enterprise SaaS Platform
+                </p>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Blackstone Infomatics
+                </p>
               </div>
+
+              {/* Bill To */}
               <div>
-                <div className="text-[#010E30] font-medium mb-1">
-                  Invoice Date
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-4 rounded-full bg-[#0D3FC1]" />
+
+                  <h3 className="text-[10px] uppercase tracking-[0.15em] font-extrabold text-slate-500">
+                    Bill To
+                  </h3>
                 </div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.adminName}
-                </div>
-              </div>
-              <div>
-                <div className="text-[#010E30] font-medium mb-1">
-                  Due Date
-                </div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.adminEmail}
-                </div>
+
+                <p className="text-sm font-bold text-[#101b36]">
+                  {invoice.tenant?.tenantName || "-"}
+                </p>
+
+                {invoice.tenant?.email && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {invoice.tenant.email}
+                  </p>
+                )}
+
+                {invoice.tenant?.phoneNumber && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {invoice.tenant.phoneNumber}
+                  </p>
+                )}
+
+                {invoice.tenant?.domainName && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {invoice.tenant.domainName}
+                  </p>
+                )}
               </div>
             </div>
-          </section>
-          {/* Organization Information */}
-          <section className="bg-white rounded-xl p-6 shadow-sm border border-[#CECECE]">
-            <h3 className="text-base font-semibold text-[#010E30] mb-4">
-              Organization Information
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-2 text-xs">
-              <div>
-                <div className="text-[#010E30] font-medium mb-1">
-                  Organization Name
-                </div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.name}
-                </div>
-              </div>
-              <div>
-                <div className="text-[#010E30] font-medium mb-1">Tenant ID</div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.tenantId}
-                </div>
-              </div>
-              <div>
-                <div className="text-[#010E30] font-medium mb-1">
-                  Admin Email
-                </div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.adminEmail}
-                </div>
-              </div>
-              <div>
-                <div className="text-[#010E30] font-medium mb-1">Domain</div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.domain}
-                </div>
-              </div>
-              <div>
-                <div className="text-[#010E30] font-medium mb-1">
-                  Phone Number
-                </div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.organization.phone}
-                </div>
-              </div>
-            </div>
-          </section>
+          </div>
 
-          {/* Subscription Details */}
-          <section className="bg-white rounded-xl p-6 shadow-sm border border-[#CECECE]">
-            <h3 className="text-base font-semibold text-[#010E30] mb-4">
-              Subscription Details
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-2 text-xs">
-              <div>
-                <div className="text-[#010E30] font-semibold mb-1">Plan</div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.subscription.plan}
-                </div>
-              </div>
-              <div>
-                <div className="text-[#010E30] font-semibold mb-1">
+          {/* ================= SUBSCRIPTION INFO ================= */}
+          <div className="mx-7 sm:mx-12 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-[#f7f8fc] px-5 py-3 border-b border-slate-200">
+              <p className="text-[10px] uppercase tracking-[0.12em] font-extrabold text-slate-500">
+                Subscription Details
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3">
+              <div className="px-5 py-4 border-b sm:border-b-0 sm:border-r border-slate-200">
+                <p className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">
                   Billing Cycle
-                </div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  {invoice.subscription.billingCycle}
-                </div>
+                </p>
+
+                <p className="text-sm font-bold text-slate-800 mt-1">
+                  <p className="text-[11px] font-semibold text-slate-800 mt-0.5">
+                    {invoice.subscriptionPlan.billingCycle || "N/A"}
+                  </p>
+                </p>
               </div>
-              <div>
-                <div className="text-[#010E30] font-semibold mb-1">
-                  Plan Price
-                </div>
-                <div className="font-medium text-[#343e59] text-[11px]">
-                  ₹{invoice.subscription.planPrice.toLocaleString()}
-                </div>
+
+              <div className="px-5 py-4 border-b sm:border-b-0 sm:border-r border-slate-200">
+                <p className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">
+                  Invoice Date
+                </p>
+
+                <p className="text-[11px] font-semibold text-slate-800 mt-1 capitalize">
+                  {getDateValue(invoice.invoiceDate)}
+                </p>
+              </div>
+
+              <div className="px-5 py-4">
+                <p className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">
+                  Due Date
+                </p>
+
+                <p className="text-[11px] font-semibold text-slate-700 mt-1 break-all">
+                  {getDateValue(invoice.dueDate)}
+                </p>
               </div>
             </div>
-          </section>
+          </div>
 
-          {/* Invoice Summary */}
-          <section className="bg-white rounded-xl p-6 shadow-sm border border-[#CECECE]">
-            <h3 className="text-base font-semibold text-[#010E30] mb-4">
-              Invoice Summary
-            </h3>
-            <div className="overflow-hidden rounded-lg">
-              <table className="w-full text-xs text-left border-collapse">
+          {/* ================= ITEMS ================= */}
+          <div className="px-7 sm:px-12 pt-10">
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-[#DDE2F8] text-slate-600 font-bold">
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3 text-right">Amount (INR)</th>
+                  <tr className="bg-[#101c38] text-white">
+                    <th className="px-5 py-4 text-left text-[10px] uppercase tracking-wider font-bold">
+                      Description
+                    </th>
+
+                    <th className="px-5 py-4 text-right text-[10px] uppercase tracking-wider font-bold w-[180px]">
+                      Amount
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(invoice.items || []).map((it: any, idx: number) => (
-                    <tr key={idx}>
-                      <td className="px-4 py-3 font-semibold text-slate-700">
-                        {it.desc}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-700">
-                        ₹{it.amount.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-[#DDE2F8] font-bold text-[#093DC5] text-sm">
-                    <td className="px-4 py-3.5">Total Payable</td>
-                    <td className="px-4 py-3.5 text-right">
-                      ₹{total.toLocaleString()}
+
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="px-5 py-5">
+                      <p className="text-[11px] text-slate-400">Plan</p>
+                      <p className="text-sm mt-1 font-bold text-slate-800">
+                        {invoice.subscriptionPlan?.planName
+                          ? invoice.subscriptionPlan.planName
+                              .charAt(0)
+                              .toUpperCase() +
+                            invoice.subscriptionPlan.planName.slice(1)
+                          : "Subscription Plan"}
+                      </p>
+                    </td>
+
+                    <td className="px-5 py-5 text-right text-sm font-semibold text-slate-800">
+                      {formatCurrency(subtotal, currency)}
+                    </td>
+                  </tr>
+
+                  {/* <tr className="border-b border-slate-200">
+                    <td className="px-5 py-4 text-sm text-slate-600">
+                      Discount
+                    </td>
+
+                    <td className="px-5 py-4 text-right text-sm font-medium text-slate-700">
+                      {discount > 0
+                        ? `- ${formatCurrency(discount, currency)}`
+                        : formatCurrency(0, currency)}
+                    </td>
+                  </tr> */}
+
+                  <tr>
+                    <td className="px-5 py-4 text-sm text-slate-600">
+                      Tax ( {invoice.subscriptionPlan.gstAndTax} % )
+                    </td>
+
+                    <td className="px-5 py-4 text-right text-sm font-medium text-slate-700">
+                      {formatCurrency(tax, currency)}
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-          </section>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <Link
-              href={`/api/payments/checkout?invoiceId=${encodeURIComponent(id)}`}
-              className="w-full max-w-sm text-center py-3 bg-[#576CBC] hover:bg-[#4a5ca8] text-white font-semibold rounded-lg shadow-sm transition"
-            >
-              Pay Now
-            </Link>
-            <Link
-              href={`/subscription-invoices/${id}`}
-              className="w-full max-w-sm text-center py-3 bg-[#dfe3f6] hover:bg-[#c2c9e0] text-[#576CBC] font-semibold rounded-lg border border-[#576CBC] transition"
-            >
-              View Invoice
-            </Link>
           </div>
 
-          {/* Important Information */}
-          <section className="bg-indigo-50/50 border border-[#ACC0F6] rounded-xl p-5 mt-6 text-xs text-slate-600 space-y-2">
-            <h4 className="font-semibold text-[#010E30] text-sm mb-2">
-              Important Information
-            </h4>
-            <ul className="list-disc pl-5 space-y-1.5 leading-relaxed">
-              <li>
-                Your workspace will be activated after successful payment.
-              </li>
-              <li>
-                Payment link is valid for{" "}
-                <strong className="text-[#353535]">7 days</strong>.
-              </li>
-              <li>
-                Invitation link is valid for{" "}
-                <strong className="text-[#353535]">7 days</strong>.
-              </li>
-              <li>
-                Refund requests must be submitted within{" "}
-                <strong className="text-slate-800">7 days</strong> of the
-                payment date. Requests received after the{" "}
-                <strong className="text-slate-800">7-day refund</strong> window
-                will not be eligible for a refund.
-              </li>
-            </ul>
-          </section>
-        </main>
+          {/* ================= TOTAL ================= */}
+          <div className="px-7 sm:px-12 py-8">
+            <div className="flex justify-end">
+              <div className="w-full sm:w-[330px]">
+                <div className="flex justify-between py-2 text-sm">
+                  <span className="text-slate-500">Subtotal</span>
 
-        {/* Footer */}
-        <footer className="mt-12 text-center text-xs text-slate-400 space-y-3">
-          <div className="flex justify-center gap-3 text-blue-600">
-            <a
-              href="#"
-              className="w-6 h-6 rounded-full bg-[#093DC5] text-white flex items-center justify-center font-bold text-sm"
-            >
-              f
-            </a>
-            <a
-              href="#"
-              className="w-6 h-6 rounded-full bg-[#093DC5] text-white flex items-center justify-center font-bold text-xs"
-            >
-              in
-            </a>
-            <a
-              href="#"
-              className="w-6 h-6 rounded-full bg-[#093DC5] text-white flex items-center justify-center font-bold text-xs"
-            >
-              🌐
-            </a>
-          </div>
-          <div>
-            <div className="font-bold text-slate-800 tracking-wider">
-              BLACKSTONE ACADEMY
-            </div>
-            <div className="text-[11px] text-slate-500">
-              Enterprise SaaS Platform
-            </div>
-          </div>
-          <div className="flex justify-between items-center pt-4 border-t border-slate-200 text-[11px]">
-            <div className="text-[#373737]">2026 BLACKSTONE ACADEMY. All rights reserved.</div>
-            <div className="space-x-2">
-              <a href="#" className="text-blue-600 hover:underline">
-                Terms of Service
-              </a>
-              <span>|</span>
-              <a href="#" className="text-blue-600 hover:underline">
-                Terms of Service
-              </a>
+                  <span className="font-semibold text-slate-800">
+                    {formatCurrency(subtotal, currency)}
+                  </span>
+                </div>
+
+                {/* <div className="flex justify-between py-2 text-sm">
+                  <span className="text-slate-500">Discount</span>
+
+                  <span className="font-semibold text-slate-800">
+                    - {formatCurrency(discount, currency)}
+                  </span>
+                </div> */}
+
+                <div className="flex justify-between py-2 text-sm">
+                  <span className="text-slate-500">Tax</span>
+
+                  <span className="font-semibold text-slate-800">
+                    {formatCurrency(tax, currency)}
+                  </span>
+                </div>
+
+                <div className="border-t-2 border-[#101c38] mt-3 pt-4 flex justify-between items-center">
+                  <span className="text-sm font-extrabold text-[#101c38]">
+                    Total Due
+                  </span>
+
+                  <span className="text-xl font-black text-[#0D3FC1]">
+                    {formatCurrency(total, currency)}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-        </footer>
+
+          {/* ================= PAYMENT ================= */}
+          <div className="mx-7 sm:mx-12 mb-8 rounded-lg bg-[#f7f9ff] border border-[#dce4ff]">
+            <div className="px-5 py-4 border-b border-[#dce4ff]">
+              <h3 className="text-sm font-bold text-[#101c38]">Payment</h3>
+
+              <p className="text-[11px] text-slate-500 mt-1">
+                Complete your payment securely using the available payment
+                options.
+              </p>
+            </div>
+
+            <div className="px-5 py-6 flex justify-center">
+              <PaymentClient invoice={invoice} id={id} />
+            </div>
+          </div>
+
+          {/* ================= FOOTER ================= */}
+          <div className="border-t border-slate-200 px-7 sm:px-12 py-7">
+            <div className="flex flex-col sm:flex-row justify-between gap-5">
+              <div>
+                <p className="text-xs font-bold text-slate-700">
+                  Thank you for your business.
+                </p>
+
+                <p className="text-[10px] text-slate-400 mt-1">
+                  This invoice was generated by Blackstone Infomatics.
+                </p>
+              </div>
+
+              <div className="sm:text-right text-[10px] text-slate-400">
+                <p>
+                  Powered by{" "}
+                  <Link
+                    href="https://blackstoneinfomatics.com/"
+                    className="font-bold"
+                  >
+                    Blackstone Infomatics
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Branding */}
+        <div className="text-center mt-5">
+          <p className="text-[10px] text-slate-400">
+            BLACKSTONE ACADEMY • Enterprise SaaS Platform
+          </p>
+        </div>
       </div>
     </div>
   );

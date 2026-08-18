@@ -133,6 +133,7 @@ export const AppApiEndpoints = {
     GET_STUDENT_PAYMENT_HISTORY: "/student/paymenthistory",
     CREATE_STUDENT_PAYMENT :"/student/create-payment-intent",
     CREATE_SUPERADMIN_SUBSCRIPTION: "/subscription-invoices/payment",
+    GET_SUPERADMIN_SUBSCRIPTION: "/subscription-invoices",
   },
 
   APPLICANTS: {
