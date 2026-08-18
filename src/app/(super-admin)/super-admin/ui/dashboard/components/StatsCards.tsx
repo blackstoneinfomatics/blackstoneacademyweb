@@ -2,7 +2,7 @@ import React from "react";
 import { Users, UserPlus, Clock3 } from "lucide-react";
 import { HiArrowTrendingUp } from "react-icons/hi2";
 import { HiOutlineCurrencyDollar } from "react-icons/hi2";
-
+import { FaUsers } from "react-icons/fa";
 
 const cards = [
   {
@@ -36,7 +36,7 @@ const cards = [
     trendColor: "text-green-500",
   },
   {
-    title: "Pending",
+    title: "Plan Expiring",
     value: "50",
     icon: Clock3,
     iconBg: "bg-red-100 dark:bg-[#343434]",

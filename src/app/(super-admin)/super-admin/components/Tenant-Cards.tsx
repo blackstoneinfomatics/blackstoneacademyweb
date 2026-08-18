@@ -7,6 +7,11 @@ import {
   XCircle,
   Clock3,
 } from "lucide-react";
+import { MdCancel } from "react-icons/md";
+import { IoMdCheckmarkCircle } from "react-icons/io";
+import { LuClock } from "react-icons/lu";
+import { FaUsers } from "react-icons/fa";
+
 
 const stats = [
   {
@@ -14,35 +19,35 @@ const stats = [
     count: 28,
     color: "text-violet-600",
     bg: "bg-violet-100",
-    icon: Users,
+    icon: FaUsers,
   },
   {
     title: "Active Tenants",
     count: 28,
     color: "text-green-600",
     bg: "bg-green-100",
-    icon: CheckCircle,
+    icon: IoMdCheckmarkCircle,
   },
   {
     title: "Trial Tenants",
     count: 28,
     color: "text-blue-600",
     bg: "bg-blue-100",
-    icon: UserCheck,
+    icon: FaUsers,
   },
   {
     title: "Inactive Tenants",
     count: 28,
     color: "text-red-600",
     bg: "bg-red-100",
-    icon: XCircle,
+    icon: MdCancel,
   },
   {
     title: "Expiring Tenants",
     count: 28,
     color: "text-amber-500",
     bg: "bg-amber-100",
-    icon: Clock3,
+    icon: LuClock,
   },
 ];
 

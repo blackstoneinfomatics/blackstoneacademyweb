@@ -1,6 +1,9 @@
 "use client";
 import { Users, CheckCircle, XCircle } from "lucide-react";
 import React, { useState } from "react";
+import { FaUsers } from "react-icons/fa";
+import { MdCancel } from "react-icons/md";
+import { IoMdCheckmarkCircle } from "react-icons/io";
 const TenantAnalytics = () => {
   const [hoveredRole, setHoveredRole] = useState<string | null>(null);
 
@@ -44,6 +47,30 @@ const TenantAnalytics = () => {
       count: 670,
     },
   };
+
+  const getDummyUsers = () => {
+  const users = [];
+  const names = ['Sarah', 'Mike', 'Emma', 'Alex'];
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'];
+  
+  for (let i = 0; i < 4; i++) {
+    users.push({
+      id: i + 1,
+      name: names[i] || `User ${i + 1}`,
+      avatar: `https://i.pravatar.cc/150?img=${i + 10}`,
+      color: colors[i]
+    });
+  }
+  
+  return users;
+};
+
+const [userData, setUserData] = useState({
+  recentUsers: getDummyUsers(), // Will be replaced with live data
+  totalUsers: 124,
+  newUsersCount: 5,
+  timeFrame: 'last 7 days'
+});
 
   const roleColors: Record<string, string> = {
     Admin: "#22C55E",
@@ -128,12 +155,12 @@ const TenantAnalytics = () => {
           {/* Total User */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 ">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full  flex items-center justify-center">
-                <Users size={22} className="text-[#5B4CFF]" />
+              <div className="w-12 h-12 rounded-full bg-[#e5dffd]  flex items-center justify-center">
+                <FaUsers size={22} className="text-[#5B4CFF]" />
               </div>
 
               <div>
-                <p className="text-[14px] font-medium text-[#5B4CFF] mt-1">
+                <p className="text-[14px]  font-medium text-[#5B4CFF] mt-1">
                   {" "}
                   Total User
                 </p>
@@ -157,7 +184,7 @@ const TenantAnalytics = () => {
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4  h-full">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-[#DFF5E3] flex items-center justify-center">
-                <CheckCircle size={22} className="text-[#39B54A]" />
+                <IoMdCheckmarkCircle size={22} className="text-[#39B54A]" />
               </div>
 
               <div>
@@ -185,7 +212,7 @@ const TenantAnalytics = () => {
           <div className="bg-white dark:bg-[#343434] rounded-xl p-4 shadow-sm h-full ">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-[#FBE3E3] flex items-center justify-center">
-                <XCircle size={22} className="text-[#E05353]" />
+                <MdCancel size={22} className="text-[#E05353]" />
               </div>
 
               <div>
@@ -211,48 +238,61 @@ const TenantAnalytics = () => {
           </div>
         </div>
 
-        {/* Bottom Cards */}
-        <div className="grid md:grid-cols-[2fr_1fr] gap-4 items-stretch">
-          <div className="bg-white dark:bg-[#343434] rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-[#7A7A7A] dark:text-gray-300">Total User</p>
+<div className="grid md:grid-cols-[2fr_1fr] gap-1 items-stretch">
+  <div className="bg-white dark:bg-[#343434] rounded-xl p-4 shadow-sm">
+    <p className="text-sm font-semibold text-slate-800 dark:text-gray-400">Total User</p>
 
-            <div className="flex items-center gap-2 mt-3">
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-[#576CBC] text-white text-xs flex items-center justify-center">
-                +5
-              </div>
-
-              <span className="text-xs text-[#7A7A7A] dark:text-gray-300 ml-2">
-                124+ users added in the last 7 days
-              </span>
-            </div>
+    <div className="flex items-center mt-3">
+      {/* User avatars with no gaps */}
+      <div className="flex -space-x-1">
+        {userData.recentUsers.map((user) => (
+          <div 
+            key={user.id}
+            className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border-2 border-white dark:border-[#343434]"
+          >
+            <img 
+              src={user.avatar} 
+              alt={user.name}
+              className="w-full h-full object-cover"
+            />
           </div>
-
-          <div className="bg-white dark:bg-[#343434] rounded-xl  px-4 py-3">
-            <p className="text-[14px] font-semibold text-[#1E293B] dark:text-white">
-              Most Active Role
-            </p>
-
-            <div className="flex items-center gap-3 ">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] flex items-center justify-center">
-                <Users size={20} className="text-[#576CBC]" />
-              </div>
-
-              <div>
-                <h3 className="text-[14px] font-semibold leading-none text-[#111827] dark:text-white ">
-                  {dashboardData.activeRole.role}
-                </h3>
-
-                <p className="text-[11px] text-[#6B7280] mt-1 whitespace-nowrap  dark:text-gray-300">
-                  {dashboardData.activeRole.count} total active users
-                </p>
-              </div>
-            </div>
-          </div>
+        ))}
+        
+        {/* +5 badge */}
+        <div className="w-9 h-9 rounded-full bg-[#576CBC] dark:bg-[#6C82D4] text-white text-[10px] flex items-center justify-center font-medium border-2 border-white dark:border-[#343434]">
+          +{userData.newUsersCount}
         </div>
+      </div>
+
+      {/* User count text */}
+      <span className="text-[12px] text-slate-700 dark:text-gray-400 ml-4">
+        {userData.totalUsers}+ users added in the {userData.timeFrame}
+      </span>
+    </div>
+  </div>
+
+  <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-3">
+    <p className="text-[14px] font-semibold text-[#1E293B] dark:text-white">
+      Most Active Role
+    </p>
+
+    <div className="flex items-center gap-3 mt-2">
+      <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] dark:bg-[#4A4A4A] flex items-center justify-center">
+        <Users size={20} className="text-[#576CBC] dark:text-[#6C82D4]" />
+      </div>
+
+      <div>
+        <h3 className="text-[14px] font-semibold leading-none text-[#111827] dark:text-white">
+          {dashboardData.activeRole.role}
+        </h3>
+
+        <p className="text-[11px] text-[#6B7280] dark:text-gray-400 mt-1 whitespace-nowrap">
+          {dashboardData.activeRole.count} total active users
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
       </div>
     </div>
   );

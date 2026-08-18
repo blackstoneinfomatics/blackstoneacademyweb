@@ -232,11 +232,13 @@ const tabOptions = [
 const getStatusStyle = (status: string) => {
   switch (status) {
     case "Active":
-      return "bg-green-100 text-green-600";
+      return "bg-green-100 text-[#408540]";
     case "Trial":
-      return "bg-blue-100 text-blue-600";
+      return "bg-blue-100 text-[#36477e]";
     case "Inactive":
-      return "bg-red-100 text-red-600";
+      return "bg-red-100 text-[#d34847]";
+      case "Expiring Soon":
+      return "bg-[#fdf6ec] text-[#f3c17a]";
     default:
       return "bg-yellow-100 text-yellow-600";
   }
@@ -245,13 +247,13 @@ const getStatusStyle = (status: string) => {
 const getPlanStyle = (plan: string) => {
   switch (plan) {
     case "Premium":
-      return "bg-purple-100 text-purple-600";
+      return "bg-[#e1e2f4] text-[#7679e1]";
 
     case "Standard":
       return "bg-blue-100 text-blue-600";
 
     case "Basic":
-      return "bg-cyan-100 text-cyan-600";
+      return "bg-[#def5fa] text-[#2fc3df]";
 
     default:
       return "bg-gray-100 text-gray-600";

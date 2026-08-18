@@ -469,7 +469,7 @@ export default function SuperAdminHeader({
       return (
         <button
           onClick={() => setAddTenant(true)}
-          className="bg-[#6C78F5] hover:bg-[#5a65d1] text-white text-sm px-4 py-2 rounded-lg"
+          className="bg-[#576cbc] hover:bg-[#576cbc] text-white text-sm px-4 py-2 rounded-lg"
           disabled={!trailWrite}
         >
           Add New Tenant

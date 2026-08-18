@@ -103,7 +103,7 @@ const TenantsTable = () => {
                       <span
                         className={`px-2 text-[12px] py-[3px] rounded-md ${
                           item.status === "Active"
-                            ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                            ? "bg-[#E4F4E8] text-[#51c36d] dark:bg-[#36477e33]"
                             : item.status === "Expired"
                               ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
                               : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
