@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { MdTune } from "react-icons/md";
 import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -17,75 +17,57 @@ interface Feature {
   status: string;
   featureStatus: string;
 }
+
 const FeaturesTable = () => {
   const router = useRouter();
-const [showViewModal, setShowViewModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
 
-const [selectedFeature, setSelectedFeature] =
-  useState<Feature | null>(null);
-
- const [features, setFeatures] = useState<Feature[]>([
-  {
-    id: "1",
-    featureName: "Student Management",
-    category: "Core Module",
-    description: "Manage students and enrollment",
-    plan: "Enterprise",
-    date: "2023-08-15",
-    status: "Active",
-    featureStatus: "Enabled",
-  },
-  {
-    id: "2",
-    featureName: "Attendance",
-    category: "Academic",
-    description: "Track daily attendance",
-    plan: "Premium",
-    date: "2023-08-15",
-    status: "Active",
-    featureStatus: "Enabled",
-  },
-  {
-    id: "3",
-    featureName: "Video Classes",
-    category: "Learning",
-    description: "Conduct live online classes",
-    plan: "Standard",
-    date: "2023-08-15",
-    status: "Inactive",
-    featureStatus: "Disabled",
-  },
-]);
+  const [features, setFeatures] = useState<Feature[]>([
+    {
+      id: "1",
+      featureName: "Student Management",
+      category: "Core Module",
+      description: "Manage students and enrollment",
+      plan: "Enterprise",
+      date: "2023-08-15",
+      status: "Active",
+      featureStatus: "Enabled",
+    },
+    {
+      id: "2",
+      featureName: "Attendance",
+      category: "Academic",
+      description: "Track daily attendance",
+      plan: "Premium",
+      date: "2023-08-15",
+      status: "Active",
+      featureStatus: "Enabled",
+    },
+    {
+      id: "3",
+      featureName: "Video Classes",
+      category: "Learning",
+      description: "Conduct live online classes",
+      plan: "Standard",
+      date: "2023-08-15",
+      status: "Inactive",
+      featureStatus: "Disabled",
+    },
+  ]);
 
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-
-const getPlanStyle = (plan: string) => {
-  switch (plan) {
-    case "Premium":
-      return "bg-purple-100 text-purple-600";
-
-    case "Standard":
-      return "bg-blue-100 text-blue-600";
-
-    case "Basic":
-      return "bg-cyan-100 text-cyan-600";
-
-    default:
-      return "bg-gray-100 text-gray-600";
-  }
-};
-
-const [filters, setFilters] = useState({
-  featureName: "",
-  category: "",
-  plan: "",
-  status: "",
-  featureStatus: "",
-});
+  const [filters, setFilters] = useState({
+    featureName: "",
+    category: "",
+    plan: "",
+    status: "",
+    featureStatus: "",
+  });
 
   const itemsPerPage = 10;
 
@@ -93,61 +75,81 @@ const [filters, setFilters] = useState({
     setOpenDropdownId((prev) => (prev === id ? null : id));
   };
 
- const filteredFeatures = features.filter((feature) => {
-  const search =
-    feature.featureName
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase()) ||
-    feature.category
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase()) ||
-    feature.description
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase()) ||
-    feature.plan
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase());
+  const filteredFeatures = features.filter((feature) => {
+    const search =
+      feature.featureName
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase()) ||
+      feature.category
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase()) ||
+      feature.description
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase()) ||
+      feature.plan
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase());
 
-  const featureNameFilter =
-    !filters.featureName ||
-    feature.featureName
-      .toLowerCase()
-      .includes(filters.featureName.toLowerCase());
+    const featureNameFilter =
+      !filters.featureName ||
+      feature.featureName
+        .toLowerCase()
+        .includes(filters.featureName.toLowerCase());
 
-  const categoryFilter =
-    !filters.category ||
-    feature.category === filters.category;
+    const categoryFilter =
+      !filters.category || feature.category === filters.category;
 
-  const planFilter =
-    !filters.plan ||
-    feature.plan === filters.plan;
+    const planFilter = !filters.plan || feature.plan === filters.plan;
 
-  const statusFilter =
-    !filters.status ||
-    feature.status === filters.status;
+    const statusFilter = !filters.status || feature.status === filters.status;
 
-  const featureStatusFilter =
-    !filters.featureStatus ||
-    feature.featureStatus === filters.featureStatus;
+    const featureStatusFilter =
+      !filters.featureStatus || feature.featureStatus === filters.featureStatus;
 
-  return (
-    search &&
-    featureNameFilter &&
-    categoryFilter &&
-    planFilter &&
-    statusFilter &&
-    featureStatusFilter
-  );
-});
+    return (
+      search &&
+      featureNameFilter &&
+      categoryFilter &&
+      planFilter &&
+      statusFilter &&
+      featureStatusFilter
+    );
+  });
 
   const paginatedFeatures = filteredFeatures.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const totalPages = Math.ceil(filteredFeatures.length / itemsPerPage);
 
- 
+  // --- CORRECTED: Colors for Plan ---
+  const getPlanStyle = (plan: string) => {
+    switch (plan) {
+      case "Premium":
+        return "bg-purple-100 text-purple-600";
+      case "Standard":
+        return "bg-blue-100 text-blue-600";
+      case "Basic":
+        return "bg-cyan-100 text-cyan-600";
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
+
+  // --- NEW: Corrected Colors for Status and Feature Status ---
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Active":
+      case "Enabled":
+        return "bg-green-100 text-green-600"; // Green for Active/Enabled
+      case "Inactive":
+      case "Disabled":
+        return "bg-red-200 text-red-600"; // Red for Inactive/Disabled
+      default:
+        return "bg-yellow-100 text-yellow-600"; // Fallback
+    }
+  };
 
   return (
     <div>
@@ -187,8 +189,7 @@ const [filters, setFilters] = useState({
 
                 <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
                   <span className="text-left -ml-60">
-                    Showing {filteredFeatures.length} of{" "}
-                    {features.length}
+                    Showing {filteredFeatures.length} of {features.length}
                   </span>
                 </div>
               </div>
@@ -202,7 +203,6 @@ const [filters, setFilters] = useState({
                       "Category",
                       "Description",
                       "Plan",
-                      
                       "Status",
                       "Features Status",
                       "Action",
@@ -239,48 +239,38 @@ const [filters, setFilters] = useState({
                         <td className="px-3 py-3 text-[11px] text-left">
                           {feature.description}
                         </td>
-  <td className="px-3 py-3 text-left">
 
-                        <span
-                          className={`inline-flex items-center justify-center w-[80px] h-6 rounded-md text-xs font-medium ${getPlanStyle(
-                            feature.plan
-                          )}`}
-                        >
-                          {feature.plan}
-                        </span>
-                      </td>
-
-                        
-  <td className="px-3 py-3 text-left">
+                        <td className="px-3 py-3 text-left">
                           <span
-                            className={`inline-flex items-center justify-center w-[80px] h-6 rounded-md text-xs font-medium ${
-                              feature.status === "Paid"
-                                ? "bg-green-100 text-green-600"
-                                : feature.status === "Pending"
-                                  ? "bg-yellow-100 text-yellow-600"
-                                  : "bg-red-100 text-red-600"
-                            }`}
+                            className={`inline-flex items-center justify-center w-[80px] h-6 rounded-md text-xs font-medium ${getPlanStyle(
+                              feature.plan
+                            )}`}
+                          >
+                            {feature.plan}
+                          </span>
+                        </td>
+
+                        {/* --- FIXED: Correct Status Colors --- */}
+                        <td className="px-3 py-3 text-left">
+                          <span
+                            className={`inline-flex items-center justify-center w-[80px] h-6 rounded-md text-xs font-medium ${getStatusColor(
+                              feature.status
+                            )}`}
                           >
                             {feature.status}
                           </span>
                         </td>
-                        
 
-                          <td className="px-3 py-3 text-left">
+                        {/* --- FIXED: Correct Feature Status Colors --- */}
+                        <td className="px-3 py-3 text-left">
                           <span
-                            className={`inline-flex items-center justify-center w-[80px] h-6 rounded-md text-xs font-medium ${
-                              feature.featureStatus === "Paid"
-                                ? "bg-green-100 text-green-600"
-                                : feature.featureStatus === "Pending"
-                                  ? "bg-yellow-100 text-yellow-600"
-                                  : "bg-red-100 text-red-600"
-                            }`}
+                            className={`inline-flex items-center justify-center w-[80px] h-6 rounded-md text-xs font-medium ${getStatusColor(
+                              feature.featureStatus
+                            )}`}
                           >
                             {feature.featureStatus}
                           </span>
                         </td>
-
-                      
 
                         <td className="px-3 py-3 text-left relative text-[12px]">
                           <button
@@ -295,16 +285,16 @@ const [filters, setFilters] = useState({
                               <button className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]">
                                 Update Feature
                               </button>
-                             <button
-  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-  onClick={() => {
-    setSelectedFeature(feature);
-    setShowViewModal(true);
-    setOpenDropdownId(null);
-  }}
->
-  View Details
-</button>
+                              <button
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+                                onClick={() => {
+                                  setSelectedFeature(feature);
+                                  setShowViewModal(true);
+                                  setOpenDropdownId(null);
+                                }}
+                              >
+                                View Details
+                              </button>
 
                               <button
                                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
@@ -331,6 +321,8 @@ const [filters, setFilters] = useState({
           </div>
         </div>
       </div>
+
+      {/* --- Filter Modal --- */}
       {showFilter && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <form
@@ -351,10 +343,8 @@ const [filters, setFilters] = useState({
               </button>
             </div>
 
-            {/* Invoice ID */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-Category              </label>
+              <label className="block text-sm font-medium mb-1">Category</label>
               <input
                 type="text"
                 value={filters.category}
@@ -365,11 +355,10 @@ Category              </label>
                   }))
                 }
                 className="w-full border rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2c2c2c]"
-                placeholder="Enter Invoice ID"
+                placeholder="Enter Category"
               />
             </div>
 
-            {/* Plan */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Plan</label>
               <select
@@ -389,12 +378,8 @@ Category              </label>
               </select>
             </div>
 
-            
-            {/* Feature Status */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                 Status
-              </label>
+              <label className="block text-sm font-medium mb-1">Status</label>
               <select
                 value={filters.status}
                 onChange={(e) =>
@@ -403,17 +388,13 @@ Category              </label>
                     status: e.target.value,
                   }))
                 }
-                className="w-full border rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2c2c2c] "
+                className="w-full border rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2c2c2c]"
               >
                 <option value="">All</option>
                 <option value="Active">Active</option>
-                <option value="Expired">Expired</option>
-                <option value="Cancelled">Cancelled</option>
+                <option value="Inactive">Inactive</option>
               </select>
             </div>
-
-            {/* Payment Status */}
-            
 
             <div className="flex gap-4 justify-end">
               <button
@@ -445,137 +426,90 @@ Category              </label>
         </div>
       )}
 
+      {/* --- View Modal --- */}
       {showViewModal && selectedFeature && (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-[24px] font-semibold text-[#1E293B] dark:text-white">
+                Features Details
+              </h2>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-3xl text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
 
-    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
+            <div className="grid grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-medium mb-2">Features</label>
+                <input
+                  readOnly
+                  value={selectedFeature.featureName}
+                  className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+                />
+              </div>
 
-      {/* Header */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Category</label>
+                <input
+                  readOnly
+                  value={selectedFeature.category}
+                  className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+                />
+              </div>
 
-      <div className="flex justify-between items-center mb-6">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-2">Description</label>
+                <textarea
+                  readOnly
+                  rows={3}
+                  value={selectedFeature.description}
+                  className="w-full border rounded-lg px-4 py-3 resize-none bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+                />
+              </div>
 
-        <h2 className="text-[24px] font-semibold text-[#1E293B] dark:text-white">
-          Features Details
-        </h2>
+              <div>
+                <label className="block text-sm font-medium mb-2">Plan</label>
+                <input
+                  readOnly
+                  value={selectedFeature.plan}
+                  className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+                />
+              </div>
 
-        <button
-          onClick={() => setShowViewModal(false)}
-          className="text-3xl text-gray-400 hover:text-gray-600"
-        >
-          ×
-        </button>
+              <div>
+                <label className="block text-sm font-medium mb-2">Date</label>
+                <input
+                  readOnly
+                  value={selectedFeature.date}
+                  className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+                />
+              </div>
 
-      </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Tenant Status</label>
+                <input
+                  readOnly
+                  value={selectedFeature.status}
+                  className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+                />
+              </div>
 
-      <div className="grid grid-cols-2 gap-5">
-
-        {/* Features */}
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Features
-          </label>
-
-          <input
-            readOnly
-            value={selectedFeature.featureName}
-            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
-          />
+              <div>
+                <label className="block text-sm font-medium mb-2">Features Status</label>
+                <input
+                  readOnly
+                  value={selectedFeature.featureStatus}
+                  className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
+                />
+              </div>
+            </div>
+          </div>
         </div>
-
-        {/* Category */}
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Category
-          </label>
-
-          <input
-            readOnly
-            value={selectedFeature.category}
-            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
-          />
-        </div>
-
-        {/* Description */}
-
-        <div className="col-span-2">
-
-          <label className="block text-sm font-medium mb-2">
-            Description
-          </label>
-
-          <textarea
-            readOnly
-            rows={3}
-            value={selectedFeature.description}
-            className="w-full border rounded-lg px-4 py-3 resize-none bg-[#F9FAFB] dark:bg-[#2C2C2C]"
-          />
-
-        </div>
-
-        {/* Plan */}
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Plan
-          </label>
-
-          <input
-            readOnly
-            value={selectedFeature.plan}
-            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
-          />
-        </div>
-
-        {/* Date */}
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Date
-          </label>
-
-          <input
-            readOnly
-            value={selectedFeature.date}
-            className="w-full border rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
-          />
-        </div>
-
-        {/* Tenant Status */}
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Tenant Status
-          </label>
-
-          <input
-            readOnly
-            value={selectedFeature.status}
-            className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
-          />
-        </div>
-
-        {/* Feature Status */}
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Features Status
-          </label>
-
-          <input
-            readOnly
-            value={selectedFeature.featureStatus}
-            className="w-full border rounded-lg px-4 py-2 text-green-600 bg-[#F9FAFB] dark:bg-[#2C2C2C]"
-          />
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
+      )}
     </div>
   );
 };

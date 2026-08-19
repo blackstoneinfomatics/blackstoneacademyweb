@@ -47,11 +47,11 @@ export default function SubscriptionCard() {
                 Active
               </span>
 
-              <h2 className="mt-3 text-[18px] font-bold leading-none text-[#16213E] dark:text-white">
+              <h2 className="mt-3 text-[18px]  leading-none text-[#16213E] font-semibold dark:text-white">
                 Enterprise
               </h2>
 
-              <p className="mt-2 text-[12px] font-medium text-[#7C8799] dark:text-gray-300">
+              <p className="mt-2 text-[12px] font-medium text-[#545454] dark:text-gray-300">
                 Yearly Subscription
               </p>
 
@@ -60,12 +60,12 @@ export default function SubscriptionCard() {
                   $8,500
                 </span>
 
-                <span className="ml-2 mb-[4px] text-[14px] text-[#6B7280] dark:text-gray-300">
+                <span className="ml-2 mb-[4px] text-[14px] text-[#111827] dark:text-gray-300">
                   / year
                 </span>
               </div>
 
-              <p className="mt-4 text-[14px] text-[#8A94A6] dark:text-gray-300">
+              <p className="mt-4 text-[14px] text-[#111827] dark:text-gray-300">
                 Next Billing on{" "}
                 <span className="font-semibold text-[#5669D8]">
                   15 Aug, 2026
@@ -85,16 +85,16 @@ export default function SubscriptionCard() {
       key={index}
       className="flex h-[40px] items-center rounded-md bg-[#EEF9F2] dark:bg-[#2D3B4A] px-2"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#DDF5E6]">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center  ">
         <Check
-          size={14}
-          strokeWidth={3}
+          size={16}
+          strokeWidth={4}
           className="text-[#2DBE60]"
         />
       </div>
 
       <p
-        className={`ml-3 text-[12px] font-medium leading-4 text-[#24324B] dark:text-gray-200 ${
+        className={`ml-3 text-[12px] font-semibold leading-4 text-[#24324B] dark:text-gray-200 ${
           feature.length < 22 ? "whitespace-nowrap" : ""
         }`}
       >

@@ -238,7 +238,7 @@ const toDateFilter =
                         <td className="px-3 py-3 text-[11px] text-left">
                           {log.category}
                         </td>
-                        <td className="px-3 py-3 text-[11px] text-left">
+                        <td className="px-3 text-[#516a8d] py-3 text-[11px] text-left">
                           {log.date}
                         </td>
                       
