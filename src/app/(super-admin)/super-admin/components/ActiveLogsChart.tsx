@@ -61,7 +61,7 @@ const ActiveLogsChart = () => {
             }}
           >
             <div className="absolute inset-[28px] bg-white dark:bg-[#343434] rounded-full flex flex-col items-center justify-center">
-              <h2 className="text-[40px] font-bold text-[#111827] dark:text-white leading-none">
+              <h2 className="text-[32px] font-bold text-[#111827] dark:text-white leading-none">
                 900
               </h2>
               <p className="text-[14px] text-[#6B7280] dark:text-gray-300 mt-1">
@@ -101,8 +101,8 @@ const ActiveLogsChart = () => {
           {/* Successful */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
             <div className="flex items-start gap-3 w-full">
-              <div className="w-12 h-12 bg-[#e3f4e7] rounded-full flex items-center justify-center shrink-0">
-                <IoMdCheckmarkCircle size={27} className="text-[#3CBF61]" />
+              <div className="w-12 h-12 bg-[#e3f4e7] dark:bg-[#2A3A3A] rounded-full flex items-center justify-center shrink-0">
+                <IoMdCheckmarkCircle size={22} className="text-[#3CBF61] dark:text-[#4ADE80]" />
               </div>
               <div className="flex flex-col">
                 <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white leading-tight">
@@ -115,7 +115,7 @@ const ActiveLogsChart = () => {
                   <span className="text-[#22C55E] text-[12px] font-semibold">
                     14.7%
                   </span>
-                  <span className="text-[#7B8495] text-[12px]">
+                  <span className="text-[#7B8495] dark:text-gray-400 text-[12px]">
                     of total logs
                   </span>
                 </div>
@@ -126,8 +126,8 @@ const ActiveLogsChart = () => {
           {/* Warning */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
             <div className="flex items-start gap-3 w-full">
-              <div className="w-12 h-12 bg-[#FFF7E7] rounded-full flex items-center justify-center shrink-0">
-                <AlertTriangle size={22} className="text-[#FDB022]" />
+              <div className="w-12 h-12 bg-[#FFF7E7] dark:bg-[#3A3520] rounded-full flex items-center justify-center shrink-0">
+                <AlertTriangle size={22} className="text-[#FDB022] dark:text-[#FBBF24]" />
               </div>
               <div className="flex flex-col">
                 <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white leading-tight">
@@ -140,7 +140,7 @@ const ActiveLogsChart = () => {
                   <span className="text-[#22C55E] text-[12px] font-semibold">
                     14.7%
                   </span>
-                  <span className="text-[#7B8495] text-[12px]">
+                  <span className="text-[#7B8495] dark:text-gray-400 text-[12px]">
                     of total logs
                   </span>
                 </div>
@@ -151,8 +151,8 @@ const ActiveLogsChart = () => {
           {/* Failed */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
             <div className="flex items-start gap-3 w-full">
-              <div className="w-12 h-12 bg-[#FDECEC] rounded-full flex items-center justify-center shrink-0">
-                <MdCancel size={27} className="text-[#E5484D]" />
+              <div className="w-12 h-12 bg-[#FDECEC] dark:bg-[#3A2A2A] rounded-full flex items-center justify-center shrink-0">
+                <MdCancel size={22} className="text-[#E5484D] dark:text-[#F87171]" />
               </div>
               <div className="flex flex-col">
                 <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white leading-tight">
@@ -165,7 +165,7 @@ const ActiveLogsChart = () => {
                   <span className="text-[#22C55E] text-[12px] font-semibold">
                     14.7%
                   </span>
-                  <span className="text-[#7B8495] text-[12px]">
+                  <span className="text-[#7B8495] dark:text-gray-400 text-[12px]">
                     of total logs
                   </span>
                 </div>
@@ -176,12 +176,11 @@ const ActiveLogsChart = () => {
           {/* Total Activities */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
             <div className="flex items-start gap-3 w-full">
-              {/* Added bg-[#ECEBFF] to match the uniform colored circle style */}
-              <div className="w-12 h-12 bg-[#ECEBFF] rounded-full flex items-center justify-center shrink-0">
+              <div className="w-12 h-12  dark:bg-[#3A3A5C] rounded-full flex items-center justify-center shrink-0">
                 <img 
                   src="/assets/images/tot-activity.svg" 
                   alt="Total Activities" 
-                  className="w-12 h-12 object-contain"
+                  className="w-11 h-11 object-contain dark:brightness-90" // Fixed size to match icons
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
@@ -195,7 +194,7 @@ const ActiveLogsChart = () => {
                 <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
                   {dashboardData.stats.totalActivities}
                 </p>
-                <p className="text-[12px] text-[#7B8495] mt-2">
+                <p className="text-[12px] text-[#7B8495] dark:text-gray-400 mt-2">
                   All system activities
                 </p>
               </div>
@@ -205,8 +204,8 @@ const ActiveLogsChart = () => {
           {/* Unique Users */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
             <div className="flex items-start gap-3 w-full">
-              <div className="w-12 h-12 bg-[#F2EDFF] rounded-full flex items-center justify-center shrink-0">
-                <FaUsers size={22} className="text-[#6A5AF9]" />
+              <div className="w-12 h-12 bg-[#F2EDFF] dark:bg-[#3A375C] rounded-full flex items-center justify-center shrink-0">
+                <FaUsers size={22} className="text-[#6A5AF9] dark:text-[#8B7DFF]" />
               </div>
               <div className="flex flex-col">
                 <h4 className="text-[15px] font-semibold dark:text-white leading-tight">
@@ -215,7 +214,7 @@ const ActiveLogsChart = () => {
                 <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
                   {dashboardData.stats.uniqueUsers}
                 </p>
-                <p className="text-[12px] text-[#7B8495] mt-2 whitespace-nowrap">
+                <p className="text-[12px] text-[#7B8495] dark:text-gray-400 mt-2 whitespace-nowrap">
                   Performed activities
                 </p>
               </div>
@@ -225,12 +224,11 @@ const ActiveLogsChart = () => {
           {/* Today Activities */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
             <div className="flex items-start gap-3 w-full">
-              {/* Added bg-[#EAF4FF] to match the uniform colored circle style */}
-              <div className="w-12 h-12 bg-[#EAF4FF] rounded-full flex items-center justify-center shrink-0">
+              <div className="w-12 h-12  dark:bg-[#2A3A5C] rounded-full flex items-center justify-center shrink-0">
                 <img 
                   src="/assets/images/today-act.svg" 
                   alt="Today Activities" 
-                  className="w-12 h-12 object-contain"
+                  className="w-12 h-12 object-contain dark:brightness-90" // Fixed size to match icons
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
@@ -244,7 +242,7 @@ const ActiveLogsChart = () => {
                 <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
                   {dashboardData.stats.todayActivities}
                 </p>
-                <p className="text-[12px] text-[#7B8495] mt-2">
+                <p className="text-[12px] text-[#7B8495] dark:text-gray-400 mt-2">
                   Logs recorded today
                 </p>
               </div>

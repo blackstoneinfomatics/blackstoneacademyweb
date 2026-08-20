@@ -46,7 +46,9 @@ const TenantAnalytics = () => {
     activeRole: {
       role: "Teachers",
       count: 670,
-      image: "/assets/images/k.svg"
+      // Use a dark mode version of your logo if you have one, otherwise fallback to light
+      image: "/assets/images/k.svg",
+      imageDark: "/assets/images/k-dark.svg", // <-- Add this file to your public folder
     },
   };
 
@@ -74,16 +76,14 @@ const TenantAnalytics = () => {
     timeFrame: 'last 7 days'
   });
 
-  // Updated role colors to match the image
   const roleColors: Record<string, string> = {
-    Admin: "#5B4CFF", // Purple - matches the image
+    Admin: "#5B4CFF",
     Supervisor: "#8B5CF6",
     "Academic Coach": "#3B82F6",
-    Teachers: "#39B54A", // Green - matches the image
+    Teachers: "#39B54A",
     Student: "#FBBF24",
   };
 
-  // Role background colors for hover state
   const roleBgColors: Record<string, string> = {
     Admin: "#EDE9FE",
     Supervisor: "#EDE9FE",
@@ -151,7 +151,7 @@ const TenantAnalytics = () => {
                   </span>
 
                   {hoveredRole === role.roleName && (
-                    <div className="absolute right-0 top-6 z-20 bg-[#343434] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                    <div className="absolute right-0 top-6 z-20 bg-[#343434] dark:bg-[#1F1F1F] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
                       {role.roleName}: {role.count} Users
                     </div>
                   )}
@@ -168,11 +168,11 @@ const TenantAnalytics = () => {
           {/* Total User */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#e5dffd] flex items-center justify-center">
-                <FaUsers size={22} className="text-[#5B4CFF]" />
+              <div className="w-12 h-12 rounded-full bg-[#e5dffd] dark:bg-[#4B3F7A] flex items-center justify-center">
+                <FaUsers size={22} className="text-[#5B4CFF] dark:text-[#A99BFF]" />
               </div>
               <div>
-                <p className="text-[14px] font-medium text-[#5B4CFF] mt-1">Total User</p>
+                <p className="text-[14px] font-medium text-[#5B4CFF] dark:text-[#A99BFF] mt-1">Total User</p>
                 <h3 className="text-[18px] font-semibold dark:text-white">
                   {dashboardData.stats.totalUsers}
                 </h3>
@@ -182,7 +182,7 @@ const TenantAnalytics = () => {
               <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap">
                 ↑ 8 (14%)
               </span>
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-white">
+              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-gray-400">
                 vs last Month
               </span>
             </div>
@@ -191,11 +191,11 @@ const TenantAnalytics = () => {
           {/* Active User */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-full">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#DFF5E3] flex items-center justify-center">
-                <IoMdCheckmarkCircle size={22} className="text-[#39B54A]" />
+              <div className="w-12 h-12 rounded-full bg-[#DFF5E3] dark:bg-[#2E4A3A] flex items-center justify-center">
+                <IoMdCheckmarkCircle size={22} className="text-[#39B54A] dark:text-[#6EE07A]" />
               </div>
               <div>
-                <p className="text-[14px] font-medium text-[#39B54A] mt-1">Active User</p>
+                <p className="text-[14px] font-medium text-[#39B54A] dark:text-[#6EE07A] mt-1">Active User</p>
                 <h3 className="text-xl font-semibold dark:text-white">
                   {dashboardData.stats.activeUsers}
                 </h3>
@@ -205,7 +205,7 @@ const TenantAnalytics = () => {
               <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap">
                 ↑ 8 (14%)
               </span>
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-white">
+              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-gray-400">
                 vs last Month
               </span>
             </div>
@@ -214,11 +214,11 @@ const TenantAnalytics = () => {
           {/* Inactive User */}
           <div className="bg-white dark:bg-[#343434] rounded-xl p-4 shadow-sm h-full">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#FBE3E3] flex items-center justify-center">
-                <MdCancel size={22} className="text-[#E05353]" />
+              <div className="w-12 h-12 rounded-full bg-[#FBE3E3] dark:bg-[#4A2E2E] flex items-center justify-center">
+                <MdCancel size={22} className="text-[#E05353] dark:text-[#FF7474]" />
               </div>
               <div>
-                <p className="text-[14px] font-medium text-[#E05353] mt-1">Inactive User</p>
+                <p className="text-[14px] font-medium text-[#E05353] dark:text-[#FF7474] mt-1">Inactive User</p>
                 <h3 className="text-xl font-semibold dark:text-white">
                   {dashboardData.stats.inactiveUsers}
                 </h3>
@@ -228,7 +228,7 @@ const TenantAnalytics = () => {
               <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap">
                 ↑ 8 (14%)
               </span>
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-white">
+              <span className="text-[#6B7280] text-[12px] whitespace-nowrap dark:text-gray-400">
                 vs last Month
               </span>
             </div>
@@ -237,7 +237,7 @@ const TenantAnalytics = () => {
 
         <div className="grid md:grid-cols-[2fr_1fr] gap-1 items-stretch">
           <div className="bg-white dark:bg-[#343434] rounded-xl p-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-800 dark:text-gray-400">Total User</p>
+            <p className="text-sm font-semibold text-slate-800 dark:text-gray-300">Total User</p>
 
             <div className="flex items-center mt-3">
               <div className="flex -space-x-1">
@@ -265,6 +265,7 @@ const TenantAnalytics = () => {
             </div>
           </div>
 
+          {/* --- UPDATED: Most Active Role with Dark Mode support --- */}
           <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-3">
             <p className="text-[14px] font-semibold text-[#1E293B] dark:text-white">
               Most Active Role
@@ -272,10 +273,22 @@ const TenantAnalytics = () => {
 
             <div className="flex items-center gap-3 mt-2">
               <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] dark:bg-[#4A4A4A] flex items-center justify-center overflow-hidden">
+                {/* 
+                  Conditional Image Source: 
+                  1. Try dark mode image.
+                  2. If it fails, fallback to light mode image. 
+                */}
                 <img 
-                  src={dashboardData.activeRole.image} 
+                  src={dashboardData.activeRole.imageDark || dashboardData.activeRole.image}
                   alt={dashboardData.activeRole.role}
                   className="w-full h-full object-cover"
+                  // If dark image fails, switch to light image
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== dashboardData.activeRole.image) {
+                      target.src = dashboardData.activeRole.image;
+                    }
+                  }}
                 />
               </div>
 

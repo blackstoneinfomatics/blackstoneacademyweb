@@ -1,20 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import { UploadCloud, FileText ,Trash2,Check } from "lucide-react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  UploadCloud,
+  FileText,
+  Trash2,
+  Check,
+  Info,
+  CloudUpload,
+} from "lucide-react";
+import axios from "axios";
 import SuccessPopup from "@/app/(tenant)/modules/users/supervisor/components/successPopup";
 import FailedPopup from "@/app/(tenant)/modules/users/supervisor/components/failedPopup";
-import { Info, CloudUpload } from "lucide-react";
-import axios from "axios";
-import { AppFailureToastMessages, AppSuccessToastMessages } from "@/app/_components/contents/toast_message";
+import {
+  AppFailureToastMessages,
+  AppSuccessToastMessages,
+} from "@/app/_components/contents/toast_message";
+
 type Props = {
   readonly onClose: () => void;
-};
-
-type ReviewProps = {
-  label: string;
-  value: string;
 };
 
 type TenantFormData = {
@@ -47,149 +55,243 @@ type TenantFormData = {
   adminPhone: string;
 };
 
-function DocumentRow({
-  name,
-}: {
-  name?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between">
+type FileField = "logo" | "gstCertificate" | "registrationCertificate" | "addressProof";
 
-      <div className="flex items-center gap-2">
+/* ------------------------------------------------------------------ */
+/* Shared styles                                                       */
+/* ------------------------------------------------------------------ */
 
-        <FileText
-          size={16}
-          className="text-[#5967E8]"
-        />
+const fieldBase =
+  "w-full h-11 rounded-lg border px-4 text-sm outline-none transition " +
+  "border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 " +
+  "focus:border-[#5967E8] focus:ring-2 focus:ring-[#5967E8]/25 " +
+  "dark:border-[#4A4A4A] dark:bg-[#2C2C2C] dark:text-gray-100 dark:placeholder:text-gray-500";
 
-        <span className="text-sm">
-          {name || "-"}
-        </span>
+const labelBase =
+  "mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200";
 
-      </div>
+const sectionTitle =
+  "text-base font-semibold text-gray-900 dark:text-white";
 
-      <Check
-        size={16}
-        className="text-green-500"
-      />
-
-    </div>
-  );
+function formatSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-function ReviewRow({
+/* ------------------------------------------------------------------ */
+/* Small building blocks                                               */
+/* ------------------------------------------------------------------ */
+
+function TextField({
   label,
+  name,
   value,
+  onChange,
+  placeholder,
+  type = "text",
+  required = false,
+  disabled = false,
 }: {
   label: string;
+  name: string;
   value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  type?: string;
+  required?: boolean;
+  disabled?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[120px_10px_1fr]">
-
-      <span className="text-[#6B7280] dark:text-white ">
+    <div>
+      <label htmlFor={name} className={labelBase}>
         {label}
-      </span>
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </label>
 
-      <span>:</span>
-
-      <span className="font-medium dark:bg-[#2c2c2c] border border-gray-300 rounded-lg px-4 py-2">
-        {value || "-"}
-      </span>
-
+      <input
+        id={name}
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        className={`${fieldBase} ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+      />
     </div>
   );
 }
-type UploadCardProps = {
-  title: string;
-  name: keyof Pick<
-    TenantFormData,
-    "logo" | "gstCertificate" | "registrationCertificate" | "addressProof"
-  >;
-  accept?: string;
-  file: File | null;
-  handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  setFormData: React.Dispatch<React.SetStateAction<TenantFormData>>;
-};
 
-function UploadCard({
+function SelectField({
+  label,
+  name,
+  value,
+  onChange,
+  options,
+  placeholder = "Select",
+  required = false,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  options: string[];
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <div>
+      <label htmlFor={name} className={labelBase}>
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </label>
+
+      <div className="relative">
+        <select
+          id={name}
+          name={name}
+          value={value}
+          onChange={onChange}
+          className={`${fieldBase} appearance-none pr-10 ${
+            value ? "" : "text-gray-400 dark:text-gray-500"
+          }`}
+        >
+          <option value="">{placeholder}</option>
+
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+
+        <ChevronDown
+          size={18}
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+        />
+      </div>
+    </div>
+  );
+}
+
+function UploadRow({
   title,
   name,
   file,
   accept = ".pdf,.png,.jpg,.jpeg",
-  handleFileUpload,
-  setFormData,
-}: UploadCardProps) {
+  onUpload,
+  onRemove,
+}: {
+  title: string;
+  name: FileField;
+  file: File | null;
+  accept?: string;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (name: FileField) => void;
+}) {
   return (
-    <div className="border rounded-xl p-5 bg-white dark:bg-[#343434]">
+    <div>
+      <p className="mb-2 text-sm font-medium text-gray-800 dark:text-gray-100">
+        {title}
+      </p>
 
-      <h4 className="font-semibold mb-4">{title}</h4>
+      {file ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]">
+          <div className="flex min-w-0 items-center gap-2">
+            <FileText size={16} className="shrink-0 text-[#5967E8]" />
 
-<label className="w-full border border-dashed border-[#5967E8] rounded-lg h-20 flex flex-col justify-center items-center cursor-pointer bg-[#F8F9FF] hover:bg-[#EEF2FF] transition">
-        <UploadCloud
-          size={28}
-          className="text-[#5967E8]"
-        />
-
-<p className="text-gray-500 mt-1 text-xs">     
-       Click or Drag & Drop
-        </p>
-
-        <input
-          hidden
-          type="file"
-          name={name}
-          accept={accept}
-          onChange={handleFileUpload}
-        />
-
-      </label>
-
-      {file && (
-
-        <div className="mt-4 flex items-center justify-between border rounded-lg px-3 py-2 bg-white dark:bg-[#343434]">
-
-          <div className="flex items-center gap-3 min-w-0">
-
-            <FileText
-              size={18}
-              className="text-[#5967E8] flex-shrink-0"
-            />
-
-            <span className="text-sm truncate">
+            <span className="truncate text-sm text-gray-700 dark:text-gray-200">
               {file.name}
             </span>
-
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              setFormData((prev: any) => ({
-                ...prev,
-                [name]: null,
-              }))
-            }
-            className="text-[#6B7280] hover:text-red-500 transition"
-          >
-            <Trash2 size={18} />
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              ({formatSize(file.size)})
+            </span>
 
+            <button
+              type="button"
+              aria-label={`Remove ${title}`}
+              onClick={() => onRemove(name)}
+              className="text-gray-400 transition hover:text-red-500"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
+      ) : (
+        <label className="flex h-[70px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#5967E8] bg-[#F8F9FF] transition hover:bg-[#EEF2FF] dark:border-[#5967E8]/70 dark:bg-[#2C2C2C] dark:hover:bg-[#333]">
+          <UploadCloud size={22} className="text-[#5967E8]" />
 
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Click or drag and drop
+          </span>
+
+          <input
+            hidden
+            type="file"
+            name={name}
+            accept={accept}
+            onChange={onUpload}
+          />
+        </label>
       )}
-
     </div>
   );
 }
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[110px_12px_1fr] items-start text-sm">
+      <span className="text-gray-500 dark:text-gray-400">{label}</span>
+
+      <span className="text-gray-400 dark:text-gray-500">:</span>
+
+      <span className="break-words font-medium text-gray-800 dark:text-gray-100">
+        {value?.trim() ? value : "—"}
+      </span>
+    </div>
+  );
+}
+
+function DocumentRow({ file }: { file: File | null }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <FileText
+          size={16}
+          className={`shrink-0 ${file ? "text-[#5967E8]" : "text-gray-300 dark:text-gray-600"}`}
+        />
+
+        <span
+          className={`truncate text-sm ${
+            file
+              ? "text-gray-700 dark:text-gray-200"
+              : "text-gray-400 dark:text-gray-500"
+          }`}
+        >
+          {file?.name || "Not uploaded"}
+        </span>
+      </div>
+
+      {file && <Check size={16} className="shrink-0 text-green-500" />}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Main component                                                      */
+/* ------------------------------------------------------------------ */
+
 export default function AddNewTenant({ onClose }: Props) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [success, setSuccess] = useState(false);
   const [failed, setFailed] = useState(false);
   const [failedMessage, setFailedMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [formData, setFormData] = useState({
+
+  const [formData, setFormData] = useState<TenantFormData>({
     companyName: "",
     email: "",
     phone: "",
@@ -198,7 +300,7 @@ export default function AddNewTenant({ onClose }: Props) {
     panNo: "",
     faxNo: "",
     website: "",
-    comments:"",
+    comments: "",
     status: "",
     timeZone: "",
     plan: "",
@@ -210,787 +312,567 @@ export default function AddNewTenant({ onClose }: Props) {
     landmark: "",
     pincode: "",
     tenantBackup: false,
-    logo: null as File | null,
-    gstCertificate: null as File | null,
-    registrationCertificate: null as File | null,
-    addressProof: null as File | null,
+    logo: null,
+    gstCertificate: null,
+    registrationCertificate: null,
+    addressProof: null,
     adminName: "",
     adminEmail: "",
     adminPhone: "",
   });
 
+  const steps = ["Basic Information", "Upload Documents", "Review", "Invite Admin"];
+  const totalSteps = steps.length;
+
   const handleInput = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     const { name, value, type } = e.target;
 
     if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
+      const { checked } = e.target as HTMLInputElement;
 
-      setFormData((prev) => ({
-        ...prev,
-        [name]: checked,
-      }));
+      setFormData((prev) => ({ ...prev, [name]: checked }));
 
       return;
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
-
-  const next = () => {
-    if (currentStep < 4) setCurrentStep((prev) => prev + 1);
-  };
-
-  const previous = () => {
-    if (currentStep > 1) setCurrentStep((prev) => prev - 1);
-  };
-
-  const steps = [
-    "Basic Information",
-    "Upload Documents",
-    "Review",
-    "Invite Admin",
-  ];
-
-
-const handleSubmit = async () => {
-  try {
-    const payload = {
-      tenantName: formData.companyName,
-      tenantLogo: formData.logo?.name || "",
-      mobileNumber: formData.phone,
-      organizationName: formData.companyName,
-      phoneNumber: formData.phone,
-      state: formData.state,
-      city: formData.city,
-      street: formData.street,
-      country: formData.country,
-      companyRegistrationCertificate:
-        formData.registrationCertificate?.name || "",
-      addressProof: formData.addressProof?.name || "",
-      plan: formData.plan,
-      activeLicense: {},
-      timeZone: formData.timeZone,
-      currency: formData.currency,
-      emailId: formData.email,
-      faxNo: formData.faxNo,
-      gstNo: formData.gstNo,
-      panNo: formData.panNo,
-      postalCode: formData.pincode,
-      tenantJobCode: `TENANT-${Date.now()}`,
-      website: formData.website,
-      status: formData.status,
-      settings: [],
-      createdBy: formData.adminName,
-      lastUpdatedBy: formData.adminName,
-    };
-
-    const response = await axios.post(
-      "http://localhost:5001/tenant",
-      payload
-    );
-
-    console.log(response.data);
-
-    setSuccessMessage(AppSuccessToastMessages.SUPER_ADMIN_TENANT_FAMILY);
-    setSuccess(true);
-  } catch (err: any) {
-  console.error(err);
-
-  setFailedMessage(
-    err.response?.data?.message ||
-    AppFailureToastMessages.SUPER_ADMIN_TENANT_CREATE
-  );
-
-  setFailed(true);
-}
-};
-
-
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
 
     if (!files || files.length === 0) return;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: files[0],
-    }));
-  };
-  return (
-    <div className="fixed inset-0  z-[9999] flex items-center justify-center ">
-      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-[1200px] h-[92vh] overflow-hidden dark:bg-[#343434]">
-        {" "}
-        {/* Header */}
-        <div className="flex justify-between items-center border-b px-8 py-5">
-          <div>
-            <h2 className="text-2xl font-semibold">Add New Tenant</h2>
+    setFormData((prev) => ({ ...prev, [name]: files[0] }));
 
-            <p className="text-sm text-gray-500 mt-1">
+    e.target.value = "";
+  };
+
+  const removeFile = (name: FileField) => {
+    setFormData((prev) => ({ ...prev, [name]: null }));
+  };
+
+  const next = () => {
+    if (currentStep < totalSteps) setCurrentStep((prev) => prev + 1);
+  };
+
+  const previous = () => {
+    if (currentStep > 1) setCurrentStep((prev) => prev - 1);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const payload = {
+        tenantName: formData.companyName,
+        tenantLogo: formData.logo?.name || "",
+        mobileNumber: formData.phone,
+        organizationName: formData.companyName,
+        phoneNumber: formData.phone,
+        state: formData.state,
+        city: formData.city,
+        street: formData.street,
+        country: formData.country,
+        companyRegistrationCertificate:
+          formData.registrationCertificate?.name || "",
+        addressProof: formData.addressProof?.name || "",
+        plan: formData.plan,
+        activeLicense: {},
+        timeZone: formData.timeZone,
+        currency: formData.currency,
+        emailId: formData.email,
+        faxNo: formData.faxNo,
+        gstNo: formData.gstNo,
+        panNo: formData.panNo,
+        postalCode: formData.pincode,
+        tenantJobCode: `TENANT-${Date.now()}`,
+        website: formData.website,
+        status: formData.status,
+        settings: [],
+        createdBy: formData.adminName,
+        lastUpdatedBy: formData.adminName,
+      };
+
+      const response = await axios.post("http://localhost:5001/tenant", payload);
+
+      console.log(response.data);
+
+      setSuccessMessage(AppSuccessToastMessages.SUPER_ADMIN_TENANT_FAMILY);
+      setSuccess(true);
+    } catch (err: any) {
+      console.error(err);
+
+      setFailedMessage(
+        err.response?.data?.message ||
+          AppFailureToastMessages.SUPER_ADMIN_TENANT_CREATE,
+      );
+
+      setFailed(true);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
+      <div className="flex h-[92vh] w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#343434]">
+        {/* ---------------- Header ---------------- */}
+        <div className="flex shrink-0 items-start justify-between border-b border-gray-200 px-6 py-4 dark:border-[#4A4A4A] sm:px-8 sm:py-5">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
+              Add New Tenant
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Create a new tenant for your platform.
             </p>
           </div>
 
-          <button onClick={onClose}>
-            <X size={24} />
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-[#4A4A4A] dark:hover:text-white"
+          >
+            <X size={22} />
           </button>
         </div>
-        {/* Body */}
-        <div className="p-8 h-[calc(92vh-82px)] overflow-y-auto overflow-x-hidden">
-          {" "}
+
+        {/* ---------------- Body ---------------- */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8">
           {/* Stepper */}
-<div className="w-full overflow-hidden">
- <div className="w-full mb-12">
-  <div className="grid grid-cols-4 gap-6">
+          <div className="mb-7 flex items-center">
+            {steps.map((step, index) => {
+              const stepNumber = index + 1;
+              const isDone = currentStep >= stepNumber;
+              const isLast = index === steps.length - 1;
 
-    {steps.map((item, index) => {
-      const step = index + 1;
+              return (
+                <div
+                  key={step}
+                  className={`flex items-center ${isLast ? "" : "flex-1"}`}
+                >
+                  <div
+                    aria-current={currentStep === stepNumber ? "step" : undefined}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
+                      isDone
+                        ? "bg-[#5967E8] text-white"
+                        : "bg-[#D9D9D9] text-[#666] dark:bg-[#4A4A4A] dark:text-gray-300"
+                    }`}
+                  >
+                    {stepNumber}
+                  </div>
 
-      return (
-        <div key={step} className="flex flex-col items-center relative">
-
-          {index !== steps.length - 1 && (
-            <div
-              className={`absolute top-4 left-1/2 w-full h-[3px]
-              ${currentStep > step ? "bg-[#5967E8]" : "bg-gray-300"}`}
-            />
-          )}
-
-          <div
-            className={`relative z-10 w-9 h-9 rounded-full flex items-center justify-center font-semibold
-            ${
-              currentStep >= step
-                ? "bg-[#5967E8] text-white"
-                : "bg-[#D9D9D9] text-[#666]"
-            }`}
-          >
-            {step}
+                  {!isLast && (
+                    <div
+                      className={`mx-2 h-[3px] flex-1 rounded-full transition-colors ${
+                        currentStep > stepNumber
+                          ? "bg-[#5967E8]"
+                          : "bg-gray-200 dark:bg-[#4A4A4A]"
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <p
-            className={`mt-3 text-center text-xs leading-4
-            ${
-              currentStep === step
-                ? "text-[#5967E8] font-semibold"
-                : "text-gray-500"
-            }`}
-          >
-            {item}
-          </p>
-
-        </div>
-      );
-    })}
-
-  </div>
-</div>
-          {/* ========================= */}
-          {/* STEP CONTENT START */}
-          {/* ========================= */}
+          {/* ================= STEP 1 ================= */}
           {currentStep === 1 && (
-            <>
-              <h3 className="text-xl font-semibold mb-8">Basic Information</h3>
+            <div>
+              <h3 className={`${sectionTitle} mb-4`}>Basic Information</h3>
 
-              <div className="space-y-10">
-                {/* Company Information */}
+              <div className="mb-6 border-b border-gray-200 dark:border-[#4A4A4A]" />
 
-                <div className="bg-white rounded-xl  p-6 dark:bg-[#2c2c2c]">
-                  <h4 className="text-lg font-semibold text-[#1F2937] mb-6 dark:text-white">
-                    Company Information
-                  </h4>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+                <TextField
+                  label="Company Name"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInput}
+                  placeholder="Enter company name"
+                  required
+                />
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Company Name <span className="text-red-500">*</span>
-                      </label>
+                <TextField
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInput}
+                  placeholder="name@company.com"
+                  required
+                />
 
-                      <input
-                        type="text"
-                        name="companyName"
-                        value={formData.companyName}
-                        onChange={handleInput}
-                        placeholder="Enter company name"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4 focus:outline-none focus:ring-2 focus:ring-[#5967E8]"
-                      />
-                    </div>
+                <TextField
+                  label="Phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInput}
+                  placeholder="+91 XXXXX XXXXX"
+                />
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Email <span className="text-red-500">*</span>
-                      </label>
+                <TextField
+                  label="Domain"
+                  name="domain"
+                  value={formData.domain}
+                  onChange={handleInput}
+                  placeholder="company.com"
+                />
 
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInput}
-                        placeholder="Enter email"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4 focus:outline-none focus:ring-2 focus:ring-[#5967E8]"
-                      />
-                    </div>
+                <TextField
+                  label="GST No"
+                  name="gstNo"
+                  value={formData.gstNo}
+                  onChange={handleInput}
+                  placeholder="Enter GST number"
+                />
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Phone Number
-                      </label>
+                <TextField
+                  label="PAN No"
+                  name="panNo"
+                  value={formData.panNo}
+                  onChange={handleInput}
+                  placeholder="Enter PAN number"
+                />
 
-                      <input
-                        type="text"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInput}
-                        placeholder="+91 XXXXX XXXXX"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                      />
-                    </div>
+                <TextField
+                  label="FAX No"
+                  name="faxNo"
+                  value={formData.faxNo}
+                  onChange={handleInput}
+                  placeholder="Enter fax number"
+                />
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Domain
-                      </label>
+                <TextField
+                  label="Website URL"
+                  name="website"
+                  value={formData.website}
+                  onChange={handleInput}
+                  placeholder="https://example.com"
+                />
 
-                      <input
-                        type="text"
-                        name="domain"
-                        value={formData.domain}
-                        onChange={handleInput}
-                        placeholder="company.com"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                      />
-                    </div>
+                <SelectField
+                  label="Status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInput}
+                  placeholder="Select status"
+                  options={["Active", "Inactive", "Trial"]}
+                />
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        GST Number
-                      </label>
+                <SelectField
+                  label="Time Zone"
+                  name="timeZone"
+                  value={formData.timeZone}
+                  onChange={handleInput}
+                  placeholder="Select time zone"
+                  options={["Asia/Kolkata", "UTC", "America/New_York", "Europe/London"]}
+                />
 
-                      <input
-                        type="text"
-                        name="gstNo"
-                        value={formData.gstNo}
-                        onChange={handleInput}
-                        placeholder="GST Number"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                      />
-                    </div>
+                <SelectField
+                  label="Plan"
+                  name="plan"
+                  value={formData.plan}
+                  onChange={handleInput}
+                  placeholder="Select plan"
+                  options={["Basic", "Standard", "Premium", "Enterprise"]}
+                />
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        PAN Number
-                      </label>
+                <SelectField
+                  label="Currency"
+                  name="currency"
+                  value={formData.currency}
+                  onChange={handleInput}
+                  placeholder="Select currency"
+                  options={["INR", "USD", "EUR", "GBP"]}
+                />
+              </div>
 
-                      <input
-                        type="text"
-                        name="panNo"
-                        value={formData.panNo}
-                        onChange={handleInput}
-                        placeholder="PAN Number"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                      />
-                    </div>
+              <label className="mt-6 flex w-fit cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="tenantBackup"
+                  checked={formData.tenantBackup}
+                  onChange={handleInput}
+                  className="h-[18px] w-[18px] cursor-pointer rounded accent-[#5967E8]"
+                />
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Fax Number
-                      </label>
+                <span className="text-sm text-gray-700 dark:text-gray-200">
+                  Enable Tenant Backup
+                </span>
+              </label>
 
-                      <input
-                        type="text"
-                        name="faxNo"
-                        value={formData.faxNo}
-                        onChange={handleInput}
-                        placeholder="Fax Number"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                      />
-                    </div>
+              <h3 className={`${sectionTitle} mb-4 mt-8`}>Address</h3>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Website URL
-                      </label>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+                <SelectField
+                  label="Country"
+                  name="country"
+                  value={formData.country}
+                  onChange={handleInput}
+                  placeholder="Select country"
+                  options={["India", "United States", "United Kingdom", "Singapore"]}
+                />
 
-                      <input
-                        type="text"
-                        name="website"
-                        value={formData.website}
-                        onChange={handleInput}
-                        placeholder="https://example.com"
-                        className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                      />
-                    </div>
-                  </div>
+                <SelectField
+                  label="State"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleInput}
+                  placeholder="Select state"
+                  options={["Tamil Nadu", "Karnataka", "Kerala", "Maharashtra"]}
+                />
+
+                <SelectField
+                  label="City"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInput}
+                  placeholder="Select city"
+                  options={["Coimbatore", "Chennai", "Bengaluru", "Mumbai"]}
+                />
+
+                <TextField
+                  label="Street"
+                  name="street"
+                  value={formData.street}
+                  onChange={handleInput}
+                  placeholder="Enter street address"
+                />
+
+                <TextField
+                  label="Landmark"
+                  name="landmark"
+                  value={formData.landmark}
+                  onChange={handleInput}
+                  placeholder="Enter landmark"
+                />
+
+                <TextField
+                  label="Pincode"
+                  name="pincode"
+                  value={formData.pincode}
+                  onChange={handleInput}
+                  placeholder="Enter pincode"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ================= STEP 2 ================= */}
+          {currentStep === 2 && (
+            <div>
+              <h3 className={`${sectionTitle} mb-4`}>Upload Documents</h3>
+
+              <div className="mb-5 border-b border-gray-200 dark:border-[#4A4A4A]" />
+
+              <div className="mb-6 space-y-2 rounded-lg bg-[#EEF2FF] p-4 dark:bg-[#5967E8]/10">
+                <div className="flex items-center gap-3">
+                  <CloudUpload size={16} className="shrink-0 text-[#5967E8]" />
+
+                  <span className="text-sm text-[#374151] dark:text-gray-200">
+                    Upload the documents required to create this tenant account.
+                  </span>
                 </div>
 
-                {/* Tenant Configuration */}
+                <div className="flex items-center gap-3">
+                  <Info size={16} className="shrink-0 text-[#5967E8]" />
 
-                <div className="bg-white rounded-xl dark:bg-[#2c2c2c] p-6">
-                  <h4 className="text-lg font-semibold text-[#1F2937] mb-6">
-                    Tenant Configuration
-                  </h4>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Status
-                      </label>
-
-                      <select
-                        name="status"
-                        value={formData.status}
-                        onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                      >
-                        <option value="">Select Status</option>
-                        <option>Active</option>
-                        <option>Inactive</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Time Zone
-                      </label>
-
-                      <select
-                        name="timeZone"
-                        value={formData.timeZone}
-                        onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                      >
-                        <option value="">Select Time Zone</option>
-                        <option>Asia/Kolkata</option>
-                        <option>UTC</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Subscription Plan
-                      </label>
-
-                      <select
-                        name="plan"
-                        value={formData.plan}
-                        onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                      >
-                        <option>Select Plan</option>
-                        <option>Basic</option>
-                        <option>Standard</option>
-                        <option>Premium</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Currency
-                      </label>
-
-                      <select
-                        name="currency"
-                        value={formData.currency}
-                        onChange={handleInput}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                      >
-                        <option>Select Currency</option>
-                        <option>INR</option>
-                        <option>USD</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      name="tenantBackup"
-                      checked={formData.tenantBackup}
-                      onChange={handleInput}
-                      className="w-5 h-5"
-                    />
-
-                    <span className="text-sm">
-                      Enable Automatic Tenant Backup
-                    </span>
-                  </div>
-                </div>
-
-                {/* Address */}
-
-                <div className="bg-white rounded-xl dark:bg-[#2c2c2c] p-6">
-                  <h4 className="text-lg font-semibold mb-6">
-                    Address Information
-                  </h4>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-                    <input
-                      name="country"
-                      value={formData.country}
-                      onChange={handleInput}
-                      placeholder="Country"
-                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                    />
-
-                    <input
-                      name="state"
-                      value={formData.state}
-                      onChange={handleInput}
-                      placeholder="State"
-                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                    />
-
-                    <input
-                      name="city"
-                      value={formData.city}
-                      onChange={handleInput}
-                      placeholder="City"
-                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                    />
-
-                    <input
-                      name="pincode"
-                      value={formData.pincode}
-                      onChange={handleInput}
-                      placeholder="Pincode"
-                      className="h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <input
-                      name="street"
-                      value={formData.street}
-                      onChange={handleInput}
-                      placeholder="Street Address"
-                      className="w-full h-11 border   border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <input
-                      name="landmark"
-                      value={formData.landmark}
-                      onChange={handleInput}
-                      placeholder="Landmark"
-                      className="w-full h-11 border  border-gray-300 rounded-lg px-4 dark:bg-[#2c2c2c]"
-                    />
-                  </div>
+                  <span className="text-sm text-[#374151] dark:text-gray-200">
+                    Accepted formats: PDF, JPG, PNG (max 5 MB each)
+                  </span>
                 </div>
               </div>
-            </>
+
+              <div className="space-y-5">
+                <UploadRow
+                  title="Logo"
+                  name="logo"
+                  accept=".png,.jpg,.jpeg"
+                  file={formData.logo}
+                  onUpload={handleFileUpload}
+                  onRemove={removeFile}
+                />
+
+                <UploadRow
+                  title="Company Registration Certificate"
+                  name="registrationCertificate"
+                  file={formData.registrationCertificate}
+                  onUpload={handleFileUpload}
+                  onRemove={removeFile}
+                />
+
+                <UploadRow
+                  title="GST Certificate"
+                  name="gstCertificate"
+                  file={formData.gstCertificate}
+                  onUpload={handleFileUpload}
+                  onRemove={removeFile}
+                />
+
+                <UploadRow
+                  title="Address Proof"
+                  name="addressProof"
+                  file={formData.addressProof}
+                  onUpload={handleFileUpload}
+                  onRemove={removeFile}
+                />
+              </div>
+            </div>
           )}
-         {currentStep === 2 && (
-  <div>
-    <h3 className="text-2xl font-semibold mb-2">
-      Upload Documents
-    </h3>
 
-    {/* Info Box */}
-    <div className="mb-5 rounded-lg bg-[#EEF2FF] p-4">
-      <div className="flex items-center gap-3 mb-2">
-        <CloudUpload size={16} className="text-[#5967E8]" />
-        <span className="text-sm text-[#374151]">
-          Please upload the required documents to create tenant account.
-        </span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Info size={16} className="text-[#5967E8]" />
-        <span className="text-sm text-[#374151]">
-          Accepted formats: PDF, JPG, PNG (Max size: 5MB each)
-        </span>
-      </div>
-    </div>
-
-    {/* Upload List */}
-    <div className="space-y-6">
-
-      <UploadCard
-        title="Company Logo"
-        name="logo"
-        file={formData.logo}
-        accept=".png,.jpg,.jpeg"
-        handleFileUpload={handleFileUpload}
-        setFormData={setFormData}
-      />
-
-      <UploadCard
-        title="GST Certificate"
-        name="gstCertificate"
-        file={formData.gstCertificate}
-        handleFileUpload={handleFileUpload}
-        setFormData={setFormData}
-      />
-
-      <UploadCard
-        title="Registration Certificate"
-        name="registrationCertificate"
-        file={formData.registrationCertificate}
-        handleFileUpload={handleFileUpload}
-        setFormData={setFormData}
-      />
-
-      <UploadCard
-        title="Address Proof"
-        name="addressProof"
-        file={formData.addressProof}
-        handleFileUpload={handleFileUpload}
-        setFormData={setFormData}
-      />
-
-    </div>
-  </div>
-)}
+          {/* ================= STEP 3 ================= */}
           {currentStep === 3 && (
-  <div>
+            <div>
+              <h3 className={`${sectionTitle} mb-4`}>Review Details</h3>
 
-    <h3 className="text-2xl font-semibold mb-6">
-      Review Details
-    </h3>
+              <div className="mb-6 border-b border-gray-200 dark:border-[#4A4A4A]" />
 
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                <div>
+                  <h4 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                    Tenant Information
+                  </h4>
 
-      {/* Tenant Information */}
-
-      <div className="border rounded-lg p-5">
-
-        <h4 className="font-semibold text-[#1F2937] mb-5 dark:text-white">
-          Tenant Information
-        </h4>
-
-        <div className="space-y-4 text-sm">
-
-          <ReviewRow
-            label="Company Name"
-            value={formData.companyName}
-          />
-
-          <ReviewRow
-            label="Email"
-            value={formData.email}
-          />
-
-          <ReviewRow
-            label="Phone"
-            value={formData.phone}
-          />
-
-          <ReviewRow
-            label="Domain"
-            value={formData.domain}
-          />
-
-          <ReviewRow
-            label="Plan"
-            value={formData.plan}
-          />
-
-          <ReviewRow
-            label="Time Zone"
-            value={formData.timeZone}
-          />
-
-          <ReviewRow
-            label="Currency"
-            value={formData.currency}
-          />
-
-          <ReviewRow
-            label="Address"
-            value={`${formData.city}, ${formData.country}`}
-          />
-
-        </div>
-
-      </div>
-
-      {/* Documents */}
-
-      <div className="border rounded-lg p-5">
-
-        <h4 className="font-semibold text-[#1F2937] mb-5 dark:text-white">
-          Documents
-        </h4>
-
-        <div className="space-y-4">
-
-          <DocumentRow
-            name={formData.logo?.name}
-          />
-
-          <DocumentRow
-            name={formData.gstCertificate?.name}
-          />
-
-          <DocumentRow
-            name={formData.registrationCertificate?.name}
-          />
-
-          <DocumentRow
-            name={formData.addressProof?.name}
-          />
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
-          {currentStep === 4 && (
-            <div className="dark:bg-[#2c2c2c] p-6 rounded-xl border">
-              <h3 className="text-2xl font-semibold mb-2">
-                Invite Tenant Admin
-              </h3>
-
-              <p className="text-gray-500 mb-8">
-                Create the primary administrator account for this tenant.
-              </p>
-
-              <div className="border rounded-xl p-6">
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Full Name */}
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Admin Name
-                      <span className="text-red-500">*</span>
-                    </label>
-
-                    <input
-                      type="text"
-                      name="adminName"
-                      value={formData.adminName}
-                      onChange={handleInput}
-                      placeholder="Enter full name"
-                      className="w-full h-11  rounded-lg px-4 border border-gray-300 dark:bg-[#2c2c2c]"
+                  <div className="space-y-3">
+                    <ReviewRow label="Company Name" value={formData.companyName} />
+                    <ReviewRow label="Email" value={formData.email} />
+                    <ReviewRow label="Phone" value={formData.phone} />
+                    <ReviewRow label="Domain" value={formData.domain} />
+                    <ReviewRow label="Plan" value={formData.plan} />
+                    <ReviewRow label="Time Zone" value={formData.timeZone} />
+                    <ReviewRow label="Currency" value={formData.currency} />
+                    <ReviewRow
+                      label="Address"
+                      value={[formData.city, formData.state, formData.country]
+                        .filter(Boolean)
+                        .join(", ")}
                     />
                   </div>
-
-                  {/* Email */}
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Admin Email
-                      <span className="text-red-500">*</span>
-                    </label>
-
-                    <input
-                      type="email"
-                      name="adminEmail"
-                      value={formData.adminEmail}
-                      onChange={handleInput}
-                      placeholder="admin@company.com"
-                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                    />
-                  </div>
-
- {/* Role */}
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Designation
-                    </label>
-
-                    <input
-                      value="Tenant Admin"
-                      disabled
-                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                    />
-                  </div>
-                  {/* Phone */}
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Phone Number
-                    </label>
-
-                    <input
-                      type="text"
-                      name="adminPhone"
-                      value={formData.adminPhone}
-                      onChange={handleInput}
-                      placeholder="+91 XXXXX XXXXX"
-                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] rounded-lg px-4"
-                    />
-                  </div>
-
- {/* Role */}
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Comments
-                    </label>
-
-                    <input
-                      value="Share Your Comments"
-                      disabled
-                      className="w-full h-11 border border-gray-300 dark:bg-[#2c2c2c] p-5 rounded-lg px-4"
-                    />
-                  </div>
-                  {/* Phone */}
-
-                 
-                 
                 </div>
 
+                <div>
+                  <h4 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                    Documents
+                  </h4>
 
-
-                <div className="mt-8 rounded-lg  bg-[#F8F9FF] p-5 border border-gray-300 dark:bg-[#2c2c2c] ">
-                  <p className="text-sm text-gray-600 leading-7 dark:text-white">
-                    An invitation email will be sent to the tenant
-                    administrator.
-                    <br />
-                  </p>
+                  <div className="space-y-3">
+                    <DocumentRow file={formData.logo} />
+                    <DocumentRow file={formData.registrationCertificate} />
+                    <DocumentRow file={formData.gstCertificate} />
+                    <DocumentRow file={formData.addressProof} />
+                  </div>
                 </div>
               </div>
             </div>
           )}
-          {/* Footer */}
-          <div className="flex justify-between mt-12 border-t pt-6">
-            <button
-              onClick={currentStep === 1 ? onClose : previous}
-              className="border border-[#5967E8] text-[#5967E8] px-8 py-2 rounded-lg flex items-center gap-2"
-            >
-              <ChevronLeft size={18} />
 
-              {currentStep === 1 ? "Cancel" : "Back"}
-            </button>
+          {/* ================= STEP 4 ================= */}
+          {currentStep === 4 && (
+            <div>
+              <h3 className={`${sectionTitle} mb-1`}>Invite Tenant Admin</h3>
 
-            <button
-              onClick={() => {
-                if (currentStep === 4) {
-                  handleSubmit();
+              <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                Create the primary administrator account for this tenant.
+              </p>
 
-                  return;
-                }
+              <div className="mb-6 border-b border-gray-200 dark:border-[#4A4A4A]" />
 
-                next();
-              }}
-              className="bg-[#5967E8] text-white px-8 py-2 rounded-lg flex items-center gap-2"
-            >
-              {currentStep === 4 ? "Send Invite" : "Next"}
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+                <TextField
+                  label="Admin Name"
+                  name="adminName"
+                  value={formData.adminName}
+                  onChange={handleInput}
+                  placeholder="Enter full name"
+                  required
+                />
 
-              <ChevronRight size={18} />
-            </button>
-          </div>
+                <TextField
+                  label="Admin Email"
+                  name="adminEmail"
+                  type="email"
+                  value={formData.adminEmail}
+                  onChange={handleInput}
+                  placeholder="admin@company.com"
+                  required
+                />
+
+                <TextField
+                  label="Designation"
+                  name="designation"
+                  value="Tenant Admin"
+                  onChange={() => {}}
+                  disabled
+                />
+
+                <TextField
+                  label="Phone Number"
+                  name="adminPhone"
+                  value={formData.adminPhone}
+                  onChange={handleInput}
+                  placeholder="+91 XXXXX XXXXX"
+                />
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="comments" className={labelBase}>
+                    Comments
+                  </label>
+
+                  <textarea
+                    id="comments"
+                    name="comments"
+                    rows={3}
+                    value={formData.comments}
+                    onChange={handleInput}
+                    placeholder="Share your comments"
+                    className={`${fieldBase} h-auto resize-none py-3`}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-lg border border-gray-200 bg-[#F8F9FF] p-4 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  An invitation email will be sent to the tenant administrator
+                  once you send the invite.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* ---------------- Footer ---------------- */}
+        <div className="flex shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-[#4A4A4A] sm:px-8">
+          <button
+            type="button"
+            onClick={currentStep === 1 ? onClose : previous}
+            className="flex items-center gap-1 rounded-lg border border-[#5967E8] px-6 py-2 text-sm font-medium text-[#5967E8] transition hover:bg-[#5967E8]/5"
+          >
+            {currentStep !== 1 && <ChevronLeft size={16} />}
+
+            {currentStep === 1 ? "Cancel" : "Back"}
+          </button>
+
+          <button
+            type="button"
+            onClick={currentStep === totalSteps ? handleSubmit : next}
+            className="flex items-center gap-1 rounded-lg bg-[#5967E8] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#4A57D4]"
+          >
+            {currentStep === totalSteps ? "Send Invite" : "Next"}
+
+            {currentStep !== totalSteps && <ChevronRight size={16} />}
+          </button>
+        </div>
+
         {success && (
-          <SuccessPopup
-            onClose={() => setSuccess(false)}
-            title={successMessage}
-          />
+          <SuccessPopup onClose={() => setSuccess(false)} title={successMessage} />
         )}
+
         {failed && (
           <FailedPopup onClose={() => setFailed(false)} title={failedMessage} />
         )}
-      </div>
       </div>
     </div>
   );

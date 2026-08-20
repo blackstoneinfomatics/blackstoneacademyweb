@@ -27,7 +27,7 @@ const modules = [
 
 export default function GrowthCard() {
   return (
-    <div className="bg-white dark:bg-[#343434] rounded-[18px]  p-5 ">
+    <div className="bg-white dark:bg-[#343434] rounded-[18px] p-5 shadow-sm border border-transparent dark:border-gray-700/50 transition-colors">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -35,7 +35,7 @@ export default function GrowthCard() {
           Growth
         </h2>
 
-        <button className="flex items-center gap-2 bg-[#F5F5F5] dark:bg-[#374151] px-3 py-1 rounded-md text-[11px] text-[#7B8495] dark:text-gray-300">
+        <button className="flex items-center gap-2 bg-[#F5F5F5] dark:bg-[#374151] px-3 py-1 rounded-md text-[11px] text-[#7B8495] dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#4B5563] transition-colors">
           Yearly
           <ChevronDown size={13} />
         </button>
@@ -43,59 +43,44 @@ export default function GrowthCard() {
 
       {/* List */}
       <div className="space-y-4">
-
         {modules.map((item) => (
-
           <div
             key={item.name}
             className="flex items-center justify-between"
           >
-
             {/* Left */}
+            <div className="flex items-center gap-3 min-w-[180px]">
+              <div className="w-9 h-9 rounded-full bg-[#F1EFFF] dark:bg-[#3A3A5C] flex items-center justify-center flex-shrink-0 transition-colors">
+                <UsersRound
+                  size={17}
+                  strokeWidth={2}
+                  className="text-[#5B5CF6] dark:text-[#8B7DFF]"
+                />
+              </div>
 
-         <div className="flex items-center gap-3 min-w-[180px]">
-
-  <div className="w-9 h-9 rounded-full bg-[#F1EFFF] flex items-center justify-center flex-shrink-0">
-    <UsersRound
-      size={17}
-      strokeWidth={2}
-      className="text-[#5B5CF6]"
-    />
-  </div>
-
-  <p className="text-[14px] font-medium text-[#1E293B] dark:text-white">
-    {item.name}
-  </p>
-
-</div>
+              <p className="text-[14px] font-medium text-[#1E293B] dark:text-white truncate">
+                {item.name}
+              </p>
+            </div>
 
             {/* Progress */}
-
             <div className="flex items-center gap-3 flex-1 ml-5">
-
-              <div className="flex-1 h-[5px] bg-[#E5E7EB] rounded-full overflow-hidden">
-
+              <div className="flex-1 h-[5px] bg-[#E5E7EB] dark:bg-[#4B5563] rounded-full overflow-hidden transition-colors">
                 <div
-                  className="h-full rounded-full bg-[#5B4CF5]"
+                  className="h-full rounded-full bg-[#5B4CF5] dark:bg-[#7C6DFF]"
                   style={{
                     width: `${item.percentage}%`,
                   }}
                 />
-
               </div>
 
               <span className="text-[12px] font-semibold text-[#374151] dark:text-gray-300 w-9 text-right">
                 {item.percentage}%
               </span>
-
             </div>
-
           </div>
-
         ))}
-
       </div>
-
     </div>
   );
 }

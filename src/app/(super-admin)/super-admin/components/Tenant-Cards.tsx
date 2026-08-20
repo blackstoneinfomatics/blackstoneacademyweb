@@ -17,36 +17,36 @@ const stats = [
   {
     title: "Total Tenants",
     count: 28,
-    color: "text-violet-600",
-    bg: "bg-violet-100",
+    color: "text-violet-600 dark:text-violet-400", // UPDATED: Dark mode text
+    bg: "bg-violet-100 dark:bg-violet-900/30",      // UPDATED: Dark mode bg
     icon: FaUsers,
   },
   {
     title: "Active Tenants",
     count: 28,
-    color: "text-green-600",
-    bg: "bg-green-100",
+    color: "text-green-600 dark:text-green-400",
+    bg: "bg-green-100 dark:bg-green-900/30",
     icon: IoMdCheckmarkCircle,
   },
   {
     title: "Trial Tenants",
     count: 28,
-    color: "text-blue-600",
-    bg: "bg-blue-100",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-100 dark:bg-blue-900/30",
     icon: FaUsers,
   },
   {
     title: "Inactive Tenants",
     count: 28,
-    color: "text-red-600",
-    bg: "bg-red-100",
+    color: "text-red-600 dark:text-red-400",
+    bg: "bg-red-100 dark:bg-red-900/30",
     icon: MdCancel,
   },
   {
     title: "Expiring Tenants",
     count: 28,
-    color: "text-amber-500",
-    bg: "bg-amber-100",
+    color: "text-amber-500 dark:text-amber-400",
+    bg: "bg-amber-100 dark:bg-amber-900/30",
     icon: LuClock,
   },
 ];
@@ -63,12 +63,14 @@ export default function TenantStats() {
             className="bg-white dark:bg-[#343434] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300"
           >
             <div className="flex items-center justify-between">
+              {/* Icon Circle */}
               <div
-                className={`w-14 h-14 rounded-full ${item.bg} flex items-center justify-center`}
+                className={`w-14 h-14 rounded-full ${item.bg} flex items-center justify-center transition-colors duration-300`}
               >
                 <Icon className={`w-7 h-7 ${item.color}`} />
               </div>
 
+              {/* Text Content */}
               <div className="text-right">
                 <h4 className={`text-sm font-medium ${item.color}`}>
                   {item.title}
@@ -79,9 +81,10 @@ export default function TenantStats() {
               </div>
             </div>
 
+            {/* Footer Stats */}
             <div className="mt-4 flex items-center gap-1 text-sm">
               <span className="text-red-500 font-semibold">↑ 14%</span>
-              <span className="text-gray-500 dark:text-gray-300">vs last Month</span>
+              <span className="text-gray-500 dark:text-gray-400">vs last Month</span>
             </div>
           </div>
         );

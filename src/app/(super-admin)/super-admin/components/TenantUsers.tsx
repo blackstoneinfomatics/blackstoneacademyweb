@@ -133,21 +133,21 @@ const TenantUserTable = () => {
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
-  // --- UPDATED: Status and Role Badge Styles ---
+  // --- UPDATED: Status and Role Badge Styles with Dark Mode ---
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "Active":
-        return "bg-green-100 text-green-700"; // Light green background
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
       case "Admin":
-        return "bg-blue-100 text-blue-700"; // Light blue background
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
       case "Teacher":
-        return "bg-emerald-100 text-emerald-700"; // Light emerald background
+        return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
       case "Trial":
-        return "bg-blue-100 text-blue-600";
+        return "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400";
       case "Inactive":
-        return "bg-red-100 text-red-600";
+        return "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400";
       default:
-        return "bg-yellow-100 text-yellow-600";
+        return "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400";
     }
   };
 
@@ -155,7 +155,7 @@ const TenantUserTable = () => {
   const activeFilterCount = Object.values(filters).filter((val) => val !== "").length;
 
   return (
-    <div>
+    <div className="dark:text-white">
       <br />
 
       <div className="md:p-0 mx-auto w-full">
@@ -163,20 +163,20 @@ const TenantUserTable = () => {
           <div className="flex flex-col">
             {/* Tabs */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
-              <div className="flex flex-wrap gap-4 font-semibold text-xl">
+              <div className="flex flex-wrap gap-4 font-semibold text-xl dark:text-white">
                 Blackstone Academy Users
               </div>
             </div>
 
             {/* Search + Filter */}
-            <div className="w-full bg-[#FAFAFB] dark:bg-[#343434] rounded-lg">
-              <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#343434]">
+            <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search by keyword"
-                    className="bg-transparent outline-none text-[15px] w-52 py-3"
+                    className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-400"
                     value={searchKeyword}
                     onChange={(e) => setSearchKeyword(e.target.value)}
                   />
@@ -208,7 +208,7 @@ const TenantUserTable = () => {
               </div>
 
               {/* Table */}
-              <table className="table-fixed w-full">
+              <table className="table-fixed w-full border-collapse">
                 <thead className="text-[13px] bg-[#4C6993] text-white">
                   <tr>
                     {[
@@ -222,7 +222,7 @@ const TenantUserTable = () => {
                     ].map((header, idx) => (
                       <th
                         key={idx}
-                        className="px-2 py-1 border border-[#4C6993] text-left text-wrap break-words"
+                        className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
                       >
                         {header}
                       </th>
@@ -234,15 +234,15 @@ const TenantUserTable = () => {
                     const rowBgClass =
                       index % 2 === 0
                         ? "bg-[#fff] dark:bg-[#2C2C2C]"
-                        : "bg-[#F8F8F8] dark:bg-[#303030]";
+                        : "bg-[#F8F8F8] dark:bg-[#383838]";
 
                     return (
                       <tr key={user.id} className={`text-[10px] ${rowBgClass}`}>
-                        <td className="px-3 py-3 break-words text-[11px] text-left">
+                        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
                           {user.userName}
                         </td>
 
-                        <td className="px-3 py-3 break-words text-[11px] text-left">
+                        <td className="px-3 py-3 break-words text-[11px] text-left text-[#3D8FDE] dark:text-sky-300">
                           {user.email}
                         </td>
 
@@ -256,7 +256,7 @@ const TenantUserTable = () => {
                             {user.role}
                           </span>
                         </td>
-                        <td className="px-3 py-3 break-words text-[11px] text-left">
+                        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
                           {user.department}
                         </td>
                         
@@ -270,22 +270,22 @@ const TenantUserTable = () => {
                             {user.status}
                           </span>
                         </td>
-                        <td className="px-3 py-3 break-words text-[11px] text-left">
+                        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
                           {user.createdDate}
                         </td>
 
                         <td className="px-3 py-3 text-left relative text-[12px]">
                           <button
                             onClick={() => toggleDropdown(user.id)}
-                            className="text-gray-500 hover:text-gray-700"
+                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
                           >
                             <BsThreeDotsVertical />
                           </button>
 
                           {openDropdownId === user.id && (
-                            <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
+                            <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
                               <button
-                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
                                 onClick={() => {
                                   setSelectedUser(user);
                                   setShowViewModal(true);
@@ -295,7 +295,7 @@ const TenantUserTable = () => {
                                 View Details
                               </button>
                               <button
-                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
                                 onClick={() => {
                                   setSelectedUser({ ...user });
                                   setOriginalUser({ ...user });
@@ -335,24 +335,24 @@ const TenantUserTable = () => {
       {showFilter && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <form
-            className="bg-white dark:bg-[#232323] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
+            className="bg-white dark:bg-[#2C2C2C] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
             onSubmit={(e) => {
               e.preventDefault();
               setShowFilter(false);
             }}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-lg">Filter by</h2>
+              <h2 className="font-bold text-lg dark:text-white">Filter by</h2>
               <button
                 type="button"
-                className="text-gray-400 text-2xl font-bold cursor-pointer"
+                className="text-gray-400 text-2xl font-bold cursor-pointer dark:text-gray-300"
                 onClick={() => setShowFilter(false)}
               >
                 ×
               </button>
             </div>
 
-            <label className="block text-sm font-medium mb-2">User Name</label>
+            <label className="block text-sm font-medium mb-2 dark:text-gray-200">User Name</label>
             <input
               type="text"
               value={filters.userName}
@@ -362,12 +362,12 @@ const TenantUserTable = () => {
                   userName: e.target.value,
                 }))
               }
-              className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               placeholder="Enter User Name"
             />
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Role</label>
+            <div className="mb-4 mt-4">
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Role</label>
               <select
                 value={filters.role}
                 onChange={(e) =>
@@ -376,7 +376,7 @@ const TenantUserTable = () => {
                     role: e.target.value,
                   }))
                 }
-                className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Role</option>
                 <option value="Admin">Admin</option>
@@ -386,7 +386,7 @@ const TenantUserTable = () => {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Department</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Department</label>
               <select
                 value={filters.department}
                 onChange={(e) =>
@@ -395,7 +395,7 @@ const TenantUserTable = () => {
                     department: e.target.value,
                   }))
                 }
-                className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Department</option>
                 <option value="Administration">Administration</option>
@@ -405,7 +405,7 @@ const TenantUserTable = () => {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Status</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Status</label>
               <select
                 value={filters.status}
                 onChange={(e) =>
@@ -414,7 +414,7 @@ const TenantUserTable = () => {
                     status: e.target.value,
                   }))
                 }
-                className="w-full dark:bg-[#2c2c2c] rounded-lg px-4 py-2.5"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Status</option>
                 <option value="Active">Active</option>
@@ -423,7 +423,7 @@ const TenantUserTable = () => {
             </div>
 
             <div className="mb-5">
-              <label className="block text-sm font-medium mb-2">Last Login</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Last Login</label>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="date"
@@ -434,7 +434,7 @@ const TenantUserTable = () => {
                       fromDate: e.target.value,
                     }))
                   }
-                  className="dark:bg-[#2c2c2c] rounded-lg px-3 py-2.5"
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 />
                 <input
                   type="date"
@@ -445,7 +445,7 @@ const TenantUserTable = () => {
                       toDate: e.target.value,
                     }))
                   }
-                  className="dark:bg-[#2c2c2c] rounded-lg px-3 py-2.5"
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 />
               </div>
             </div>
@@ -453,7 +453,7 @@ const TenantUserTable = () => {
             <div className="flex gap-4 mt-auto justify-end">
               <button
                 type="button"
-                className="border border-[#576CBC] bg-white text-[#576CBC] rounded-lg px-6 py-2 font-semibold"
+                className="border border-[#576CBC] bg-white dark:bg-transparent text-[#576CBC] dark:text-[#8296E6] rounded-lg px-6 py-2 font-semibold hover:bg-gray-50 dark:hover:bg-[#444] transition-colors"
                 onClick={() =>
                   setFilters({
                     userName: "",
@@ -470,7 +470,7 @@ const TenantUserTable = () => {
 
               <button
                 type="submit"
-                className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold"
+                className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold hover:bg-[#465a9e] dark:hover:bg-[#6A80D1] transition-colors"
                 onClick={() => setShowFilter(false)}
               >
                 Show Results
@@ -485,12 +485,12 @@ const TenantUserTable = () => {
       {/* --- View Modal --- */}
       {showViewModal && selectedUser && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-[900px] p-6">
+          <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-[24px] font-semibold">User Details</h2>
+              <h2 className="text-[24px] font-semibold dark:text-white">User Details</h2>
               <button
                 onClick={() => setShowViewModal(false)}
-                className="text-3xl text-gray-400"
+                className="text-3xl text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-white"
               >
                 ×
               </button>
@@ -498,83 +498,83 @@ const TenantUserTable = () => {
 
             <div className="grid grid-cols-2 gap-5">
               <div>
-                <label>Name</label>
+                <label className="dark:text-gray-200">Name</label>
                 <input
                   readOnly
                   value={selectedUser.userName}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Email</label>
+                <label className="dark:text-gray-200">Email</label>
                 <input
                   readOnly
                   value={selectedUser.email}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Phone Number</label>
+                <label className="dark:text-gray-200">Phone Number</label>
                 <input
                   readOnly
                   value={selectedUser.phoneNumber}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Role</label>
+                <label className="dark:text-gray-200">Role</label>
                 <input
                   readOnly
                   value={selectedUser.role}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Department</label>
+                <label className="dark:text-gray-200">Department</label>
                 <input
                   readOnly
                   value={selectedUser.department}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Designation</label>
+                <label className="dark:text-gray-200">Designation</label>
                 <input
                   readOnly
                   value={selectedUser.designation}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Reporting To</label>
+                <label className="dark:text-gray-200">Reporting To</label>
                 <input
                   readOnly
                   value={selectedUser.reportingTo}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Status</label>
+                <label className="dark:text-gray-200">Status</label>
                 <input
                   readOnly
                   value={selectedUser.status}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Created On</label>
+                <label className="dark:text-gray-200">Created On</label>
                 <input
                   readOnly
                   value={selectedUser.createdDate}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
               <div>
-                <label>Access Level</label>
+                <label className="dark:text-gray-200">Access Level</label>
                 <input
                   readOnly
                   value={selectedUser.accessLevel}
-                  className="w-full border rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB]"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
             </div>
@@ -587,10 +587,10 @@ const TenantUserTable = () => {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-[24px] font-semibold">Edit</h2>
+              <h2 className="text-[24px] font-semibold dark:text-white">Edit</h2>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="text-3xl text-gray-400"
+                className="text-3xl text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-white"
               >
                 ×
               </button>
@@ -598,7 +598,7 @@ const TenantUserTable = () => {
 
             <div className="grid grid-cols-2 gap-5">
               <div>
-                <label>Name</label>
+                <label className="dark:text-gray-200">Name</label>
                 <input
                   value={selectedUser.userName}
                   onChange={(e) =>
@@ -607,11 +607,11 @@ const TenantUserTable = () => {
                       userName: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 />
               </div>
               <div>
-                <label>Email</label>
+                <label className="dark:text-gray-200">Email</label>
                 <input
                   value={selectedUser.email}
                   onChange={(e) =>
@@ -620,11 +620,11 @@ const TenantUserTable = () => {
                       email: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 />
               </div>
               <div>
-                <label>Phone Number</label>
+                <label className="dark:text-gray-200">Phone Number</label>
                 <input
                   value={selectedUser.phoneNumber ?? ""}
                   onChange={(e) =>
@@ -633,11 +633,11 @@ const TenantUserTable = () => {
                       phoneNumber: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 />
               </div>
               <div>
-                <label>Role</label>
+                <label className="dark:text-gray-200">Role</label>
                 <select
                   value={selectedUser.role}
                   onChange={(e) =>
@@ -646,7 +646,7 @@ const TenantUserTable = () => {
                       role: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 >
                   <option>Admin</option>
                   <option>Teacher</option>
@@ -654,7 +654,7 @@ const TenantUserTable = () => {
                 </select>
               </div>
               <div>
-                <label>Department</label>
+                <label className="dark:text-gray-200">Department</label>
                 <select
                   value={selectedUser.department}
                   onChange={(e) =>
@@ -663,7 +663,7 @@ const TenantUserTable = () => {
                       department: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 >
                   <option>Administration</option>
                   <option>Arabic</option>
@@ -671,7 +671,7 @@ const TenantUserTable = () => {
                 </select>
               </div>
               <div>
-                <label>Designation</label>
+                <label className="dark:text-gray-200">Designation</label>
                 <input
                   value={selectedUser.designation ?? ""}
                   onChange={(e) =>
@@ -680,11 +680,11 @@ const TenantUserTable = () => {
                       designation: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 />
               </div>
               <div>
-                <label>Reporting To</label>
+                <label className="dark:text-gray-200">Reporting To</label>
                 <select
                   value={selectedUser.reportingTo ?? ""}
                   onChange={(e) =>
@@ -693,14 +693,14 @@ const TenantUserTable = () => {
                       reportingTo: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 >
                   <option>Super Admin</option>
                   <option>Admin</option>
                 </select>
               </div>
               <div>
-                <label>Status</label>
+                <label className="dark:text-gray-200">Status</label>
                 <select
                   value={selectedUser.status}
                   onChange={(e) =>
@@ -709,7 +709,7 @@ const TenantUserTable = () => {
                       status: e.target.value,
                     })
                   }
-                  className="w-full border rounded-lg px-4 py-2 mt-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
                 >
                   <option>Active</option>
                   <option>Inactive</option>
@@ -717,9 +717,9 @@ const TenantUserTable = () => {
               </div>
             </div>
 
-            <div className="border-t mt-8 pt-5 flex justify-end gap-4">
+            <div className="border-t border-gray-200 dark:border-gray-700 mt-8 pt-5 flex justify-end gap-4">
               <button
-                className="border border-[#576CBC] text-[#576CBC] rounded-lg px-6 py-2"
+                className="border border-[#576CBC] text-[#576CBC] dark:text-[#8296E6] dark:border-[#8296E6] rounded-lg px-6 py-2 bg-transparent hover:bg-gray-50 dark:hover:bg-[#444] transition-colors"
                 onClick={() => {
                   if (originalUser) {
                     setSelectedUser({ ...originalUser });
@@ -730,7 +730,7 @@ const TenantUserTable = () => {
               </button>
 
               <button
-                className="bg-[#576CBC] text-white rounded-lg px-6 py-2"
+                className="bg-[#576CBC] text-white rounded-lg px-6 py-2 hover:bg-[#465a9e] dark:hover:bg-[#6A80D1] transition-colors"
                 onClick={() => {
                   setUsers((prev) =>
                     prev.map((item) =>
