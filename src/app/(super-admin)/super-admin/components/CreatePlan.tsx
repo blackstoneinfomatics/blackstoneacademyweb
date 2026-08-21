@@ -25,17 +25,13 @@ interface PlanPayload {
   billingCycle: string;
   planDescription: string;
   planStatus: string;
-
   monthlyPrice: number;
   yearlyPrice: number;
   setupFee: number;
   trialDays: number;
   gstAndTax: number;
-
   allowedRoles: string[];
-
   features: Record<string, string[]>;
-
   canCreateCustomRole: boolean;
   status: string;
   createdBy: string;
@@ -45,7 +41,7 @@ interface PlanPayload {
 interface BillingPeriod {
   billingPeriodId: string;
   billingPeriod: string;
-  duration: string;
+  duration: number;
   price?: number;
   discount?: number;
   gstRate?: number;
@@ -73,8 +69,7 @@ const calculateBillingAmounts = (
   };
 };
 
-// Shared by per-row edits and the GST-sync flow so a billing period's pricing
-// on the backend never drifts from what the table shows.
+
 const persistBillingPeriodPricing = (planId: string, row: BillingPeriod) =>
   axios.put(
     `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_BILLING_PERIOD}`
@@ -90,21 +85,6 @@ const persistBillingPeriodPricing = (planId: string, row: BillingPeriod) =>
   );
 
 const steps = [1, 2, 3, 4];
-
-// const features = [
-//   "Student Management",
-//   "Attendance",
-//   "Dashboard",
-//   "Reports",
-//   "Fees",
-//   "Exams",
-//   "Library",
-//   "Transport",
-//   "Staff",
-//   "Parent Portal",
-//   "Notification",
-//   "Inventory",
-// ];
 
 const roles = [
   "Admin",
@@ -244,7 +224,7 @@ const CreatePlan = ({ onClose }: Props) => {
   const [isSavingBillingPeriod, setIsSavingBillingPeriod] = useState(false);
   const [billingPeriodForm, setBillingPeriodForm] = useState({
     billingPeriod: "",
-    duration: "",
+    duration: 0,
   });
   const [billingPeriodFormErrors, setBillingPeriodFormErrors] = useState<{
     billingPeriod?: string;
@@ -369,7 +349,7 @@ const CreatePlan = ({ onClose }: Props) => {
   };
 
   const resetBillingPeriodForm = () => {
-    setBillingPeriodForm({ billingPeriod: "", duration: "" });
+    setBillingPeriodForm({ billingPeriod: "", duration: 0 });
     setBillingPeriodFormErrors({});
   };
 
@@ -391,14 +371,8 @@ const CreatePlan = ({ onClose }: Props) => {
     return normalized;
   };
 
-  const normalizeDuration = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-
-    const match = trimmed.match(/^(\d+)\s*([a-zA-Z]+)$/);
-    if (!match) return trimmed;
-
-    return `${match[1]} ${match[2].toLowerCase()}`;
+  const normalizeDuration = (value: number) => {
+    return Number.isFinite(value) && value > 0 ? value : 0;
   };
 
   const handleSaveBillingPeriod = async () => {
@@ -410,7 +384,7 @@ const CreatePlan = ({ onClose }: Props) => {
       errors.billingPeriod = "Billing period is required";
     }
 
-    if (!duration) {
+    if (duration <= 0) {
       errors.duration = "Duration is required";
     }
 
@@ -1054,7 +1028,7 @@ const CreatePlan = ({ onClose }: Props) => {
                                 className="border-t border-[#D9DDE8] text-[#0f172a] dark:border-[#5c5c5c] dark:text-[#f4f4f5]"
                               >
                                 <td className="px-3 py-3">{row.billingPeriod}</td>
-                                <td className="px-3 py-3">{row.duration}</td>
+                                <td className="px-3 py-3">{row.duration} Month</td>
                                 <td className="px-2 py-3">
                                   <input
                                     type="number"
@@ -1070,7 +1044,7 @@ const CreatePlan = ({ onClose }: Props) => {
                                     onBlur={() => handleBillingPeriodBlur(row.billingPeriodId)}
                                     placeholder="0"
                                     className="w-[80px] h-[32px] rounded-[8px] border border-[#D9DDE8] bg-white px-2 text-[12px] outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#5c5c5c]"
-                                  />
+                                  /> 
                                 </td>
                                 <td className="px-2 py-3">
                                   <input
@@ -1400,19 +1374,20 @@ const CreatePlan = ({ onClose }: Props) => {
 
               <div>
                 <label className="block text-sm text-[#010E30] dark:text-[#ccc] font-medium mb-2">
-                  Duration
+                  Duration (in months)
                 </label>
 
                 <input
-                  type="text"
-                  value={billingPeriodForm.duration}
+                  type="number"
+                  min={1}
+                  value={billingPeriodForm.duration === 0 ? "" : billingPeriodForm.duration}
                   onChange={(e) =>
                     setBillingPeriodForm((prev) => ({
                       ...prev,
-                      duration: e.target.value,
+                      duration: e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
-                  placeholder="1 month"
+                  placeholder="1"
                   className="w-full h-8 text-xs dark:bg-[#343434] rounded-sm border border-[#D4D4D4] dark:border-[#5c5c5c] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:placeholder:text-[#808080]"
                 />
 

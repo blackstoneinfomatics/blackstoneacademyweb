@@ -75,8 +75,7 @@ const PlansTable = () => {
   };
 
   const [openMenu, setOpenMenu] = useState<number | null>(null);
-  // Which billing period is picked per row in the table's Billing Cycle dropdown,
-  // keyed by planId, so the Price column can show that period's price.
+
   const [selectedBillingPeriodByPlan, setSelectedBillingPeriodByPlan] = useState<
     Record<string, string>
   >({});
@@ -310,7 +309,7 @@ const PlansTable = () => {
     Array<{
       billingPeriodId?: string;
       period: string;
-      duration: string;
+      duration: number;
       price: number;
       discount: number;
       gstRate?: number;
@@ -336,7 +335,7 @@ const PlansTable = () => {
       : [
           {
             period: String(formData.billingCycle || "Custom"),
-            duration: "-",
+            duration: 0,
             price: Number(formData.monthlyPrice || 0),
             discount: 0,
           },
@@ -407,12 +406,17 @@ const PlansTable = () => {
               const months = Number(
                 record.durationInMonths ?? record.months ?? record.durationMonths ?? 0,
               );
-              const durationLabel =
-                record.duration ??
-                record.durationLabel ??
-                (months > 0
-                  ? `${months} Month${months > 1 ? "s" : ""}`
-                  : "-");
+              const rawDuration = record.duration ?? record.durationLabel;
+              let duration = months;
+
+              if (duration <= 0 && typeof rawDuration === "number") {
+                duration = rawDuration;
+              }
+
+              if (duration <= 0 && typeof rawDuration === "string") {
+                const matched = rawDuration.match(/\d+/);
+                duration = matched ? Number(matched[0]) : 0;
+              }
 
               const periodLabel =
                 typeof record.billingPeriod === "string"
@@ -423,7 +427,7 @@ const PlansTable = () => {
                 billingPeriodId:
                   record.billingPeriodId ?? record.id ?? record._id,
                 period: String(periodLabel),
-                duration: String(durationLabel),
+                duration,
                 price: Number(record.price ?? record.amount ?? record.monthlyPrice ?? 0),
                 discount: Number(record.discount ?? record.discountPercent ?? 0),
                 gstRate: Number(record.gstRate ?? plan.gstAndTax ?? 0),
@@ -529,7 +533,7 @@ const PlansTable = () => {
   const [isSavingBillingPeriod, setIsSavingBillingPeriod] = useState(false);
   const [billingPeriodForm, setBillingPeriodForm] = useState({
     billingPeriod: "",
-    duration: "",
+    duration: 0,
   });
   const [billingPeriodFormErrors, setBillingPeriodFormErrors] = useState<{
     billingPeriod?: string;
@@ -537,7 +541,7 @@ const PlansTable = () => {
   }>({});
 
   const resetBillingPeriodForm = () => {
-    setBillingPeriodForm({ billingPeriod: "", duration: "" });
+    setBillingPeriodForm({ billingPeriod: "", duration: 0 });
     setBillingPeriodFormErrors({});
   };
 
@@ -557,26 +561,20 @@ const PlansTable = () => {
       );
   };
 
-  const normalizeDurationLabel = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-
-    const match = trimmed.match(/^(\d+)\s*([a-zA-Z]+)$/);
-    if (!match) return trimmed;
-
-    return `${match[1]} ${match[2].toLowerCase()}`;
+  const normalizeDuration = (value: number) => {
+    return Number.isFinite(value) && value > 0 ? value : 0;
   };
 
   const handleAddBillingPeriod = async () => {
     const billingPeriod = normalizeBillingPeriodLabel(billingPeriodForm.billingPeriod);
-    const duration = normalizeDurationLabel(billingPeriodForm.duration);
+    const duration = normalizeDuration(billingPeriodForm.duration);
     const errors: { billingPeriod?: string; duration?: string } = {};
 
     if (!billingPeriod) {
       errors.billingPeriod = "Billing period is required";
     }
 
-    if (!duration) {
+    if (duration <= 0) {
       errors.duration = "Duration is required";
     }
 
@@ -883,7 +881,9 @@ const PlansTable = () => {
                               key={bp.billingPeriodId ?? bpIndex}
                               value={bp.billingPeriodId ?? bp.billingPeriod}
                             >
-                              {bp.billingPeriod} - {bp.duration}
+                              {bp.billingPeriod} - {Number(bp.duration) > 0
+                                ? `${Number(bp.duration)} Month`
+                                : "-"}
                             </option>
                           ))}
                         </select>
@@ -1612,7 +1612,11 @@ ${
                             className="border-t border-[#EEF2F7] text-[#344054]"
                           >
                             <td className="px-3 py-2">{String(row.period)}</td>
-                            <td className="px-3 py-2">{String(row.duration)}</td>
+                            <td className="px-3 py-2">
+                              {row.duration > 0
+                                ? `${row.duration} Month${row.duration > 1 ? "s" : ""}`
+                                : "-"}
+                            </td>
                             <td className="px-3 py-2">
                               <input
                                 type="number"
@@ -1846,15 +1850,16 @@ ${
                 </label>
 
                 <input
-                  type="text"
-                  value={billingPeriodForm.duration}
+                  type="number"
+                  min={1}
+                  value={billingPeriodForm.duration === 0 ? "" : billingPeriodForm.duration}
                   onChange={(e) =>
                     setBillingPeriodForm((prev) => ({
                       ...prev,
-                      duration: e.target.value,
+                      duration: e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
-                  placeholder="1 month"
+                  placeholder="1"
                   className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
                 />
 
