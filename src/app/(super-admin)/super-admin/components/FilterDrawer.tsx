@@ -79,6 +79,8 @@ rounded-xl
 border
 border-[#E8E8E8]
 bg-white
+dark:border-[#454545]
+dark:bg-[#343434]
 shadow-2xl
 animate-in
 zoom-in-95
@@ -87,11 +89,16 @@ duration-200
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-[#EAECF0] px-5 py-4">
-            <h2 className="text-lg font-semibold text-[#101828]">{title}</h2>
+          <div className="flex items-center justify-between border-b border-[#EAECF0] px-5 py-4 dark:border-[#454545]">
+            <h2 className="text-lg font-medium text-[#101828] dark:text-[#F1F5F9]">
+              {title}
+            </h2>
 
             <button onClick={onClose}>
-              <X size={20} className="text-[#CCCFD6] hover:text-gray-700" />
+              <X
+                size={20}
+                className="text-[#CCCFD6] hover:text-gray-700 dark:text-[#AEB6C5] dark:hover:text-white"
+              />
             </button>
           </div>
 
@@ -99,7 +106,7 @@ duration-200
           <div className="space-y-5 p-5">
             {fields.map((field) => (
               <div key={field.key}>
-                <label className="mb-2 block text-sm font-normal text-[#101828]">
+                <label className="mb-2 block text-sm font-normal text-[#101828] dark:text-[#d5d5d5]">
                   {field.label}
                 </label>
 
@@ -109,20 +116,20 @@ duration-200
           </div>
 
           {/* Footer */}
-          <div className="flex gap-4 border-t border-[#EAECF0] p-5">
+          <div className="flex gap-4 border-t border-[#EAECF0] p-5 dark:border-[#454545]">
             <button
               onClick={() => {
                 setFilters({});
                 onReset?.();
               }}
-              className="flex-1 h-8 rounded-lg border border-[#576CBC] py-2 text-xs font-medium text-[#576CBC] hover:bg-[#F5F7FF]"
+              className="flex-1 h-8 rounded-lg border border-[#576CBC] py-2 text-xs font-medium text-[#576CBC] hover:bg-[#F5F7FF] dark:border-[#8FA4FF] dark:text-[#B7C2FF] dark:hover:bg-[#40386B]"
             >
               Reset
             </button>
 
             <button
               onClick={() => onApply(filters)}
-              className="flex-[1.5] h-8 rounded-lg bg-[#576CBC] py-2 text-xs font-medium text-white hover:bg-[#475DB8]"
+              className="flex-[1.5] h-8 rounded-lg bg-[#576CBC] py-2 text-xs font-medium text-white hover:bg-[#475DB8] dark:bg-[#657AD0] dark:hover:bg-[#7B8DE0]"
             >
               Show {resultCount} Results
             </button>
@@ -165,7 +172,10 @@ function renderField(
             text-[#010E30CC]/80
             outline-none
             transition
-            focus:border-[#576CBC]
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]
           "
         />
       );
@@ -195,6 +205,9 @@ function renderField(
               outline-none
               transition
               focus:border-[#576CBC]
+              dark:border-[#555B68]
+              dark:bg-[#2F2F2F]
+              dark:text-[#E2E6EE]
             "
           >
             <option value="">{field.placeholder}</option>
@@ -215,6 +228,7 @@ function renderField(
               top-1/2
               -translate-y-1/2
             text-[#010E30CC]/80
+            dark:text-[#E2E6EE]
             "
           />
         </div>
@@ -240,9 +254,12 @@ function renderField(
               px-4
               pr-10
               text-xs
-             text-[#010E30CC]/80
+            text-[#010E30CC]/80
               outline-none
               focus:border-[#576CBC]
+              dark:border-[#555B68]
+              dark:bg-[#2F2F2F]
+              dark:text-[#E2E6EE]
             "
           />
 
@@ -254,7 +271,7 @@ function renderField(
               right-3
               top-1/2
               -translate-y-1/2
-                          text-[#010E30CC]/80
+                          text-[#010E30CC]/80 dark:text-[#AEB6C5]
 
             "
           />
@@ -272,14 +289,14 @@ function renderField(
             value={filters[`${field.key}From`] || null}
             onChange={(date) => updateField(`${field.key}From`, date)}
             placeholder="Jan 20, 2020"
-            inputClassName=" h-8 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-xs text-[#010E30CC] outline-none focus:border-[#576CBC] "
+            inputClassName=" h-8 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-xs text-[#010E30CC] outline-none focus:border-[#576CBC] dark:border-[#555B68] dark:bg-[#2F2F2F] dark:text-[#E2E6EE] dark:placeholder:text-[#8F98A8] "
           />
 
           <DatePickerInput
             value={filters[`${field.key}To`] || null}
             onChange={(date) => updateField(`${field.key}To`, date)}
             placeholder="Jan 24, 2020"
-            inputClassName=" h-8 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-xs text-[#010E30CC] outline-none focus:border-[#576CBC] "
+            inputClassName=" h-8 w-full rounded-lg border border-[#D4D4D4] bg-white px-3 pr-10 text-xs text-[#010E30CC] outline-none focus:border-[#576CBC] dark:border-[#555B68] dark:bg-[#2F2F2F] dark:text-[#E2E6EE] dark:placeholder:text-[#8F98A8] "
           />
         </div>
       );

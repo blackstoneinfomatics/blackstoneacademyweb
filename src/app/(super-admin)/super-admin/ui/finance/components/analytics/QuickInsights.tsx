@@ -18,38 +18,38 @@ const insights: Array<{
     title: "Best Revenue Month",
     subtitle: "Learning management",
     icon: GoTrophy,
-    iconBg: "bg-[#EDE9FE]",
-    iconColor: "text-[#7C3AED]",
+    iconBg: "bg-[#EDE9FE] dark:bg-[#493B70]",
+    iconColor: "text-[#7C3AED] dark:text-[#C4B5FD]",
   },
   {
     id: 2,
     title: "Top Paying Tenant",
     subtitle: "Premium",
     icon: LuCrown,
-    iconBg: "bg-[#DBEAFE]",
-    iconColor: "text-[#1D4ED8]",
+    iconBg: "bg-[#DBEAFE] dark:bg-[#294B73]",
+    iconColor: "text-[#1D4ED8] dark:text-[#93C5FD]",
   },
   {
     id: 3,
     title: "Collection Rate",
     subtitle: "30 mins ago",
     icon: "/assets/images/collectionrate.svg",
-    iconBg: "bg-[#FEF3E0]",
-    iconColor: "text-[#B45309]",
+    iconBg: "bg-[#FEF3E0] dark:bg-[#5A4524]",
+    iconColor: "text-[#B45309] dark:text-[#FCD34D]",
   },
   {
     id: 4,
     title: "Overdue Amount",
     subtitle: "30 mins ago",
     icon: LuCrown,
-    iconBg: "bg-[#FEE2E2]",
-    iconColor: "text-[#EA4F4F]",
+    iconBg: "bg-[#FEE2E2] dark:bg-[#5A3030]",
+    iconColor: "text-[#EA4F4F] dark:text-[#FCA5A5]",
   },
 ];
 
 export default function QuickInsights() {
   return (
-    <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-sm h-full">
+    <div className="h-full rounded-2xl border border-transparent bg-white shadow-sm dark:border-[#454545] dark:bg-[#343434]">
       {/* Header */}
 
       <div className="px-5 pt-5 pb-2">

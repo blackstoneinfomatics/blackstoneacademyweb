@@ -1,14 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, type LucideIcon } from "lucide-react";
 
 interface StatsCardProps {
   title: string;
   value: string | number;
   percentage: number;
   isPositive?: boolean;
-  image: string;
+  image?: string;
+  icon?: string | LucideIcon | React.ComponentType<any>;
   imageAlt?: string;
   iconBg: string;
   titleColor: string;
@@ -20,13 +21,14 @@ const StatsCard = ({
   percentage,
   isPositive = true,
   image,
+  icon: Icon,
   imageAlt,
   iconBg,
   titleColor,
 }: StatsCardProps) => {
   return (
     <div
-      className="w-full rounded-2xl bg-white transition-all duration-300 hover:shadow-lg"
+      className="w-full rounded-2xl border border-transparent bg-white transition-all duration-300 hover:shadow-lg dark:border-[#454545] dark:bg-[#343434]"
       style={{
         padding: "clamp(14px, 1.2vw, 20px)",
         boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
@@ -45,17 +47,27 @@ const StatsCard = ({
             height: "clamp(42px, 3vw, 48px)",
           }}
         >
-          <Image
-            src={image}
-            alt={imageAlt ?? title}
-            width={24}
-            height={24}
-            className="object-contain"
-            style={{
-              width: "clamp(18px,1.4vw,24px)",
-              height: "clamp(18px,1.4vw,24px)",
-            }}
-          />
+          {Icon ? (
+            <Icon
+              className={titleColor}
+              style={{
+                width: "clamp(18px,1.4vw,24px)",
+                height: "clamp(18px,1.4vw,24px)",
+              }}
+            />
+          ) : image ? (
+            <Image
+              src={image}
+              alt={imageAlt ?? title}
+              width={24}
+              height={24}
+              className="object-contain"
+              style={{
+                width: "clamp(18px,1.4vw,24px)",
+                height: "clamp(18px,1.4vw,24px)",
+              }}
+            />
+          ) : null}
         </div>
 
         <div className="flex-1">
@@ -70,7 +82,7 @@ const StatsCard = ({
           </h3>
 
           <p
-            className="font-semibold text-[#232323]"
+            className="font-semibold text-[#232323] dark:text-[#ccc]"
             style={{
               fontSize: "clamp(18px, 1.8vw, 24px)",
               marginTop: "clamp(4px, 0.5vw, 8px)",
@@ -109,11 +121,10 @@ const StatsCard = ({
                   }}
                 />
               )}
-
               {percentage}%
             </span>
 
-            <span className="text-[#666666]">
+            <span className="text-[#666666] dark:text-[#AEB6C5]">
               vs last Month
             </span>
           </div>

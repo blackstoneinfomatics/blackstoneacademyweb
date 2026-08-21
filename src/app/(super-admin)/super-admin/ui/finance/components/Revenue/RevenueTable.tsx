@@ -309,8 +309,13 @@ const RevenueTable = () => {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between px-2 py-1">
-        <h2 className="text-[19px] font-semibold text-[#000] dark:text-[#fff]">
-          Revenue Summary
+        <h2
+          className="mb-4 font-medium text-[#010E30E5]/90"
+          style={{
+            fontSize: "clamp(16px, 1.2vw, 20px)",
+            lineHeight: "1.4",
+          }}
+        >          Revenue Summary
         </h2>
 
         <button

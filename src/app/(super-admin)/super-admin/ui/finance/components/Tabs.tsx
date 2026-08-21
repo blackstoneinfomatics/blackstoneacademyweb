@@ -65,16 +65,16 @@ export default function Tabs({ activeTab, onTabChange }: TabsProps) {
 
   return (
     <div className="w-full">
-  <div className="border-b border-gray-200 overflow-x-auto scrollbar-hide">
-    <div className="flex min-w-max gap-8 px-1">
-      {tabs.map((tab) => {
-        const active = activeTab === tab.id;
+      <div className="overflow-x-auto scrollbar-hide">
+        <div className="flex min-w-max gap-8 px-1">
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id;
 
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={`
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className={`
               whitespace-nowrap
               py-1
               text-sm sm:text-base
@@ -83,21 +83,19 @@ export default function Tabs({ activeTab, onTabChange }: TabsProps) {
               border-b-[2.5px]
               ${
                 active
-                  ? "border-[#576CBC] text-[#576CBC] dark:text-[#576CBC]"
-                  : "border-transparent text-[#1E293B] hover:text-[#576CBC]"
+                  ? "border-[#576CBC] text-[#576CBC] dark:text-[#8FA4FF]"
+                  : "border-transparent text-[#1E293B] hover:text-[#97a4d7] dark:text-[#CBD5E1] dark:hover:text-[#8FA4FF]"
               }
             `}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
-    </div>
-  </div>
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-  <div className="mt-6">
-    {activeContent}
-  </div>
-</div>
+      <div className="mt-6">{activeContent}</div>
+    </div>
   );
 }

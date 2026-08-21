@@ -20,10 +20,10 @@ export default function TableToolbar({
   onFilterClick,
 }: TableToolbarProps) {
   return (
-    <div className="grid grid-cols-1 overflow-hidden rounded-t-lg border border-[#E8E8E8] bg-white md:grid-cols-3">
+    <div className="grid grid-cols-1 overflow-hidden rounded-t-lg border border-[#E8E8E8] bg-white dark:border-[#454545] dark:bg-[#343434] md:grid-cols-3">
       {/* Search */}
       <div
-        className="flex items-center border-b border-[#E8E8E8] md:border-b-0 md:border-r"
+        className="flex items-center border-b border-[#E8E8E8] dark:border-[#454545] md:border-b-0 md:border-r"
         style={{
           height: "clamp(36px, 4vw, 42px)",
           paddingInline: "clamp(12px, 1vw, 16px)",
@@ -41,10 +41,9 @@ export default function TableToolbar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full bg-transparent outline-none placeholder:text-[#A0A0A0]"
+          className="w-full bg-transparent outline-none placeholder:text-[#8F98A8] dark:placeholder:text-[#8F98A8]"
           style={{
             fontSize: "clamp(14px, 0.9vw, 15px)",
-            color: "#242424",
           }}
         />
       </div>
@@ -52,7 +51,7 @@ export default function TableToolbar({
       {/* Filter */}
       <button
         onClick={onFilterClick}
-        className="flex items-center justify-between border-b border-[#E8E8E8] transition hover:bg-gray-50 md:border-b-0 md:border-r"
+        className="flex items-center justify-between border-b border-[#E8E8E8] transition hover:bg-gray-50 dark:border-[#454545] dark:hover:bg-[#3B3B3B] md:border-b-0 md:border-r"
         style={{
           height: "clamp(36px, 4vw, 42px)",
           paddingInline: "clamp(12px, 1vw, 16px)",
@@ -65,7 +64,7 @@ export default function TableToolbar({
           }}
         >
           <SlidersHorizontal
-            className="text-[#A5A5A5]"
+            className="text-[#A5A5A5] dark:text-[#AEB6C5]"
             style={{
               width: "clamp(15px, 1.1vw, 18px)",
               height: "clamp(15px, 1.1vw, 18px)",
@@ -73,9 +72,9 @@ export default function TableToolbar({
           />
 
           <span
+            className="text-[#757575] dark:text-[#CBD5E1]"
             style={{
               fontSize: "clamp(14px, 0.9vw, 15px)",
-              color: "#757575",
             }}
           >
             Filter
@@ -83,7 +82,7 @@ export default function TableToolbar({
         </div>
 
         <ChevronDown
-          className="text-[#A5A5A5]"
+          className="text-[#A5A5A5] dark:text-[#AEB6C5]"
           style={{
             width: "clamp(14px, 1vw, 16px)",
             height: "clamp(14px, 1vw, 16px)",
@@ -100,9 +99,9 @@ export default function TableToolbar({
         }}
       >
         <span
+          className="text-[#909090] dark:text-[#AEB6C5]"
           style={{
             fontSize: "clamp(14px, 0.9vw, 15px)",
-            color: "#909090",
           }}
         >
           Showing {showing} of {total}

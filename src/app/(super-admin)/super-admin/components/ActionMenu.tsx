@@ -59,7 +59,7 @@ export default function ActionDropdown<T>({
 
     const rect = triggerRef.current.getBoundingClientRect();
 
-    const menuWidth = 176; // w-44
+    const menuWidth = 112; // w-28
     const menuHeight = items.length * 50;
 
     let top = rect.bottom + 6;
@@ -81,15 +81,17 @@ export default function ActionDropdown<T>({
       left = 10;
     }
 
-    setPosition({ top, left });
-  }, [open, items]);
+    setPosition((previous) =>
+      previous.top === top && previous.left === left ? previous : { top, left },
+    );
+  }, [open, items.length]);
 
   return (
     <>
       <div ref={triggerRef} className="flex justify-center">
         <button
           onClick={() => setOpen((prev) => !prev)}
-          className="rounded-md p-1 hover:bg-gray-100"
+          className="rounded-md p-1 hover:bg-gray-100 dark:hover:bg-[#343434]"
         >
           <MoreVertical
             style={{
@@ -105,7 +107,7 @@ export default function ActionDropdown<T>({
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[9999] flex w-40 flex-col overflow-hidden rounded-lg border border-[#E8E8E8] bg-white shadow-lg"
+            className="fixed z-[9999] flex w-28 flex-col overflow-hidden rounded-lg border border-[#E8E8E8] bg-white text-gray-900 shadow-lg dark:border-[#4A4A4A] dark:bg-[#343434] dark:text-white"
             style={{
               top: position.top,
               left: position.left,
@@ -115,11 +117,10 @@ export default function ActionDropdown<T>({
               <button
                 key={index}
                 onClick={() => {
-                  console.log("Menu Item Clicked");
                   item.onClick(row);
                   setOpen(false);
                 }}
-                className={`block w-full border-b-2 border-[#D4D4D4] px-4 py-3 text-center text-xs font-medium last:border-b-0 hover:bg-gray-50 ${
+                className={`block w-full border-b-2 border-[#D4D4D4] px-3 py-2 text-center text-xs font-medium last:border-b-0 hover:bg-gray-50 dark:border-[#343434] dark:hover:bg-[#343434] ${
                   item.className ?? ""
                 }`}
               >

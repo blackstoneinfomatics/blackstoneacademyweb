@@ -14,9 +14,8 @@ const revenueData = [
 ];
 
 const netRevenueData = [
-  2000, 22000, 9000, 15000, 7000, 13000, 10000, 17000,
-  7000, 11000, 9000, 14000, 10000, 13000, 8000, 12000,
-  7000, 5000, 10000, 9000, 15000, 12000, 14000, 7000,
+  2000, 22000, 9000, 15000, 7000, 13000, 10000, 17000, 7000, 11000, 9000, 14000,
+  10000, 13000, 8000, 12000, 7000, 5000, 10000, 9000, 15000, 12000, 14000, 7000,
   9000, 12000, 10000, 15000, 11000, 12000, 9000, 10000,
 ];
 
@@ -48,11 +47,9 @@ const RevenueOverview = () => {
 
   const miniPoints = netRevenueData
     .map((value, index) => {
-      const x =
-        (index / (netRevenueData.length - 1)) * miniWidth;
+      const x = (index / (netRevenueData.length - 1)) * miniWidth;
 
-      const y =
-        miniHeight - (value / miniMax) * miniHeight;
+      const y = miniHeight - (value / miniMax) * miniHeight;
 
       return `${x},${y}`;
     })
@@ -67,25 +64,19 @@ const RevenueOverview = () => {
   return (
     <div className="w-full grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4 mt-4">
       {/* ================= LEFT : REVENUE GROWTH ================= */}
-      <div className="bg-white rounded-[18px] p-4 sm:p-5 shadow-sm min-w-0">
+      <div className="bg-white dark:bg-[#343434] rounded-[18px] p-4 sm:p-5 shadow-sm min-w-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[16px] font-semibold text-[#242424]">
+          <h2 className="text-[16px] font-semibold text-[#242424] dark:text-white">
             Revenue Growth
           </h2>
 
-          <button className="flex items-center gap-2 bg-[#f3f3f3] hover:bg-[#eaeaea] transition px-3 py-1.5 rounded-md text-[11px] text-[#666]">
+          <button className="flex items-center gap-2 rounded-md bg-[#f3f3f3] px-3 py-1.5 text-[11px] text-[#666] transition hover:bg-[#eaeaea] dark:bg-[#454545] dark:text-[#D1D5DB] dark:hover:bg-[#505050]">
             Yearly
-
-            <svg
-              width="10"
-              height="6"
-              viewBox="0 0 10 6"
-              fill="none"
-            >
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
               <path
                 d="M1 1L5 5L9 1"
-                stroke="#777"
+                stroke="currentColor"
                 strokeWidth="1.3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -99,18 +90,28 @@ const RevenueOverview = () => {
           <div className="flex">
             {/* Y Axis */}
             <div className="w-[42px] shrink-0 h-[205px] flex flex-col justify-between pt-1 pb-[18px]">
-              <span className="text-[9px] text-[#777]">100k</span>
-              <span className="text-[9px] text-[#777]">50k</span>
-              <span className="text-[9px] text-[#777]">20k</span>
-              <span className="text-[9px] text-[#777]">10k</span>
-              <span className="text-[9px] text-[#777]">0</span>
+              <span className="text-[9px] text-[#777] dark:text-[#AEB6C5]">
+                100k
+              </span>
+              <span className="text-[9px] text-[#777] dark:text-[#AEB6C5]">
+                50k
+              </span>
+              <span className="text-[9px] text-[#777] dark:text-[#AEB6C5]">
+                20k
+              </span>
+              <span className="text-[9px] text-[#777] dark:text-[#AEB6C5]">
+                10k
+              </span>
+              <span className="text-[9px] text-[#777] dark:text-[#AEB6C5]">
+                0
+              </span>
             </div>
 
             {/* Graph */}
             <div className="flex-1 min-w-0">
               <svg
                 viewBox={`0 0 ${chartWidth} ${chartHeight + 30}`}
-                className="w-full h-[205px]"
+                className="w-full h-[205px] text-[#eeeeee] dark:text-[#555555]"
                 preserveAspectRatio="none"
               >
                 <defs>
@@ -121,15 +122,11 @@ const RevenueOverview = () => {
                     x2="0"
                     y2="1"
                   >
-                    <stop
-                      offset="0%"
-                      stopColor="#A9DDB8"
-                      stopOpacity="0.72"
-                    />
+                    <stop offset="0%" stopColor="#75C98D" stopOpacity="0.72" />
 
                     <stop
                       offset="100%"
-                      stopColor="#DFF3E5"
+                      stopColor="#2F5A3A"
                       stopOpacity="0.25"
                     />
                   </linearGradient>
@@ -146,7 +143,7 @@ const RevenueOverview = () => {
                       y1={y}
                       x2={chartWidth}
                       y2={y}
-                      stroke="#eeeeee"
+                      stroke="currentColor"
                       strokeWidth="1"
                     />
                   );
@@ -163,7 +160,7 @@ const RevenueOverview = () => {
                       y1="0"
                       x2={x}
                       y2={chartHeight}
-                      stroke="#f0f0f0"
+                      stroke="currentColor"
                       strokeWidth="1"
                     />
                   );
@@ -192,7 +189,7 @@ const RevenueOverview = () => {
                   y1={chartHeight}
                   x2={chartWidth}
                   y2={chartHeight}
-                  stroke="#eeeeee"
+                  stroke="currentColor"
                 />
               </svg>
 
@@ -201,7 +198,7 @@ const RevenueOverview = () => {
                 {revenueData.map((item) => (
                   <span
                     key={item.year}
-                    className="text-[9px] text-[#777] text-center"
+                    className="text-[9px] text-[#777] text-center dark:text-[#AEB6C5]"
                   >
                     {item.year}
                   </span>
@@ -213,38 +210,38 @@ const RevenueOverview = () => {
       </div>
 
       {/* ================= RIGHT : COLLECTION / REVENUE ================= */}
-      <div className="bg-white rounded-[18px] p-4 sm:p-5 shadow-sm min-w-0">
+      <div className="bg-white dark:bg-[#343434] rounded-[18px] p-2 sm:p-4 shadow-sm min-w-0">
         {/* Top Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
           {/* Collection */}
-          <div className="bg-[#fafafa] border border-[#eeeeee] rounded-md h-[100px] flex flex-col items-center justify-center">
-            <p className="text-[12px] text-[#777] font-medium mb-1">
+          <div className="bg-[#fafafa] border border-[#eeeeee] rounded-xl h-[100px] flex flex-col items-center justify-center dark:bg-[#3D3D3D] dark:border-[#505050]">
+            <p className="text-[12px] text-[#777] font-medium mb-1 dark:text-[#B7B7B7]">
               TOTAL COLLECTION RATE
             </p>
 
             <div className="flex items-center gap-2">
-              <span className="text-[25px] leading-none font-semibold text-[#292929]">
+              <span className="text-[25px] leading-none font-semibold text-[#292929] dark:text-white">
                 1,50,000
               </span>
 
-              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px]">
+              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px] dark:bg-[#294D32] dark:text-[#A7E3B0]">
                 +14%
               </span>
             </div>
           </div>
 
           {/* Overdue */}
-          <div className="bg-[#fafafa] border border-[#eeeeee] rounded-md h-[100px] flex flex-col items-center justify-center">
-            <p className="text-[12px] text-[#777] font-medium mb-1">
+          <div className="bg-[#fafafa] border border-[#eeeeee] rounded-xl h-[100px] flex flex-col items-center justify-center dark:bg-[#3D3D3D] dark:border-[#505050]">
+            <p className="text-[12px] text-[#777] font-medium mb-1 dark:text-[#B7B7B7]">
               TOTAL OVERDUE RATE
             </p>
 
             <div className="flex items-center gap-2">
-              <span className="text-[25px] leading-none font-semibold text-[#292929]">
+              <span className="text-[25px] leading-none font-semibold text-[#292929] dark:text-white">
                 2,00,000
               </span>
 
-              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px]">
+              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px] dark:bg-[#294D32] dark:text-[#A7E3B0]">
                 +14%
               </span>
             </div>
@@ -252,19 +249,19 @@ const RevenueOverview = () => {
         </div>
 
         {/* Net Revenue */}
-        <div className="relative h-[155px] overflow-hidden rounded-md bg-gradient-to-b from-[#F4F2FF] to-[#F9F8FF] border border-[#F0EEFF]">
+        <div className="relative h-[155px] overflow-hidden rounded-xl border border-[#F0EEFF] bg-gradient-to-b from-[#F4F2FF] to-[#F9F8FF] dark:border-[#4B4B5A] dark:from-[#3B3A52] dark:to-[#302F42]">
           {/* Heading */}
           <div className="relative z-10 flex flex-col items-center pt-6">
-            <p className="text-[12px] text-[#777] font-medium mb-1">
+            <p className="text-[12px] text-[#777] font-medium mb-1 dark:text-[#B7B7B7]">
               NET REVENUE
             </p>
 
             <div className="flex items-center gap-2">
-              <span className="text-[25px] leading-none font-semibold text-[#292929]">
+              <span className="text-[25px] leading-none font-semibold text-[#292929] dark:text-white">
                 50,00,000
               </span>
 
-              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px]">
+              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px] dark:bg-[#294D32] dark:text-[#A7E3B0]">
                 +3.4%
               </span>
             </div>
@@ -278,32 +275,15 @@ const RevenueOverview = () => {
               className="w-full h-full"
             >
               <defs>
-                <linearGradient
-                  id="miniGradient"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="0%"
-                    stopColor="#C6C1F5"
-                    stopOpacity="0.45"
-                  />
+                <linearGradient id="miniGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#827BD1" stopOpacity="0.45" />
 
-                  <stop
-                    offset="100%"
-                    stopColor="#E9E7FF"
-                    stopOpacity="0.2"
-                  />
+                  <stop offset="100%" stopColor="#454267" stopOpacity="0.2" />
                 </linearGradient>
               </defs>
 
               {/* Area */}
-              <polygon
-                points={miniAreaPoints}
-                fill="url(#miniGradient)"
-              />
+              <polygon points={miniAreaPoints} fill="url(#miniGradient)" />
 
               {/* Line */}
               <polyline

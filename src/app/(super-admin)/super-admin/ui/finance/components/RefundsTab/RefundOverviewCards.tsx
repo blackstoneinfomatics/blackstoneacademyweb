@@ -2,16 +2,17 @@ import React from "react";
 import { FaRegClock } from "react-icons/fa";
 import { IoWalletOutline } from "react-icons/io5";
 import { MdCancel } from "react-icons/md";
-
 import Image from "next/image";
+import StatsCard from "../../../../components/StatsCard";
+import { CircleX, Clock3, Receipt, Wallet } from "lucide-react";
+import { TbReceiptFilled } from "react-icons/tb";
 
 const cards = [
   {
     title: "Total Refunds",
     value: "200",
-    icon: "/assets/images/TotalInvoices.svg",
-    iconBg: "bg-[#E5DFFD]",
-    iconColor: "text-[#5225FC]",
+    icon: TbReceiptFilled,
+    iconBg: "bg-[#EEE9FF] dark:bg-[#40386B]",
     titleColor: "text-[#5225FC]",
     trendValue: "14%",
     trendLabel: "vs last Month",
@@ -21,8 +22,7 @@ const cards = [
     title: "Refunded Amount",
     value: "150",
     icon: IoWalletOutline,
-    iconBg: "bg-[#E3F4E7]",
-    iconColor: "text-[#40BD5F]",
+    iconBg: "bg-[#E8F8EA] dark:bg-[#294D32]",
     titleColor: "text-[#40BD5F]",
     trendValue: "14%",
     trendLabel: "vs last Month",
@@ -32,8 +32,7 @@ const cards = [
     title: "Pending Refunds",
     value: "50",
     icon: FaRegClock,
-    iconBg: "bg-[#FCF0DC]",
-    iconColor: "text-[#F59E0B]",
+    iconBg: "bg-[#FFF3DF] dark:bg-[#5A4524]",
     titleColor: "text-[#F59E0B]",
     trendValue: "14%",
     trendLabel: "vs last Month",
@@ -43,8 +42,7 @@ const cards = [
     title: "Failed Refunds",
     value: "$2,500",
     icon: MdCancel,
-    iconBg: "bg-[#F8E4E4]",
-    iconColor: "text-[#D34645]",
+    iconBg: "bg-[#FDEAEA] dark:bg-[#5A3030]",
     titleColor: "text-[#D34645]",
     trendValue: "14%",
     trendLabel: "vs last Month",
@@ -53,55 +51,19 @@ const cards = [
 ];
 const RefundOverviewCards = () => {
   return (
-    <div className="grid grid-cols-4 gap-4">
-      {cards.map((card, index) => {
-        const Icon = card.icon;
-
-        return (
-          <div
-            key={index}
-            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
-          >
-            <div className="flex items-start gap-4">
-              <div
-                className={`w-14 h-14 rounded-full mt-2 flex items-center justify-center ${card.iconBg}`}
-              >
-                {typeof card.icon === "string" ? (
-                  <Image
-                    src={card.icon}
-                    alt={card.title}
-                    width={24}
-                    height={24}
-                  />
-                ) : (
-                  <card.icon className={`w-6 h-6 ${card.iconColor}`} />
-                )}{" "}
-              </div>
-
-              <div className="space-y-2">
-                <p
-                  className={`text-md mt-[4px] font-medium ${card.titleColor}`}
-                >
-                  {card.title}
-                </p>
-                <h2 className="text-[25px] font-semibold text-gray-800 mt-1">
-                  {card.value}
-                </h2>
-              </div>
-            </div>
-
-            <p className="text-sm mt-3 ml-[70px] flex items-center gap-2 text-[#646464]">
-              <span
-                className={`font-semibold flex items-center gap-1 ${card.trendColor}`}
-              >
-                <span>↑</span>
-                {card.trendValue}
-              </span>
-              <span>{card.trendLabel}</span>
-            </p>
-          </div>
-        );
-      })}
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => (
+        <StatsCard
+          key={card.title}
+          title={card.title}
+          value={card.value}
+          percentage={Number.parseInt(card.trendValue, 10)}
+          isPositive={card.title !== "Failed Refunds"}
+          icon={card.icon}
+          iconBg={card.iconBg}
+          titleColor={card.titleColor}
+        />
+      ))}
     </div>
   );
 };

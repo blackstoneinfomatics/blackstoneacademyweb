@@ -102,7 +102,7 @@
   margin: 2px 0;
   border-radius: 50%;
   font-size: 13px;
-  transition: all .2s ease;
+  transition: all 0.2s ease;
 }
 
 .alf-calendar .react-datepicker__day:hover {
@@ -123,6 +123,39 @@
 
 .alf-calendar .react-datepicker__day--outside-month {
   color: #cfcfcf;
+}
+
+/* Dark theme */
+
+:root.dark .alf-calendar {
+  background: #343434;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: #fff;
+}
+
+:root.dark .alf-calendar .react-datepicker__header {
+  background: #252525;
+}
+
+:root.dark .alf-calendar .react-datepicker__day-name,
+:root.dark .alf-calendar .react-datepicker__day,
+:root.dark .alf-calendar .react-datepicker__time-name {
+  color: #fff;
+}
+
+:root.dark .alf-calendar .react-datepicker__day:hover,
+:root.dark .alf-calendar .react-datepicker__day--selected,
+:root.dark .alf-calendar .react-datepicker__day--keyboard-selected {
+  background: #576cbc;
+  color: #fff;
+}
+
+:root.dark .alf-calendar .react-datepicker__day--today {
+  color: #aebcff;
+}
+
+:root.dark .alf-calendar .react-datepicker__day--outside-month {
+  color: #777;
 }
 
 /* ===========================

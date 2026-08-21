@@ -57,6 +57,8 @@ export const AppApiEndpoints = {
     STUDENT_INVOICE_BYID:"/studentinvoiceById",
     GET_INVOICE_CARD_COUNT: "/subscription-invoices/dashboard-count",
     GET_INVOICE_TABLE: "/subscription-invoices",
+    GET_FINANCE_TRANSATIONS: "/finance/transactions",
+    GET_FINANCE_TRANSATION_CARDS: "/finance/transactions/cards",
   },
 
   CALENDAR: {
