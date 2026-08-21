@@ -12,8 +12,6 @@ import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import axios from "axios";
 
-
-
 interface TenantType {
   tenantCode: string;
   tenantName: string;
@@ -62,210 +60,210 @@ const extractDomain = (value?: string) => {
 
 const page = () => {
   const router = useRouter();
-const searchParams = useSearchParams();
-const tenanttenantCode = searchParams.get("tenantCode");
+  const searchParams = useSearchParams();
+  const tenanttenantCode = searchParams.get("tenantCode");
 
-const [tenants, setTenants] = useState<TenantType[]>([]);
-useEffect(() => {
-  const fetchTenants = async () => {
-    try {
-      const response = await axios.get("http://localhost:5001/tenant");
-      const payload = Array.isArray(response?.data?.tenants)
-        ? response.data.tenants
-        : Array.isArray(response?.data)
-          ? response.data
-          : response?.data?.data
-            ? response.data.data
-            : response?.data
-              ? [response.data]
-              : [];
+  const [tenants, setTenants] = useState<TenantType[]>([]);
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        const response = await axios.get("http://localhost:5001/tenant");
+        const payload = Array.isArray(response?.data?.tenants)
+          ? response.data.tenants
+          : Array.isArray(response?.data)
+            ? response.data
+            : response?.data?.data
+              ? response.data.data
+              : response?.data
+                ? [response.data]
+                : [];
 
-      const mappedTenants = payload.map((item: any, index: number): TenantType => {
-        const createdRaw = item.createdDate || item.createdAt || "";
-        const createdTime = createdRaw ? new Date(createdRaw).getTime() : NaN;
-        const isNew =
-          !Number.isNaN(createdTime) &&
-          Date.now() - createdTime <= NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+        const mappedTenants = payload.map((item: any, index: number): TenantType => {
+          const createdRaw = item.createdDate || item.createdAt || "";
+          const createdTime = createdRaw ? new Date(createdRaw).getTime() : NaN;
+          const isNew =
+            !Number.isNaN(createdTime) &&
+            Date.now() - createdTime <= NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
-        return {
-          tenantCode: item.tenantCode || item.tenantJobCode || `TEN-${index + 1}`,
-          tenantName: item.tenantName || item.organizationName || "N/A",
-          domain: extractDomain(item.website || item.domain || item.emailId || ""),
-          phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
-          email: item.emailId || item.email || "N/A",
-          startDate: formatDate(createdRaw),
-          plan: capitalizeFirst(item.plan || "basic"),
-          users: item.users || 0,
-          renewalDate: formatDate(item.renewalDate || item.activeLicense?.expiryDate),
-          status: item.status || "Active",
-          state: item.state || "",
-          country: item.country || "",
-          city: item.city || "",
-          pincode: item.postalCode || item.pincode || "",
-          isNew,
-        };
-      });
+          return {
+            tenantCode: item.tenantCode || item.tenantJobCode || `TEN-${index + 1}`,
+            tenantName: item.tenantName || item.organizationName || "N/A",
+            domain: extractDomain(item.website || item.domain || item.emailId || ""),
+            phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
+            email: item.emailId || item.email || "N/A",
+            startDate: formatDate(createdRaw),
+            plan: capitalizeFirst(item.plan || "basic"),
+            users: item.users || 0,
+            renewalDate: formatDate(item.renewalDate || item.activeLicense?.expiryDate),
+            status: item.status || "Active",
+            state: item.state || "",
+            country: item.country || "",
+            city: item.city || "",
+            pincode: item.postalCode || item.pincode || "",
+            isNew,
+          };
+        });
 
-      setTenants(mappedTenants);
-    } catch (error) {
-      console.error("Failed to fetch tenants", error);
+        setTenants(mappedTenants);
+      } catch (error) {
+        console.error("Failed to fetch tenants", error);
+      }
+    };
+
+    fetchTenants();
+  }, []);
+  
+  const [openDropdowntenantCode, setOpenDropdowntenantCode] = useState<string | null>(null);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<"All" | "New">("All");
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const [selectedTenant, setSelectedTenant] = useState<TenantType | null>(null);
+  const [filters, setFilters] = useState({
+    tenantName: "",
+    domain: "",
+    plan: "",
+    fromDate: "",
+    toDate: "",
+    renewalFromDate: "",
+    renewalToDate: "",
+    status: "",
+  });
+
+  const itemsPerPage = 10;
+
+  const toggleDropdown = (tenantCode: string) => {
+    setOpenDropdowntenantCode((prev) =>
+      prev === tenantCode ? null : tenantCode
+    );
+  }; 
+
+  const filteredTenants = tenants.filter((tenant) => {
+    const search =
+      tenant.tenantName
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase()) ||
+      tenant.domain
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase()) ||
+      tenant.email
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase());
+
+    const tenantFilter =
+      !filters.tenantName ||
+      tenant.tenantName
+        .toLowerCase()
+        .includes(filters.tenantName.toLowerCase());
+
+    const domainFilter =
+      !filters.domain ||
+      tenant.domain
+        .toLowerCase()
+        .includes(filters.domain.toLowerCase());
+
+    const planFilter =
+      !filters.plan ||
+      tenant.plan === filters.plan;
+
+    const statusFilter =
+      !filters.status ||
+      tenant.status === filters.status;
+
+    const startDate = new Date(tenant.startDate);
+    const renewalDate = new Date(tenant.renewalDate);
+
+    const fromDateFilter =
+      !filters.fromDate ||
+      startDate >= new Date(filters.fromDate);
+
+    const toDateFilter =
+      !filters.toDate ||
+      startDate <= new Date(filters.toDate);
+
+    const renewalFromFilter =
+      !filters.renewalFromDate ||
+      renewalDate >= new Date(filters.renewalFromDate);
+
+    const renewalToFilter =
+      !filters.renewalToDate ||
+      renewalDate <= new Date(filters.renewalToDate);
+
+    const tabFilter = activeTab === "All" || tenant.isNew;
+
+    return (
+      search &&
+      tenantFilter &&
+      domainFilter &&
+      planFilter &&
+      statusFilter &&
+      fromDateFilter &&
+      toDateFilter &&
+      renewalFromFilter &&
+      renewalToFilter &&
+      tabFilter
+    );
+  });
+
+  const paginatedTenants = filteredTenants.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(
+    filteredTenants.length / itemsPerPage
+  );
+
+  const tabOptions = [
+    {
+      type: "All" as const,
+      label: "All Tenants",
+      count: tenants.length,
+    },
+    {
+      type: "New" as const,
+      label: "New Tenants",
+      count: tenants.filter((tenant) => tenant.isNew).length,
+    },
+  ];
+  
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case "Active":
+        return "bg-green-100 text-[#408540] dark:bg-green-900/30 dark:text-green-400";
+      case "Trial":
+        return "bg-blue-100 text-[#36477e] dark:bg-blue-900/30 dark:text-blue-400";
+      case "Inactive":
+        return "bg-red-100 text-[#d34847] dark:bg-red-900/30 dark:text-red-400";
+      case "Expiring Soon":
+        return "bg-[#fdf6ec] text-[#f3c17a] dark:bg-amber-900/30 dark:text-amber-400";
+      default:
+        return "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400";
     }
   };
 
-  fetchTenants();
-}, []);
-const [openDropdowntenantCode, setOpenDropdowntenantCode] = useState<string | null>(null);
-const [searchKeyword, setSearchKeyword] = useState("");
-const [showFilter, setShowFilter] = useState(false);
-const [currentPage, setCurrentPage] = useState(1);
-const [activeTab, setActiveTab] = useState<"All" | "New">("All");
-const [showEditModal, setShowEditModal] = useState(false);
-
-const [selectedTenant, setSelectedTenant] = useState<TenantType | null>(null);
-const [filters, setFilters] = useState({
-  tenantName: "",
-  domain: "",
-  plan: "",
-  fromDate: "",
-  toDate: "",
-  renewalFromDate: "",
-  renewalToDate: "",
-  status: "",
-});
-
-const itemsPerPage = 10;
-
-const toggleDropdown = (tenantCode: string) => {
-  setOpenDropdowntenantCode((prev) =>
-    prev === tenantCode ? null : tenantCode
-  );
-}; 
-
-const filteredTenants = tenants.filter((tenant) => {
-  const search =
-    tenant.tenantName
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase()) ||
-    tenant.domain
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase()) ||
-    tenant.email
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase());
-
-  const tenantFilter =
-    !filters.tenantName ||
-    tenant.tenantName
-      .toLowerCase()
-      .includes(filters.tenantName.toLowerCase());
-
-  const domainFilter =
-    !filters.domain ||
-    tenant.domain
-      .toLowerCase()
-      .includes(filters.domain.toLowerCase());
-
-  const planFilter =
-    !filters.plan ||
-    tenant.plan === filters.plan;
-
-  const statusFilter =
-    !filters.status ||
-    tenant.status === filters.status;
-
-  const startDate = new Date(tenant.startDate);
-  const renewalDate = new Date(tenant.renewalDate);
-
-  const fromDateFilter =
-    !filters.fromDate ||
-    startDate >= new Date(filters.fromDate);
-
-  const toDateFilter =
-    !filters.toDate ||
-    startDate <= new Date(filters.toDate);
-
-  const renewalFromFilter =
-    !filters.renewalFromDate ||
-    renewalDate >= new Date(filters.renewalFromDate);
-
-  const renewalToFilter =
-    !filters.renewalToDate ||
-    renewalDate <= new Date(filters.renewalToDate);
-
-  const tabFilter = activeTab === "All" || tenant.isNew;
-
+  const getPlanStyle = (plan: string) => {
+    switch (plan) {
+      case "Premium":
+        return "bg-[#e1e2f4] text-[#7679e1] dark:bg-indigo-900/30 dark:text-indigo-400";
+      case "Standard":
+        return "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400";
+      case "Basic":
+        return "bg-[#def5fa] text-[#2fc3df] dark:bg-cyan-900/30 dark:text-cyan-400";
+      default:
+        return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
+    }
+  };
+  
   return (
-    search &&
-    tenantFilter &&
-    domainFilter &&
-    planFilter &&
-    statusFilter &&
-    fromDateFilter &&
-    toDateFilter &&
-    renewalFromFilter &&
-    renewalToFilter &&
-    tabFilter
-  );
-});
-
-const paginatedTenants = filteredTenants.slice(
-  (currentPage - 1) * itemsPerPage,
-  currentPage * itemsPerPage
-);
-
-const totalPages = Math.ceil(
-  filteredTenants.length / itemsPerPage
-);
-
-const tabOptions = [
-  {
-    type: "All" as const,
-    label: "All Tenants",
-    count: tenants.length,
-  },
-  {
-    type: "New" as const,
-    label: "New Tenants",
-    count: tenants.filter((tenant) => tenant.isNew).length,
-  },
-];
-const getStatusStyle = (status: string) => {
-  switch (status) {
-    case "Active":
-      return "bg-green-100 text-[#408540]";
-    case "Trial":
-      return "bg-blue-100 text-[#36477e]";
-    case "Inactive":
-      return "bg-red-100 text-[#d34847]";
-      case "Expiring Soon":
-      return "bg-[#fdf6ec] text-[#f3c17a]";
-    default:
-      return "bg-yellow-100 text-yellow-600";
-  }
-};
-
-const getPlanStyle = (plan: string) => {
-  switch (plan) {
-    case "Premium":
-      return "bg-[#e1e2f4] text-[#7679e1]";
-
-    case "Standard":
-      return "bg-blue-100 text-blue-600";
-
-    case "Basic":
-      return "bg-[#def5fa] text-[#2fc3df]";
-
-    default:
-      return "bg-gray-100 text-gray-600";
-  }
-};
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#343434] text-slate-900 dark:text-white">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
       <BaseSuperLayout>
         <SuperAdminHeader currentSection="Tenant Management" />
 
         <TenantStats />
-<br />
+        <br />
 
         <div className="md:p-0 mx-auto w-full">
           <div className="flex flex-col h-full w-full justify-between">
@@ -273,42 +271,42 @@ const getPlanStyle = (plan: string) => {
               {/* Tabs */}
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
                 <div className="flex flex-wrap gap-4 font-semibold">
-  {tabOptions.map(({ type, label, count }) => (
-    <button
-      key={type}
-      onClick={() => setActiveTab(type)}
-      className={
-        activeTab === type
-          ? "text-[#576CBC] text-[18px] relative pb-1"
-          : "text-[#010E30] dark:text-white text-[18px]"
-      }
-      style={
-        activeTab === type
-          ? {
-              position: "relative",
-            }
-          : {}
-      }
-    >
-      {label} ({count})
+                  {tabOptions.map(({ type, label, count }) => (
+                    <button
+                      key={type}
+                      onClick={() => setActiveTab(type)}
+                      className={
+                        activeTab === type
+                          ? "text-[#576CBC] dark:text-[#8296E6] text-[18px] relative pb-1"
+                          : "text-[#010E30] dark:text-gray-300 text-[18px]"
+                      }
+                      style={
+                        activeTab === type
+                          ? {
+                              position: "relative",
+                            }
+                          : {}
+                      }
+                    >
+                      {label} ({count})
 
-      {activeTab === type && (
-        <div className="absolute bottom-0 left-10 transform -translate-x-1/2 w-12 h-0.5 bg-[#576CBC] rounded-full" />
-      )}
-    </button>
-  ))}
-</div>
+                      {activeTab === type && (
+                        <div className="absolute bottom-0 left-10 transform -translate-x-1/2 w-12 h-0.5 bg-[#576CBC] dark:bg-[#8296E6] rounded-full" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Search + Filter */}
-                <div className="w-full bg-[#FAFAFB] dark:bg-[#343434] rounded-lg border border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#343434]">
+              <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                     <input
                       type="text"
                       placeholder="Search by keyword"
-                      className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-300"
+                      className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-400"
                       value={searchKeyword}
                       onChange={(e) => setSearchKeyword(e.target.value)}
                     />
@@ -323,14 +321,14 @@ const getPlanStyle = (plan: string) => {
                   </div>
 
                   <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
-                   <span className="text-left -ml-60">
-  Showing {filteredTenants.length} of {tenants.length}
-</span>
+                    <span className="text-left -ml-60">
+                      Showing {filteredTenants.length} of {tenants.length}
+                    </span>
                   </div>
                 </div>
 
                 {/* Table */}
-                <table className="table-fixed w-full">
+                <table className="table-fixed w-full border-collapse">
                   <thead className="text-[13px] bg-[#4C6993] text-white">
                     <tr>
                       {[
@@ -347,7 +345,7 @@ const getPlanStyle = (plan: string) => {
                       ].map((header, tenantCodex) => (
                         <th
                           key={tenantCodex}
-                          className="px-2 py-1 border border-[#4C6993] text-left text-wrap break-words"
+                          className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
                         >
                           {header}
                         </th>
@@ -355,524 +353,488 @@ const getPlanStyle = (plan: string) => {
                     </tr>
                   </thead>
                   <tbody>
-  {paginatedTenants.map((tenant, index) => {
-    const rowBgClass =
-      index % 2 === 0
-        ? "bg-[#fff] dark:bg-[#343434]"
-        : "bg-[#F8F8F8] dark:bg-[#343434]";
+                    {paginatedTenants.map((tenant, index) => {
+                      const rowBgClass =
+                        index % 2 === 0
+                          ? "bg-[#fff] dark:bg-[#2C2C2C]"
+                          : "bg-[#F8F8F8] dark:bg-[#383838]";
 
-    return (
-      <tr
-        key={tenant.tenantCode}
-        className={`text-[10px] ${rowBgClass}`}
-      >
-        <td className="px-3 py-3 break-words text-[11px] dark:text-white">
-          {tenant.tenantName}
-        </td>
+                      return (
+                        <tr
+                          key={tenant.tenantCode}
+                          className={`text-[10px] ${rowBgClass}`}
+                        >
+                          <td className="px-3 py-3 break-words text-[11px] dark:text-white">
+                            {tenant.tenantName}
+                          </td>
 
-        <td className="px-3 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
-          {tenant.domain}
-        </td>
+                          <td className="px-3 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
+                            {tenant.domain}
+                          </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-          {tenant.phoneNumber}
-        </td>
+                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                            {tenant.phoneNumber}
+                          </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-          {tenant.email}
-        </td>
+                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                            {tenant.email}
+                          </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-          {tenant.startDate}
-        </td>
+                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                            {tenant.startDate}
+                          </td>
 
-       <td className="px-4 py-4  text-left">
-  <span
-    className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getPlanStyle(
-      tenant.plan
-    )}`}
-  >
-    {tenant.plan}
-  </span>
-</td>
+                          <td className="px-4 py-4 text-left">
+                            <span
+                              className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getPlanStyle(
+                                tenant.plan
+                              )}`}
+                            >
+                              {tenant.plan}
+                            </span>
+                          </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-          {tenant.users}
-        </td>
+                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                            {tenant.users}
+                          </td>
 
-        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-          {tenant.renewalDate}
-        </td>
+                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                            {tenant.renewalDate}
+                          </td>
 
-        <td className="px-3 py-3 break-words text-left">
-  <span
-    className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getStatusStyle(
-      tenant.status
-    )}`}
-  >
-    {tenant.status}
-  </span>
-        </td>
+                          <td className="px-3 py-3 break-words text-left">
+                            <span
+                              className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getStatusStyle(
+                                tenant.status
+                              )}`}
+                            >
+                              {tenant.status}
+                            </span>
+                          </td>
 
-       <td className="px-3 py-3 text-left relative text-[12px]">
-  <button
-    onClick={() => toggleDropdown(tenant.tenantCode)}
-    className="text-gray-500 hover:text-gray-700"
-  >
-    <BsThreeDotsVertical />
-  </button>
+                          <td className="px-3 py-3 text-left relative text-[12px]">
+                            <button
+                              onClick={() => toggleDropdown(tenant.tenantCode)}
+                              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+                            >
+                              <BsThreeDotsVertical />
+                            </button>
 
-  {openDropdowntenantCode === tenant.tenantCode && (
-    <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#343434] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
-      <button
-        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-      onClick={() => {
-  setOpenDropdowntenantCode(null);
-  router.push(
-    `/super-admin/ui/tenants/tenants_management?tenantCode=${tenant.tenantCode}`
-  );
-}}
-      >
-        View
-      </button>
-       <button
-  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-  onClick={() => {
-    setSelectedTenant(tenant);
-    setShowEditModal(true);
-    setOpenDropdowntenantCode(null);
-  }}
->
-  Edit
-
- 
-</button>
-      <button
-        className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-        onClick={() => {
-          setOpenDropdowntenantCode(null);
-        }}
-      >
-        Cancel
-      </button>
-    </div>
-  )}
-</td>
-      </tr>
-    );
-  })}
-</tbody>
+                            {openDropdowntenantCode === tenant.tenantCode && (
+                              <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+                                <button
+                                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                  onClick={() => {
+                                    setOpenDropdowntenantCode(null);
+                                    router.push(
+                                      `/super-admin/ui/tenants/tenants_management?tenantCode=${tenant.tenantCode}`
+                                    );
+                                  }}
+                                >
+                                  View
+                                </button>
+                                <button
+                                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                  onClick={() => {
+                                    setSelectedTenant(tenant);
+                                    setShowEditModal(true);
+                                    setOpenDropdowntenantCode(null);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
+                                  onClick={() => {
+                                    setOpenDropdowntenantCode(null);
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
                 </table>
               </div>
-        <Pagination
-  currentPage={currentPage}
-  totalPages={totalPages}
-  onPageChange={setCurrentPage}
-/>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
             </div>
           </div>
         </div>
+        
         {showFilter && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-    <form
-      className="bg-white dark:bg-[#343434] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setShowFilter(false);
-      }}
-    >
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="font-bold text-lg dark:text-white">Filter by</h2>
-        <button
-          type="button"
-          className="text-gray-400 text-2xl font-bold cursor-pointer"
-          onClick={() => setShowFilter(false)}
-        >
-          ×
-        </button>
-      </div>
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+            <form
+              className="bg-white dark:bg-[#2C2C2C] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setShowFilter(false);
+              }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-bold text-lg dark:text-white">Filter by</h2>
+                <button
+                  type="button"
+                  className="text-gray-400 text-2xl font-bold cursor-pointer dark:text-gray-300"
+                  onClick={() => setShowFilter(false)}
+                >
+                  ×
+                </button>
+              </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-          Tenant Name
-        </label>
-        <input
-          type="text"
-          value={filters.tenantName}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              tenantName: e.target.value,
-            }))
-          }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#343434] dark:text-white text-[15px]"
-          placeholder="Enter tenant name..."
-        />
-      </div>
-<div className="mb-4">
-  <label className="block text-sm font-medium mb-2">
-    Domain
-  </label>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
+                  Tenant Name
+                </label>
+                <input
+                  type="text"
+                  value={filters.tenantName}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      tenantName: e.target.value,
+                    }))
+                  }
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2C2C2C] dark:text-white text-[15px] focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                  placeholder="Enter tenant name..."
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Domain
+                </label>
+                <input
+                  type="text"
+                  value={filters.domain}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      domain: e.target.value,
+                    }))
+                  }
+                  placeholder="blackstoneacademy.com"
+                  className="w-full border border-[#D5D9E2] dark:border-gray-600 dark:bg-[#2C2C2C] rounded-lg px-4 py-2.5 dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-200">
+                  Plan
+                </label>
+                <select
+                  value={filters.plan}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      plan: e.target.value,
+                    }))
+                  }
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2C2C2C] dark:text-white text-[15px] focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                >
+                  <option value="">Select Plan</option>
+                  <option value="Basic">Basic</option>
+                  <option value="Standard">Standard</option>
+                  <option value="Premium">Premium</option>
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Date
+                </label>
+                <div className="grtenantCode grtenantCode-cols-2 gap-3 flex gap-4">
+                  <input
+                    type="date"
+                    value={filters.fromDate}
+                    onChange={(e) =>
+                      setFilters((f) => ({
+                        ...f,
+                        fromDate: e.target.value,
+                      }))
+                    }
+                    className="w-full border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                  />
+                  <input
+                    type="date"
+                    value={filters.toDate}
+                    onChange={(e) =>
+                      setFilters((f) => ({
+                        ...f,
+                        toDate: e.target.value,
+                      }))
+                    }
+                    className="w-full border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                  />
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Renewal Date
+                </label>
+                <div className="grtenantCode grtenantCode-cols-2 gap-3 flex gap-4">
+                  <input
+                    type="date"
+                    value={filters.renewalFromDate}
+                    onChange={(e) =>
+                      setFilters((f) => ({
+                        ...f,
+                        renewalFromDate: e.target.value,
+                      }))
+                    }
+                    className="w-full border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                  />
+                  <input
+                    type="date"
+                    value={filters.renewalToDate}
+                    onChange={(e) =>
+                      setFilters((f) => ({
+                        ...f,
+                        renewalToDate: e.target.value,
+                      }))
+                    }
+                    className="w-full border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                  />
+                </div>
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-200">
+                  Tenant Status
+                </label>
+                <select
+                  value={filters.status}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      status: e.target.value,
+                    }))
+                  }
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#2C2C2C] dark:text-white text-[15px] focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                >
+                  <option value="">Select Status</option>
+                  <option value="Active">Active</option>
+                  <option value="Trial">Trial</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Expiring Soon">Expiring Soon</option>
+                </select>
+              </div>
 
-  <input
-    type="text"
-    value={filters.domain}
-    onChange={(e) =>
-      setFilters((f) => ({
-        ...f,
-        domain: e.target.value,
-      }))
-    }
-    placeholder="blackstoneacademy.com"
-    className="w-full border border-[#D5D9E2] dark:bg-[#2c2c2c] dark:border-gray-600 rounded-lg px-4 py-2.5  dark:text-white"
-  />
-</div>
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">
-          Plan
-        </label>
+              <div className="flex gap-4 mt-auto justify-end">
+                <button
+                  type="button"
+                  className="border border-[#576CBC] bg-white dark:bg-transparent text-[#576CBC] dark:text-[#8296E6] rounded-lg px-6 py-2 font-semibold"
+                  onClick={() =>
+                    setFilters({
+                      tenantName: "",
+                      domain: "",
+                      plan: "",
+                      fromDate: "",
+                      toDate: "",
+                      renewalFromDate: "",
+                      renewalToDate: "",
+                      status: "",
+                    })
+                  }
+                >
+                  Reset
+                </button>
 
-        <select
-          value={filters.plan}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              plan: e.target.value,
-            }))
-          }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#343434] dark:text-white text-[15px]"
-        >
-          <option value="">Select Plan</option>
-          <option value="Basic">Basic</option>
-          <option value="Standard">Standard</option>
-          <option value="Premium">Premium</option>
-        </select>
-      </div>
-<div className="mb-4">
-  <label className="block text-sm font-medium mb-2">
-    Date
-  </label>
+                <button
+                  type="submit"
+                  className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold"
+                  onClick={() => setShowFilter(false)}
+                >
+                  Show Results
+                </button>
+              </div>
+            </form>
+            <div
+              className="fixed inset-0"
+              onClick={() => setShowFilter(false)}
+            />
+          </div>
+        )}
 
-  <div className="grtenantCode grtenantCode-cols-2 gap-3">
+        {showEditModal && selectedTenant && (
+          <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
+            <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] max-h-[90vh] overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-[#444]">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold dark:text-white">
+                  Tenant Information
+                </h2>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-2xl text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
 
-    <input
-      type="date"
-      value={filters.fromDate}
-      onChange={(e) =>
-        setFilters((f) => ({
-          ...f,
-          fromDate: e.target.value,
-        }))
-      }
-      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
-    />
+              <div className="grid grid-cols-2 gap-5">
+                {/* Tenant Name */}
+                <div>
+                  <label className="text-sm font-medium dark:text-gray-200">
+                    Tenant Name
+                  </label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.tenantName}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        tenantName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
 
-    <input
-      type="date"
-      value={filters.toDate}
-      onChange={(e) =>
-        setFilters((f) => ({
-          ...f,
-          toDate: e.target.value,
-        }))
-      }
-      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
-    />
+                {/* Domain */}
+                <div>
+                  <label className="text-sm font-medium dark:text-gray-200">
+                    Domain
+                  </label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.domain}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        domain: e.target.value,
+                      })
+                    }
+                  />
+                </div>
 
-  </div>
-</div>
-<div className="mb-4">
-  <label className="block text-sm font-medium mb-2">
-    Renewal Date
-  </label>
+                {/* Email */}
+                <div>
+                  <label className="dark:text-gray-200">Email</label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.email}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        email: e.target.value,
+                      })
+                    }
+                  />
+                </div>
 
-  <div className="grtenantCode grtenantCode-cols-2 gap-3">
+                {/* Phone */}
+                <div>
+                  <label className="dark:text-gray-200">Phone Number</label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.phoneNumber}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        phoneNumber: e.target.value,
+                      })
+                    }
+                  />
+                </div>
 
-    <input
-      type="date"
-      value={filters.renewalFromDate}
-      onChange={(e) =>
-        setFilters((f) => ({
-          ...f,
-          renewalFromDate: e.target.value,
-        }))
-      }
-      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
-    />
+                <div>
+                  <label className="dark:text-gray-200">Country</label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.country}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        country: e.target.value,
+                      })
+                    }
+                  />
+                </div>  
+                
+                <div>
+                  <label className="dark:text-gray-200">State</label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.state}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        state: e.target.value,
+                      })
+                    }
+                  />
+                </div>  
+                
+                <div>
+                  <label className="dark:text-gray-200">City</label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.city}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        city: e.target.value,
+                      })
+                    }
+                  />
+                </div>  
+                
+                <div>
+                  <label className="dark:text-gray-200">Pincode</label>
+                  <input
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                    value={selectedTenant.pincode}
+                    onChange={(e) =>
+                      setSelectedTenant({
+                        ...selectedTenant,
+                        pincode: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
 
-    <input
-      type="date"
-      value={filters.renewalToDate}
-      onChange={(e) =>
-        setFilters((f) => ({
-          ...f,
-          renewalToDate: e.target.value,
-        }))
-      }
-      className="border border-[#D5D9E2] dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-[#343434] dark:text-white"
-    />
+              {/* Address */}
+              <div className="mt-5">
+                <label className="dark:text-gray-200">Address</label>
+                <textarea
+                  rows={4}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                />
+              </div>
 
-  </div>
-</div>
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-1">
-          Tenant Status
-        </label>
+              {/* Buttons */}
+              <div className="flex justify-end gap-3 mt-8">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="border border-[#576CBC] text-[#576CBC] dark:text-[#8296E6] dark:border-[#8296E6] px-6 py-2 rounded-lg bg-transparent hover:bg-gray-50 dark:hover:bg-[#444] transition-colors"
+                >
+                  Reset
+                </button>
 
-        <select
-          value={filters.status}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              status: e.target.value,
-            }))
-          }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#343434] dark:text-white text-[15px]"
-        >
-          <option value="">Select Status</option>
-          <option value="Active">Active</option>
-          <option value="Trial">Trial</option>
-          <option value="Inactive">Inactive</option>
-          <option value="Expiring Soon">Expiring Soon</option>
-        </select>
-      </div>
-
-      <div className="flex gap-4 mt-auto justify-end">
-        <button
-          type="button"
-          className="border border-[#576CBC] bg-white text-[#576CBC] rounded-lg px-6 py-2 font-semibold"
-       onClick={() =>
-  setFilters({
-    tenantName: "",
-    domain: "",
-    plan: "",
-    fromDate: "",
-    toDate: "",
-    renewalFromDate: "",
-    renewalToDate: "",
-    status: "",
-  })
-}
-        >
-          Reset
-        </button>
-
-        <button
-          type="submit"
-          className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold"
-          onClick={() => setShowFilter(false)}
-        >
-          Show Results
-        </button>
-      </div>
-    </form>
-
-    <div
-      className="fixed inset-0"
-      onClick={() => setShowFilter(false)}
-    />
-  </div>
-)}
-
- {showEditModal && selectedTenant && (
-  <div className="  fixed inset-0 bg-black/40 flex justify-center items-center z-50 ">
-
-    <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] max-h-[90vh] overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-
-      <div className="flex justify-between items-center mb-6">
-
-        <h2 className="text-2xl font-semibold">
-          Tenant Information
-        </h2>
-
-        <button
-          onClick={() => setShowEditModal(false)}
-          className="text-2xl"
-        >
-          ×
-        </button>
-
-      </div>
-
-<div className="grid grid-cols-2 gap-5">
-        {/* Tenant Name */}
-
-        <div>
-          <label className="text-sm font-medium">
-            Tenant Name
-          </label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.tenantName}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                tenantName: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        {/* Domain */}
-
-        <div>
-          <label className="text-sm font-medium">
-            Domain
-          </label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.domain}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                domain: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        {/* Email */}
-
-        <div>
-          <label>Email</label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.email}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                email: e.target.value,
-              })
-            }
-          />
-        </div>
-
-        {/* Phone */}
-
-        <div>
-          <label>Phone Number</label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.phoneNumber}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                phoneNumber: e.target.value,
-              })
-            }
-          />
-        </div>
-
-  <div>
-          <label>Country</label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.country}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                country: e.target.value,
-              })
-            }
-          />
-        </div>  <div>
-          <label>State</label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.state}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                state: e.target.value,
-              })
-            }
-          />
-        </div>  <div>
-          <label>City</label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.city}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                city: e.target.value,
-              })
-            }
-          />
-        </div>  <div>
-          <label>Pincode</label>
-
-          <input
-            className="w-full border rounded-lg px-4 py-2 mt-1"
-            value={selectedTenant.pincode}
-            onChange={(e) =>
-              setSelectedTenant({
-                ...selectedTenant,
-                pincode: e.target.value,
-              })
-            }
-          />
-        </div>
-
-      </div>
-
-      {/* Address */}
-
-      <div className="mt-5">
-
-        <label>Address</label>
-
-        <textarea
-          rows={4}
-          className="w-full border rounded-lg px-4 py-2 mt-1"
-        />
-
-      </div>
-
-      {/* Buttons */}
-
-      <div className="flex justify-end gap-3 mt-8">
-
-        <button
-          onClick={() => setShowEditModal(false)}
-          className="border border-[#576CBC] text-[#576CBC] px-6 py-2 rounded-lg"
-        >
-          Reset
-        </button>
-
-        <button
-          className="bg-[#576CBC] text-white px-6 py-2 rounded-lg"
-          onClick={() => {
-            setTenants((prev) =>
-              prev.map((item) =>
-                item.tenantCode === selectedTenant.tenantCode
-                  ? selectedTenant
-                  : item
-              )
-            );
-
-            setShowEditModal(false);
-          }}
-        >
-          Save Changes
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
+                <button
+                  className="bg-[#576CBC] text-white px-6 py-2 rounded-lg hover:bg-[#465a9e] dark:hover:bg-[#6A80D1] transition-colors"
+                  onClick={() => {
+                    setTenants((prev) =>
+                      prev.map((item) =>
+                        item.tenantCode === selectedTenant.tenantCode
+                          ? selectedTenant
+                          : item
+                      )
+                    );
+                    setShowEditModal(false);
+                  }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </BaseSuperLayout>
     </div>
-    
   );
 };
 

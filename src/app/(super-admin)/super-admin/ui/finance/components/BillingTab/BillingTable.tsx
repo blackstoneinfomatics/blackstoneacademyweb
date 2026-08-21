@@ -1,65 +1,42 @@
+"use client";
+
 import ActionDropdown from "@/app/(super-admin)/super-admin/components/ActionMenu";
 import DataTable from "@/app/(super-admin)/super-admin/components/DataTable";
 import FilterDrawer, {
   FilterField,
 } from "@/app/(super-admin)/super-admin/components/FilterDrawer";
 import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolbar";
-import { MoreVertical } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 
-const data = [
-  {
-    id: "1",
-    billingName: "Blackstone Institute",
-    category: "Subscription",
-    amount: "2,999",
-    paymentMethod: "Google Pay",
-    paymentDate: "Sep, 12 2023",
-    dueDate: "Sep, 12 2023",
-    status: "Paid",
-  },
-  {
-    id: "2",
-    billingName: "Blackstone Institute",
-    category: "Refund",
-    amount: "2,999",
-    paymentMethod: "Stripe",
-    paymentDate: "Sep, 13 2023",
-    dueDate: "Sep, 13 2023",
-    status: "Refunded",
-  },
-  {
-    id: "3",
-    billingName: "Alpha Academy",
-    category: "Subscription",
-    amount: "4,999",
-    paymentMethod: "Credit Card",
-    paymentDate: "Sep, 14 2023",
-    dueDate: "Sep, 14 2023",
-    status: "Paid",
-  },
-  {
-    id: "4",
-    billingName: "Global School",
-    category: "Renewal",
-    amount: "3,499",
-    paymentMethod: "UPI",
-    paymentDate: "Sep, 15 2023",
-    dueDate: "Sep, 15 2023",
-    status: "Pending",
-  },
-  {
-    id: "5",
-    billingName: "Future Minds",
-    category: "Subscription",
-    amount: "5,999",
-    paymentMethod: "Razorpay",
-    paymentDate: "Sep, 16 2023",
-    dueDate: "Sep, 16 2023",
-    status: "Paid",
-  },
+// ✅ CORRECTED: Matches your exact backend response from getBillings()
+interface BillingListApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    items: any[]; // This is the list of billings!
+    pagination: {
+      page: number;
+      limit: number;
+      totalRecords: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  };
+}
 
-];
+interface BillingItem {
+  id: string;
+  billingName: string;
+  category: string;
+  amount: string;
+  paymentMethod: string;
+  paymentDate: string;
+  dueDate: string;
+  status: string;
+}
+
 const transactionFields: FilterField[] = [
   {
     key: "billingName",
@@ -109,19 +86,19 @@ const transactionFields: FilterField[] = [
     type: "select",
     placeholder: "Select Status",
     options: [
-      { label: "Paid", value: "Paid" },
-      { label: "Refunded", value: "Refunded" },
-      { label: "Pending", value: "Pending" },
+      { label: "PAID", value: "PAID" },
+      { label: "REFUNDED", value: "REFUNDED" },
+      { label: "PENDING", value: "PENDING" },
     ],
   },
 ];
 
 export default function BillingTable() {
-  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(
-    null,
-  );
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
   const [openFilter, setOpenFilter] = useState(false);
   const [search, setSearch] = useState("");
+  const [data, setData] = useState<BillingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [filters, setFilters] = useState({
     billingName: "",
@@ -135,31 +112,70 @@ export default function BillingTable() {
   });
 
   const [open, setOpen] = useState(false);
+
+  // ✅ FETCHES FROM GET /billing (The list endpoint)
+  useEffect(() => {
+    const fetchBillings = async () => {
+      try {
+        setIsLoading(true);
+        const response = await axios.get<BillingListApiResponse>(
+          "http://localhost:5001/billing" // The list API
+        );
+
+        if (response.data.success) {
+          // ✅ READ `items` from the API response
+          const billingArray = Array.isArray(response.data.data.items) 
+            ? response.data.data.items 
+            : [];
+
+          const mappedData: BillingItem[] = billingArray.map((item: any) => {
+            const formattedDate = new Date(item.paymentDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+
+            return {
+              id: item._id,
+              billingName: item.billingName,
+              category: item.category,
+              amount: item.amount.toLocaleString("en-IN"),
+              paymentMethod: item.paymentMethod,
+              paymentDate: formattedDate,
+              dueDate: formattedDate,
+              status: item.status,
+            };
+          });
+
+          setData(mappedData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch billing data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBillings();
+  }, []);
+
   const handleView = (row: any) => {
     console.log("View", row);
-
-    // Open modal
     setSelectedTransaction(row);
     setOpen(true);
   };
 
   const handleEdit = (row: any) => {
     console.log("Edit", row);
-
-    // Navigate or open edit modal
   };
+
+  // Filter logic
   const filteredData = data.filter((item) => {
-    if (
-      filters.billingName &&
-      !item.billingName.toLowerCase().includes(filters.billingName.toLowerCase())
-    )
+    if (filters.billingName && !item.billingName.toLowerCase().includes(filters.billingName.toLowerCase()))
       return false;
 
     if (filters.category && item.category !== filters.category) return false;
-
-    if (filters.paymentMethod && item.paymentMethod !== filters.paymentMethod)
-      return false;
-
+    if (filters.paymentMethod && item.paymentMethod !== filters.paymentMethod) return false;
     if (filters.status && item.status !== filters.status) return false;
 
     if (filters.paymentDateFrom) {
@@ -188,10 +204,18 @@ export default function BillingTable() {
 
     return true;
   });
+
+  const filteredBySearch = filteredData.filter((item) =>
+    item.billingName.toLowerCase().includes(search.toLowerCase()) ||
+    item.category.toLowerCase().includes(search.toLowerCase()) ||
+    item.paymentMethod.toLowerCase().includes(search.toLowerCase()) ||
+    item.status.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div>
+    <div className="dark:text-white">
       <h2
-        className="mb-4 font-medium text-[#010E30E5]/90"
+        className="mb-4 font-medium text-[#010E30E5]/90 dark:text-white"
         style={{
           fontSize: "clamp(18px, 1.2vw, 20px)",
           lineHeight: "1.4",
@@ -204,113 +228,122 @@ export default function BillingTable() {
         search={search}
         onSearchChange={setSearch}
         total={data.length}
-        showing={data.length}
+        showing={filteredBySearch.length}
         searchPlaceholder="Search By Keyword"
         onFilterClick={() => setOpenFilter(true)}
       />
-      <DataTable
-        heading="All Transactions"
-        selectable={true}
-        columns={[
-          {
-            key: "billingName",
-            header: "Billing Name",
-          },
 
-          {
-            key: "category",
-            header: "Category",
-            render: (row: any) => (
-              <span
-                className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
-                  row.status === "Paid"
-                    ? "bg-[#E8F8EC] text-[#2E9E44]"
-                    : row.status === "Refunded"
-                      ? "bg-[#E7E5FF] text-[#576CBC]"
-                      : "bg-[#FFF4DE] text-[#F59E0B]"
-                }`}
-              >
-                {row.category}
-              </span>
-            ),
-          },
+      {isLoading ? (
+        <div className="py-10 text-center text-gray-500 dark:text-gray-400">
+          Loading billing data...
+        </div>
+      ) : (
+        <DataTable
+          heading="All Transactions"
+          selectable={true}
+          columns={[
+            {
+              key: "billingName",
+              header: "Billing Name",
+              render: (row: any) => (
+                <span className="dark:text-white">{row.billingName}</span>
+              ),
+            },
+            {
+              key: "category",
+              header: "Category",
+              render: (row: any) => (
+                <span
+                  className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
+                    row.status === "PAID"
+                      ? "bg-[#E8F8EC] text-[#2E9E44] dark:bg-green-900/30 dark:text-green-400"
+                      : row.status === "REFUNDED"
+                      ? "bg-[#E7E5FF] text-[#576CBC] dark:bg-indigo-900/30 dark:text-indigo-400"
+                      : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
+                  }`}
+                >
+                  {row.category}
+                </span>
+              ),
+            },
+            {
+              key: "amount",
+              header: "Amount",
+              render: (row: any) => (
+                <span className="font-medium text-[#344054] dark:text-white">
+                  ₹{row.amount}
+                </span>
+              ),
+            },
+            {
+              key: "paymentDate",
+              header: "Billing Date",
+              render: (row: any) => (
+                <span className="font-medium text-[#344054] dark:text-white">
+                  {row.paymentDate}
+                </span>
+              ),
+            },
+            {
+              key: "paymentMethod",
+              header: "Payment Method",
+              render: (row: any) => (
+                <span className="text-[#344054] dark:text-gray-300">
+                  {row.paymentMethod}
+                </span>
+              ),
+            },
+            {
+              key: "paymentDate",
+              header: "Payment Date",
+              render: (row: any) => (
+                <span className="text-[#2E62B8] dark:text-sky-300">
+                  {row.paymentDate}
+                </span>
+              ),
+            },
+            {
+              key: "status",
+              header: "Payment Status",
+              render: (row: any) => (
+                <span
+                  className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
+                    row.status === "PAID"
+                      ? "bg-[#E8F8EC] text-[#2E9E44] dark:bg-green-900/30 dark:text-green-400"
+                      : row.status === "REFUNDED"
+                      ? "bg-[#E7E5FF] text-[#576CBC] dark:bg-indigo-900/30 dark:text-indigo-400"
+                      : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
+                  }`}
+                >
+                  {row.status}
+                </span>
+              ),
+            },
+            {
+              key: "action",
+              header: "Action",
+              align: "center",
+              render: (row: any) => (
+                <ActionDropdown
+                  row={row}
+                  items={[
+                    { label: "View Details", onClick: handleView },
+                    { label: "Edit", onClick: handleEdit },
+                  ]}
+                />
+              ),
+            },
+          ]}
+          data={filteredBySearch}
+        />
+      )}
 
-          {
-            key: "amount",
-            header: "Amount",
-          },
-
-          {
-            key: "billingDate",
-            header: "Billing Date",
-            render: (row: any) => (
-              <span className="font-medium text-[#344054]">{row.amount}</span>
-            ),
-          },
-
-          {
-            key: "paymentMethod",
-            header: "Payment Method",
-            render: (row: any) => (
-              <span className="text-[#344054]">{row.paymentMethod}</span>
-            ),
-          },
-
-          {
-            key: "paymentDate",
-            header: "Payment Date",
-            render: (row: any) => (
-              <span className="text-[#2E62B8]">{row.paymentDate}</span>
-            ),
-          },
-
-          {
-            key: "status",
-            header: "Payment Status",
-            render: (row: any) => (
-              <span
-                className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
-                  row.status === "Paid"
-                    ? "bg-[#E8F8EC] text-[#2E9E44]"
-                    : row.status === "Refunded"
-                      ? "bg-[#E7E5FF] text-[#576CBC]"
-                      : "bg-[#FFF4DE] text-[#F59E0B]"
-                }`}
-              >
-                {row.status}
-              </span>
-            ),
-          },
-
-          {
-            key: "action",
-            header: "Action",
-            align: "center",
-            render: (row: any) => (
-              <ActionDropdown
-                row={row}
-                items={[
-                  {
-                    label: "View Details",
-                    onClick: handleView,
-                  },
-                  {
-                    label: "Edit",
-                    onClick: handleEdit,
-                  },
-                ]}
-              />
-            ),
-          },
-        ]}
-        data={filteredData}
-      />
       <FilterDrawer
         open={openFilter}
         title="Filter by"
         fields={transactionFields}
         values={filters}
-        resultCount={filteredData.length}
+        resultCount={filteredBySearch.length}
         onClose={() => setOpenFilter(false)}
         onReset={() =>
           setFilters({
@@ -326,9 +359,7 @@ export default function BillingTable() {
         }
         onApply={(values: any) => {
           console.log(values);
-
           setFilters(values);
-
           setOpenFilter(false);
         }}
       />
