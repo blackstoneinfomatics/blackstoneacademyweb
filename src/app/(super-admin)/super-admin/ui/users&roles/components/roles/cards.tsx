@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowUp, ArrowDown  } from "lucide-react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import { MdCheckCircle } from "react-icons/md";
 import { MdCancel } from "react-icons/md";
 import { HiUserGroup } from "react-icons/hi2";
@@ -9,50 +9,50 @@ const role = [
     title: "Total Tenants",
     value: "28",
     icon: HiUserGroup,
-    iconBg: "bg-[#E5DFFD]",
-    iconColor: "text-[#5225FC]",
-    titleColor: "text-[#5225FC]",
-    trendColor: "text-green-600",
+    iconBg: "bg-[#E5DFFD] dark:bg-[#2F254C]",
+    iconColor: "text-[#5225FC] dark:text-[#C4B5FD]",
+    titleColor: "text-[#5225FC] dark:text-[#C4B5FD]",
+    trendColor: "text-green-600 dark:text-green-400",
     percentage: "14%",
     isIncrease: true,
-    text: "vs last Month"
+    text: "vs last Month",
   },
-    {
+  {
     title: "Total User",
     value: "28",
     icon: HiUserGroup,
-    iconBg: "bg-[#E2ECFC]",
-    iconColor: "text-[#3B82F6]",
-    titleColor: "text-[#3B82F6]",
-    trendColor: "text-green-600",
+    iconBg: "bg-[#E2ECFC] dark:bg-[#1F2B46]",
+    iconColor: "text-[#3B82F6] dark:text-[#93C5FD]",
+    titleColor: "text-[#3B82F6] dark:text-[#93C5FD]",
+    trendColor: "text-green-600 dark:text-green-400",
     percentage: "14%",
     isIncrease: true,
-    text: "vs last Month"
+    text: "vs last Month",
   },
   {
     title: "Active User",
     value: "18",
     icon: MdCheckCircle,
-    iconBg: "bg-[#E3F4E7]",
-    iconColor: "text-[#40BD5F]",
-    titleColor: "text-[#40BD5F]",
-    trendColor: "text-red-500",   
+    iconBg: "bg-[#E3F4E7] dark:bg-[#1F3525]",
+    iconColor: "text-[#40BD5F] dark:text-[#7AE49D]",
+    titleColor: "text-[#40BD5F] dark:text-[#7AE49D]",
+    trendColor: "text-red-500 dark:text-red-400",
     percentage: "14%",
     isIncrease: false,
-    text: "vs last Month"
+    text: "vs last Month",
   },
   {
     title: "Inactive User",
     value: "10",
     icon: MdCancel,
-    iconBg: "bg-[#F8E4E4]",
-    iconColor: "text-[#D34645]",
-    titleColor: "text-[#D34645]",
-    trendColor: "text-green-600",
+    iconBg: "bg-[#F8E4E4] dark:bg-[#3A1F1F]",
+    iconColor: "text-[#D34645] dark:text-[#FCA5A5]",
+    titleColor: "text-[#D34645] dark:text-[#FCA5A5]",
+    trendColor: "text-green-600 dark:text-green-400",
     percentage: "14%",
     isIncrease: true,
-    text: "vs last Month"
-  }
+    text: "vs last Month",
+  },
 ];
 
 const tenantcards = () => {
@@ -64,42 +64,41 @@ const tenantcards = () => {
         return (
           <div
             key={index}
-            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
+            className="rounded-2xl border border-gray-200/80 bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] px-4 py-3 shadow-lg transition-colors duration-300 dark:border-gray-700 dark:from-[#1f1f1f] dark:to-[#2a2a2a] dark:shadow-black/20"
           >
             <div className="flex items-start gap-4">
               <div
-                className={`w-14 h-14 rounded-full mt-2 flex items-center justify-center ${card.iconBg}`}
+                className={`mt-2 flex h-14 w-14 items-center justify-center rounded-full ${card.iconBg}`}
               >
-                <Icon className={`w-6 h-6 ${card.iconColor}`} />
+                <Icon className={`h-6 w-6 ${card.iconColor}`} />
               </div>
 
               <div className="space-y-2">
-                <p className={`text-md mt-[4px] text-[15px] font-medium ${card.titleColor}`}>
+                <p
+                  className={`mt-[4px] text-[15px] font-medium ${card.titleColor}`}
+                >
                   {card.title}
                 </p>
-                <h2 className="text-[19px] font-semibold text-gray-800 mt-1">
+                <h2 className="mt-1 text-[19px] font-semibold text-gray-800 dark:text-white">
                   {card.value}
                 </h2>
               </div>
             </div>
 
-               {/* Bottom */}
-        <div className="flex items-center text-[16px] gap-2 mt-6 ml-[72px]">
-          <div className={`flex items-center ${card.trendColor}`}>
-            {card.isIncrease ? (
-  <ArrowUp className="w-4 h-4" />
-) : (
-  <ArrowDown className="w-4 h-4" />
-)}
-            <span className="font-medium text-[14px] text-sm ml-1">
-              {card.percentage}
-            </span>
-          </div>
+            <div className="ml-[72px] mt-6 flex items-center gap-2 text-[16px]">
+              <div className={`flex items-center ${card.trendColor}`}>
+                {card.isIncrease ? (
+                  <ArrowUp className="h-4 w-4" />
+                ) : (
+                  <ArrowDown className="h-4 w-4" />
+                )}
+                <span className="ml-1 text-[14px] font-medium">{card.percentage}</span>
+              </div>
 
-          <span className="text-gray-500 text-[13px]">
-            {card.text}
-          </span>
-        </div>
+              <span className="text-[13px] text-gray-500 dark:text-gray-400">
+                {card.text}
+              </span>
+            </div>
           </div>
         );
       })}
