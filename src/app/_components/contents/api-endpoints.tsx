@@ -276,11 +276,15 @@ export const AppApiEndpoints = {
     PLAN_ACTIVITY : "/plans/dashboard",
     GET_TOP_PERFORMING_PLAN : "/plans/dashboard",
     PLAN_TABLE : "/plans",
-    GET_PLAN_BY_ID : "/plans/${planId}"
+    GET_PLAN_BY_ID : "/plans/${planId}",
+    UPDATE_PLAN : "/plans/${planId}",
+    ADD_BILLING_PERIOD : "/plans/${planId}/billing-period",
+    UPDATE_BILLING_PERIOD : "/plans/${planId}/billing-period/${billingPeriodId}"
   },
   TRIALS: {
     GET_TRIALS: "/subscription-trials",
     GET_TRIALS_DASHBOARD_COUNT: "/subscription-trials/dashboard-count",
+    UPDATE_TRIALS: "/subscription-trials",
   }
 
 };

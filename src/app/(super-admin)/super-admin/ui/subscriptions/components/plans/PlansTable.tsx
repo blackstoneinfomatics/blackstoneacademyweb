@@ -9,11 +9,15 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-
 } from "lucide-react";
 import axios from "axios";
 import Image from "next/image";
+import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import {
+  AppFailureToastMessages,
+  AppSuccessToastMessages,
+} from "@/app/_components/contents/toast_message";
 
 const ToggleSwitch = ({
   checked,
@@ -42,6 +46,17 @@ const ToggleSwitch = ({
   );
 };
 
+// Backend stores features/allowedRoles keyed by these uppercase role codes.
+const roleCodeMap: Record<string, string> = {
+  Admin: "ADMIN",
+  Teacher: "TEACHER",
+  Student: "STUDENT",
+};
+
+const roleLabelMap: Record<string, string> = Object.fromEntries(
+  Object.entries(roleCodeMap).map(([label, code]) => [code, label]),
+);
+
 const PlansTable = () => {
   type FilterState = {
     planName: string;
@@ -60,6 +75,11 @@ const PlansTable = () => {
   };
 
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  // Which billing period is picked per row in the table's Billing Cycle dropdown,
+  // keyed by planId, so the Price column can show that period's price.
+  const [selectedBillingPeriodByPlan, setSelectedBillingPeriodByPlan] = useState<
+    Record<string, string>
+  >({});
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -269,11 +289,15 @@ const PlansTable = () => {
 
   const [formData, setFormData] = useState({
     planName: "",
+    planTag: "Most Popular",
     billingCycle: "MONTHLY",
     planDescription: "",
     monthlyPrice: 0,
     yearlyPrice: 0,
     studentLimit: 0,
+    userLimit: 0,
+    storageLimit: 0,
+    gstAndTax: 18,
     allowedRoles: [] as string[],
     features: {} as Record<string, string[]>,
     canCreateCustomRole: false,
@@ -282,10 +306,41 @@ const PlansTable = () => {
     planStatus: "Active",
     status: "Active",
   });
+  const [pricingRows, setPricingRows] = useState<
+    Array<{
+      billingPeriodId?: string;
+      period: string;
+      duration: string;
+      price: number;
+      discount: number;
+      gstRate?: number;
+      taxAmount?: number;
+      totalAmount?: number;
+    }>
+  >([]);
 
   const selectedModules: string[] = Object.values(
     formData.features || {},
   ).flat();
+  const roleTabs = ["Admin", "Teacher", "Student"] as const;
+  const [activeRoleTab, setActiveRoleTab] = useState<(typeof roleTabs)[number]>("Admin");
+
+  const activeRoleModules =
+    formData.features && Array.isArray(formData.features[activeRoleTab])
+      ? formData.features[activeRoleTab]
+      : [];
+
+  const pricingRowsForTable =
+    pricingRows.length > 0
+      ? pricingRows
+      : [
+          {
+            period: String(formData.billingCycle || "Custom"),
+            duration: "-",
+            price: Number(formData.monthlyPrice || 0),
+            discount: 0,
+          },
+        ];
 
   useEffect(() => {
     if (showUpdateModal && selectedPlan?.planId) {
@@ -299,21 +354,88 @@ const PlansTable = () => {
 
       const plan = res.data.data;
 
+      // Backend's `planStatus` field is actually the display tag (MOST_POPULAR/
+      // NEW/FEATURED) and `status` is Active/Inactive — map them to the local
+      // fields the "Plan Tag" and "Status" dropdowns actually read from.
+      const normalizedFeatures: Record<string, string[]> = Object.fromEntries(
+        Object.entries(plan.features || {}).map(([role, modules]) => [
+          roleLabelMap[role] || role,
+          modules as string[],
+        ]),
+      );
+
       setFormData({
         planName: plan.planName,
+        planTag: plan.planStatus || "Most Popular",
         billingCycle: plan.billingCycle,
         planDescription: plan.planDescription,
         monthlyPrice: plan.monthlyPrice,
         yearlyPrice: plan.yearlyPrice,
         studentLimit: plan.studentLimit,
+        userLimit: plan.userLimit || 0,
+        storageLimit: plan.storageLimit || 0,
+        gstAndTax: plan.gstAndTax || 18,
         allowedRoles: plan.allowedRoles || [],
-        features: plan.features || {},
+        features: normalizedFeatures,
         canCreateCustomRole: plan.canCreateCustomRole,
         customDomain: plan.customDomain,
         backup: plan.backup,
-        planStatus: plan.planStatus,
+        planStatus: plan.status || "Active",
         status: plan.status,
       });
+
+      const pricingSource =
+        plan.pricingConfiguration ??
+        plan.pricingConfigurations ??
+        plan.billingPeriods ??
+        plan.billingOptions ??
+        plan.pricing ??
+        [];
+
+      if (Array.isArray(pricingSource)) {
+        setPricingRows(
+          pricingSource
+            .map((row: any) => {
+              // Some responses nest the record under its own `billingPeriod` key
+              // instead of returning it flat — unwrap that case if present.
+              const record =
+                row?.billingPeriod &&
+                typeof row.billingPeriod === "object"
+                  ? row.billingPeriod
+                  : row;
+
+              const months = Number(
+                record.durationInMonths ?? record.months ?? record.durationMonths ?? 0,
+              );
+              const durationLabel =
+                record.duration ??
+                record.durationLabel ??
+                (months > 0
+                  ? `${months} Month${months > 1 ? "s" : ""}`
+                  : "-");
+
+              const periodLabel =
+                typeof record.billingPeriod === "string"
+                  ? record.billingPeriod
+                  : record.period ?? record.billingCycle ?? "Custom";
+
+              return {
+                billingPeriodId:
+                  record.billingPeriodId ?? record.id ?? record._id,
+                period: String(periodLabel),
+                duration: String(durationLabel),
+                price: Number(record.price ?? record.amount ?? record.monthlyPrice ?? 0),
+                discount: Number(record.discount ?? record.discountPercent ?? 0),
+                gstRate: Number(record.gstRate ?? plan.gstAndTax ?? 0),
+                taxAmount: Number(record.taxAmount ?? 0),
+                totalAmount: Number(record.totalAmount ?? 0),
+              };
+            })
+            .filter((row) => row.period),
+        );
+      } else {
+        setPricingRows([]);
+      }
 
       setFeatures((prev) => ({
         ...prev,
@@ -323,6 +445,293 @@ const PlansTable = () => {
       }));
     } catch (err) {
       console.log(err);
+    }
+  };
+
+  const handlePricingRowChange = (
+    billingPeriodId: string | undefined,
+    field: "price" | "discount",
+    rawValue: string,
+  ) => {
+    setPricingRows((prev) =>
+      prev.map((row) => {
+        if (!billingPeriodId || row.billingPeriodId !== billingPeriodId) {
+          return row;
+        }
+
+        const numericValue = rawValue === "" ? 0 : Number(rawValue);
+
+        if (Number.isNaN(numericValue) || numericValue < 0) {
+          return row;
+        }
+
+        if (field === "discount" && numericValue > 100) {
+          return row;
+        }
+
+        const nextPrice = field === "price" ? numericValue : row.price;
+        const nextDiscount = field === "discount" ? numericValue : row.discount;
+        const gstRate = Number(formData.gstAndTax) || row.gstRate || 0;
+
+        const discounted = nextPrice - (nextPrice * nextDiscount) / 100;
+        const taxAmount = Number(((discounted * gstRate) / 100).toFixed(2));
+        const totalAmount = Number((discounted + taxAmount).toFixed(2));
+
+        return {
+          ...row,
+          [field]: numericValue,
+          gstRate,
+          taxAmount,
+          totalAmount,
+        };
+      }),
+    );
+  };
+
+  const handlePricingRowBlur = async (billingPeriodId: string | undefined) => {
+    if (!billingPeriodId || !selectedPlan?.planId) {
+      return;
+    }
+
+    const row = pricingRows.find(
+      (item) => item.billingPeriodId === billingPeriodId,
+    );
+
+    if (!row) {
+      return;
+    }
+
+    try {
+      await axios.put(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_BILLING_PERIOD}`
+          .replace("${planId}", selectedPlan.planId)
+          .replace("${billingPeriodId}", billingPeriodId),
+        {
+          price: row.price ?? 0,
+          discount: row.discount ?? 0,
+          gstRate: row.gstRate ?? Number(formData.gstAndTax) ?? 0,
+          taxAmount: row.taxAmount ?? 0,
+          totalAmount: row.totalAmount ?? 0,
+        },
+      );
+
+      toast.success(AppSuccessToastMessages.BILLING_PERIOD_UPDATED);
+    } catch (err: any) {
+      const message =
+        err.response?.data?.message ||
+        AppFailureToastMessages.UPDATE_BILLING_PERIOD_FAILED;
+
+      toast.error(message);
+    }
+  };
+
+  const [showAddBillingPeriodModal, setShowAddBillingPeriodModal] = useState(false);
+  const [isSavingBillingPeriod, setIsSavingBillingPeriod] = useState(false);
+  const [billingPeriodForm, setBillingPeriodForm] = useState({
+    billingPeriod: "",
+    duration: "",
+  });
+  const [billingPeriodFormErrors, setBillingPeriodFormErrors] = useState<{
+    billingPeriod?: string;
+    duration?: string;
+  }>({});
+
+  const resetBillingPeriodForm = () => {
+    setBillingPeriodForm({ billingPeriod: "", duration: "" });
+    setBillingPeriodFormErrors({});
+  };
+
+  const handleCancelAddBillingPeriod = () => {
+    setShowAddBillingPeriodModal(false);
+    resetBillingPeriodForm();
+  };
+
+  const normalizeBillingPeriodLabel = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    return trimmed
+      .toLowerCase()
+      .replace(/(^|\s)([a-z])/g, (_, prefix: string, char: string) =>
+        prefix + char.toUpperCase(),
+      );
+  };
+
+  const normalizeDurationLabel = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    const match = trimmed.match(/^(\d+)\s*([a-zA-Z]+)$/);
+    if (!match) return trimmed;
+
+    return `${match[1]} ${match[2].toLowerCase()}`;
+  };
+
+  const handleAddBillingPeriod = async () => {
+    const billingPeriod = normalizeBillingPeriodLabel(billingPeriodForm.billingPeriod);
+    const duration = normalizeDurationLabel(billingPeriodForm.duration);
+    const errors: { billingPeriod?: string; duration?: string } = {};
+
+    if (!billingPeriod) {
+      errors.billingPeriod = "Billing period is required";
+    }
+
+    if (!duration) {
+      errors.duration = "Duration is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setBillingPeriodFormErrors(errors);
+      return;
+    }
+
+    if (!selectedPlan?.planId) {
+      toast.error(AppFailureToastMessages.ADD_BILLING_PERIOD_FAILED);
+      return;
+    }
+
+    try {
+      setIsSavingBillingPeriod(true);
+
+      const response = await axios.post(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.ADD_BILLING_PERIOD}`.replace(
+          "${planId}",
+          selectedPlan.planId,
+        ),
+        { billingPeriod, duration },
+      );
+
+      const saved = response.data?.data ?? response.data;
+
+      // The API sometimes wraps the created record under a `billingPeriod` key
+      // instead of returning it flat — unwrap that case, same as CreatePlan.
+      const record =
+        saved && typeof saved.billingPeriod === "object" && saved.billingPeriod !== null
+          ? saved.billingPeriod
+          : saved;
+
+      const billingPeriodId = record?.billingPeriodId ?? record?.id ?? record?._id;
+
+      if (!billingPeriodId) {
+        toast.error(AppFailureToastMessages.ADD_BILLING_PERIOD_FAILED);
+        return;
+      }
+
+      setPricingRows((prev) => [
+        ...prev,
+        {
+          billingPeriodId,
+          period: billingPeriod,
+          duration,
+          price: Number(record?.price ?? 0),
+          discount: Number(record?.discount ?? 0),
+          gstRate: Number(record?.gstRate ?? formData.gstAndTax ?? 0),
+          taxAmount: Number(record?.taxAmount ?? 0),
+          totalAmount: Number(record?.totalAmount ?? 0),
+        },
+      ]);
+
+      setShowAddBillingPeriodModal(false);
+      resetBillingPeriodForm();
+      toast.success(AppSuccessToastMessages.BILLING_PERIOD_ADDED);
+    } catch (err: any) {
+      const message =
+        err.response?.data?.message ||
+        AppFailureToastMessages.ADD_BILLING_PERIOD_FAILED;
+
+      toast.error(message);
+    } finally {
+      setIsSavingBillingPeriod(false);
+    }
+  };
+
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
+
+  const handleSaveChanges = async () => {
+    if (!selectedPlan?.planId) {
+      return;
+    }
+
+    const rolesFromFeatures = Object.keys(formData.features || {})
+      .filter((role) => (formData.features[role] || []).length > 0)
+      .map((role) => roleCodeMap[role] || role.toUpperCase());
+
+    const allowedRoles =
+      rolesFromFeatures.length > 0 ? rolesFromFeatures : formData.allowedRoles;
+
+    const featuresForPayload = Object.fromEntries(
+      Object.entries(formData.features || {})
+        .filter(([, modules]) => (modules || []).length > 0)
+        .map(([role, modules]) => [roleCodeMap[role] || role.toUpperCase(), modules]),
+    );
+
+    // Pricing is already saved per-row via handlePricingRowBlur — only resend the
+    // billingPeriods array here if every row has a real id, so a still-loading /
+    // placeholder row can't trip the backend's required billingPeriodId check.
+    const billingPeriodsForPayload =
+      pricingRows.length > 0 && pricingRows.every((row) => row.billingPeriodId)
+        ? pricingRows.map((row) => ({
+            billingPeriodId: row.billingPeriodId,
+            billingPeriod: row.period,
+            duration: row.duration,
+            price: row.price ?? 0,
+            discount: row.discount ?? 0,
+            gstRate: row.gstRate ?? Number(formData.gstAndTax) ?? 0,
+            taxAmount: row.taxAmount ?? 0,
+            totalAmount: row.totalAmount ?? 0,
+          }))
+        : undefined;
+
+    const payload: Record<string, unknown> = {
+      planName: formData.planName,
+      studentLimit: Number(formData.studentLimit),
+      billingCycle: formData.billingCycle,
+      planDescription: formData.planDescription,
+      // The "Plan Tag" field (Most Popular / Recommended / Best Value) is the
+      // backend's `planStatus`; the "Status" field (Active/Inactive) is `status`.
+      planStatus: formData.planTag,
+      status: formData.planStatus,
+
+      monthlyPrice: Number(formData.monthlyPrice),
+      yearlyPrice: Number(formData.yearlyPrice),
+      setupFee: Number(selectedPlan.setupFee ?? 0),
+      trialDays: Number(selectedPlan.trialDays ?? 0),
+      gstAndTax: Number(formData.gstAndTax),
+      totalPrice: Number(selectedPlan.totalPrice ?? 0),
+
+      allowedRoles,
+      features: featuresForPayload,
+
+      canCreateCustomRole: allowedRoles.includes("ADMIN"),
+
+      lastUpdatedBy: "SUPER_ADMIN",
+    };
+
+    if (billingPeriodsForPayload) {
+      payload.billingPeriods = billingPeriodsForPayload;
+    }
+
+    try {
+      setIsSavingPlan(true);
+
+      await axios.put(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_PLAN}`.replace(
+          "${planId}",
+          selectedPlan.planId,
+        ),
+        payload,
+      );
+
+      toast.success(AppSuccessToastMessages.PLAN_UPDATED);
+      setShowUpdateModal(false);
+      fetchPlans();
+    } catch (err: any) {
+      const message =
+        err.response?.data?.message || AppFailureToastMessages.UPDATE_PLAN_FAILED;
+
+      toast.error(message);
+    } finally {
+      setIsSavingPlan(false);
     }
   };
 
@@ -399,8 +808,8 @@ const PlansTable = () => {
             <thead>
               <tr className="h-10 bg-[#496A96] text-left text-[14px] text-white">
                 <th className="px-4 font-medium">Plan Name</th>
-                <th className="px-4 font-medium">Price</th>
                 <th className="px-4 font-medium">Billing Cycle</th>
+                <th className="px-4 font-medium">Price</th>
                 <th className="px-4 font-medium">Created Date</th>
                 <th className="px-4 font-medium">Features</th>
                 <th className="px-4 font-medium">Subscribed Tenants</th>
@@ -423,7 +832,22 @@ const PlansTable = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedPlans.map((item, index) => (
+                paginatedPlans.map((item, index) => {
+                  const billingPeriods: any[] = Array.isArray(item.billingPeriods)
+                    ? item.billingPeriods
+                    : [];
+                  const rowKey = item.planId ?? String(index);
+                  const selectedBillingPeriodId =
+                    selectedBillingPeriodByPlan[rowKey] ??
+                    billingPeriods[0]?.billingPeriodId ??
+                    billingPeriods[0]?.billingPeriod;
+                  const selectedBillingPeriod = billingPeriods.find(
+                    (bp) =>
+                      (bp.billingPeriodId ?? bp.billingPeriod) ===
+                      selectedBillingPeriodId,
+                  );
+
+                  return (
                   <tr
                     key={index}
                     className={`text-[12px] ${
@@ -442,9 +866,40 @@ const PlansTable = () => {
                       </span>
                     </td>
 
-                    <td className="px-4">${item.monthlyPrice}</td>
+                    <td className="px-4">
+                      {billingPeriods.length > 0 ? (
+                        <select
+                          value={selectedBillingPeriodId ?? ""}
+                          onChange={(e) =>
+                            setSelectedBillingPeriodByPlan((prev) => ({
+                              ...prev,
+                              [rowKey]: e.target.value,
+                            }))
+                          }
+                          className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC]"
+                        >
+                          {billingPeriods.map((bp: any, bpIndex: number) => (
+                            <option
+                              key={bp.billingPeriodId ?? bpIndex}
+                              value={bp.billingPeriodId ?? bp.billingPeriod}
+                            >
+                              {bp.billingPeriod} - {bp.duration}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        item.billingCycle || "-"
+                      )}
+                    </td>
 
-                    <td className="px-4">{item.billingCycle}</td>
+                    <td className="px-4">
+                      ₹
+                      {selectedBillingPeriod
+                        ? (selectedBillingPeriod.totalAmount ??
+                          selectedBillingPeriod.price ??
+                          0)
+                        : item.monthlyPrice ?? 0}
+                    </td>
 
                     <td className="px-4 text-[#4D74AE]">
                       {formatTableDate(item.createdDate)}
@@ -506,7 +961,8 @@ const PlansTable = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -965,30 +1421,28 @@ ${
 
       {showUpdateModal && selectedPlan && (
         <div className="fixed inset-0 z-[9999] rounded-lg flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl max-h-[95vh] overflow-y-scroll scrollbar-none rounded-lg bg-white shadow-2xl">
-            {/* Header */}
-            {/* Header */}
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h2 className="text-lg font-medium text-gray-800">Update Plan</h2>
+          <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-lg border-2 border-[#3B82F6] bg-[#FBFDFF] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-3">
+              <h2 className="text-lg font-semibold text-[#1F2A44]">Update Plan</h2>
 
               <button
                 onClick={() => setShowUpdateModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                className="rounded-md p-1 text-[#667085] transition hover:bg-gray-100"
+                type="button"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-5 py-2 px-4">
-              {/* Basic Information */}
-              <div className="rounded-lg border border-gray-200 p-5">
-                <h3 className="mb-4 text-[15px] font-semibold text-gray-800">
+            <div className="space-y-4 px-4 py-3">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
                   Basic Information
                 </h3>
 
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium">
+                    <label className="mb-1 block text-xs font-medium text-[#344054]">
                       Plan Name
                     </label>
                     <input
@@ -1000,29 +1454,35 @@ ${
                           planName: e.target.value,
                         })
                       }
-                      className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
+                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Plan Type
+                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                      Plan Tag
                     </label>
-
-                    <select className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500">
-                      <option>Select</option>
-                      <option>Premium</option>
-                      <option>Standard</option>
-                      <option>Basic</option>
+                    <select
+                      value={formData.planTag}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          planTag: e.target.value,
+                        })
+                      }
+                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                    >
+                      <option>Most Popular</option>
+                      <option>Growing</option>
+                      <option>Low Adoption</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="mt-4">
-                  <label className="mb-1 block text-sm font-medium">
+                  <label className="mb-1 block text-xs font-medium text-[#344054]">
                     Description
                   </label>
-
                   <textarea
                     rows={3}
                     value={formData.planDescription}
@@ -1032,59 +1492,22 @@ ${
                         planDescription: e.target.value,
                       })
                     }
-                    className="w-full rounded border border-[#d4d4d4] p-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
+                    className="w-full rounded border border-[#D0D5DD] p-3 text-xs outline-none focus:border-[#576CBC]"
+                    placeholder="Short explanation about the plan and its features."
                   />
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-5">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Monthly Price (USD)
-                    </label>
-
-                    <input
-                      type="number"
-                      value={formData.monthlyPrice}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          monthlyPrice: Number(e.target.value),
-                        })
-                      }
-                      className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Yearly Price (USD)
-                    </label>
-
-                    <input
-                      type="number"
-                      value={formData.yearlyPrice}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          yearlyPrice: Number(e.target.value),
-                        })
-                      }
-                      className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs outline-none focus:border-indigo-500"
-                    />
-                  </div>
                 </div>
               </div>
 
-              {/* Plan Limits */}
-              <div className="rounded-lg border border-gray-200 p-5">
-                <h3 className="mb-4 text-[15px] font-semibold">Plan Limits</h3>
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
+                  Plan Limits
+                </h3>
 
-                <div className="grid grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium">
+                    <label className="mb-1 block text-xs font-medium text-[#344054]">
                       Students
                     </label>
-
                     <input
                       type="number"
                       value={formData.studentLimit}
@@ -1094,80 +1517,217 @@ ${
                           studentLimit: Number(e.target.value),
                         })
                       }
-                      className="h-8 w-full rounded border border-[#d4d4d4] px-3 text-xs outline-none focus:border-indigo-500"
+                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium">
+                    <label className="mb-1 block text-xs font-medium text-[#344054]">
                       Users
                     </label>
-
                     <input
-                      defaultValue="10"
-                      className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs"
+                      type="number"
+                      value={formData.userLimit}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          userLimit: Number(e.target.value),
+                        })
+                      }
+                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Storage Limit (GB)
-                    </label>
-
-                    <input
-                      defaultValue="250"
-                      className="h-8 w-full rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6 grid grid-cols-5 gap-6">
-                  {featureItems.map((item) => (
-                    <div key={item.key} className="flex flex-col items-start">
-                      <span className="mb-2 text-sm font-medium text-[#010e30]">
-                        {item.label}
+                  <div className="flex items-end gap-8 md:col-span-2 lg:col-span-2">
+                    <div className="flex flex-col">
+                      <span className="mb-2 text-xs font-medium text-[#344054]">
+                        Custom Domain
                       </span>
-
                       <ToggleSwitch
-                        checked={features[item.key as keyof typeof features]}
+                        checked={features.customDomain}
                         onChange={() =>
                           setFeatures((prev) => ({
                             ...prev,
-                            [item.key]: !prev[item.key as keyof typeof prev],
+                            customDomain: !prev.customDomain,
                           }))
                         }
                       />
                     </div>
-                  ))}
+
+                    <div className="flex flex-col">
+                      <span className="mb-2 text-xs font-medium text-[#344054]">
+                        Backup
+                      </span>
+                      <ToggleSwitch
+                        checked={features.backup}
+                        onChange={() =>
+                          setFeatures((prev) => ({
+                            ...prev,
+                            backup: !prev.backup,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Included Modules */}
-
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  "Student Management",
-                  "Staff Management",
-                  "Attendance",
-                  "Fees Management",
-                  "Examination",
-                  "Transport Management",
-                  "Library Management",
-                  "Hostel Management",
-                  "HR & Payroll",
-                  "Performance Analytics",
-                ].map((item, index) => (
-                  <label
-                    key={index}
-                    className="flex items-center gap-2 cursor-pointer text-[13px]"
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-[15px] font-semibold text-[#1F2A44]">
+                    Pricing Configuration
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddBillingPeriodModal(true)}
+                    className="rounded border border-[#C9D3F9] bg-[#EEF2FF] px-3 py-1 text-[11px] font-medium text-[#3D56A8]"
                   >
-                    <span className="relative flex h-[13px] w-[13px] items-center justify-center">
+                    Add Custom Billing Period
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto rounded border border-[#E6EAF2]">
+                  <table className="min-w-full text-[11px]">
+                    <thead className="bg-[#576CBC] text-white">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Billing Period</th>
+                        <th className="px-3 py-2 text-left font-medium">Duration</th>
+                        <th className="px-3 py-2 text-left font-medium">Price (₹)</th>
+                        <th className="px-3 py-2 text-left font-medium">Discount (%)</th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          GST ({Number(formData.gstAndTax) || 0}%)
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">Total (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pricingRowsForTable.map((row) => {
+                        const discounted = row.price - (row.price * row.discount) / 100;
+                        const gst = (discounted * Number(formData.gstAndTax || 0)) / 100;
+                        const total = discounted + gst;
+
+                        return (
+                          <tr
+                            key={row.billingPeriodId ?? row.period}
+                            className="border-t border-[#EEF2F7] text-[#344054]"
+                          >
+                            <td className="px-3 py-2">{String(row.period)}</td>
+                            <td className="px-3 py-2">{String(row.duration)}</td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.price}
+                                readOnly={!row.billingPeriodId}
+                                onChange={(e) =>
+                                  handlePricingRowChange(
+                                    row.billingPeriodId,
+                                    "price",
+                                    e.target.value,
+                                  )
+                                }
+                                onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
+                                className="h-7 w-[88px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 disabled:bg-[#F1F3F7]"
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={row.discount}
+                                readOnly={!row.billingPeriodId}
+                                onChange={(e) =>
+                                  handlePricingRowChange(
+                                    row.billingPeriodId,
+                                    "discount",
+                                    e.target.value,
+                                  )
+                                }
+                                onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
+                                className="h-7 w-[72px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2"
+                              />
+                            </td>
+                            <td className="px-3 py-2">₹{gst.toFixed(2)}</td>
+                            <td className="px-3 py-2">₹{total.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4">
+                  <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    GST / Tax
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.gstAndTax}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        gstAndTax: Number(e.target.value),
+                      })
+                    }
+                    className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-[15px] font-semibold text-[#1F2A44]">
+                    Included Modules & Features
+                  </h3>
+                  <button
+                    type="button"
+                    className="rounded border border-[#C9D3F9] bg-[#EEF2FF] px-3 py-1 text-[11px] font-medium text-[#3D56A8]"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <div className="mb-4 flex gap-3">
+                  {roleTabs.map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setActiveRoleTab(role)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        activeRoleTab === role
+                          ? "bg-[#E5EDFF] text-[#3D56A8]"
+                          : "text-[#475467] hover:bg-[#F2F4F7]"
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 text-[13px] text-[#1F2A44] md:grid-cols-2">
+                  {[
+                    "Student Management",
+                    "Staff Management",
+                    "Attendance",
+                    "Fees Management",
+                    "Examination",
+                    "Transport Management",
+                    "Library Management",
+                    "Hostel Management",
+                    "HR & Payroll",
+                    "Performance Analytics",
+                  ].map((item) => (
+                    <label
+                      key={item}
+                      className="flex cursor-pointer items-center gap-2"
+                    >
                       <input
                         type="checkbox"
-                        className="peer absolute inset-0 h-[13px] w-[13px] cursor-pointer opacity-0"
-                        checked={selectedModules.includes(item)}
+                        className="h-3.5 w-3.5 accent-[#576CBC]"
+                        checked={activeRoleModules.includes(item) || selectedModules.includes(item)}
                         onChange={(e) => {
-                          let modules = [...selectedModules];
+                          let modules = [...activeRoleModules];
 
                           if (e.target.checked) {
                             modules.push(item);
@@ -1179,59 +1739,149 @@ ${
                             ...prev,
                             features: {
                               ...prev.features,
-                              Modules: modules,
+                              [activeRoleTab]: modules,
                             },
                           }));
                         }}
                       />
-
-                      <span className="flex h-[13px] w-[13px] items-center justify-center rounded-[3px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white">
-                        <svg
-                          viewBox="0 0 16 16"
-                          className="h-3 w-3"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path
-                            d="M3.5 8.5L6.5 11.5L12.5 4.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </span>
-                    </span>
-
-                    {item}
-                  </label>
-                ))}
+                      {item}
+                    </label>
+                  ))}
+                </div>
               </div>
 
-              {/* Status */}
-
-              <div className="rounded-lg border border-gray-200 p-5">
-                <h3 className="mb-4 text-[15px] font-semibold">Status</h3>
-
-                <div className="gap-4">
-                  <div className="flex flex-row gap-5">
-                    <label className="text-sm mt-2 font-medium">
-                      Plan Status
-                    </label>
-
-                    <select className="h-8 w-[550px] ml-11 rounded border border-[#d4d4d4] px-3 placeholder:text-[#010e309c] text-xs">
-                      <option>Active</option>
-                      <option>Inactive</option>
-                    </select>
-                  </div>
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">Status</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[140px_1fr] md:items-center">
+                  <label className="text-xs font-medium text-[#344054]">Plan Status</label>
+                  <select
+                    value={formData.planStatus}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        planStatus: e.target.value,
+                      })
+                    }
+                    className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                  >
+                    <option>Active</option>
+                    <option>Inactive</option>
+                  </select>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] bg-[#F8FAFC] px-5 py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedPlan?.planId) {
+                    getPlanById(selectedPlan.planId);
+                  }
+                }}
+                className="rounded border border-[#D0D5DD] bg-white px-4 py-1.5 text-xs font-medium text-[#475467]"
+              >
+                Reset
+              </button>
 
-            <div className="flex justify-end gap-3 border-t bg-gray-50 px-6 py-4">
-              <button className="rounded bg-[#576CBC] px-4 py-2 text-xs font-medium text-white">
-                Save Changes
+              <button
+                type="button"
+                onClick={handleSaveChanges}
+                disabled={isSavingPlan}
+                className="rounded bg-[#576CBC] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+              >
+                {isSavingPlan ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddBillingPeriodModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-5">
+          <div className="bg-white rounded-xl w-full max-w-sm shadow-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-[#010E30]">
+                Add Custom Billing Period
+              </h3>
+
+              <button
+                onClick={handleCancelAddBillingPeriod}
+                className="flex h-7 w-7 items-center justify-center text-gray-500 transition hover:bg-gray-100 hover:text-black rounded-md"
+                type="button"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-[#010E30] font-medium mb-2">
+                  Billing Period
+                </label>
+
+                <input
+                  type="text"
+                  value={billingPeriodForm.billingPeriod}
+                  onChange={(e) =>
+                    setBillingPeriodForm((prev) => ({
+                      ...prev,
+                      billingPeriod: e.target.value,
+                    }))
+                  }
+                  placeholder="Monthly"
+                  className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                />
+
+                {billingPeriodFormErrors.billingPeriod && (
+                  <p className="mt-1 text-[10px] text-red-500">
+                    {billingPeriodFormErrors.billingPeriod}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm text-[#010E30] font-medium mb-2">
+                  Duration
+                </label>
+
+                <input
+                  type="text"
+                  value={billingPeriodForm.duration}
+                  onChange={(e) =>
+                    setBillingPeriodForm((prev) => ({
+                      ...prev,
+                      duration: e.target.value,
+                    }))
+                  }
+                  placeholder="1 month"
+                  className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                />
+
+                {billingPeriodFormErrors.duration && (
+                  <p className="mt-1 text-[10px] text-red-500">
+                    {billingPeriodFormErrors.duration}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={handleCancelAddBillingPeriod}
+                className="border border-gray-300 hover:bg-gray-50 px-4 text-xs py-2 rounded-md"
+                type="button"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleAddBillingPeriod}
+                disabled={isSavingBillingPeriod}
+                className="bg-[#576CBC] text-white px-4 text-xs py-2 rounded-md disabled:opacity-60"
+                type="button"
+              >
+                {isSavingBillingPeriod ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

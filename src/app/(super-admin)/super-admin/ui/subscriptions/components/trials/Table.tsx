@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import axios from "axios";
+import { toast } from "react-toastify";
 import {
   Search,
   SlidersHorizontal,
@@ -32,11 +33,34 @@ type FilterState = {
   status: string;
 };
 
+type TrialEditForm = {
+  tenantName: string;
+  trialStartDate: string;
+  trialEndDate: string;
+  status: string;
+};
+
 const INITIAL_FILTERS: FilterState = {
   tenantName: "",
   fromDate: "",
   toDate: "",
   status: "All",
+};
+
+const TRIAL_STATUS_OPTIONS = [
+  "ACTIVE",
+  "INACTIVE",
+  "CANCELLED",
+  "CONVERTED",
+  "EXPIRED",
+  "COMPLETED",
+];
+
+const EMPTY_EDIT_FORM: TrialEditForm = {
+  tenantName: "",
+  trialStartDate: "",
+  trialEndDate: "",
+  status: "",
 };
 
 const applyFilters = (
@@ -158,6 +182,37 @@ const toDateInputValue = (value?: string) => {
   return date.toISOString().split("T")[0];
 };
 
+const getTrialIdentifier = (item: TrialItem | null) =>
+  item?.trialId || item?._id || "";
+
+const computeDaysLeft = (value?: string) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const endDate = new Date(value);
+
+  if (Number.isNaN(endDate.getTime())) {
+    return undefined;
+  }
+
+  const now = new Date();
+
+  endDate.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+
+  return Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+const createEditFormFromTrial = (item: TrialItem | null): TrialEditForm => ({
+  tenantName: item?.tenantName || "",
+  trialStartDate: toDateInputValue(item?.trialStartDate),
+  trialEndDate: toDateInputValue(item?.trialEndDate),
+  status: item?.status || "",
+});
+
+
+
 const Table = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -173,6 +228,8 @@ const Table = () => {
   const [selectedTrial, setSelectedTrial] = useState<TrialItem | null>(null);
   const [trials, setTrials] = useState<TrialItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState<TrialEditForm>(EMPTY_EDIT_FORM);
 
   const itemsPerPage = 5;
   const trialsList = Array.isArray(trials) ? trials : [];
@@ -206,12 +263,14 @@ const Table = () => {
   const showingStart = filteredItems.length === 0 ? 0 : startIndex + 1;
 
   useEffect(() => {
+   
     setCurrentPage(1);
     setOpenMenu(null);
   }, [search, appliedFilters]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
+      
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
@@ -227,9 +286,9 @@ const Table = () => {
         const payload =
           response.data?.data?.items ?? response.data?.items ?? response.data?.data;
 
+
         setTrials(Array.isArray(payload) ? payload : []);
       } catch (error) {
-        console.error("Error fetching trials:", error);
         setTrials([]);
       } finally {
         setLoading(false);
@@ -238,6 +297,127 @@ const Table = () => {
 
     fetchTrials();
   }, []);
+
+  useEffect(() => {
+    if (!showTrialModal) {
+      return;
+    }
+
+    setEditForm(createEditFormFromTrial(selectedTrial));
+  }, [showTrialModal, selectedTrial]);
+
+  const handleResetEdit = () => {
+  
+    setEditForm(createEditFormFromTrial(selectedTrial));
+  };
+
+  const handleSaveTrial = async () => {
+    const trialIdentifier = getTrialIdentifier(selectedTrial);
+   
+
+    if (!trialIdentifier) {
+      toast.error("Trial id is missing.");
+      return;
+    }
+
+    if (!editForm.status) {
+      toast.error("Status is required.");
+      return;
+    }
+
+    if (
+      editForm.trialStartDate &&
+      editForm.trialEndDate &&
+      new Date(editForm.trialEndDate) < new Date(editForm.trialStartDate)
+    ) {
+     
+      toast.error("Trial end date cannot be before trial start date.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("SuperAdminAuthToken")
+          : null;
+      
+
+      const headers = token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined;
+
+      const payload = {
+        status: editForm.status,
+        trialEndDate: editForm.trialEndDate || undefined,
+        updatedBy: "system",
+      };
+
+      const updateUrl = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TRIALS.UPDATE_TRIALS}/${trialIdentifier}`;
+      let response;
+
+      try {
+        response = await axios.put(updateUrl, payload, { headers });
+      
+      } catch (error: any) {
+        const statusCode = error?.response?.status;
+       
+
+        if (statusCode === 404 || statusCode === 405) {
+          response = await axios.put(updateUrl, payload, { headers });
+         
+        } else {
+          throw error;
+        }
+      }
+
+      const updated = response.data?.data;
+
+      if (!updated) {
+        throw new Error("Invalid update response");
+      }
+
+      const updatedId = updated.trialId || trialIdentifier;
+      const nextTrial: TrialItem = {
+        ...selectedTrial,
+        _id: updated.trialId || selectedTrial?._id,
+        trialId: updated.trialId || selectedTrial?.trialId,
+        tenantName: updated.tenant?.tenantName || selectedTrial?.tenantName,
+        trialStartDate:
+          updated.trialStartDate || selectedTrial?.trialStartDate,
+        trialEndDate: updated.trialEndDate || selectedTrial?.trialEndDate,
+        status: updated.status || selectedTrial?.status,
+        isConverted:
+          typeof updated.isConverted === "boolean"
+            ? updated.isConverted
+            : selectedTrial?.isConverted,
+        convertedAt: updated.convertedAt || selectedTrial?.convertedAt,
+        daysLeft: computeDaysLeft(updated.trialEndDate || selectedTrial?.trialEndDate),
+      };
+
+      setTrials((prev) =>
+        prev.map((item) =>
+          getTrialIdentifier(item) === updatedId ? nextTrial : item,
+        ),
+      );
+      
+
+      setSelectedTrial(nextTrial);
+      setShowTrialModal(false);
+      
+      toast.success("Trial updated successfully.");
+    } catch (error: any) {
+      const message =
+        error.response?.data?.message || error.message || "Failed to update trial.";
+
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div>
@@ -353,6 +533,7 @@ const Table = () => {
                                   setSelectedTrial(item);
                                   setIsEditMode(false);
                                   setShowTrialModal(true);
+                                  setEditForm(createEditFormFromTrial(item));
                                   setOpenMenu(null);
                                 }}
                               >
@@ -364,6 +545,7 @@ const Table = () => {
                                   setSelectedTrial(item);
                                   setIsEditMode(true);
                                   setShowTrialModal(true);
+                                  setEditForm(createEditFormFromTrial(item));
                                   setOpenMenu(null);
                                 }}
                               >
@@ -373,7 +555,6 @@ const Table = () => {
                               <button
                                 className="w-full px-4 py-2 text-left text-xs text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700"
                                 onClick={() => {
-                                  console.log("Cancel", item);
                                   setOpenMenu(null);
                                 }}
                               >
@@ -581,8 +762,8 @@ const Table = () => {
                     </label>
 
                     <input
-                      readOnly={!isEditMode}
-                      defaultValue={selectedTrial?.tenantName}
+                      readOnly
+                      value={isEditMode ? editForm.tenantName : selectedTrial?.tenantName || ""}
                       className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
                     />
                   </div>
@@ -597,8 +778,8 @@ const Table = () => {
 
                       <input
                         type="date"
-                        readOnly={!isEditMode}
-                        defaultValue={toDateInputValue(selectedTrial?.trialStartDate)}
+                        readOnly
+                        value={isEditMode ? editForm.trialStartDate : toDateInputValue(selectedTrial?.trialStartDate)}
                         className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
                       />
                     </div>
@@ -611,7 +792,13 @@ const Table = () => {
                       <input
                         type="date"
                         readOnly={!isEditMode}
-                        defaultValue={toDateInputValue(selectedTrial?.trialEndDate)}
+                        value={isEditMode ? editForm.trialEndDate : toDateInputValue(selectedTrial?.trialEndDate)}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            trialEndDate: e.target.value,
+                          }))
+                        }
                         className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 outline-none"
                       />
                     </div>
@@ -626,8 +813,8 @@ const Table = () => {
                       </label>
 
                       <input
-                        readOnly={!isEditMode}
-                        defaultValue={
+                        readOnly
+                        value={
                           typeof selectedTrial?.daysLeft === "number"
                             ? `${selectedTrial.daysLeft} Days`
                             : ""
@@ -641,11 +828,31 @@ const Table = () => {
                         Status
                       </label>
 
-                      <input
-                        readOnly={!isEditMode}
-                        defaultValue={selectedTrial?.status}
-                        className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 text-green-600 outline-none"
-                      />
+                      {isEditMode ? (
+                        <select
+                          value={editForm.status}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              status: e.target.value,
+                            }))
+                          }
+                          className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 text-[#101B41] outline-none"
+                        >
+                          <option value="">Select status</option>
+                          {TRIAL_STATUS_OPTIONS.map((status) => (
+                            <option key={status} value={status}>
+                              {formatStatusLabel(status)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          readOnly
+                          value={selectedTrial?.status || ""}
+                          className="h-11 w-full rounded-md border border-[#D8DDE8] px-4 text-green-600 outline-none"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -657,14 +864,18 @@ const Table = () => {
             {isEditMode && (
               <div className="flex justify-end gap-4 border-t px-5 py-4">
                 <button
-                  onClick={() => setShowTrialModal(false)}
+                  onClick={handleResetEdit}
                   className="rounded-md border border-[#576CBC] px-8 py-2 text-[#576CBC] font-medium"
                 >
                   Reset
                 </button>
 
-                <button className="rounded-md bg-[#576CBC] px-8 py-2 text-white font-medium">
-                  Save Changes
+                <button
+                  onClick={handleSaveTrial}
+                  disabled={isSaving}
+                  className="rounded-md bg-[#576CBC] px-8 py-2 text-white font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             )}

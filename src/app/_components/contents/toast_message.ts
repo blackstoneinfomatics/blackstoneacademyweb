@@ -76,6 +76,11 @@ GROWTH_FETCH:
   ACADEMIC_COACH_STUDENT_FETCH: "Unable to fetch student list",
   SUPER_ADMIN_TENANT_CREATE: "Failed to Create New Tenant",
   CREATE_PLAN_FAILED: "Failed to create plan. Please try again.",
+  CREATE_DRAFT_PLAN_FAILED: "Unable to create draft plan. Please try again.",
+  ADD_BILLING_PERIOD_FAILED: "Unable to add billing period. Please try again.",
+  UPDATE_BILLING_PERIOD_FAILED: "Unable to update billing period pricing. Please try again.",
+  UPDATE_DRAFT_PLAN_FAILED: "Unable to update GST/Tax settings. Please try again.",
+  UPDATE_PLAN_FAILED: "Unable to update plan. Please try again.",
 
 });
 
@@ -86,6 +91,9 @@ export const AppSuccessToastMessages = Object.freeze({
   MEETING_RESCHEDULE: "Meeting rescheduled successfully",
   SUPER_ADMIN_TENANT_FAMILY: "New Tenant Created Successfully",
   CREATE_PLAN_SUCCESS: "Plan created successfully",
+  BILLING_PERIOD_ADDED: "Billing period added successfully",
+  BILLING_PERIOD_UPDATED: "Billing period pricing updated successfully",
+  PLAN_UPDATED: "Plan updated successfully",
 
 });
 
