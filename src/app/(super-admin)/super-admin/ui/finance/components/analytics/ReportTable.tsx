@@ -1,79 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Download } from "lucide-react";
 import { downloadPdf } from "../downloadCsv";
+import axios from "axios";
 
-const activities = [
-  {
-    id: 1,
-    date: "Sep, 12 2023",
-    role: "Admin",
-    activity: "User added",
-    details: "New tenant has been added",
-  },
-  {
-    id: 2,
-    date: "Sep, 12 2023",
-    role: "Admin",
-    activity: "Login",
-    details: "New tenant has been added",
-  },
-  {
-    id: 3,
-    date: "Sep, 12 2023",
-    role: "Admin",
-    activity: "Feature enabled",
-    details: "New tenant has been added",
-  },
-  {
-    id: 4,
-    date: "Sep, 12 2023",
-    role: "Admin",
-    activity: "Login",
-    details: "New tenant has been added",
-  },
-  {
-    id: 5,
-    date: "Sep, 12 2023",
-    role: "Admin 1",
-    activity: "Jeeva S",
-    details: "New tenant has been added",
-  },
-  {
-    id: 6,
-    date: "Sep, 12 2023",
-    role: "Admin",
-    activity: "Login",
-    details: "New tenant has been added",
-  },
-  {
-    id: 7,
-    date: "Sep, 12 2023",
-    role: "Admin",
-    activity: "Feature disabled",
-    details: "New tenant has been added",
-  },
-  {
-    id: 8,
-    date: "Sep, 12 2023",
-    role: "Admin 2",
-    activity: "Feature enabled",
-    details: "New tenant has been added",
-  },
-];
+// Define the API Response
+interface ActivityApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    total: number;
+    activities: Array<{
+      _id?: string;
+      date: string;
+      role: string;
+      activity: string;
+      details: string;
+    }>;
+  };
+}
+
+// Define the Activity type
+interface Activity {
+  id: string;
+  date: string;
+  role: string;
+  activity: string;
+  details: string;
+}
 
 export default function ReportTable() {
-  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
-  const [selectedActivity, setSelectedActivity] = useState<
-    (typeof activities)[number] | null
-  >(null);
-  const [selectedActivityIds, setSelectedActivityIds] = useState<number[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [selectedActivityIds, setSelectedActivityIds] = useState<string[]>([]);
   const allActivitiesSelected =
-    selectedActivityIds.length === activities.length;
+    activities.length > 0 && selectedActivityIds.length === activities.length;
+
+  // Fetch Real-Time Data
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        setIsLoading(true);
+        const response = await axios.get<ActivityApiResponse>(
+          "http://localhost:5001/finance/today-activities"
+        );
+
+        if (response.data.success) {
+          const apiActivities = response.data.data.activities || [];
+
+          // Map API data to match your UI structure
+          const mappedActivities: Activity[] = apiActivities.map((item) => ({
+            id: item._id || Math.random().toString(36).substr(2, 9),
+            date: item.date ? new Date(item.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }) : "N/A",
+            role: item.role || "N/A",
+            activity: item.activity || "N/A",
+            details: item.details || "N/A",
+          }));
+
+          setActivities(mappedActivities);
+        }
+      } catch (error) {
+        console.error("Failed to fetch finance activities:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, []);
 
   const handleDownloadSelected = async () => {
     const selectedItems = activities.filter((item) =>
@@ -99,9 +104,10 @@ export default function ReportTable() {
       allActivitiesSelected ? [] : activities.map((activity) => activity.id),
     );
   };
-  const toggleDropdown = (id: number) => {
+  const toggleDropdown = (id: string) => {
     setOpenDropdownId((prev) => (prev === id ? null : id));
   };
+
   return (
     <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-sm py-4">
       <div className="mb-4 flex items-center justify-between px-3">
@@ -150,77 +156,91 @@ export default function ReportTable() {
           </thead>
 
           <tbody>
-            {activities.map((row, index) => {
-              const rowBgClass =
-                index % 2 === 0
-                  ? "bg-[#fff] dark:bg-[#2C2C2C]"
-                  : "bg-[#F8F8F8] dark:bg-[#303030]";
-              return (
-                <tr className={`text-[10px] ${rowBgClass}`} key={row.id}>
-                  <td className="px-5 py-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedActivityIds.includes(row.id)}
-                      onChange={() =>
-                        setSelectedActivityIds((current) =>
-                          current.includes(row.id)
-                            ? current.filter((id) => id !== row.id)
-                            : [...current, row.id],
-                        )
-                      }
-                      aria-label={`Select report ${row.id}`}
-                    />
-                  </td>
-                  <td className="px-5 py-4 text-[12px] text-[#576CBC]">
-                    {row.date}
-                  </td>
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-gray-500 dark:text-gray-400">
+                  Loading activities...
+                </td>
+              </tr>
+            ) : activities.length > 0 ? (
+              activities.map((row, index) => {
+                const rowBgClass =
+                  index % 2 === 0
+                    ? "bg-[#fff] dark:bg-[#2C2C2C]"
+                    : "bg-[#F8F8F8] dark:bg-[#303030]";
+                return (
+                  <tr className={`text-[10px] ${rowBgClass}`} key={row.id}>
+                    <td className="px-5 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedActivityIds.includes(row.id)}
+                        onChange={() =>
+                          setSelectedActivityIds((current) =>
+                            current.includes(row.id)
+                              ? current.filter((id) => id !== row.id)
+                              : [...current, row.id],
+                          )
+                        }
+                        aria-label={`Select report ${row.id}`}
+                      />
+                    </td>
+                    <td className="px-5 py-4 text-[12px] text-[#576CBC]">
+                      {row.date}
+                    </td>
 
-                  <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
-                    {row.role}
-                  </td>
+                    <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
+                      {row.role}
+                    </td>
 
-                  <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
-                    {row.activity}
-                  </td>
+                    <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
+                      {row.activity}
+                    </td>
 
-                  <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
-                    {row.details}
-                  </td>
+                    <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
+                      {row.details}
+                    </td>
 
-                  <td className="px-5 py-4 relative">
-                    <button
-                      onClick={() => toggleDropdown(row.id)}
-                      className="text-[#6B7280] hover:text-[#576CBC]"
-                    >
-                      <BsThreeDotsVertical size={15} />
-                    </button>
-                    {openDropdownId === row.id && (
-                      <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
-                        <button
-                          className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-                          onClick={() => {
-                            setSelectedActivity(row);
-                            setShowViewModal(true);
-                            setOpenDropdownId(null);
-                          }}
-                        >
-                          View Details
-                        </button>
+                    <td className="px-5 py-4 relative">
+                      <button
+                        onClick={() => toggleDropdown(row.id)}
+                        className="text-[#6B7280] hover:text-[#576CBC]"
+                      >
+                        <BsThreeDotsVertical size={15} />
+                      </button>
+                      {openDropdownId === row.id && (
+                        <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
+                          <button
+                            className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
+                            onClick={() => {
+                              setSelectedActivity(row);
+                              setShowViewModal(true);
+                              setOpenDropdownId(null);
+                            }}
+                          >
+                            View Details
+                          </button>
 
-                        <button
-                          className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-                          onClick={() => {
-                            setOpenDropdownId(null);
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                          <button
+                            className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
+                            onClick={() => {
+                              setOpenDropdownId(null);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-gray-500 dark:text-gray-400">
+                  No activities found for today
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
