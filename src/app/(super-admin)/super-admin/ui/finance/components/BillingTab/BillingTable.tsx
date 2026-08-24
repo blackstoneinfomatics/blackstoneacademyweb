@@ -8,6 +8,8 @@ import FilterDrawer, {
 import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolbar";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { Download } from "lucide-react";
+import { downloadPdf } from "../downloadCsv";
 
 // ✅ CORRECTED: Matches your exact backend response from getBillings()
 interface BillingListApiResponse {

@@ -21,15 +21,15 @@ type Invoice = {
   subscriptionPlan: {
     planId?: string | ObjectIdValue;
     planName?: string;
-    billingCycle?: string;
+    duration?: string;
     gstAndTax?: number;
+    discount?: number;
   };
   subscription: { subscriptionId?: string | ObjectIdValue };
   invoiceDate?: string | { $date?: string };
   dueDate?: string | { $date?: string };
   currency?: string;
   paymentTerms?: number;
-  discountAmount?: number;
   subtotal?: number;
   taxAmount?: number;
   totalAmount?: number;
@@ -118,7 +118,7 @@ export default async function Page({ params }: Props) {
   // const subscriptionId = getObjectId(invoice.subscription.subscriptionId);
   const currency = invoice.currency || "INR";
   const subtotal = Number(invoice.subtotal || 0);
-  const discount = Number(invoice.discountAmount || 0);
+  const discount = Number(invoice.subscriptionPlan.discount || 0);
   const tax = Number(invoice.taxAmount || 0);
   const total = Number(invoice.totalAmount || 0);
 
@@ -239,7 +239,7 @@ export default async function Page({ params }: Props) {
 
                 <p className="text-sm font-bold text-slate-800 mt-1">
                   <p className="text-[11px] font-semibold text-slate-800 mt-0.5">
-                    {invoice.subscriptionPlan.billingCycle || "N/A"}
+                    {invoice.subscriptionPlan.duration || "N/A"} Months
                   </p>
                 </p>
               </div>
@@ -284,7 +284,7 @@ export default async function Page({ params }: Props) {
 
                 <tbody>
                   <tr className="border-b border-slate-200">
-                    <td className="px-5 py-5">
+                    <td className="px-5 py-3">
                       <p className="text-[11px] text-slate-400">Plan</p>
                       <p className="text-sm mt-1 font-bold text-slate-800">
                         {invoice.subscriptionPlan?.planName
@@ -296,29 +296,27 @@ export default async function Page({ params }: Props) {
                       </p>
                     </td>
 
-                    <td className="px-5 py-5 text-right text-sm font-semibold text-slate-800">
+                    <td className="px-5 py-3 text-right text-sm font-semibold text-slate-800">
                       {formatCurrency(subtotal, currency)}
                     </td>
                   </tr>
 
-                  {/* <tr className="border-b border-slate-200">
-                    <td className="px-5 py-4 text-sm text-slate-600">
-                      Discount
+                  <tr className="border-b border-slate-200">
+                    <td className="px-5 py-3 text-sm text-slate-600">
+                      Discount (%)
                     </td>
 
-                    <td className="px-5 py-4 text-right text-sm font-medium text-slate-700">
-                      {discount > 0
-                        ? `- ${formatCurrency(discount, currency)}`
-                        : formatCurrency(0, currency)}
+                    <td className="px-5 py-3 text-right text-sm font-semibold text-slate-800">
+                      {invoice.subscriptionPlan.discount}
                     </td>
-                  </tr> */}
+                  </tr>
 
                   <tr>
-                    <td className="px-5 py-4 text-sm text-slate-600">
-                      Tax ( {invoice.subscriptionPlan.gstAndTax} % )
+                    <td className="px-5 py-3 text-sm text-slate-600">
+                      Tax ({invoice.subscriptionPlan.gstAndTax} %)
                     </td>
 
-                    <td className="px-5 py-4 text-right text-sm font-medium text-slate-700">
+                    <td className="px-5 py-3 text-right text-sm font-semibold text-slate-800">
                       {formatCurrency(tax, currency)}
                     </td>
                   </tr>
@@ -339,16 +337,16 @@ export default async function Page({ params }: Props) {
                   </span>
                 </div>
 
-                {/* <div className="flex justify-between py-2 text-sm">
-                  <span className="text-slate-500">Discount</span>
+                <div className="flex justify-between py-2 text-sm">
+                  <span className="text-slate-500">Discount (%)</span>
 
                   <span className="font-semibold text-slate-800">
-                    - {formatCurrency(discount, currency)}
+                    {invoice.subscriptionPlan.discount}
                   </span>
-                </div> */}
+                </div>
 
                 <div className="flex justify-between py-2 text-sm">
-                  <span className="text-slate-500">Tax</span>
+                  <span className="text-slate-500">Tax (%)</span>
 
                   <span className="font-semibold text-slate-800">
                     {formatCurrency(tax, currency)}

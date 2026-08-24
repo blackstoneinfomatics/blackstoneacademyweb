@@ -15,6 +15,7 @@ import {
   Info,
   Upload,
 } from "lucide-react";
+import { downloadPdf } from "../downloadCsv";
 
 type FieldProps = {
   label: string;
@@ -267,51 +268,32 @@ const RefundTable = () => {
     selectedRows.includes(item.refundId),
   );
 
-  const buildCsv = (rows: typeof recentItems) => {
-    const headers = [
-      "Refund ID",
-      "Tenant",
-      "Invoice ID",
-      "Payment Date",
-      "Request Date",
-      "Refund Window",
-      "Amount",
-      "Payment Status",
-    ];
-
-    const lines = [
-      headers.join(","),
-      ...rows.map((row) =>
-        [
-          row.refundId,
-          row.tenant,
-          row.invoiceId,
-          row.paymentDate,
-          row.requestDate,
-          row.refundWindow,
-          row.amount,
-          row.paymentStatus,
-        ]
-          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-          .join(","),
-      ),
-    ];
-
-    return lines.join("\n");
-  };
-
-  const handleDownloadSelected = () => {
+  const handleDownloadSelected = async () => {
     if (selectedItems.length === 0) return;
 
-    const blob = new Blob([buildCsv(selectedItems)], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "selected-invoices.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    await downloadPdf(
+      "selected-refunds.pdf",
+      [
+        "Refund ID",
+        "Tenant",
+        "Invoice ID",
+        "Payment Date",
+        "Request Date",
+        "Refund Window",
+        "Amount",
+        "Payment Status",
+      ],
+      selectedItems.map((row) => [
+        row.refundId,
+        row.tenant,
+        row.invoiceId,
+        row.paymentDate,
+        row.requestDate,
+        row.refundWindow,
+        row.amount,
+        row.paymentStatus,
+      ]),
+    );
   };
 
   useEffect(() => {
@@ -330,12 +312,14 @@ const RefundTable = () => {
     <div>
       <div className="mb-3 flex items-center justify-between px-2 py-1">
         <h2
-          className="mb-4 font-medium text-[#010E30E5]/90"
+          className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#e6e6e6]"
           style={{
-            fontSize: "clamp(16px, 1.2vw, 20px)",
+            fontSize: "clamp(14px, 1.2vw, 16px)",
             lineHeight: "1.4",
           }}
-        >          Invoices
+        >
+          {" "}
+         All Invoices
         </h2>
 
         <button

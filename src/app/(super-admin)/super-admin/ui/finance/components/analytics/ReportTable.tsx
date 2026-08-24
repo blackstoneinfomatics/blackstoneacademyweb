@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { Download } from "lucide-react";
+import { downloadPdf } from "../downloadCsv";
 
 const activities = [
   {
@@ -69,19 +71,71 @@ export default function ReportTable() {
   const [selectedActivity, setSelectedActivity] = useState<
     (typeof activities)[number] | null
   >(null);
+  const [selectedActivityIds, setSelectedActivityIds] = useState<number[]>([]);
+  const allActivitiesSelected =
+    selectedActivityIds.length === activities.length;
+
+  const handleDownloadSelected = async () => {
+    const selectedItems = activities.filter((item) =>
+      selectedActivityIds.includes(item.id),
+    );
+
+    if (selectedItems.length === 0) return;
+
+    await downloadPdf(
+      "selected-analytics-report.pdf",
+      ["Date & Time", "Role", "Activity", "Details"],
+      selectedItems.map((item) => [
+        item.date,
+        item.role,
+        item.activity,
+        item.details,
+      ]),
+    );
+  };
+
+  const toggleAllActivities = () => {
+    setSelectedActivityIds(
+      allActivitiesSelected ? [] : activities.map((activity) => activity.id),
+    );
+  };
   const toggleDropdown = (id: number) => {
     setOpenDropdownId((prev) => (prev === id ? null : id));
   };
   return (
     <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-sm py-4">
-      <h2 className="text-[20px] px-3 font-semibold text-[#1E293B] dark:text-white mb-4">
-        Report
-      </h2>
+      <div className="mb-4 flex items-center justify-between px-3">
+        <h2
+          className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#fff]"
+          style={{
+            fontSize: "clamp(14px, 1.2vw, 16px)",
+            lineHeight: "1.4",
+          }}
+        >
+          All Reports
+        </h2>
+        <button
+          onClick={handleDownloadSelected}
+          disabled={selectedActivityIds.length === 0}
+          className="flex items-center gap-2 rounded-md bg-[#496A96] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download size={16} />
+          Download Report
+        </button>
+      </div>
 
       <div className="overflow-hidden border border-[#E8E8E8] dark:border-gray-700">
         <table className="w-full">
           <thead className="bg-[#486A99]">
             <tr>
+              <th className="px-5 py-3 text-left text-white text-[12px] font-semibold">
+                <input
+                  type="checkbox"
+                  checked={allActivitiesSelected}
+                  onChange={toggleAllActivities}
+                  aria-label="Select all reports"
+                />
+              </th>
               {["Date & Time", "ROLE", "Activity", "Details", "Action"].map(
                 (item) => (
                   <th
@@ -103,6 +157,20 @@ export default function ReportTable() {
                   : "bg-[#F8F8F8] dark:bg-[#303030]";
               return (
                 <tr className={`text-[10px] ${rowBgClass}`} key={row.id}>
+                  <td className="px-5 py-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedActivityIds.includes(row.id)}
+                      onChange={() =>
+                        setSelectedActivityIds((current) =>
+                          current.includes(row.id)
+                            ? current.filter((id) => id !== row.id)
+                            : [...current, row.id],
+                        )
+                      }
+                      aria-label={`Select report ${row.id}`}
+                    />
+                  </td>
                   <td className="px-5 py-4 text-[12px] text-[#576CBC]">
                     {row.date}
                   </td>

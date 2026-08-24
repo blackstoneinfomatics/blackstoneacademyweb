@@ -5,6 +5,8 @@ import FilterDrawer, {
 } from "@/app/(super-admin)/super-admin/components/FilterDrawer";
 import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolbar";
 import ViewDetailsModal from "@/app/(super-admin)/super-admin/components/ViewDetailsModal";
+import { Download } from "lucide-react";
+import { downloadPdf } from "../downloadCsv";
 import React, { useState } from "react";
 
 const data = [
@@ -175,6 +177,7 @@ export default function TransactionTable() {
     null,
   );
   const [selectedInvoice, setSelectedInvoice] = useState<any[]>([]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [openFilter, setOpenFilter] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -188,49 +191,49 @@ export default function TransactionTable() {
     status: "",
   });
 
-const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
-const handleView = (row: any) => {
+  const handleView = (row: any) => {
     console.log("View clicked", row);
 
-  setSelectedInvoice([
-    {
-      label: "Invoice No",
-      value: row.invoiceNo,
-    },
-    {
-      label: "Tenant",
-      value: row.tenant,
-    },
-    {
-      label: "Service",
-      value: row.service,
-    },
-    {
-      label: "Category",
-      value: row.category,
-    },
-    {
-      label: "Invoice Date",
-      value: row.invoiceDate,
-    },
-    {
-      label: "Due Date",
-      value: row.dueDate,
-    },
-    {
-      label: "Amount",
-      value: `₹ ${Number(row.amount).toLocaleString("en-IN")}`,
-    },
-    {
-      label: "Status",
-      value: row.status,
-      status: row.status === "Paid",
-    },
-  ]);
+    setSelectedInvoice([
+      {
+        label: "Invoice No",
+        value: row.invoiceNo,
+      },
+      {
+        label: "Tenant",
+        value: row.tenant,
+      },
+      {
+        label: "Service",
+        value: row.service,
+      },
+      {
+        label: "Category",
+        value: row.category,
+      },
+      {
+        label: "Invoice Date",
+        value: row.invoiceDate,
+      },
+      {
+        label: "Due Date",
+        value: row.dueDate,
+      },
+      {
+        label: "Amount",
+        value: `₹ ${Number(row.amount).toLocaleString("en-IN")}`,
+      },
+      {
+        label: "Status",
+        value: row.status,
+        status: row.status === "Paid",
+      },
+    ]);
 
-  setOpen(true);
-};
+    setOpen(true);
+  };
 
   const filteredData = data.filter((item) => {
     if (
@@ -265,20 +268,57 @@ const handleView = (row: any) => {
 
     return true;
   });
+
+  const selectedItems = data.filter((item) =>
+    selectedInvoiceIds.includes(item.id),
+  );
+
+  const handleDownloadSelected = async () => {
+    if (selectedItems.length === 0) return;
+
+    await downloadPdf(
+      "selected-invoices.pdf",
+      [
+        "Invoice No",
+        "Tenant",
+        "Plan",
+        "Service",
+        "Category",
+        "Invoice Date",
+        "Due Date",
+        "Amount",
+        "Status",
+      ],
+      selectedItems.map((item) => [
+        item.invoiceNo,
+        item.tenant,
+        item.plan,
+        item.service,
+        item.category,
+        item.invoiceDate,
+        item.dueDate,
+        item.amount,
+        item.status,
+      ]),
+    );
+  };
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2
-          className="font-medium text-[#010E30E5]/90"
+          className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#e6e6e6]"
           style={{
-            fontSize: "clamp(18px, 1.2vw, 20px)",
+            fontSize: "clamp(14px, 1.2vw, 16px)",
             lineHeight: "1.4",
           }}
         >
-          Invoices
+          All Invoices
         </h2>
 
         <button
+          onClick={handleDownloadSelected}
+          disabled={selectedItems.length === 0}
           className="flex items-center gap-2 rounded-lg bg-[#576CBC] px-4 py-2 text-white transition-colors hover:bg-[#4A5FB0]"
           style={{
             fontSize: "clamp(12px, 0.85vw, 14px)",
@@ -315,6 +355,7 @@ const handleView = (row: any) => {
       <DataTable
         heading="Invoices"
         selectable={true}
+        onSelectionChange={setSelectedInvoiceIds}
         columns={[
           {
             key: "invoiceNo",
@@ -420,11 +461,11 @@ const handleView = (row: any) => {
         }}
       />
       <ViewDetailsModal
-  title="Invoice Details"
-  open={open}
-  onClose={() => setOpen(false)}
-  data={selectedInvoice}
-/>
+        title="Invoice Details"
+        open={open}
+        onClose={() => setOpen(false)}
+        data={selectedInvoice}
+      />
     </div>
   );
 }

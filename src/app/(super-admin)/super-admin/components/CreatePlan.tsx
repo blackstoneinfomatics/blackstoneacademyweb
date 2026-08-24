@@ -69,7 +69,6 @@ const calculateBillingAmounts = (
   };
 };
 
-
 const persistBillingPeriodPricing = (planId: string, row: BillingPeriod) =>
   axios.put(
     `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_BILLING_PERIOD}`
@@ -327,7 +326,10 @@ const CreatePlan = ({ onClose }: Props) => {
           "${planId}",
           planId,
         ),
-        { ...buildDraftPlanPayload(), billingPeriods: recalculatedBillingPeriods },
+        {
+          ...buildDraftPlanPayload(),
+          billingPeriods: recalculatedBillingPeriods,
+        },
       );
 
       // Push every already-saved row's recalculated GST/tax/total too, so the
@@ -364,8 +366,9 @@ const CreatePlan = ({ onClose }: Props) => {
 
     const normalized = trimmed
       .toLowerCase()
-      .replace(/(^|\s)([a-z])/g, (_, prefix: string, char: string) =>
-        prefix + char.toUpperCase(),
+      .replace(
+        /(^|\s)([a-z])/g,
+        (_, prefix: string, char: string) => prefix + char.toUpperCase(),
       );
 
     return normalized;
@@ -376,7 +379,9 @@ const CreatePlan = ({ onClose }: Props) => {
   };
 
   const handleSaveBillingPeriod = async () => {
-    const billingPeriod = normalizeBillingPeriod(billingPeriodForm.billingPeriod);
+    const billingPeriod = normalizeBillingPeriod(
+      billingPeriodForm.billingPeriod,
+    );
     const duration = normalizeDuration(billingPeriodForm.duration);
     const errors: { billingPeriod?: string; duration?: string } = {};
 
@@ -419,7 +424,9 @@ const CreatePlan = ({ onClose }: Props) => {
       // instead of returning it flat — unwrap that case so id/price/etc are read
       // from the real record, not from an empty top-level object.
       const record =
-        saved && typeof saved.billingPeriod === "object" && saved.billingPeriod !== null
+        saved &&
+        typeof saved.billingPeriod === "object" &&
+        saved.billingPeriod !== null
           ? saved.billingPeriod
           : saved;
 
@@ -480,9 +487,9 @@ const CreatePlan = ({ onClose }: Props) => {
           return row;
         }
 
-        const nextPrice = field === "price" ? numericValue : row.price ?? 0;
+        const nextPrice = field === "price" ? numericValue : (row.price ?? 0);
         const nextDiscount =
-          field === "discount" ? numericValue : row.discount ?? 0;
+          field === "discount" ? numericValue : (row.discount ?? 0);
         const gstRate = Number(planData.gstAndTax) || row.gstRate || 0;
 
         const { taxAmount, totalAmount } = calculateBillingAmounts(
@@ -597,7 +604,8 @@ const CreatePlan = ({ onClose }: Props) => {
       console.error(err);
 
       const message =
-        err.response?.data?.message || AppFailureToastMessages.CREATE_PLAN_FAILED;
+        err.response?.data?.message ||
+        AppFailureToastMessages.CREATE_PLAN_FAILED;
 
       setFailedMessage(message);
       setFailed(true);
@@ -650,11 +658,12 @@ const CreatePlan = ({ onClose }: Props) => {
       "totalPrice",
     ]);
 
-    const newValue = numericFields.has(name) || type === "number"
-      ? value === ""
-        ? 0
-        : Number(value)
-      : value;
+    const newValue =
+      numericFields.has(name) || type === "number"
+        ? value === ""
+          ? 0
+          : Number(value)
+        : value;
 
     setPlanData((prev) => ({
       ...prev,
@@ -728,7 +737,7 @@ const CreatePlan = ({ onClose }: Props) => {
   const isDark = document.documentElement.classList.contains("dark");
 
   return (
-    <div className="fixed inset-0 bg-black/70 dark:bg-black/70 flex items-center justify-center z-50 p-5">
+    <div className="fixed inset-0 z-50 flex min-h-screen items-center justify-center overflow-y-scroll scrollbar-none bg-black/70 p-3 dark:bg-black/70 sm:p-5">
       <motion.div
         initial={{
           opacity: 0,
@@ -747,7 +756,7 @@ const CreatePlan = ({ onClose }: Props) => {
         transition={{
           duration: 0.35,
         }}
-        className="bg-white dark:bg-[#252525] rounded-[18px] w-full max-w-[760px] shadow-[0_20px_50px_rgba(15,23,42,0.22)]"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[760px] flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.22)] dark:bg-[#252525] sm:max-h-[calc(100dvh-2.5rem)]"
       >
         {" "}
         {/* Header */}
@@ -760,7 +769,7 @@ const CreatePlan = ({ onClose }: Props) => {
           </button>
         </div>
         {/* Stepper */}
-        <div className="px-5 pt-4 pb-6">
+        <div className="px-4 pb-4 pt-3 sm:px-5 sm:pb-6 sm:pt-4">
           {/* Circles */}
           <div className="grid grid-cols-4 place-items-center">
             {steps.map((item) => (
@@ -802,7 +811,7 @@ const CreatePlan = ({ onClose }: Props) => {
           </div>
         </div>
         {/* Body */}
-        <div className="p-4 px-6 min-h-[430px] overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none p-4 px-4 sm:px-6">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={step}
@@ -850,7 +859,7 @@ const CreatePlan = ({ onClose }: Props) => {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-[13px] font-medium text-[#010E30] dark:text-[#dfe3f3]">
                           Users
@@ -858,7 +867,9 @@ const CreatePlan = ({ onClose }: Props) => {
                         <input
                           type="number"
                           name="userLimit"
-                          value={planData.userLimit === 0 ? "" : planData.userLimit}
+                          value={
+                            planData.userLimit === 0 ? "" : planData.userLimit
+                          }
                           onChange={handleChange}
                           placeholder="10"
                           className="w-full h-[42px] rounded-[10px] border border-[#D9DDE8] bg-white px-3 text-[13px] text-[#0f172a] outline-none transition focus:border-[#576CBC] placeholder:text-[#8a93a6] dark:bg-[#343434] dark:text-[#f3f4f6] dark:border-[#5c5c5c] dark:placeholder:text-[#a3a3a3]"
@@ -871,7 +882,11 @@ const CreatePlan = ({ onClose }: Props) => {
                         </label>
                         <select
                           name="studentLimit"
-                          value={planData.studentLimit === 0 ? "" : planData.studentLimit}
+                          value={
+                            planData.studentLimit === 0
+                              ? ""
+                              : planData.studentLimit
+                          }
                           onChange={handleChange}
                           className="w-full h-[42px] rounded-[10px] border border-[#D9DDE8] bg-white px-3 text-[13px] text-[#0f172a] outline-none transition focus:border-[#576CBC] dark:bg-[#343434] dark:text-[#f3f4f6] dark:border-[#5c5c5c]"
                         >
@@ -885,7 +900,7 @@ const CreatePlan = ({ onClose }: Props) => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-[13px] font-medium text-[#010E30] dark:text-[#dfe3f3]">
                           Status
@@ -926,7 +941,9 @@ const CreatePlan = ({ onClose }: Props) => {
 
                       <button
                         type="button"
-                        onClick={() => setCustomDomainEnabled(!customDomainEnabled)}
+                        onClick={() =>
+                          setCustomDomainEnabled(!customDomainEnabled)
+                        }
                         className={`relative h-7 w-[56px] rounded-full transition ${
                           customDomainEnabled ? "bg-[#576CBC]" : "bg-[#dfe3ef]"
                         }`}
@@ -1000,14 +1017,24 @@ const CreatePlan = ({ onClose }: Props) => {
                       <table className="w-full min-w-[560px] text-left text-[12px]">
                         <thead>
                           <tr className="bg-[#EAEFFF] text-[#0f172a] dark:bg-[#343434] dark:text-[#f4f4f5]">
-                            <th className="px-3 py-3 font-semibold">Billing Period</th>
-                            <th className="px-3 py-3 font-semibold">Duration</th>
-                            <th className="px-3 py-3 font-semibold">Price (₹)</th>
-                            <th className="px-3 py-3 font-semibold">Discount (%)</th>
+                            <th className="px-3 py-3 font-semibold">
+                              Billing Period
+                            </th>
+                            <th className="px-3 py-3 font-semibold">
+                              Duration
+                            </th>
+                            <th className="px-3 py-3 font-semibold">
+                              Price (₹)
+                            </th>
+                            <th className="px-3 py-3 font-semibold">
+                              Discount (%)
+                            </th>
                             <th className="px-3 py-3 font-semibold">
                               GST ({Number(planData.gstAndTax) || 0}%)
                             </th>
-                            <th className="px-3 py-3 font-semibold">Total (₹)</th>
+                            <th className="px-3 py-3 font-semibold">
+                              Total (₹)
+                            </th>
                           </tr>
                         </thead>
 
@@ -1027,8 +1054,12 @@ const CreatePlan = ({ onClose }: Props) => {
                                 key={row.billingPeriodId}
                                 className="border-t border-[#D9DDE8] text-[#0f172a] dark:border-[#5c5c5c] dark:text-[#f4f4f5]"
                               >
-                                <td className="px-3 py-3">{row.billingPeriod}</td>
-                                <td className="px-3 py-3">{row.duration} Month</td>
+                                <td className="px-3 py-3">
+                                  {row.billingPeriod}
+                                </td>
+                                <td className="px-3 py-3">
+                                  {row.duration} Month
+                                </td>
                                 <td className="px-2 py-3">
                                   <input
                                     type="number"
@@ -1041,10 +1072,14 @@ const CreatePlan = ({ onClose }: Props) => {
                                         e.target.value,
                                       )
                                     }
-                                    onBlur={() => handleBillingPeriodBlur(row.billingPeriodId)}
+                                    onBlur={() =>
+                                      handleBillingPeriodBlur(
+                                        row.billingPeriodId,
+                                      )
+                                    }
                                     placeholder="0"
                                     className="w-[80px] h-[32px] rounded-[8px] border border-[#D9DDE8] bg-white px-2 text-[12px] outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#5c5c5c]"
-                                  /> 
+                                  />
                                 </td>
                                 <td className="px-2 py-3">
                                   <input
@@ -1059,16 +1094,24 @@ const CreatePlan = ({ onClose }: Props) => {
                                         e.target.value,
                                       )
                                     }
-                                    onBlur={() => handleBillingPeriodBlur(row.billingPeriodId)}
+                                    onBlur={() =>
+                                      handleBillingPeriodBlur(
+                                        row.billingPeriodId,
+                                      )
+                                    }
                                     placeholder="0"
                                     className="w-[68px] h-[32px] rounded-[8px] border border-[#D9DDE8] bg-white px-2 text-[12px] outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#5c5c5c]"
                                   />
                                 </td>
                                 <td className="px-3 py-3">
-                                  {row.taxAmount !== undefined ? row.taxAmount.toFixed(2) : "-"}
+                                  {row.taxAmount !== undefined
+                                    ? row.taxAmount.toFixed(2)
+                                    : "-"}
                                 </td>
                                 <td className="px-3 py-3">
-                                  {row.totalAmount !== undefined ? row.totalAmount.toFixed(2) : "-"}
+                                  {row.totalAmount !== undefined
+                                    ? row.totalAmount.toFixed(2)
+                                    : "-"}
                                 </td>
                               </tr>
                             ))
@@ -1080,15 +1123,19 @@ const CreatePlan = ({ onClose }: Props) => {
 
                   <div className="mt-5 flex items-center gap-3 rounded-[10px] bg-[#E9EDFF] px-4 py-3 text-[13px] text-[#010E30] dark:text-[#dfe3f3]">
                     <PiInfoFill size={18} className="text-[#576CBC]" />
-                    <span>Set the base billing amount. GST/Tax will be calculated automatically.</span>
+                    <span>
+                      Set the base billing amount. GST/Tax will be calculated
+                      automatically.
+                    </span>
                   </div>
                 </div>
               )}
               {/* STEP 3 */}
               {step === 3 && (
                 <div className="w-full">
+                  <h2 className="py-4">Features</h2>
                   <div className="mb-5 flex items-center justify-between">
-                    <div className="flex gap-2 rounded-none bg-transparent">
+                    <div className="flex flex-wrap gap-2 rounded-none bg-transparent">
                       {roles.map((role) => (
                         <button
                           key={role}
@@ -1111,21 +1158,32 @@ const CreatePlan = ({ onClose }: Props) => {
                         <input
                           type="checkbox"
                           checked={
-                            selectedPermissions[activeRole].length === activePermissions.length
+                            selectedPermissions[activeRole].length ===
+                            activePermissions.length
                           }
                           onChange={toggleSelectAll}
                           className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
                         />
                         <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white dark:bg-[#d6d6d6]">
-                          <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M3.5 8.5L6.5 11.5L12.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <svg
+                            viewBox="0 0 16 16"
+                            className="h-3 w-3"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path
+                              d="M3.5 8.5L6.5 11.5L12.5 4.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
                           </svg>
                         </span>
                       </span>
                       Select All
                     </label>
 
-                    <div className="grid grid-cols-3 gap-y-4">
+                    <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3">
                       {activePermissions.map((permission) => (
                         <label
                           key={permission}
@@ -1134,13 +1192,25 @@ const CreatePlan = ({ onClose }: Props) => {
                           <span className="relative flex h-4 w-4 items-center justify-center">
                             <input
                               type="checkbox"
-                              checked={selectedPermissions[activeRole].includes(permission)}
+                              checked={selectedPermissions[activeRole].includes(
+                                permission,
+                              )}
                               onChange={() => togglePermission(permission)}
                               className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
                             />
                             <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white dark:bg-[#d6d6d6]">
-                              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3.5 8.5L6.5 11.5L12.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+                              <svg
+                                viewBox="0 0 16 16"
+                                className="h-3 w-3"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path
+                                  d="M3.5 8.5L6.5 11.5L12.5 4.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
                               </svg>
                             </span>
                           </span>
@@ -1181,7 +1251,8 @@ const CreatePlan = ({ onClose }: Props) => {
                     </div>
 
                     <p className="text-[13px] text-white/85">
-                      {planData.planDescription || "Advanced plan for growing institutions with all essential features."}
+                      {planData.planDescription ||
+                        "Advanced plan for growing institutions with all essential features."}
                     </p>
 
                     <div className="mt-4 flex items-end gap-2">
@@ -1206,7 +1277,11 @@ const CreatePlan = ({ onClose }: Props) => {
                             className="rounded-[8px] border border-white/20 bg-white/10 px-2 py-1.5"
                           >
                             {item.billingPeriod} · ₹
-                            {(item.totalAmount ?? item.price ?? 0).toLocaleString()}
+                            {(
+                              item.totalAmount ??
+                              item.price ??
+                              0
+                            ).toLocaleString()}
                           </span>
                         ))
                       ) : (
@@ -1222,24 +1297,32 @@ const CreatePlan = ({ onClose }: Props) => {
                       Plan Details
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 text-[12px] text-[#0f172a] dark:text-[#f4f4f5]">
+                    <div className="grid grid-cols-1 gap-3 text-[12px] text-[#0f172a] dark:text-[#f4f4f5] sm:grid-cols-2">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-[#667085]">Users</span>
-                        <span className="font-medium">{planData.studentLimit || 10}</span>
+                        <span className="font-medium">
+                          {planData.studentLimit || 10}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-[#667085]">Student Limit</span>
-                        <span className="font-medium">{planData.studentLimit || 10}</span>
+                        <span className="font-medium">
+                          {planData.studentLimit || 10}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-[#667085]">Custom Domain</span>
-                        <span className="font-medium text-[#16a34a]">Enabled</span>
+                        <span className="font-medium text-[#16a34a]">
+                          Enabled
+                        </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-[#667085]">Backup</span>
-                        <span className="font-medium text-[#16a34a]">Enabled</span>
+                        <span className="font-medium text-[#16a34a]">
+                          Enabled
+                        </span>
                       </div>
-                      <div className="col-span-2 flex items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3 sm:col-span-2">
                         <span className="text-[#667085]">Status</span>
                         <span className="inline-flex items-center gap-2 rounded-full bg-[#E9F9EE] px-2 py-1 text-[#16a34a]">
                           <span className="h-2 w-2 rounded-full bg-[#16a34a]" />
@@ -1254,7 +1337,7 @@ const CreatePlan = ({ onClose }: Props) => {
                       Included Modules & Features
                     </div>
 
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-[12px] text-[#0f172a] dark:text-[#f4f4f5]">
+                    <div className="grid grid-cols-1 gap-x-8 gap-y-4 text-[12px] text-[#0f172a] dark:text-[#f4f4f5] sm:grid-cols-2">
                       {allowedRoles.length > 0 ? (
                         allowedRoles.map((role) => (
                           <div key={role}>
@@ -1262,24 +1345,36 @@ const CreatePlan = ({ onClose }: Props) => {
                               {role.replaceAll("_", " ")}
                             </div>
                             <ul className="space-y-1.5 text-[#0f172a] dark:text-[#f4f4f5]">
-                              {(featureAccessByRole[role] || []).map((permission) => (
-                                <li key={permission} className="flex items-center gap-2">
-                                  <Check size={14} className="text-[#16a34a]" />
-                                  <span>{permission}</span>
-                                </li>
-                              ))}
+                              {(featureAccessByRole[role] || []).map(
+                                (permission) => (
+                                  <li
+                                    key={permission}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Check
+                                      size={14}
+                                      className="text-[#16a34a]"
+                                    />
+                                    <span>{permission}</span>
+                                  </li>
+                                ),
+                              )}
                             </ul>
                           </div>
                         ))
                       ) : (
-                        <div className="col-span-2 text-[#667085]">No features selected yet.</div>
+                        <div className="text-[#667085] sm:col-span-2">
+                          No features selected yet.
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-center gap-3 rounded-[10px] bg-[#E9EDFF] px-4 py-3 text-[13px] text-[#010E30] dark:text-[#dfe3f3]">
+                  <div className="mt-5 flex items-center gap-3 rounded-[10px] bg-[#E9EDFF] px-4 py-3 text-[13px] text-[#010E30]">
                     <PiInfoFill size={18} className="text-[#576CBC]" />
-                    <span>This plan will be available for tenants to subscribe.</span>
+                    <span>
+                      This plan will be available for tenants to subscribe.
+                    </span>
                   </div>
                 </motion.div>
               )}
@@ -1287,7 +1382,7 @@ const CreatePlan = ({ onClose }: Props) => {
           </AnimatePresence>
         </div>
         {/* Footer */}
-        <div className="border-t border-[#D9DDE8] p-4 flex justify-end gap-3 dark:border-[#5c5c5c]">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-[#D9DDE8] p-4 dark:border-[#5c5c5c]">
           {step > 1 && (
             <button
               onClick={back}
@@ -1380,11 +1475,16 @@ const CreatePlan = ({ onClose }: Props) => {
                 <input
                   type="number"
                   min={1}
-                  value={billingPeriodForm.duration === 0 ? "" : billingPeriodForm.duration}
+                  value={
+                    billingPeriodForm.duration === 0
+                      ? ""
+                      : billingPeriodForm.duration
+                  }
                   onChange={(e) =>
                     setBillingPeriodForm((prev) => ({
                       ...prev,
-                      duration: e.target.value === "" ? 0 : Number(e.target.value),
+                      duration:
+                        e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
                   placeholder="1"

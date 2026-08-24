@@ -388,9 +388,9 @@ export default function TransactionTable() {
     <div>
       <div className="mb-3 flex items-center justify-between px-2 py-1">
         <h2
-          className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#ccc]"
+          className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#e6e6e6]"
           style={{
-            fontSize: "clamp(16px, 1.2vw, 20px)",
+            fontSize: "clamp(14px, 1.2vw, 16px)",
             lineHeight: "1.4",
           }}
         >
