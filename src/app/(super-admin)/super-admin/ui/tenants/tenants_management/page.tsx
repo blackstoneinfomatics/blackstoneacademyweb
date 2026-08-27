@@ -1,9 +1,8 @@
 "use client";
 
-import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
-import SupervisorHeader from "@/app/(tenant)/modules/users/supervisor/components/supervisorHeader";
 import { Users } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import TenantAnalytics from "../../../components/TenantAnalytics";
 import TenantUserTable from "../../../components/TenantUsers";
 import SuperAdminHeader from "../../../components/SuperAdminHeader";
@@ -22,49 +21,64 @@ import ModuleGrowth from "../../../components/TenantModuleGrowth";
 import PerformanceCard from "../../../components/TenantPerformanceCard";
 import ActivityTable from "../../../components/TeanantActivityTable";
 import QuickInsights from "../../../components/TenantQuickInsights";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-const tenantDetails = {
-  tenantId: "TEN22001",
-  name: "Blackstone Academy",
-  domain: "blackstoneacademy.com",
-  createdDate: "02 July, 2020",
+interface TenantDetails {
+  tenantCode: string;
+  tenantName: string;
+  tenantLogo: string;
+  organizationName: string;
+  phoneNumber?: string;
+  mobileNumber: string;
+  emailId: string;
+  address?: string;
+  gstNo?: string;
+  panNo: string;
+  website?: string;
+  domainName?: string;
+  tenantJobCode: string;
+  faxNo?: string;
+  state?: string;
+  city?: string;
+  street?: string;
+  postalCode?: string;
+  country?: string;
+  companyRegistrationCertificate?: string;
+  gstCertificate?: string;
+  addressProof?: string;
+  plan?: string;
+  timeZone?: string;
+  currency?: string;
+  activeLicense?: {
+    plan?: string;
+    status?: string;
+    startDate?: string;
+    expiryDate?: string;
+    renewalDate?: string;
+    currentPeriod?: string;
+    nextBilling?: string;
+    autoRenewal?: boolean;
+  };
+  status?: string;
+  settings?: unknown[];
+  createdDate?: string;
+  createdBy?: string;
+  lastUpdatedDate?: string;
+  lastUpdatedBy?: string;
+}
 
-  stats: {
-    users: 240,
-    students: 34000,
-    teachers: 120,
-    classes: 240,
-  },
+const formatSubscriptionDate = (value?: string) => {
+  if (!value) return "—";
 
-  companyInfo: {
-    name: "Blackstone Academy",
-    academyName: "Blackstone Academy",
-    email: "blackstone@gmail.com",
-    phone: "1234567890",
-    address: "70-71, Inbaite @ BuildScape, Mill Road, Coimbatore, Tamil Nadu",
-  },
-
-  subscription: {
-    plan: "Premium",
-    status: "Active",
-    currentPeriod: "15 Feb 2025 - 15 Aug 2025",
-    nextBilling: "15 Aug 2025",
-    autoRenewal: "Enabled",
-  },
-
-  modules: [
-    { name: "Admin", status: "Enabled" },
-    { name: "Teacher", status: "Enabled" },
-    { name: "Students", status: "Enabled" },
-    { name: "Supervisor", status: "Disabled" },
-  ],
-
-  features: [
-    { name: "Live Class", status: "Enabled" },
-    { name: "Assignments", status: "Enabled" },
-    { name: "Jitsi", status: "Enabled" },
-    { name: "Payment Gateway", status: "Enabled" },
-  ],
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 };
 
 const tabs = [
@@ -78,7 +92,98 @@ const tabs = [
 ];
 
 const Page = () => {
+  const searchParams = useSearchParams();
+  const tenantCode = searchParams.get("tenantCode");
   const [activeTab, setActiveTab] = useState("Overview");
+   const [tenant, setTenant] =
+    useState<TenantDetails | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  useEffect(() => {
+    if (!tenantCode) {
+      setLoading(false);
+      return;
+    }
+
+    const getTenantDetails = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.TENANT_OVERVIEW.replace("{tenantCode}", tenantCode)}`,
+        );
+        setTenant(response.data);
+      } catch (error) {
+        console.error("Failed to fetch tenant details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getTenantDetails();
+  }, [tenantCode]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!tenant) {
+    return <div>Tenant not found</div>;
+  }
+
+  const tenantDetails = {
+    tenantId: tenant.tenantCode,
+    name: tenant.tenantName,
+    domain: tenant.domainName || tenant.website || "—",
+    createdDate: tenant.createdDate || "—",
+    stats: { users: 0, students: 0, teachers: 0, classes: 0 },
+    companyInfo: {
+      Name: tenant.organizationName || "—",
+      AcademyName: tenant.tenantName || "—",
+      email: tenant.emailId || "—",
+      phone: tenant.phoneNumber || "—",
+      address:
+        tenant.address ||
+        [
+          tenant.street,
+          tenant.city,
+          tenant.state,
+          tenant.country,
+          tenant.postalCode,
+        ]
+          .filter(Boolean)
+          .join(", ") ||
+        "—",
+    },
+    subscription: {
+      plan: tenant.plan || tenant.activeLicense?.plan || "Basic",
+      status: tenant.activeLicense?.status || tenant.status || "Active",
+      currentPeriod:
+        tenant.activeLicense?.currentPeriod ||
+        [
+          formatSubscriptionDate(tenant.activeLicense?.startDate),
+          formatSubscriptionDate(tenant.activeLicense?.expiryDate),
+        ].join(" - "),
+      nextBilling: formatSubscriptionDate(
+        tenant.activeLicense?.nextBilling ||
+          tenant.activeLicense?.renewalDate ||
+          tenant.activeLicense?.expiryDate,
+      ),
+    },
+    modules: [
+      { name: "Admin", status: "Enabled" },
+      { name: "Teacher", status: "Enabled" },
+      { name: "Students", status: "Enabled" },
+      { name: "Supervisor", status: "Disabled" },
+    ],
+    features: [
+      { name: "Live Class", status: "Enabled" },
+      { name: "Assignments", status: "Enabled" },
+      { name: "Jitsi", status: "Enabled" },
+      { name: "Payment Gateway", status: "Enabled" },
+    ],
+  };
 
   return (
     <BaseSuperLayout>
@@ -110,7 +215,7 @@ const Page = () => {
                 {/* Logo */}
                 <div className="w-[95px] h-[95px] rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-100 dark:border-gray-700">
                   <img
-                    src="/assets/images/BE-LOGO.jpg"
+                    src={tenant.tenantLogo || "/assets/images/BE-LOGO.jpg"}
                     alt="logo"
                     className="w-full h-full object-cover"
                   />
@@ -119,17 +224,18 @@ const Page = () => {
                 {/* Right Side */}
                 <div className="flex flex-col w-full">
                   <h1 className="text-[34px] font-semibold leading-none text-[#111827] dark:text-white">
-                    {tenantDetails.name}
+                    {tenant.tenantName}
                   </h1>
 
-                  <p className="text-[16px] text-[#6B7280] dark:text-gray-300 mt-4">
-                    {tenantDetails.domain}
+                  <p className="text-[14
+                  px] text-[#9CA3AF] dark:text-gray-400 mt-2">
+                    {tenant.emailId}
                   </p>
 
                   <p className="text-[14px] text-[#9CA3AF] dark:text-gray-400 mt-2">
                     Created on : {tenantDetails.createdDate}
                     <span className="text-[#576CBC] dark:text-[#8296E6] ml-2 font-medium">
-                      ID: {tenantDetails.tenantId}
+                      ID: {tenant.tenantCode}
                     </span>
                   </p>
 
@@ -263,12 +369,6 @@ const Page = () => {
                     <span className="font-medium text-[#1F2A44] dark:text-white">
                       {tenantDetails.subscription.nextBilling}
                     </span>
-                  </div>
-
-                  <div className="grid grid-cols-[120px_1fr] gap-4">
-                    <span className="text-[#7A7A7A] dark:text-gray-400">Auto Renewal</span>
-
-                    <span className="font-medium text-[#1F2A44] dark:text-white">Enabled</span>
                   </div>
                 </div>
               </div>

@@ -293,5 +293,7 @@ TENANT: {
     GET_TENANT: "/tenant",
     CREATE_TENANT: "/tenant",
     UPDATE_TENANT: "/tenant",
+    TENANT_OVERVIEW: "/tenant/{tenantCode}",
+
   }
 };
