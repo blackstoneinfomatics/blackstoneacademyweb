@@ -288,5 +288,10 @@ export const AppApiEndpoints = {
     GET_TRIALS_DASHBOARD_COUNT: "/subscription-trials/dashboard-count",
     UPDATE_TRIALS: "/subscription-trials",
   }
-
+,
+TENANT: {
+    GET_TENANT: "/tenant",
+    CREATE_TENANT: "/tenant",
+    UPDATE_TENANT: "/tenant",
+  }
 };

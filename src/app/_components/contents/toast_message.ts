@@ -94,6 +94,7 @@ export const AppSuccessToastMessages = Object.freeze({
   BILLING_PERIOD_ADDED: "Billing period added successfully",
   BILLING_PERIOD_UPDATED: "Billing period pricing updated successfully",
   PLAN_UPDATED: "Plan updated successfully",
+  DOCUMENT_UPLOADED: "Document uploaded successfully",
 
 });
 

@@ -14,12 +14,14 @@ import {
   CloudUpload,
 } from "lucide-react";
 import axios from "axios";
+import { toast } from "react-toastify";
 import SuccessPopup from "@/app/(tenant)/modules/users/supervisor/components/successPopup";
 import FailedPopup from "@/app/(tenant)/modules/users/supervisor/components/failedPopup";
 import {
   AppFailureToastMessages,
   AppSuccessToastMessages,
 } from "@/app/_components/contents/toast_message";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type Props = {
   readonly onClose: () => void;
@@ -178,7 +180,7 @@ function UploadRow({
   title,
   name,
   file,
-  accept = ".pdf,.png,.jpg,.jpeg",
+  accept,
   onUpload,
   onRemove,
 }: {
@@ -189,6 +191,8 @@ function UploadRow({
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemove: (name: FileField) => void;
 }) {
+  console.log("[UploadRow render]", name, "file =", file);
+
   return (
     <div>
       <p className="mb-2 text-sm font-medium text-gray-800 dark:text-gray-100">
@@ -345,9 +349,36 @@ export default function AddNewTenant({ onClose }: Props) {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
 
-    if (!files || files.length === 0) return;
+    console.log(
+      "[handleFileUpload] RAW EVENT — name:",
+      name,
+      "files:",
+      files,
+      "files.length:",
+      files?.length,
+      "files[0]:",
+      files?.[0],
+    );
 
-    setFormData((prev) => ({ ...prev, [name]: files[0] }));
+    if (!files || files.length === 0) {
+      console.log("[handleFileUpload] bailing out — no files. name:", name);
+      return;
+    }
+
+    const picked = files[0];
+
+    console.log(
+      "[handleFileUpload] about to setFormData — name:",
+      name,
+      "picked:",
+      picked,
+      "picked is File:",
+      picked instanceof File,
+    );
+
+    setFormData((prev) => ({ ...prev, [name]: picked }));
+
+    toast.success(AppSuccessToastMessages.DOCUMENT_UPLOADED);
 
     e.target.value = "";
   };
@@ -366,44 +397,56 @@ export default function AddNewTenant({ onClose }: Props) {
 
   const handleSubmit = async () => {
     try {
-      const payload = {
-        tenantName: formData.companyName,
-        tenantLogo: formData.logo?.name || "",
-        mobileNumber: formData.phone,
-        organizationName: formData.companyName,
-        phoneNumber: formData.phone,
-        state: formData.state,
-        city: formData.city,
-        street: formData.street,
-        country: formData.country,
-        companyRegistrationCertificate:
-          formData.registrationCertificate?.name || "",
-        addressProof: formData.addressProof?.name || "",
-        plan: formData.plan,
-        activeLicense: {},
-        timeZone: formData.timeZone,
-        currency: formData.currency,
-        emailId: formData.email,
-        faxNo: formData.faxNo,
-        gstNo: formData.gstNo,
-        panNo: formData.panNo,
-        postalCode: formData.pincode,
-        tenantJobCode: `TENANT-${Date.now()}`,
-        website: formData.website,
-        status: formData.status,
-        settings: [],
-        createdBy: formData.adminName,
-        lastUpdatedBy: formData.adminName,
-      };
+      // The backend route only allows multipart/form-data and reads the
+      // uploaded filename off each file part's `.hapi.filename`, so files
+      // must be sent as real File parts, not plain strings.
+      const fd = new FormData();
 
-      const response = await axios.post("http://localhost:5001/tenant", payload);
+      fd.append("tenantName", formData.companyName);
+      if (formData.logo) fd.append("tenantLogo", formData.logo, formData.logo.name);
+      fd.append("mobileNumber", formData.phone);
+      fd.append("organizationName", formData.companyName);
+      fd.append("phoneNumber", formData.phone);
+      fd.append("state", formData.state || "");
+      fd.append("city", formData.city || "");
+      fd.append("street", formData.street || "");
+      fd.append("country", formData.country || "");
+      if (formData.registrationCertificate)
+        fd.append(
+          "companyRegistrationCertificate",
+          formData.registrationCertificate,
+          formData.registrationCertificate.name,
+        );
+      if (formData.addressProof)
+        fd.append("addressProof", formData.addressProof, formData.addressProof.name);
+      if (formData.gstCertificate)
+        fd.append("gstCertificate", formData.gstCertificate, formData.gstCertificate.name);
+      fd.append("plan", formData.plan || "");
+      fd.append("timeZone", formData.timeZone || "");
+      fd.append("currency", formData.currency || "");
+      fd.append("emailId", formData.email || "");
+      fd.append("faxNo", formData.faxNo || "");
+      fd.append("gstNo", formData.gstNo || "");
+      fd.append("panNo", formData.panNo || "");
+      fd.append("postalCode", formData.pincode || "");
+      fd.append("tenantJobCode", `TENANT-${Date.now()}`);
+      fd.append("website", formData.website || "");
+      fd.append("domainName", formData.domain || "");
+      fd.append("status", formData.status || "");
+      fd.append("createdBy", formData.adminName || "");
+      fd.append("lastUpdatedBy", formData.adminName || "");
 
-      console.log(response.data);
+      const response = await axios.post(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.CREATE_TENANT}`,
+        fd,
+      );
+
+      console.log("Create tenant response:", response.data);
 
       setSuccessMessage(AppSuccessToastMessages.SUPER_ADMIN_TENANT_FAMILY);
       setSuccess(true);
     } catch (err: any) {
-      console.error(err);
+      console.error("Create tenant error:", err);
 
       setFailedMessage(
         err.response?.data?.message ||
@@ -690,7 +733,6 @@ export default function AddNewTenant({ onClose }: Props) {
                 <UploadRow
                   title="Logo"
                   name="logo"
-                  accept=".png,.jpg,.jpeg"
                   file={formData.logo}
                   onUpload={handleFileUpload}
                   onRemove={removeFile}
