@@ -307,13 +307,13 @@ export default function TransactionTable() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2
-          className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#e6e6e6]"
+          className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#e6e6e6] px-2"
           style={{
-            fontSize: "clamp(14px, 1.2vw, 16px)",
+            fontSize: "clamp(16px, 1.2vw, 18px)",
             lineHeight: "1.4",
           }}
         >
-          All Invoices
+          Invoices
         </h2>
 
         <button

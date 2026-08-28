@@ -17,6 +17,7 @@ import AddNewTenant from "./AddNewTenant";
 import GenerateInvoice from "./SubscriptionInvoice";
 import CreatePlan from "./CreatePlan";
 import AddNewUser from "./AddNewUser";
+import AddBilling from "./AddBilling";
 
 type Props = {
   readonly currentSection: string;
@@ -107,6 +108,7 @@ export default function SuperAdminHeader({
   });
   const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
+  const [showAddBilling, setShowAddBilling] = useState(false);
   const loadPermissions = () => {
     try {
       const stored = localStorage.getItem("SuperAdminRolePermission");
@@ -492,7 +494,6 @@ export default function SuperAdminHeader({
       );
     }
 
-    // Show Create Invoice button only on invoices tab
     if (
       currentSection?.toLowerCase() === "subscriptions" &&
       tenantActiveTab === "invoices"
@@ -516,6 +517,20 @@ export default function SuperAdminHeader({
           className="rounded-lg bg-[#576CBC] px-4 py-2 text-sm text-white hover:bg-[#3a4f8a]"
         >
           Create Invoice
+        </button>
+      );
+    }
+
+    if (
+      currentSection?.toLowerCase() === "finance" &&
+      tenantActiveTab === "billing"
+    ) {
+      return (
+        <button
+          onClick={() => setShowAddBilling(true)}
+          className="rounded-lg bg-[#576CBC] px-4 py-2 text-sm text-white hover:bg-[#3a4f8a]"
+        >
+          Add Billing
         </button>
       );
     }
@@ -615,6 +630,9 @@ export default function SuperAdminHeader({
             )}
             {showCreatePlan && (
               <CreatePlan onClose={() => setShowCreatePlan(false)} />
+            )}
+            {showAddBilling && (
+              <AddBilling onClose={() => setShowAddBilling(false)} />
             )}
             {showNotification && (
               <div className="absolute -ml-[360px] w-[90vw] sm:w-[470px] max-w-[95vw] mt-2 bg-white/90 dark:bg-[#252525]/80 backdrop-blur-md border rounded-lg shadow-2xl z-30 animate-fade-in-up">

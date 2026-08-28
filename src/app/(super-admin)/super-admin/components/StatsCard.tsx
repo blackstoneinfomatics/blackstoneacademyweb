@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, type LucideIcon } from "lucide-react";
 interface StatsCardProps {
   title: string;
   value: string | number;
+  valueTooltip?: string;
   percentage: number;
   isPositive?: boolean;
   image?: string;
@@ -18,6 +19,7 @@ interface StatsCardProps {
 const StatsCard = ({
   title,
   value,
+  valueTooltip,
   percentage,
   isPositive = true,
   image,
@@ -83,6 +85,7 @@ const StatsCard = ({
 
           <p
             className="font-semibold text-[#232323] dark:text-[#ccc]"
+            title={valueTooltip}
             style={{
               fontSize: "clamp(18px, 1.8vw, 24px)",
               marginTop: "clamp(4px, 0.5vw, 8px)",

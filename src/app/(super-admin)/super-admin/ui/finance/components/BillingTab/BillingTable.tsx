@@ -34,7 +34,7 @@ interface BillingItem {
   category: string;
   amount: string;
   paymentMethod: string;
-  paymentDate: string;
+  addedBy: string;
   dueDate: string;
   status: string;
 }
@@ -73,9 +73,9 @@ const transactionFields: FilterField[] = [
     ],
   },
   {
-    key: "paymentDate",
-    label: "Payment Date",
-    type: "dateRange",
+    key: "addedBy",
+    label: "Added By",
+    type: "text",
   },
   {
     key: "dueDate",
@@ -89,14 +89,17 @@ const transactionFields: FilterField[] = [
     placeholder: "Select Status",
     options: [
       { label: "PAID", value: "PAID" },
-      { label: "REFUNDED", value: "REFUNDED" },
+      { label: "OVERDUE", value: "OVERDUE" },
       { label: "PENDING", value: "PENDING" },
+      { label: "CANCELLED", value: "CANCELLED" },
     ],
   },
 ];
 
 export default function BillingTable() {
-  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(
+    null,
+  );
   const [openFilter, setOpenFilter] = useState(false);
   const [search, setSearch] = useState("");
   const [data, setData] = useState<BillingItem[]>([]);
@@ -108,6 +111,7 @@ export default function BillingTable() {
     paymentMethod: "",
     paymentDateFrom: "",
     paymentDateTo: "",
+    addedBy: "",
     dueDateFrom: "",
     dueDateTo: "",
     status: "",
@@ -115,27 +119,29 @@ export default function BillingTable() {
 
   const [open, setOpen] = useState(false);
 
-  // ✅ FETCHES FROM GET /billing (The list endpoint)
   useEffect(() => {
     const fetchBillings = async () => {
       try {
         setIsLoading(true);
         const response = await axios.get<BillingListApiResponse>(
-          "http://localhost:5001/billing" // The list API
+          "http://localhost:5001/billing",
         );
 
         if (response.data.success) {
           // ✅ READ `items` from the API response
-          const billingArray = Array.isArray(response.data.data.items) 
-            ? response.data.data.items 
+          const billingArray = Array.isArray(response.data.data.items)
+            ? response.data.data.items
             : [];
 
           const mappedData: BillingItem[] = billingArray.map((item: any) => {
-            const formattedDate = new Date(item.paymentDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            });
+            const formattedDate = new Date(item.paymentDate).toLocaleDateString(
+              "en-US",
+              {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              },
+            );
 
             return {
               id: item._id,
@@ -143,7 +149,7 @@ export default function BillingTable() {
               category: item.category,
               amount: item.amount.toLocaleString("en-IN"),
               paymentMethod: item.paymentMethod,
-              paymentDate: formattedDate,
+              addedBy: item.addedBy,
               dueDate: formattedDate,
               status: item.status,
             };
@@ -173,22 +179,28 @@ export default function BillingTable() {
 
   // Filter logic
   const filteredData = data.filter((item) => {
-    if (filters.billingName && !item.billingName.toLowerCase().includes(filters.billingName.toLowerCase()))
+    if (
+      filters.billingName &&
+      !item.billingName
+        .toLowerCase()
+        .includes(filters.billingName.toLowerCase())
+    )
       return false;
 
     if (filters.category && item.category !== filters.category) return false;
-    if (filters.paymentMethod && item.paymentMethod !== filters.paymentMethod) return false;
+    if (filters.paymentMethod && item.paymentMethod !== filters.paymentMethod)
+      return false;
     if (filters.status && item.status !== filters.status) return false;
 
     if (filters.paymentDateFrom) {
       const from = new Date(filters.paymentDateFrom);
-      const itemDate = new Date(item.paymentDate);
+      const itemDate = new Date(item.addedBy);
       if (itemDate < from) return false;
     }
-
+    
     if (filters.paymentDateTo) {
       const to = new Date(filters.paymentDateTo);
-      const itemDate = new Date(item.paymentDate);
+      const itemDate = new Date(item.addedBy);
       if (itemDate > to) return false;
     }
 
@@ -207,23 +219,24 @@ export default function BillingTable() {
     return true;
   });
 
-  const filteredBySearch = filteredData.filter((item) =>
-    item.billingName.toLowerCase().includes(search.toLowerCase()) ||
-    item.category.toLowerCase().includes(search.toLowerCase()) ||
-    item.paymentMethod.toLowerCase().includes(search.toLowerCase()) ||
-    item.status.toLowerCase().includes(search.toLowerCase())
+  const filteredBySearch = filteredData.filter(
+    (item) =>
+      item.billingName.toLowerCase().includes(search.toLowerCase()) ||
+      item.category.toLowerCase().includes(search.toLowerCase()) ||
+      item.paymentMethod.toLowerCase().includes(search.toLowerCase()) ||
+      item.status.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
     <div className="dark:text-white">
       <h2
-        className="mb-4 font-medium text-[#010E30E5]/90 dark:text-white"
+        className="mb-4 font-medium text-[#010E30E5]/90 dark:text-white px-2"
         style={{
-          fontSize: "clamp(18px, 1.2vw, 20px)",
+          fontSize: "clamp(16px, 1.2vw, 18px)",
           lineHeight: "1.4",
         }}
       >
-        {"All Transactions"}
+        {"Billing"}
       </h2>
 
       <TableToolbar
@@ -260,8 +273,8 @@ export default function BillingTable() {
                     row.status === "PAID"
                       ? "bg-[#E8F8EC] text-[#2E9E44] dark:bg-green-900/30 dark:text-green-400"
                       : row.status === "REFUNDED"
-                      ? "bg-[#E7E5FF] text-[#576CBC] dark:bg-indigo-900/30 dark:text-indigo-400"
-                      : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
+                        ? "bg-[#E7E5FF] text-[#576CBC] dark:bg-indigo-900/30 dark:text-indigo-400"
+                        : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
                   }`}
                 >
                   {row.category}
@@ -296,11 +309,11 @@ export default function BillingTable() {
               ),
             },
             {
-              key: "paymentDate",
-              header: "Payment Date",
+              key: "addedBy",
+              header: "Added By",
               render: (row: any) => (
                 <span className="text-[#2E62B8] dark:text-sky-300">
-                  {row.paymentDate}
+                  {row.addedBy}
                 </span>
               ),
             },
@@ -312,9 +325,11 @@ export default function BillingTable() {
                   className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
                     row.status === "PAID"
                       ? "bg-[#E8F8EC] text-[#2E9E44] dark:bg-green-900/30 dark:text-green-400"
-                      : row.status === "REFUNDED"
-                      ? "bg-[#E7E5FF] text-[#576CBC] dark:bg-indigo-900/30 dark:text-indigo-400"
-                      : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
+                      : row.status === "OVERDUE"
+                        ? "bg-[#E7E5FF] text-[#576CBC] dark:bg-indigo-900/30 dark:text-indigo-400"
+                        : row.status === "PENDING"
+                          ? "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
+                          : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
                   }`}
                 >
                   {row.status}
@@ -354,6 +369,7 @@ export default function BillingTable() {
             paymentMethod: "",
             paymentDateFrom: "",
             paymentDateTo: "",
+            addedBy: "",
             dueDateFrom: "",
             dueDateTo: "",
             status: "",

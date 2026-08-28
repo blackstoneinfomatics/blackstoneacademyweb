@@ -16,6 +16,8 @@ import {
   Upload,
 } from "lucide-react";
 import { downloadPdf } from "../downloadCsv";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import RefundDetailsModal from "./RefundDetailsModal";
 
 type FieldProps = {
   label: string;
@@ -35,73 +37,21 @@ const Field = ({ label, value }: FieldProps) => (
     />
   </div>
 );
-const recentItems = [
-  {
-    refundId: "REF-00-01",
-    tenant: "Blackstone Institute",
-    invoiceId: "INV-00-01",
-    paymentDate: "2026-12-31",
-    requestDate: "2026-12-31",
-    refundWindow: "2",
-    amount: 2999,
-    paymentMethod: "Credit Card",
-    paymentStatus: "Paid",
-    status: "Active",
-    payment: "Paid",
-  },
-  {
-    refundId: "REF-00-02",
-    tenant: "Blackstone Institute",
-    invoiceId: "INV-00-02",
-    paymentDate: "2026-10-15",
-    requestDate: "2026-10-15",
-    refundWindow: "6",
-    amount: 2999,
-    paymentMethod: "UPI",
-    paymentStatus: "Paid",
-    status: "Expired",
-    payment: "Pending",
-  },
-  {
-    refundId: "REF-00-03",
-    tenant: "Blackstone Institute",
-    invoiceId: "INV-00-03",
-    paymentDate: "2027-01-20",
-    requestDate: "2027-01-20",
-    refundWindow: "2",
-    amount: 2999,
-    paymentMethod: "Net Banking",
-    paymentStatus: "Paid",
-    status: "Active",
-    payment: "notPaid",
-  },
-  {
-    refundId: "REF-00-04",
-    tenant: "Blackstone Institute",
-    invoiceId: "INV-00-04",
-    paymentDate: "2026-09-10",
-    requestDate: "2026-09-10",
-    refundWindow: "8",
-    amount: 2999,
-    paymentMethod: "Credit Card",
-    paymentStatus: "Paid",
-    status: "Suspended",
-    payment: "Pending",
-  },
-  {
-    refundId: "REF-00-05",
-    tenant: "Blackstone Institute",
-    invoiceId: "INV-00-05",
-    paymentDate: "2026-11-25",
-    requestDate: "2026-11-25",
-    refundWindow: "20",
-    amount: 2999,
-    paymentMethod: "Credit Card",
-    paymentStatus: "Paid",
-    status: "Active",
-    payment: "notPaid",
-  },
-];
+export type RefundRow = {
+  id: string;
+  refundId: string;
+  tenant: string;
+  invoiceId: string;
+  paymentDate: string;
+  requestDate: string;
+  refundWindow: string;
+  amount: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  refundStatus: string;
+  status: string;
+  payment: string;
+};
 
 type FilterState = {
   refundId: string;
@@ -130,7 +80,7 @@ const INITIAL_FILTERS: FilterState = {
 };
 
 const applyFilters = (
-  items: typeof recentItems,
+  items: RefundRow[],
   search: string,
   filters: FilterState,
 ) => {
@@ -207,6 +157,7 @@ const applyFilters = (
 };
 
 const RefundTable = () => {
+  const [refundItems, setRefundItems] = useState<RefundRow[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -219,21 +170,68 @@ const RefundTable = () => {
 
   const itemsPerPage = 5;
   const planOptions = Array.from(
-    new Set(recentItems.map((item) => item.invoiceId)),
+    new Set(refundItems.map((item) => item.invoiceId)),
   );
   const billingOptions = Array.from(
-    new Set(recentItems.map((item) => item.paymentDate)),
+    new Set(refundItems.map((item) => item.paymentDate)),
   );
   const statusOptions = Array.from(
-    new Set(recentItems.map((item) => item.status)),
+    new Set(refundItems.map((item) => item.status)),
   );
   const paymentOptions = Array.from(
-    new Set(recentItems.map((item) => item.payment)),
+    new Set(refundItems.map((item) => item.payment)),
   );
   const [showViewDetails, setShowViewDetails] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const filteredItems = applyFilters(recentItems, search, appliedFilters);
-  const previewFilteredItems = applyFilters(recentItems, search, draftFilters);
+  const [selectedInvoice, setSelectedInvoice] = useState<RefundRow | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const fetchRefunds = async () => {
+      try {
+        const response = await fetch(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.REFUND.GET_LIST}`,
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch refund transactions");
+        }
+
+        const result = await response.json();
+        const apiItems = Array.isArray(result?.data?.items)
+          ? result.data.items
+          : [];
+
+        setRefundItems(
+          apiItems.map((item: any) => ({
+            id: item._id || item.refundId,
+            refundId: item.refundNumber || item.refundId || item._id,
+            tenant: item.tenantName || "-",
+            invoiceId: item.invoiceId || "-",
+            paymentDate: item.paymentDate
+              ? new Date(item.paymentDate).toISOString().slice(0, 10)
+              : "-",
+            requestDate: item.requestedDate
+              ? new Date(item.requestedDate).toISOString().slice(0, 10)
+              : "-",
+            refundWindow: String(item.refundWindow ?? "-"),
+            amount: item.amount ?? 0,
+            paymentMethod: item.paymentMethod || "-",
+            paymentStatus: item.refundStatus || "-",
+            refundStatus: item.refundStatus || "-",
+            status: item.status || "-",
+            payment: item.status || "-",
+          })),
+        );
+      } catch (error) {
+        console.error("Refund transactions API error:", error);
+      }
+    };
+
+    fetchRefunds();
+  }, []);
+  const filteredItems = applyFilters(refundItems, search, appliedFilters);
+  const previewFilteredItems = applyFilters(refundItems, search, draftFilters);
 
   const activeFilterCount = Object.entries(appliedFilters).filter(
     ([key, value]) =>
@@ -264,7 +262,7 @@ const RefundTable = () => {
     selectedRows.includes(id),
   );
 
-  const selectedItems = recentItems.filter((item) =>
+  const selectedItems = refundItems.filter((item) =>
     selectedRows.includes(item.refundId),
   );
 
@@ -314,12 +312,12 @@ const RefundTable = () => {
         <h2
           className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#e6e6e6]"
           style={{
-            fontSize: "clamp(14px, 1.2vw, 16px)",
+            fontSize: "clamp(16px, 1.2vw, 18px)",
             lineHeight: "1.4",
           }}
         >
           {" "}
-         All Invoices
+          Refund Report
         </h2>
 
         <button
@@ -458,27 +456,27 @@ const RefundTable = () => {
                         <td className="px-2 py-4">
                           <span
                             className={`rounded-md px-2 py-[3px] text-[12px] ${
-                              item.payment === "Paid"
-                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
-                                : item.payment === "notPaid"
-                                  ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
-                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
-                            }`}
-                          >
-                            {item.payment}
-                          </span>
-                        </td>
-                        <td className="px-2 py-4">
-                          <span
-                            className={`rounded-md px-2 py-[3px] text-[12px] ${
-                              item.status === "Active"
-                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
-                                : item.status === "Expired"
+                              item.status === "APPROVED"
+                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#367e3d33]"
+                                : item.status === "REJECTED"
                                   ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
                                   : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
                             }`}
                           >
                             {item.status}
+                          </span>
+                        </td>
+                        <td className="px-2 py-4">
+                          <span
+                            className={`rounded-md px-2 py-[3px] text-[12px] ${
+                              item.refundStatus === "SUCCESS"
+                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#367e3d33]"
+                                : item.refundStatus === "FAILED"
+                                  ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
+                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                            }`}
+                          >
+                            {item.refundStatus}
                           </span>
                         </td>
                         <td className="relative px-2 py-4">
@@ -757,347 +755,11 @@ const RefundTable = () => {
           </div>
         </div>
       )}
-
-      {showViewDetails && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[1px]">
-          {/* Main Container */}
-          <div className="relative max-h-[92vh] w-full max-w-[1040px] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-            {/* Top Header */}
-            <div className="mb-5 flex items-start justify-between">
-              <div>
-                <h2 className="text-[18px] font-semibold text-[#101B41]">
-                  Refund Details
-                </h2>
-                <p className="mt-0.5 text-xs text-gray-400">
-                  Requested on{" "}
-                  {selectedInvoice?.requestDate || "May 16, 2024 10:30 AM"}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowViewDetails(false)}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-black transition"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Main Grid Section */}
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-              {/* LEFT COLUMN */}
-              <div className="space-y-4 lg:col-span-7">
-                {/* Refund Request Window Banner */}
-                <div className="flex items-center justify-between rounded-xl bg-[#EEF2FF] p-3.5 text-xs">
-                  <div className="max-w-[210px]">
-                    <p className="font-semibold text-[#101B41]">
-                      Refund Request Window
-                    </p>
-                    <p className="mt-0.5 text-[10px] leading-tight text-gray-500">
-                      Refund requests must be raised within 7 days from the
-                      invoice payment date.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-[10px] text-gray-500">Payment Date</p>
-                      <p className="font-semibold text-[#101B41]">
-                        {selectedInvoice?.paymentDate || "May 01, 2024"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">
-                        Request Deadline
-                      </p>
-                      <p className="font-semibold text-[#101B41]">
-                        {selectedInvoice?.requestDeadline || "May 01, 2024"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-[#E8F8EE] px-2.5 py-2 text-center border border-[#D1F2DC]">
-                      <p className="text-[10px] font-semibold text-[#1E293B]">
-                        Status
-                      </p>
-                      <p className="text-[10px] font-medium text-[#101B41]">
-                        2 Days Left to
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tenant Details Card */}
-                <div className="rounded-xl border border-gray-200 bg-white p-4">
-                  <h3 className="mb-3 text-sm font-bold text-[#101B41]">
-                    Tenant Details
-                  </h3>
-                  <div className="grid grid-cols-3 gap-y-3 text-xs">
-                    <div>
-                      <p className="text-gray-400">Tenant</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.tenant || "Blackstone Academy"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Domain</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.domain || "blackstoneacademy.com"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Contact Person</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.contactPerson || "John Michael"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Email</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.email || "john@blackstoneacademy.com"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Phone Number</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.phone || "+91 12345 67890"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Plan</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.plan || "Standard Plan (Monthly)"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Invoice Information Card */}
-                <div className="rounded-xl border border-gray-200 bg-white p-4">
-                  <h3 className="mb-3 text-sm font-bold text-[#101B41]">
-                    Invoice Information
-                  </h3>
-                  <div className="grid grid-cols-3 gap-y-3 text-xs">
-                    <div>
-                      <p className="text-gray-400">Invoice Number</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.invoiceId || "INV-2024-00156"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Invoice Date</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.invoiceDate || "May 01, 2024"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Invoice Amount</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        ₹{selectedInvoice?.amount || "12,999.00"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Paid Amount</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        ₹{selectedInvoice?.paidAmount || "12,999.00"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Payment Method</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.paymentMethod || "UPI (Razorpay)"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Transaction ID</p>
-                      <p className="mt-0.5 font-medium text-[#101B41]">
-                        {selectedInvoice?.txnId || "TXN-2024-005678"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Refund Request Section */}
-                <div className="rounded-xl border border-gray-200 bg-white p-4">
-                  <h3 className="mb-3 text-sm font-bold text-[#101B41]">
-                    Refund Request
-                  </h3>
-                  <div className="mb-3 grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="mb-1 block text-gray-500">Reason</label>
-                      <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[#101B41]">
-                        {selectedInvoice?.reason || "Plan change"}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-gray-500">
-                        Description
-                      </label>
-                      <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[#101B41]">
-                        {selectedInvoice?.description ||
-                          "We upgraded our plan. Requesting refund for the previous plan."}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Attachment */}
-                  <div>
-                    <p className="mb-1.5 text-xs text-gray-500">Attachment</p>
-                    <div className="flex w-fit items-center gap-3 rounded-xl bg-[#F1F5F9] p-2.5 pr-4">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4F46E5] text-white">
-                        <Upload size={16} />
-                      </div>
-                      <div className="text-xs">
-                        <p className="font-semibold text-[#101B41]">
-                          refund-request.pdf
-                        </p>
-                        <p className="text-[10px] text-gray-400">156 KB</p>
-                      </div>
-                      <button className="ml-2 text-gray-500 hover:text-black">
-                        <Upload size={14} className="rotate-180" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN */}
-              <div className="space-y-3.5 lg:col-span-5">
-                <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm space-y-3.5">
-                  <h3 className="text-sm font-bold text-[#101B41]">
-                    Process Refund
-                  </h3>
-
-                  {/* Blue Info Notice */}
-                  <div className="flex items-start gap-2 rounded-lg bg-[#EEF2FF] p-2.5 text-[11px] text-[#3730A3]">
-                    <Info
-                      size={14}
-                      className="mt-0.5 shrink-0 text-[#4338CA]"
-                    />
-                    <p>
-                      You are about to process a refund for this tenant. Please
-                      review the details and confirm the refund.
-                    </p>
-                  </div>
-
-                  {/* Refund Method Selection */}
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-[#101B41]">
-                      Refund Method
-                    </p>
-                    <div className="space-y-2">
-                      <label className="flex items-start gap-2.5 rounded-lg border border-indigo-600 bg-white p-2.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          defaultChecked
-                          className="mt-0.5 rounded accent-indigo-600 h-3.5 w-3.5"
-                        />
-                        <div>
-                          <p className="text-xs font-bold text-[#101B41]">
-                            Gateway Refund (Razorpay)
-                          </p>
-                          <p className="text-[10px] text-gray-400">
-                            Amount will be refunded to the original payment
-                            method (UPI).
-                          </p>
-                        </div>
-                      </label>
-                      <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 bg-white p-2.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 rounded accent-indigo-600 h-3.5 w-3.5"
-                        />
-                        <div>
-                          <p className="text-xs font-bold text-[#101B41]">
-                            Manual Refund (Bank Transfer)
-                          </p>
-                          <p className="text-[10px] text-gray-400">
-                            Amount will be transferred manually to tenant's bank
-                            account.
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Refund Amount Input Section */}
-                  <div>
-                    <p className="mb-1 text-xs font-semibold text-[#101B41]">
-                      Refund Amount
-                    </p>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-gray-400">
-                        Refundable Amount
-                      </p>
-                      <div className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-[#101B41]">
-                        ₹{selectedInvoice?.amount || "12,999.00"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Refund Summary Calculation */}
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-[#101B41]">
-                      Refund Summary
-                    </p>
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between text-gray-600">
-                        <span>Paid Amount</span>
-                        <span className="font-semibold text-[#101B41]">
-                          ₹12,999.00
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-gray-600">
-                        <span>Less: Non-Refundable Charges</span>
-                        <span className="font-semibold text-[#101B41]">
-                          ₹306.78
-                        </span>
-                      </div>
-                      <div className="flex justify-between pt-1.5 text-xs font-bold text-[#101B41]">
-                        <span>Total Amount</span>
-                        <span>₹4,999.00</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Total Refund Amount Highlight Box */}
-                  <div className="rounded-xl border border-[#D1F2DC] bg-[#E8F8EE] p-3">
-                    <p className="text-[11px] font-semibold text-[#101B41]">
-                      Total Refund Amount
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-base font-extrabold text-[#15803D]">
-                        ₹12,692.22
-                      </span>
-                      <span className="text-[9px] font-medium text-[#15803D] text-right max-w-[150px] leading-tight">
-                        Twelve Thousand Six Hundred Ninety Two and Twenty Two
-                        Paise Only
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bottom Action Buttons */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowViewDetails(false)}
-                      className="flex-1 rounded-lg border border-indigo-200 bg-[#EEF2FF] py-2 text-xs font-medium text-[#4338CA] hover:bg-indigo-100 transition"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="flex-1 rounded-lg border border-red-200 bg-[#FEF2F2] py-2 text-xs font-medium text-[#DC2626] hover:bg-red-100 transition"
-                    >
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      className="flex-1 rounded-lg bg-[#2E7D32] py-2 text-xs font-medium text-white hover:bg-[#1B5E20] transition"
-                    >
-                      Approved
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      {showViewDetails && selectedInvoice && (
+        <RefundDetailsModal
+          refund={selectedInvoice}
+          onClose={() => setShowViewDetails(false)}
+        />
       )}
     </div>
   );

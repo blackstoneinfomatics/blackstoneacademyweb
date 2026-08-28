@@ -4,7 +4,6 @@ import { CalendarDays } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./datepicker.css";
-import { CSSProperties } from "react";
 import React, { forwardRef } from "react";
 
 interface DatePickerInputProps {
@@ -72,6 +71,7 @@ export default function DatePickerInput({
       <DatePicker
         selected={value}
         onChange={onChange}
+        wrapperClassName="w-full"
         placeholderText={placeholder}
         dateFormat={dateFormat}
         disabled={disabled}

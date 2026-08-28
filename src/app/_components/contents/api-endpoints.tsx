@@ -6,8 +6,8 @@ export const AppApiEndpoints = {
   AUTH: {
     LOGIN: "/signin",
     ADMIN_LOGIN: "/signin",
-    LOGOUT :"/signout",
-    STUDENTS_SIGNIN: "/studentsignin"
+    LOGOUT: "/signout",
+    STUDENTS_SIGNIN: "/studentsignin",
   },
 
   USER: {
@@ -43,7 +43,7 @@ export const AppApiEndpoints = {
     GET_LIST: "/meetinglist",
     CREATE: "/addMeeting",
     GET_SUPERVISOR_MEETING: "/allMeetings",
-    GET_SUPERVISOR_MEET: "/meeting"
+    GET_SUPERVISOR_MEET: "/meeting",
   },
 
   INVOICE: {
@@ -54,7 +54,7 @@ export const AppApiEndpoints = {
     STUDENT_INVOICE: "/studentinvoice",
     STUDENT_INVOICE_LIST: "/studentinvoice/list",
     INVOICE_COUNTS: "/invoicecounts",
-    STUDENT_INVOICE_BYID:"/studentinvoiceById",
+    STUDENT_INVOICE_BYID: "/studentinvoiceById",
     GET_INVOICE_CARD_COUNT: "/subscription-invoices/dashboard-count",
     GET_INVOICE_TABLE: "/subscription-invoices",
     GET_FINANCE_TRANSATIONS: "/finance/transactions",
@@ -74,7 +74,7 @@ export const AppApiEndpoints = {
     GET_STUDENTS_COUNTRY_COUNT: "/alstudents/studentscountrycount",
     GET_STUDENTS_RECORD_COUNT: "/alstudents/studentsrecordcount",
     GET_STUDENTS_GENDER_COUNT: "/alstudents/studentsGender",
-    ALSTUDENTS_STUDENTS_LEVEL:"/alstudents/studentslevel"
+    ALSTUDENTS_STUDENTS_LEVEL: "/alstudents/studentslevel",
   },
 
   LEAVE: {
@@ -95,8 +95,8 @@ export const AppApiEndpoints = {
     DASHBOARD_ADMIN_TOTAL_TRIAL_REQUESTS: "/dashboard/admin/totaltrialrequest",
     GET_TEACHER_COUNTS: "/dashboard/teacher/counts",
     GET_SUPERVISOR_COUNTS: "/dashboard/supervisor/counts",
-    DASHBOARD_STUDENT_COUNTS:"/dashboard/student/counts",
-    GET_TEACHER_FEMALEMALE: "/teacherfemalemale"
+    DASHBOARD_STUDENT_COUNTS: "/dashboard/student/counts",
+    GET_TEACHER_FEMALEMALE: "/teacherfemalemale",
   },
 
   CLASSSHEDULE: {
@@ -112,18 +112,18 @@ export const AppApiEndpoints = {
     TEACHER_CLASSES: "/classShedule/teacher",
     TEACHER_CLASS_LIST: "/classShedule/teacher/list",
     ALL_TRIAL_CLASSES: "/alltrialclass",
-    TEACHER_COUNT:"/classShedule/teacher/count",
-    TEACHER_EARNINGS :"/teacher/earnings",
-    UPDATE_TEACHER_RESCHEDULE:"/classShedule/teacherreschedule",
-    GET_CLASS_STUDENT_ATT_COUNT:"/classstudentsattendancecounts",
-    CLASS_SESSION_END:"/classSession/triggerEnd",
-    GET_TEACHERMEETINGLIST:"/teacherMeetinglist",
-    GET_TEACHER_TRAILCLASS :"/teachertrialclass",
-    UPDATE_CLASS_ATTENDANCE:"/classShedule/attendanceupdate",
-    UPDATE_GROUP_CLASSSCHEDULE:"/groupclassschedule/bulkupdate",
-    UPDATE_CLASS_REQUEST_RESCHEDULE:"/classShedule/requestReshedule",
-    GET_CLASS_TOTAL_HOURS:"/classShedule/totalhours",
-    GET_CLASSSCHEDULE_ACTIVITY: "/classShedule/activity"
+    TEACHER_COUNT: "/classShedule/teacher/count",
+    TEACHER_EARNINGS: "/teacher/earnings",
+    UPDATE_TEACHER_RESCHEDULE: "/classShedule/teacherreschedule",
+    GET_CLASS_STUDENT_ATT_COUNT: "/classstudentsattendancecounts",
+    CLASS_SESSION_END: "/classSession/triggerEnd",
+    GET_TEACHERMEETINGLIST: "/teacherMeetinglist",
+    GET_TEACHER_TRAILCLASS: "/teachertrialclass",
+    UPDATE_CLASS_ATTENDANCE: "/classShedule/attendanceupdate",
+    UPDATE_GROUP_CLASSSCHEDULE: "/groupclassschedule/bulkupdate",
+    UPDATE_CLASS_REQUEST_RESCHEDULE: "/classShedule/requestReshedule",
+    GET_CLASS_TOTAL_HOURS: "/classShedule/totalhours",
+    GET_CLASSSCHEDULE_ACTIVITY: "/classShedule/activity",
   },
 
   AVAILABLE_TIME_SLOT: {
@@ -133,7 +133,7 @@ export const AppApiEndpoints = {
   PAYMENT: {
     CREATE_PAYMENT_INTENT: "/create-payment-intent",
     GET_STUDENT_PAYMENT_HISTORY: "/student/paymenthistory",
-    CREATE_STUDENT_PAYMENT :"/student/create-payment-intent",
+    CREATE_STUDENT_PAYMENT: "/student/create-payment-intent",
     CREATE_SUPERADMIN_SUBSCRIPTION: "/subscription-invoices/payment",
     GET_SUPERADMIN_SUBSCRIPTION: "/subscription-invoices",
   },
@@ -141,7 +141,7 @@ export const AppApiEndpoints = {
   APPLICANTS: {
     GET_LIST: "/applicants",
     GET_APPLICANT_COUNT_BY_COUNTRY: "/applicants/countriescount",
-    GET_APPLICATION_SUPERVISOR: "/application"
+    GET_APPLICATION_SUPERVISOR: "/application",
   },
 
   MEETING_MINUTES: {
@@ -166,6 +166,17 @@ export const AppApiEndpoints = {
     CREATE: "/expense",
     GET_EXPENSE: "/expenseCardCounts",
     GET: "/expense",
+  },
+
+  REFUND: {
+    GET_LIST: "/refund-transactions",
+    GET_BY_ID: "/refund-transactions/${refundId}",
+    GET_DASHBOARD_COUNT: "/refund-transactions/dashboard-count",
+  },
+
+  BILLING: {
+    CREATE: "/billing",
+    GET: "/billing",
   },
 
   COURSE: {
@@ -210,12 +221,12 @@ export const AppApiEndpoints = {
     CREATE_ADMIN_ASSIGNMENT: "/adminassignment",
     GET_STUDENT_ASSIGNMENTS: "/assignments/student",
     GET_TEACHER_ASS_CARD_COUNT: "/assignments/teacher/cardcount",
-    GET_ALL_ASS:"/allAssignment",
-    UPDATE:"/assignments",
-    GROUP_ASSIGNMENTS:"/groupAssignments",
-    GET_ADMIN_ASS:"/adminassignment/assignment",
-    GET_ASSIGNMNET_QUESTIONLIST:"/assignments/questionlist",
-    ASS_CARD_COUNT :"/assignments/cardcount"
+    GET_ALL_ASS: "/allAssignment",
+    UPDATE: "/assignments",
+    GROUP_ASSIGNMENTS: "/groupAssignments",
+    GET_ADMIN_ASS: "/adminassignment/assignment",
+    GET_ASSIGNMNET_QUESTIONLIST: "/assignments/questionlist",
+    ASS_CARD_COUNT: "/assignments/cardcount",
   },
 
   LEVELS: {
@@ -254,34 +265,33 @@ export const AppApiEndpoints = {
 
   TEACHERMEETING: {
     CREATE: "/teacherMeeting",
-    UPDATE :"/updateTeacherMeeting",
-    GET_MEETING :"/teacherMeeting",
-    GET_STUDENTMEETING_LIST:"/StudentMeetinglist",
-    GET_TEACHER_MEET: "/teacher"
-
+    UPDATE: "/updateTeacherMeeting",
+    GET_MEETING: "/teacherMeeting",
+    GET_STUDENTMEETING_LIST: "/StudentMeetinglist",
+    GET_TEACHER_MEET: "/teacher",
   },
 
-  FEEBACK :{
-    TEACHER_FEEDBACK:"/teacherfeedback",
+  FEEBACK: {
+    TEACHER_FEEDBACK: "/teacherfeedback",
     SUPERVISOR_FEEDBACK: "/allfeedback",
     SUPERVISORS_FEEDBACK: "/supervisorfeedback",
     CREATE_FEEDBACK: "/feedback",
   },
 
-  PROFILE : {
-    STUDENT_PROFILE : "/studentProfile"
+  PROFILE: {
+    STUDENT_PROFILE: "/studentProfile",
   },
 
-  PLAN : {
-    CREATE_PLAN : "/plans",
-    PLAN_CARD_COUNT : "/plans/dashboard",
-    PLAN_ACTIVITY : "/plans/dashboard",
-    GET_TOP_PERFORMING_PLAN : "/plans/dashboard",
-    PLAN_TABLE : "/plans",
-    GET_PLAN_BY_ID : "/plans/${planId}",
-    UPDATE_PLAN : "/plans/${planId}",
-    ADD_BILLING_PERIOD : "/plans/${planId}/billing-period",
-    UPDATE_BILLING_PERIOD : "/plans/${planId}/billing-period/${billingPeriodId}"
+  PLAN: {
+    CREATE_PLAN: "/plans",
+    PLAN_CARD_COUNT: "/plans/dashboard",
+    PLAN_ACTIVITY: "/plans/dashboard",
+    GET_TOP_PERFORMING_PLAN: "/plans/dashboard",
+    PLAN_TABLE: "/plans",
+    GET_PLAN_BY_ID: "/plans/${planId}",
+    UPDATE_PLAN: "/plans/${planId}",
+    ADD_BILLING_PERIOD: "/plans/${planId}/billing-period",
+    UPDATE_BILLING_PERIOD: "/plans/${planId}/billing-period/${billingPeriodId}",
   },
   TRIALS: {
     GET_TRIALS: "/subscription-trials",
@@ -296,4 +306,5 @@ TENANT: {
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
 
   }
+  },
 };
