@@ -171,6 +171,7 @@ export const AppApiEndpoints = {
   REFUND: {
     GET_LIST: "/refund-transactions",
     GET_BY_ID: "/refund-transactions/${refundId}",
+    UPDATE: "/refund-transactions/${refundId}",
     GET_DASHBOARD_COUNT: "/refund-transactions/dashboard-count",
   },
 
@@ -306,5 +307,4 @@ TENANT: {
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
 
   }
-  },
 };

@@ -14,7 +14,6 @@ type FinanceTab =
   | "revenue"
   | "billing"
   | "invoice"
-  | "tax-gst"
   | "analytics";
 
 type TabsProps = {
@@ -48,11 +47,6 @@ const tabs: Array<{ id: FinanceTab; label: string; component: JSX.Element }> = [
     label: "Invoice",
     component: <InvoiceTab />,
   },
-  // {
-  //   id: "tax-gst",
-  //   label: "Tax & GST",
-  //   component: <TaxGstTab />,
-  // },
   {
     id: "analytics",
     label: "Analytics",

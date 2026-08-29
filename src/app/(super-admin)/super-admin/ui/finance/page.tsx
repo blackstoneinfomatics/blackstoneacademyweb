@@ -13,7 +13,6 @@ type FinanceTab =
   | "revenue"
   | "billing"
   | "invoice"
-  | "tax-gst"
   | "analytics";
 
 const page = () => {
