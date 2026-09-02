@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Download, Upload, X } from "lucide-react";
 import { IoMdInformationCircle } from "react-icons/io";
+import { toast } from "react-toastify";
 import type { RefundRow } from "./RefundTable";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
@@ -186,12 +187,12 @@ export default function RefundDetailsModal({
   const [details, setDetails] = useState<RefundDetails>(refund);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [refundMethod, setRefundMethod] = useState<"gateway" | "manual">(
-    "gateway",
+  const [refundMethod, setRefundMethod] = useState<"STRIPE" | "MANUAL">(
+    "STRIPE",
   );
 
   const handleRefundAction = async (status: "APPROVED" | "REJECTED") => {
-    const refundId = details.refundId || refund.id;
+    const refundId = refund.id;
 
     if (!refundId) return;
 
@@ -203,20 +204,19 @@ export default function RefundDetailsModal({
         encodeURIComponent(String(refundId)),
       );
 
-      const response = await fetch(`${AppApiEndpoints.API_END_POINT}${endpoint}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${AppApiEndpoints.API_END_POINT}${endpoint}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            gateway: refundMethod === "STRIPE" ? "STRIPE" : "MANUAL",
+            status,
+          }),
         },
-        body: JSON.stringify({
-          refundId,
-          refundMethod,
-          status,
-          refundStatus: status,
-          paymentMethod:
-            refundMethod === "gateway" ? "gateway" : "manual",
-        }),
-      });
+      );
 
       const result = await response.json();
 
@@ -230,9 +230,13 @@ export default function RefundDetailsModal({
         status,
       }));
 
+      toast.success(`Refund ${status.toLowerCase()} successfully`);
       onClose();
     } catch (error) {
       console.error("Refund update API error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update refund",
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -408,18 +412,18 @@ export default function RefundDetailsModal({
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
                 <Detail
                   className="text-[11px]"
-                  label="Paid Amount"
+                  label="Transaction Id"
+                  value={details.paymentDetails?.paymentNumber || "-"}
+                />
+                <Detail
+                  className="text-[11px]"
+                  label="Recieved Amount"
                   value={details.amount || "-"}
                 />
                 <Detail
                   className="text-[11px]"
                   label="Payment Method"
                   value={details.paymentMethod || "-"}
-                />
-                <Detail
-                  className="text-[11px]"
-                  label="Transaction Id"
-                  value={details.paymentDetails?.paymentNumber || "-"}
                 />
               </div>
             </section>
@@ -503,25 +507,25 @@ export default function RefundDetailsModal({
 
                   <label
                     className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 dark:text-[#fff] ${
-                      refundMethod === "gateway"
+                      refundMethod === "STRIPE"
                         ? "border-[#576CBC] dark:border-[#e0e6ff]"
                         : "border-gray-700"
                     }`}
                   >
                     <span
                       className={`relative mt-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
-                        refundMethod === "gateway"
+                        refundMethod === "STRIPE"
                           ? "border-[#576CBC] bg-[#576CBC]"
                           : "border-gray-300 bg-white"
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={refundMethod === "gateway"}
-                        onChange={() => setRefundMethod("gateway")}
+                        checked={refundMethod === "STRIPE"}
+                        onChange={() => setRefundMethod("STRIPE")}
                         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       />
-                      {refundMethod === "gateway" && (
+                      {refundMethod === "STRIPE" && (
                         <Check
                           className="h-3 w-3 text-[#fff]"
                           strokeWidth={3}
@@ -541,25 +545,25 @@ export default function RefundDetailsModal({
 
                   <label
                     className={`mt-2 flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 ${
-                      refundMethod === "manual"
+                      refundMethod === "MANUAL"
                         ? "border-[#576CBC] dark:border-[#e0e6ff]"
                         : "border-gray-700"
                     }`}
                   >
                     <span
                       className={`relative mt-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
-                        refundMethod === "manual"
+                        refundMethod === "MANUAL"
                           ? "border-[#576CBC] bg-[#576CBC]"
                           : "border-gray-300 bg-white"
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={refundMethod === "manual"}
-                        onChange={() => setRefundMethod("manual")}
+                        checked={refundMethod === "MANUAL"}
+                        onChange={() => setRefundMethod("MANUAL")}
                         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       />
-                      {refundMethod === "manual" && (
+                      {refundMethod === "MANUAL" && (
                         <Check
                           className="h-3 w-3 text-[#fff]"
                           strokeWidth={3}

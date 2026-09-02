@@ -2,21 +2,26 @@
 
 import React, { useEffect, useState } from "react";
 import TenantStats from "../../components/Tenant-Cards";
-import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout"
+import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout";
 import { MdTune } from "react-icons/md";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Pagination from "@/components/Pagination";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
-import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import axios from "axios";
+import UpdateTenant from "../../components/UpdateTenant";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface TenantType {
   tenantCode: string;
   tenantName: string;
   domain: string;
   phoneNumber: string;
+  gstNo: string;
+  panNo: string;
+  faxNo: string;
+  website: string;
   email: string;
   startDate: string;
   plan: string;
@@ -52,7 +57,9 @@ const extractDomain = (value?: string) => {
   if (!value) return "—";
 
   try {
-    return new URL(value.includes("://") ? value : `https://${value}`).hostname.replace("www.", "");
+    return new URL(
+      value.includes("://") ? value : `https://${value}`,
+    ).hostname.replace("www.", "");
   } catch {
     return value;
   }
@@ -61,13 +68,15 @@ const extractDomain = (value?: string) => {
 const page = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tenanttenantCode = searchParams.get("tenantCode");
+  searchParams.get("tenantCode");
 
   const [tenants, setTenants] = useState<TenantType[]>([]);
   useEffect(() => {
     const fetchTenants = async () => {
       try {
-        const response = await axios.get("http://localhost:5001/tenant");
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`,
+        );
         const payload = Array.isArray(response?.data?.tenants)
           ? response.data.tenants
           : Array.isArray(response?.data)
@@ -78,31 +87,45 @@ const page = () => {
                 ? [response.data]
                 : [];
 
-        const mappedTenants = payload.map((item: any, index: number): TenantType => {
-          const createdRaw = item.createdDate || item.createdAt || "";
-          const createdTime = createdRaw ? new Date(createdRaw).getTime() : NaN;
-          const isNew =
-            !Number.isNaN(createdTime) &&
-            Date.now() - createdTime <= NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+        const mappedTenants = payload.map(
+          (item: any, index: number): TenantType => {
+            const createdRaw = item.createdDate || item.createdAt || "";
+            const createdTime = createdRaw
+              ? new Date(createdRaw).getTime()
+              : NaN;
+            const isNew =
+              !Number.isNaN(createdTime) &&
+              Date.now() - createdTime <=
+                NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
-          return {
-            tenantCode: item.tenantCode || item.tenantJobCode || `TEN-${index + 1}`,
-            tenantName: item.tenantName || item.organizationName || "N/A",
-            domain: extractDomain(item.website || item.domain || item.emailId || ""),
-            phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
-            email: item.emailId || item.email || "N/A",
-            startDate: formatDate(createdRaw),
-            plan: capitalizeFirst(item.plan || "basic"),
-            users: item.users || 0,
-            renewalDate: formatDate(item.renewalDate || item.activeLicense?.expiryDate),
-            status: item.status || "Active",
-            state: item.state || "",
-            country: item.country || "",
-            city: item.city || "",
-            pincode: item.postalCode || item.pincode || "",
-            isNew,
-          };
-        });
+            return {
+              tenantCode:
+                item.tenantCode || item.tenantJobCode || `TEN-${index + 1}`,
+              tenantName: item.tenantName || item.organizationName || "N/A",
+              domain: extractDomain(
+                item.website || item.domain || item.emailId || "",
+              ),
+              phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
+              gstNo: item.gstNo  || "N/A",
+              panNo: item.panNo  || "N/A",
+              faxNo: item.faxNo  || "N/A",
+              website: item.website || "N/A",
+              email: item.emailId || item.email || "N/A",
+              startDate: formatDate(createdRaw),
+              plan: capitalizeFirst(item.plan || "basic"),
+              users: item.users || 0,
+              renewalDate: formatDate(
+                item.renewalDate || item.activeLicense?.expiryDate,
+              ),
+              status: item.status || "Active",
+              state: item.state || "",
+              country: item.country || "",
+              city: item.city || "",
+              pincode: item.postalCode || item.pincode || "",
+              isNew,
+            };
+          },
+        );
 
         setTenants(mappedTenants);
       } catch (error) {
@@ -112,8 +135,10 @@ const page = () => {
 
     fetchTenants();
   }, []);
-  
-  const [openDropdowntenantCode, setOpenDropdowntenantCode] = useState<string | null>(null);
+
+  const [openDropdowntenantCode, setOpenDropdowntenantCode] = useState<
+    string | null
+  >(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,6 +146,11 @@ const page = () => {
   const [showEditModal, setShowEditModal] = useState(false);
 
   const [selectedTenant, setSelectedTenant] = useState<TenantType | null>(null);
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedTenant(null);
+  };
+
   const [filters, setFilters] = useState({
     tenantName: "",
     domain: "",
@@ -136,21 +166,15 @@ const page = () => {
 
   const toggleDropdown = (tenantCode: string) => {
     setOpenDropdowntenantCode((prev) =>
-      prev === tenantCode ? null : tenantCode
+      prev === tenantCode ? null : tenantCode,
     );
-  }; 
+  };
 
   const filteredTenants = tenants.filter((tenant) => {
     const search =
-      tenant.tenantName
-        .toLowerCase()
-        .includes(searchKeyword.toLowerCase()) ||
-      tenant.domain
-        .toLowerCase()
-        .includes(searchKeyword.toLowerCase()) ||
-      tenant.email
-        .toLowerCase()
-        .includes(searchKeyword.toLowerCase());
+      tenant.tenantName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      tenant.domain.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      tenant.email.toLowerCase().includes(searchKeyword.toLowerCase());
 
     const tenantFilter =
       !filters.tenantName ||
@@ -160,36 +184,27 @@ const page = () => {
 
     const domainFilter =
       !filters.domain ||
-      tenant.domain
-        .toLowerCase()
-        .includes(filters.domain.toLowerCase());
+      tenant.domain.toLowerCase().includes(filters.domain.toLowerCase());
 
-    const planFilter =
-      !filters.plan ||
-      tenant.plan === filters.plan;
+    const planFilter = !filters.plan || tenant.plan === filters.plan;
 
-    const statusFilter =
-      !filters.status ||
-      tenant.status === filters.status;
+    const statusFilter = !filters.status || tenant.status === filters.status;
 
     const startDate = new Date(tenant.startDate);
     const renewalDate = new Date(tenant.renewalDate);
 
     const fromDateFilter =
-      !filters.fromDate ||
-      startDate >= new Date(filters.fromDate);
+      !filters.fromDate || startDate >= new Date(filters.fromDate);
 
     const toDateFilter =
-      !filters.toDate ||
-      startDate <= new Date(filters.toDate);
+      !filters.toDate || startDate <= new Date(filters.toDate);
 
     const renewalFromFilter =
       !filters.renewalFromDate ||
       renewalDate >= new Date(filters.renewalFromDate);
 
     const renewalToFilter =
-      !filters.renewalToDate ||
-      renewalDate <= new Date(filters.renewalToDate);
+      !filters.renewalToDate || renewalDate <= new Date(filters.renewalToDate);
 
     const tabFilter = activeTab === "All" || tenant.isNew;
 
@@ -209,12 +224,10 @@ const page = () => {
 
   const paginatedTenants = filteredTenants.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
-  const totalPages = Math.ceil(
-    filteredTenants.length / itemsPerPage
-  );
+  const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
 
   const tabOptions = [
     {
@@ -228,7 +241,7 @@ const page = () => {
       count: tenants.filter((tenant) => tenant.isNew).length,
     },
   ];
-  
+
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "Active":
@@ -256,7 +269,7 @@ const page = () => {
         return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
   };
-  
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
       <BaseSuperLayout>
@@ -289,7 +302,6 @@ const page = () => {
                       }
                     >
                       {label} ({count})
-
                       {activeTab === type && (
                         <div className="absolute bottom-0 left-10 transform -translate-x-1/2 w-12 h-0.5 bg-[#576CBC] dark:bg-[#8296E6] rounded-full" />
                       )}
@@ -387,7 +399,7 @@ const page = () => {
                           <td className="px-4 py-4 text-left">
                             <span
                               className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getPlanStyle(
-                                tenant.plan
+                                tenant.plan,
                               )}`}
                             >
                               {tenant.plan}
@@ -405,7 +417,7 @@ const page = () => {
                           <td className="px-3 py-3 break-words text-left">
                             <span
                               className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getStatusStyle(
-                                tenant.status
+                                tenant.status,
                               )}`}
                             >
                               {tenant.status}
@@ -427,7 +439,7 @@ const page = () => {
                                   onClick={() => {
                                     setOpenDropdowntenantCode(null);
                                     router.push(
-                                      `/super-admin/ui/tenants/tenants_management?tenantCode=${tenant.tenantCode}`
+                                      `/super-admin/ui/tenants/tenants_management?tenantCode=${tenant.tenantCode}`,
                                     );
                                   }}
                                 >
@@ -468,7 +480,7 @@ const page = () => {
             </div>
           </div>
         </div>
-        
+
         {showFilter && (
           <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
             <form
@@ -660,178 +672,36 @@ const page = () => {
         )}
 
         {showEditModal && selectedTenant && (
-          <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-            <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[900px] max-h-[90vh] overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-[#444]">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-semibold dark:text-white">
-                  Tenant Information
-                </h2>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="text-2xl text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                {/* Tenant Name */}
-                <div>
-                  <label className="text-sm font-medium dark:text-gray-200">
-                    Tenant Name
-                  </label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.tenantName}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        tenantName: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Domain */}
-                <div>
-                  <label className="text-sm font-medium dark:text-gray-200">
-                    Domain
-                  </label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.domain}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        domain: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="dark:text-gray-200">Email</label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.email}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        email: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="dark:text-gray-200">Phone Number</label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.phoneNumber}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        phoneNumber: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label className="dark:text-gray-200">Country</label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.country}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        country: e.target.value,
-                      })
-                    }
-                  />
-                </div>  
-                
-                <div>
-                  <label className="dark:text-gray-200">State</label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.state}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        state: e.target.value,
-                      })
-                    }
-                  />
-                </div>  
-                
-                <div>
-                  <label className="dark:text-gray-200">City</label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.city}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        city: e.target.value,
-                      })
-                    }
-                  />
-                </div>  
-                
-                <div>
-                  <label className="dark:text-gray-200">Pincode</label>
-                  <input
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                    value={selectedTenant.pincode}
-                    onChange={(e) =>
-                      setSelectedTenant({
-                        ...selectedTenant,
-                        pincode: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="mt-5">
-                <label className="dark:text-gray-200">Address</label>
-                <textarea
-                  rows={4}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 mt-1 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
-                />
-              </div>
-
-              {/* Buttons */}
-              <div className="flex justify-end gap-3 mt-8">
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="border border-[#576CBC] text-[#576CBC] dark:text-[#8296E6] dark:border-[#8296E6] px-6 py-2 rounded-lg bg-transparent hover:bg-gray-50 dark:hover:bg-[#444] transition-colors"
-                >
-                  Reset
-                </button>
-
-                <button
-                  className="bg-[#576CBC] text-white px-6 py-2 rounded-lg hover:bg-[#465a9e] dark:hover:bg-[#6A80D1] transition-colors"
-                  onClick={() => {
-                    setTenants((prev) =>
-                      prev.map((item) =>
-                        item.tenantCode === selectedTenant.tenantCode
-                          ? selectedTenant
-                          : item
-                      )
-                    );
-                    setShowEditModal(false);
-                  }}
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
+          <UpdateTenant
+            tenant={selectedTenant}
+            onClose={closeEditModal}
+            onSave={(formData) => {
+              setTenants((prev) =>
+                prev.map((item) =>
+                  item.tenantCode === selectedTenant.tenantCode
+                    ? {
+                        ...item,
+                        tenantName: formData.tenantName || item.tenantName,
+                        domain: formData.domain || item.domain,
+                        email: formData.email || item.email,
+                        phoneNumber: formData.phoneNumber || item.phoneNumber,
+                        gstNo: formData.gstNo || item.gstNo,
+                        panNo: formData.panNo || item.panNo,
+                        faxNo: formData.faxNo || item.faxNo,
+                        website: formData.website || item.website,
+                        status: formData.status || item.status,
+                        plan: formData.plan || item.plan,
+                        country: formData.country || item.country,
+                        state: formData.state || item.state,
+                        city: formData.city || item.city,
+                        pincode: formData.pincode || item.pincode,
+                      }
+                    : item,
+                ),
+              );
+              closeEditModal();
+            }}
+          />
         )}
       </BaseSuperLayout>
     </div>

@@ -4,8 +4,7 @@ import React, { useEffect, useState } from "react";
 import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import Tabs from "./components/Tabs";
-import { useSearchParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+// import { useRouter, useSearchParams } from "next/navigation";
 
 type FinanceTab =
   | "transactions"
@@ -16,29 +15,29 @@ type FinanceTab =
   | "analytics";
 
 const page = () => {
- const searchParams = useSearchParams();
-const router = useRouter();
+  // const searchParams = useSearchParams();
+  // const router = useRouter();
 
-const [activeTab, setActiveTab] = useState<FinanceTab>("transactions");
+  const [activeTab, setActiveTab] = useState<FinanceTab>("transactions");
 
-useEffect(() => {
-  const tab = searchParams.get("tab") as FinanceTab | null;
+  // useEffect(() => {
+  //   const tab = searchParams.get("tab") as FinanceTab | null;
 
-  if (tab) {
-    setActiveTab(tab);
-  }
-}, [searchParams]);
+  //   if (tab) {
+  //     setActiveTab(tab);
+  //   }
+  // }, [searchParams]);
 
-const handleTabChange = (tab: FinanceTab) => {
-  setActiveTab(tab);
-  router.replace(`/super-admin/ui/finance?tab=${tab}`);
-};
+  // const handleTabChange = (tab: FinanceTab) => {
+  //   setActiveTab(tab);
+  //   router.replace(`/super-admin/ui/finance?tab=${tab}`);
+  // };
 
   return (
     <BaseSuperLayout>
       <SuperAdminHeader currentSection="Finance" tenantActiveTab={activeTab} />
       <div className="">
-        <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
+        <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
     </BaseSuperLayout>
   );
