@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MdTune } from "react-icons/md";
 import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -8,11 +8,11 @@ import Pagination from "@/components/Pagination";
 import { useRouter } from "next/navigation";
 
 interface Subscription {
-  id: string;
+  id?: string;
   invoiceId: string;
   plan: string;
-  amount: string;
-  planCycle: string;
+  amount: number;
+  planCycle: number;
   paymentMethod: string;
   date: string;
   planStatus: string;
@@ -25,45 +25,9 @@ const BlackstoneInfomaticsTables = () => {
 
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
-
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([
-    {
-      id: "1",
-      invoiceId: "INV-10001",
-      plan: "Premium",
-      amount: "$8,500",
-      planCycle: "Monthly",
-      paymentMethod: "Visa",
-      cardNumber: "4236",
-      date: "12 Sep 2025",
-      planStatus: "Active",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "2",
-      invoiceId: "INV-10002",
-      plan: "Standard",
-      amount: "$5,500",
-      planCycle: "Monthly",
-      paymentMethod: "UPI",
-      cardNumber: "",
-      date: "18 Sep 2025",
-      planStatus: "Active",
-      paymentStatus: "Pending",
-    },
-    {
-      id: "3",
-      invoiceId: "INV-10003",
-      plan: "Basic",
-      amount: "$2,500",
-      planCycle: "Yearly",
-      paymentMethod: "MasterCard",
-      cardNumber: "1234",
-      date: "20 Sep 2025",
-      planStatus: "Expired",
-      paymentStatus: "Failed",
-    },
-  ]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -79,6 +43,55 @@ const BlackstoneInfomaticsTables = () => {
   });
 
   const itemsPerPage = 10;
+
+  // Fetch subscriptions from API
+  useEffect(() => {
+    const fetchSubscriptions = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          "http://localhost:5001/subscription-invoices/tenant/TEN000010"
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // Transform API data to match the component's data structure
+          const formattedData = result.data.map((item: any, index: number) => ({
+            id: item.invoiceId || `sub-${index}`,
+            invoiceId: item.invoiceId,
+            plan: item.plan,
+            amount: `$${item.amount.toLocaleString()}`,
+            planCycle: item.planCycle === 12 ? "Yearly" : item.planCycle === 1 ? "Monthly" : `${item.planCycle} Months`,
+            paymentMethod: item.paymentMethod.charAt(0).toUpperCase() + item.paymentMethod.slice(1),
+            date: new Date(item.paymentDate).toLocaleDateString("en-US", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric"
+            }),
+            planStatus: item.planStatus.charAt(0).toUpperCase() + item.planStatus.slice(1).toLowerCase(),
+            paymentStatus: item.paymentStatus.charAt(0).toUpperCase() + item.paymentStatus.slice(1).toLowerCase(),
+            cardNumber: undefined, // API doesn't provide card number
+          }));
+          
+          setSubscriptions(formattedData);
+        } else {
+          throw new Error(result.message || "Failed to fetch subscriptions");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch data");
+        console.error("Error fetching subscriptions:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubscriptions();
+  }, []);
 
   const toggleDropdown = (id: string) => {
     setOpenDropdownId((prev) => (prev === id ? null : id));
@@ -99,6 +112,8 @@ const BlackstoneInfomaticsTables = () => {
     const planFilter = !filters.plan || subscription.plan === filters.plan;
     const paymentMethodFilter = !filters.paymentMethod || subscription.paymentMethod === filters.paymentMethod;
     const statusFilter = !filters.status || subscription.paymentStatus === filters.status;
+    
+    // Parse date from the subscription date string (which is in format "DD MMM YYYY")
     const subscriptionDate = new Date(subscription.date);
     const fromDateFilter = !filters.fromDate || subscriptionDate >= new Date(filters.fromDate);
     const toDateFilter = !filters.toDate || subscriptionDate <= new Date(filters.toDate);
@@ -120,78 +135,92 @@ const BlackstoneInfomaticsTables = () => {
 
   const totalPages = Math.ceil(filteredSubscriptions.length / itemsPerPage);
 
-  // --- UPDATED: Exact Color Themes with Dark Mode ---
   const getBadgeStyle = (type: string, value: string) => {
     const key = value.toLowerCase();
 
-    // PLAN Colors
     if (type === "plan") {
-      if (key === "premium") return "bg-[#e1e2f4] text-[#5f62dd] dark:bg-indigo-900/30 dark:text-indigo-400";
-      if (key === "standard") return "bg-[#dae4f6] text-[#477ff1] dark:bg-blue-900/30 dark:text-blue-400";
-      if (key === "basic") return "bg-[#def5fa] text-[#22bedd] dark:bg-cyan-900/30 dark:text-cyan-400";
+      if (key === "premium" || key.includes("max")) 
+        return "bg-[#e1e2f4] text-[#5f62dd] dark:bg-indigo-900/30 dark:text-indigo-400";
+      if (key === "standard") 
+        return "bg-[#dae4f6] text-[#477ff1] dark:bg-blue-900/30 dark:text-blue-400";
+      if (key === "basic") 
+        return "bg-[#def5fa] text-[#22bedd] dark:bg-cyan-900/30 dark:text-cyan-400";
       return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
 
-    // PLAN STATUS Colors
     if (type === "planStatus") {
-      if (key === "active") return "bg-[#DCFCE7] text-[#16A34A] dark:bg-green-900/30 dark:text-green-400";
-      if (key === "expired") return "bg-[#FEE2E2] text-[#DC2626] dark:bg-red-900/30 dark:text-red-400";
+      if (key === "active") 
+        return "bg-[#DCFCE7] text-[#16A34A] dark:bg-green-900/30 dark:text-green-400";
+      if (key === "expired") 
+        return "bg-[#FEE2E2] text-[#DC2626] dark:bg-red-900/30 dark:text-red-400";
       return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
 
-    // PAYMENT STATUS Colors
     if (type === "paymentStatus") {
-      if (key === "paid") return "bg-[#DCFCE7] text-[#16A34A] dark:bg-green-900/30 dark:text-green-400";
-      if (key === "pending") return "bg-[#FEF9C3] text-[#CA8A04] dark:bg-amber-900/30 dark:text-amber-400";
-      if (key === "failed") return "bg-[#FEE2E2] text-[#DC2626] dark:bg-red-900/30 dark:text-red-400";
+      if (key === "success" || key === "paid") 
+        return "bg-[#DCFCE7] text-[#16A34A] dark:bg-green-900/30 dark:text-green-400";
+      if (key === "pending") 
+        return "bg-[#FEF9C3] text-[#CA8A04] dark:bg-amber-900/30 dark:text-amber-400";
+      if (key === "failed") 
+        return "bg-[#FEE2E2] text-[#DC2626] dark:bg-red-900/30 dark:text-red-400";
       return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
 
     return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
   };
 
-  // --- UPDATED: Exact Uniform 24x16 pixel Logo sizing with Dark Mode ---
-  const renderPaymentLogo = (method: string, cardNumber?: string) => {
+  // Render payment method as text - exactly as "Card" or "UPI"
+  const renderPaymentMethod = (method: string) => {
     const methodLower = method.toLowerCase();
-
-    const svgs: Record<string, React.ReactNode> = {
-      visa: (
-        <svg viewBox="0 0 38 12" className="w-6 h-6 fill-[#1434CB] dark:fill-white" xmlns="http://www.w3.org/2000/svg">
-          <path d="M15.3 11.6L18 .3h3.5l-3.2 11.3h-3zm8.2 0L26.8.3h3.1l-3.3 11.3h-3zm11.7-8.3c0-1 .8-1.5 1.5-1.7.4-.1 1.2-.2 1.7-.1.8-.4 1.7-1 2.6-1.2.2 0 .2.2.2.3-.1.5-1.5 4.3-2.4 6.3L36.8 3.3h-1.6zM14.2 8.3c0 2.4 1.3 3.3 2.5 3.3.7 0 1.2-.1 1.8-.3-.2-.4-.5-1.6-.6-2-.1-.1-.1-.2-.3-.2-.5 0-1.4 0-1.4-.6 0-1.2 1.6-2 2.5-2.3-.1-.4-.2-.9-.4-1.2-.7.1-1.5.6-2.1 1-.9.7-1.7 1.4-2 2.3zm-2.1 3.3l-1.2-1.1c-.7-.3-1.6-.4-2.5-.4-2.4 0-4.7.9-6.3 2.3L.5 10.1c1.7-1.1 4.1-1.8 6.3-1.8 1 0 2 .2 2.8.4.4.2.7.3 1 .6.5.5 1.5 1.3 1.5 2.3z"/>
-        </svg>
-      ),
-      mastercard: (
-        <svg viewBox="0 0 38 24" className="w-6 h-6 dark:opacity-90" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="10" fill="#EB001B" />
-          <circle cx="26" cy="12" r="10" fill="#F79E1B" />
-          <path d="M19 7a9.9 9.9 0 0 1 5.6 1.7 9.9 9.9 0 0 1-5.6 8.6 9.9 9.9 0 0 1-5.6-8.6A9.9 9.9 0 0 1 19 7z" fill="#FF5F00" />
-        </svg>
-      ),
-      upi: (
-        <span className="w-6 h-6 flex items-center justify-center text-[11px] font-bold text-[#097939] dark:text-[#4ADE80] tracking-tight">
-          UPI
-        </span>
-      )
+    
+    // Map API payment methods to display names
+    const paymentMethodMap: Record<string, string> = {
+      card: "Card",
+      upi: "UPI",
+      visa: "Card",
+      mastercard: "Card",
+      paypal: "PayPal",
+      bank_transfer: "Bank Transfer",
+      cash: "Cash",
+      wallet: "Wallet",
     };
-
-    let formattedCardNumber = "";
-    if (cardNumber) {
-      formattedCardNumber = `.... .... .... ${cardNumber}`;
-    }
 
     return (
       <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center shrink-0">
-          {svgs[methodLower] || <span className="text-[11px] text-gray-600 dark:text-gray-400 font-medium">{method}</span>}
-        </div>
-        {formattedCardNumber && (
-          <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium tracking-wider whitespace-nowrap">
-            {formattedCardNumber}
-          </span>
-        )}
+        <span className="text-[11px] text-gray-700 dark:text-gray-300 font-medium">
+          {paymentMethodMap[methodLower] || method}
+        </span>
       </div>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 dark:text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#576CBC] mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading subscriptions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64 dark:text-white">
+        <div className="text-center text-red-600 dark:text-red-400">
+          <p className="text-lg font-semibold">Error loading data</p>
+          <p className="text-sm">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-[#576CBC] text-white rounded-lg hover:bg-[#465a9e]"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dark:text-white">
@@ -234,137 +263,145 @@ const BlackstoneInfomaticsTables = () => {
                 </div>
               </div>
 
-              <table className="table-fixed w-full border-collapse">
-                <thead className="text-[13px] bg-[#4C6993] text-white">
-                  <tr>
-                    {[
-                      "Invoice ID",
-                      "Plan",
-                      "Amount",
-                      "Plan Cycle",
-                      "Payment Method",
-                      "Date",
-                      "Plan Status",
-                      "Payment Status",
-                      "Action",
-                    ].map((header, idx) => (
-                      <th
-                        key={idx}
-                        className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
-                      >
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedSubscriptions.map((subscription, index) => {
-                    const rowBgClass =
-                      index % 2 === 0
-                        ? "bg-[#fff] dark:bg-[#2C2C2C]"
-                        : "bg-[#F8F8F8] dark:bg-[#383838]";
+              {subscriptions.length === 0 ? (
+                <div className="text-center py-12 dark:text-gray-300">
+                  <p className="text-gray-500 dark:text-gray-400">No subscriptions found</p>
+                </div>
+              ) : (
+                <table className="table-fixed w-full border-collapse">
+                  <thead className="text-[13px] bg-[#4C6993] text-white">
+                    <tr>
+                      {[
+                        "Invoice ID",
+                        "Plan",
+                        "Amount",
+                        "Plan Cycle",
+                        "Payment Method",
+                        "Date",
+                        "Plan Status",
+                        "Payment Status",
+                        "Action",
+                      ].map((header, idx) => (
+                        <th
+                          key={idx}
+                          className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSubscriptions.map((subscription, index) => {
+                      const rowBgClass =
+                        index % 2 === 0
+                          ? "bg-[#fff] dark:bg-[#2C2C2C]"
+                          : "bg-[#F8F8F8] dark:bg-[#383838]";
 
-                    return (
-                      <tr
-                        key={subscription.id}
-                        className={`text-[10px] ${rowBgClass}`}
-                      >
-                        <td className="px-3 py-3 text-[11px] text-left dark:text-white">
-                          {subscription.invoiceId}
-                        </td>
+                      return (
+                        <tr
+                          key={subscription.id || subscription.invoiceId}
+                          className={`text-[10px] ${rowBgClass}`}
+                        >
+                          <td className="px-3 py-3 text-[11px] text-left dark:text-white">
+                            {subscription.invoiceId}
+                          </td>
 
-                        <td className="px-3 py-3 text-left">
-                          <span
-                            className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
-                              "plan",
-                              subscription.plan
-                            )}`}
-                          >
-                            {subscription.plan}
-                          </span>
-                        </td>
+                          <td className="px-3 py-3 text-left">
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
+                                "plan",
+                                subscription.plan
+                              )}`}
+                            >
+                              {subscription.plan}
+                            </span>
+                          </td>
 
-                        <td className="px-3 py-3 text-[11px] text-left dark:text-white">
-                          {subscription.amount}
-                        </td>
+                          <td className="px-3 py-3 text-[11px] text-left dark:text-white">
+                            {subscription.amount}
+                          </td>
 
-                        <td className="px-3 py-3 text-[11px] text-left dark:text-white">
-                          {subscription.planCycle}
-                        </td>
+                          <td className="px-3 py-3 text-[11px] text-left dark:text-white">
+                            {subscription.planCycle}
+                          </td>
 
-                        <td className="px-3 py-3 text-[11px] text-left">
-                          {renderPaymentLogo(subscription.paymentMethod, subscription.cardNumber)}
-                        </td>
+                          <td className="px-3 py-3 text-[11px] text-left">
+                            {renderPaymentMethod(subscription.paymentMethod)}
+                          </td>
 
-                        <td className="px-3 py-3 text-[#38619A] dark:text-sky-300 text-[11px] text-left">
-                          {subscription.date}
-                        </td>
+                          <td className="px-3 py-3 text-[#38619A] dark:text-sky-300 text-[11px] text-left">
+                            {subscription.date}
+                          </td>
 
-                        <td className="px-3 py-3 text-left">
-                          <span
-                            className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
-                              "planStatus",
-                              subscription.planStatus
-                            )}`}
-                          >
-                            {subscription.planStatus}
-                          </span>
-                        </td>
+                          <td className="px-3 py-3 text-left">
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
+                                "planStatus",
+                                subscription.planStatus
+                              )}`}
+                            >
+                              {subscription.planStatus}
+                            </span>
+                          </td>
 
-                        <td className="px-3 py-3 text-left">
-                          <span
-                            className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
-                              "paymentStatus",
-                              subscription.paymentStatus
-                            )}`}
-                          >
-                            {subscription.paymentStatus}
-                          </span>
-                        </td>
+                          <td className="px-3 py-3 text-left">
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
+                                "paymentStatus",
+                                subscription.paymentStatus
+                              )}`}
+                            >
+                              {subscription.paymentStatus}
+                            </span>
+                          </td>
 
-                        <td className="px-3 py-3 text-left relative text-[12px]">
-                          <button
-                            onClick={() => toggleDropdown(subscription.id)}
-                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
-                          >
-                            <BsThreeDotsVertical />
-                          </button>
+                          <td className="px-3 py-3 text-left relative text-[12px]">
+                            <button
+                              onClick={() => toggleDropdown(subscription.id || subscription.invoiceId)}
+                              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+                            >
+                              <BsThreeDotsVertical />
+                            </button>
 
-                          {openDropdownId === subscription.id && (
-                            <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
-                              <button
-                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
-                                onClick={() => {
-                                  setSelectedSubscription(subscription);
-                                  setShowViewModal(true);
-                                  setOpenDropdownId(null);
-                                }}
-                              >
-                                View Details
-                              </button>
+                            {openDropdownId === (subscription.id || subscription.invoiceId) && (
+                              <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+                                <button
+                                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                  onClick={() => {
+                                    setSelectedSubscription(subscription);
+                                    setShowViewModal(true);
+                                    setOpenDropdownId(null);
+                                  }}
+                                >
+                                  View Details
+                                </button>
 
-                              <button
-                                className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-                                onClick={() => {
-                                  setOpenDropdownId(null);
-                                }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                                <button
+                                  className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
+            {subscriptions.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -402,9 +439,9 @@ const BlackstoneInfomaticsTables = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Plan</option>
-                <option value="Basic">Basic</option>
-                <option value="Standard">Standard</option>
-                <option value="Premium">Premium</option>
+                {Array.from(new Set(subscriptions.map(s => s.plan))).map(plan => (
+                  <option key={plan} value={plan}>{plan}</option>
+                ))}
               </select>
             </div>
 
@@ -421,9 +458,9 @@ const BlackstoneInfomaticsTables = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Payment Method</option>
-                <option value="Visa">Visa</option>
-                <option value="MasterCard">MasterCard</option>
-                <option value="UPI">UPI</option>
+                {Array.from(new Set(subscriptions.map(s => s.paymentMethod))).map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
               </select>
             </div>
 
@@ -468,9 +505,9 @@ const BlackstoneInfomaticsTables = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Status</option>
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
-                <option value="Failed">Failed</option>
+                {Array.from(new Set(subscriptions.map(s => s.paymentStatus))).map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
               </select>
             </div>
 
@@ -559,7 +596,7 @@ const BlackstoneInfomaticsTables = () => {
               <div>
                 <label className="block text-sm font-medium mb-2 dark:text-gray-200">Payment Method</label>
                 <div className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] flex items-center gap-2">
-                  {renderPaymentLogo(selectedSubscription.paymentMethod, selectedSubscription.cardNumber)}
+                  {renderPaymentMethod(selectedSubscription.paymentMethod)}
                 </div>
               </div>
 
