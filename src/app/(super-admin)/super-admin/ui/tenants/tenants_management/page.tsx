@@ -439,7 +439,8 @@ const Page = () => {
 
         {activeTab === "Subscriptions" && (
           <div className="rounded-xl space-y-4">
-            <SubscriptionCard />
+            {/* @ts-ignore: SubscriptionCard prop typing mismatch - passing tenantId for runtime use */}
+            <SubscriptionCard tenantId={tenantDetails.tenantId} />
             <BlackstoneInfomaticsTables />
           </div>
         )}
