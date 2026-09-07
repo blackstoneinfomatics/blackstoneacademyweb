@@ -7,6 +7,7 @@ interface StatsCardProps {
   title: string;
   value: string | number;
   valueTooltip?: string;
+  comparisonLabel?: string;
   percentage: number;
   isPositive?: boolean;
   image?: string;
@@ -20,6 +21,7 @@ const StatsCard = ({
   title,
   value,
   valueTooltip,
+  comparisonLabel = "vs last Month",
   percentage,
   isPositive = true,
   image,
@@ -128,7 +130,7 @@ const StatsCard = ({
             </span>
 
             <span className="text-[#666666] dark:text-[#AEB6C5]">
-              vs last Month
+              {comparisonLabel}
             </span>
           </div>
         </div>

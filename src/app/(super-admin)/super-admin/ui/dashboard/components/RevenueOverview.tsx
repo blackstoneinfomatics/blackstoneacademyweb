@@ -1,4 +1,4 @@
-"use client"; // remove this line if you are not on the Next.js App Router
+"use client"; 
 
 import React, {
   useCallback,
@@ -9,56 +9,32 @@ import React, {
   useState,
 } from "react";
 
-/* -------------------------------------------------------------------------- */
-/*  Types                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export type RevenueRange = "daily" | "weekly" | "monthly";
 
 export interface RevenuePoint {
-  /** Shown in the tooltip, e.g. "29 July", "Week 24", "July" */
   label: string;
   value: number;
 }
 
 export interface RevenueOverviewProps {
-  /**
-   * Static data per range. Wins over `fetchRevenue`.
-   * Memoize this in the parent (useMemo) so the effect doesn't re-run each render.
-   */
+
   data?: Partial<Record<RevenueRange, RevenuePoint[]>>;
-  /**
-   * Called whenever the range changes. Wire your backend here:
-   *
-   *   fetchRevenue={async (range, signal) => {
-   *     const res = await fetch(`/api/revenue?range=${range}`, { signal });
-   *     if (!res.ok) throw new Error("Couldn't load revenue");
-   *     const json = await res.json();
-   *     return json.data.map((d: any) => ({ label: d.label, value: Number(d.value) }));
-   *   }}
-   *
-   * Wrap it in useCallback in the parent. Until it's provided, the demo data below is used.
-   */
+
   fetchRevenue?: (
     range: RevenueRange,
     signal: AbortSignal
   ) => Promise<RevenuePoint[]>;
   defaultRange?: RevenueRange;
   onRangeChange?: (range: RevenueRange) => void;
-  /** "log" reproduces the $100 / $200 / $500 / $1000 style axis in the design. */
   scale?: "log" | "linear";
   locale?: string;
   currencySymbol?: string;
-  /** Axis tick text. Default: $1.2K / $100K / $1M */
   formatAxisValue?: (value: number) => string;
-  /** Tooltip figure. Default: 220,342.76 */
   formatValue?: (value: number) => string;
   className?: string;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Demo data — delete once `fetchRevenue` is wired up                         */
-/* -------------------------------------------------------------------------- */
 
 const DEMO_DATA: Record<RevenueRange, RevenuePoint[]> = {
   monthly: [

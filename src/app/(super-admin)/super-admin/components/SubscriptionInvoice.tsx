@@ -220,7 +220,7 @@ const planAmountDisplay = (() => {
   }
 })();
 
-const cycleDisplay = selectedSubscription?.billingCycle ?? selectedSubscription?.planId?.billingCycle ?? "-";
+const cycleDisplay = selectedSubscription?.billingCycle ?? selectedSubscription?.planId?._id ?? "-";
 const startDateDisplay = selectedSubscription?.startDate ? formatDate(selectedSubscription.startDate) : "-";
 const endDateDisplay = selectedSubscription?.endDate ? formatDate(selectedSubscription.endDate) : "-";
 
