@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // 1. Define API Response for Graph
 interface GraphApiResponse {
@@ -60,18 +61,18 @@ const RevenueOverview = () => {
   const fetchGraphData = async (view: string) => {
     try {
       setGraphLoading(true);
-      
+
       // Build query parameters
       const params = new URLSearchParams();
       params.append("view", view);
 
       const response = await axios.get<GraphApiResponse>(
-        `http://localhost:5001/finance/dashboard/graph?${params.toString()}`
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FINANCE.GET_GRAPH_DATA}?${params.toString()}`
       );
 
       if (response.data.success) {
         const apiData = response.data.data;
-        
+
         // Map API data to chart format (Handles both Monthly and Yearly)
         const mappedData = apiData.data.map((item) => {
           if (view === "monthly" || item.monthName) {
@@ -107,7 +108,7 @@ const RevenueOverview = () => {
       try {
         setCountLoading(true);
         const response = await axios.get<CountApiResponse>(
-          "http://localhost:5001/finance/analytics/count"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FINANCE.GET_ANALYTICS_COUNT}`
         );
 
         if (response.data.success) {
@@ -184,7 +185,7 @@ const RevenueOverview = () => {
     const clampedIndex = Math.max(0, Math.min(graphData.length - 1, index));
 
     const point = graphData[clampedIndex];
-    
+
     setTooltip({
       x: relativeX,
       y: relativeY,
@@ -201,11 +202,10 @@ const RevenueOverview = () => {
     const sign = isPositive ? "+" : "-";
     return (
       <span
-        className={`text-[10px] font-medium px-1.5 py-1 rounded-[3px] ${
-          isPositive
+        className={`text-[10px] font-medium px-1.5 py-1 rounded-[3px] ${isPositive
             ? "text-[#3C8D48] bg-[#E4F2E5] dark:bg-[#294D32] dark:text-[#A7E3B0]"
             : "text-[#D34645] bg-[#FDEAEA] dark:bg-[#5A3030] dark:text-[#FFB4B4]"
-        }`}
+          }`}
       >
         {sign}{Math.abs(value)}%
       </span>
@@ -239,7 +239,7 @@ const RevenueOverview = () => {
             <p className="text-gray-500 dark:text-gray-400">Loading...</p>
           </div>
         ) : (
-          <div 
+          <div
             className="w-full overflow-hidden relative"
             ref={chartContainerRef}
             onMouseMove={handleMouseMove}

@@ -23,6 +23,7 @@ interface TableProps<T extends Record<string, any>> {
   onSelectionChange?: (selectedIds: string[]) => void;
   loading?: boolean;
   emptyMessage?: string;
+  rowKey?: keyof T & string;
 }
 
 export default function DataTable<T extends Record<string, any>>({
@@ -33,13 +34,14 @@ export default function DataTable<T extends Record<string, any>>({
   onSelectionChange,
   loading = false,
   emptyMessage = "No records found",
+  rowKey = "id" as keyof T & string,
 }: TableProps<T>) {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const getRowId = (row: T, index: number) => {
-    const rawId = (row as Record<string, unknown>).id;
+    const rawId = (row as Record<string, unknown>)[rowKey];
     return typeof rawId === "string" && rawId ? rawId : `row-${index}`;
   };
 
@@ -139,13 +141,12 @@ bg-[#566F97]
 font-medium
 text-white
 whitespace-nowrap
-${
-  column.align === "center"
-    ? "text-center"
-    : column.align === "right"
-      ? "text-right"
-      : "text-left"
-}
+${column.align === "center"
+                        ? "text-center"
+                        : column.align === "right"
+                          ? "text-right"
+                          : "text-left"
+                      }
 ${column.headerClassName ?? ""}
 `}
                     style={{
@@ -249,13 +250,12 @@ ${column.headerClassName ?? ""}
 text-[#010E30E5]/90 dark:text-[#E2E6EE]
 align-middle
 whitespace-nowrap
-${
-  column.align === "center"
-    ? "text-center"
-    : column.align === "right"
-      ? "text-right"
-      : "text-left"
-}
+${column.align === "center"
+                              ? "text-center"
+                              : column.align === "right"
+                                ? "text-right"
+                                : "text-left"
+                            }
 ${column.className ?? ""}
 `}
                           style={{

@@ -5,59 +5,227 @@ import { useRouter } from "next/navigation";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune, MdCancel, MdCheckCircle } from "react-icons/md";
+import axios from "axios";
 
-const userItems = [
-  {
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
-  {
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
-  {
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
-  {
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
-];
+interface TenantItem {
+  _id: string;
+  tenantCode: string;
+  tenantName: string;
+  organizationName: string;
+  domain: string;
+  phoneNumber: string;
+  mobileNumber: string;
+  email: string;
+  emailId: string;
+  startDate: string;
+  createdDate: string;
+  plan: string;
+  users: number;
+  renewalDate: string;
+  status: string;
+  website: string;
+  gstNo: string;
+  panNo: string;
+  faxNo: string;
+  state: string;
+  country: string;
+  city: string;
+  street: string;
+  postalCode: string;
+  timeZone: string;
+  currency: string;
+  tenantLogo: string;
+}
+
+interface AnalyticsData {
+  total: number;
+  active: number;
+  inactive: number;
+  totalGrowth?: number;
+  activeGrowth?: number;
+  inactiveGrowth?: number;
+}
 
 const Usertable = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [userItems, setUserItems] = useState<TenantItem[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData>({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    totalGrowth: 14,
+    activeGrowth: 14,
+    inactiveGrowth: -5,
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [totalRecords, setTotalRecords] = useState<number>(0);
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
 
+  // Format date helper
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "—";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Extract domain from URL
+  const extractDomain = (value?: string) => {
+    if (!value) return "—";
+    try {
+      return new URL(
+        value.includes("://") ? value : `https://${value}`
+      ).hostname.replace("www.", "");
+    } catch {
+      return value;
+    }
+  };
+
+  // Capitalize first letter
+  const capitalizeFirst = (value: string) => {
+    if (!value) return "Basic";
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  };
+
+  // Fetch tenant analytics
+  const fetchTenantAnalytics = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/tenants/analytics/cards"
+      );
+
+      console.log("Analytics API Response:", response.data);
+
+      if (response.data.success) {
+        const data = response.data.data;
+        setAnalytics({
+          total: data.total || 0,
+          active: data.active || 0,
+          inactive: data.inactive || 0,
+          totalGrowth: data.totalGrowth || 14,
+          activeGrowth: data.activeGrowth || 14,
+          inactiveGrowth: data.inactiveGrowth || -5,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching tenant analytics:", error);
+    }
+  };
+
+  // Fetch tenant list from API
+  const fetchTenantList = async (search: string = "") => {
+    try {
+      setLoading(true);
+
+      // Build URL with search param if provided
+      let url = "http://localhost:5001/tenant";
+      if (search) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+
+      const response = await axios.get(url);
+
+      console.log("Tenant List API Response:", response.data);
+
+      // Extract tenants from response
+      let tenants = [];
+      let total = 0;
+
+      if (response.data?.tenants) {
+        tenants = response.data.tenants;
+        total = response.data.total || response.data.tenants.length;
+      } else if (response.data?.data?.tenants) {
+        tenants = response.data.data.tenants;
+        total = response.data.data.total || response.data.data.tenants.length;
+      } else if (Array.isArray(response.data)) {
+        tenants = response.data;
+        total = response.data.length;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        tenants = response.data.data;
+        total = response.data.data.length;
+      } else {
+        tenants = response.data?.data ? [response.data.data] : [];
+        total = tenants.length;
+      }
+
+      console.log("Extracted tenants:", tenants);
+
+      // Map tenants to match the table structure
+      const mappedTenants = tenants.map((item: any) => {
+        const createdDate = item.createdDate || item.createdAt || "";
+        const planName = item.plan || item.planName || "basic";
+
+        return {
+          _id: item._id || "",
+          tenantCode: item.tenantCode || item.tenantJobCode || "N/A",
+          tenantName: item.tenantName || item.organizationName || "N/A",
+          organizationName: item.organizationName || "",
+          domain: extractDomain(item.website || item.domainName || item.domain || ""),
+          phoneNumber: item.phoneNumber || item.mobileNumber || "N/A",
+          mobileNumber: item.mobileNumber || "",
+          email: item.emailId || item.email || "N/A",
+          emailId: item.emailId || "",
+          startDate: formatDate(createdDate),
+          createdDate: createdDate,
+          plan: capitalizeFirst(planName),
+          users: 0, // Default value as not in API response
+          renewalDate: formatDate(item.activeLicense?.expiryDate || item.renewalDate),
+          status: item.status || "Active",
+          website: item.website || "",
+          gstNo: item.gstNo || "N/A",
+          panNo: item.panNo || "N/A",
+          faxNo: item.faxNo || "N/A",
+          state: item.state || "",
+          country: item.country || "",
+          city: item.city || "",
+          street: item.street || "",
+          postalCode: item.postalCode || "",
+          timeZone: item.timeZone || "",
+          currency: item.currency || "",
+          tenantLogo: item.tenantLogo || "",
+        };
+      });
+
+      setUserItems(mappedTenants);
+      setTotalRecords(total);
+
+    } catch (error) {
+      console.error("Error fetching tenant list:", error);
+      setUserItems([]);
+      setTotalRecords(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchTenantAnalytics();
+    fetchTenantList();
+  }, []);
+
+  // Handle search
+  const handleSearch = () => {
+    fetchTenantList(searchTerm);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  // Click outside handler for dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -76,6 +244,28 @@ const Usertable = () => {
     };
   }, [openMenu]);
 
+  // Helper to get status badge styles
+  const getStatusBadgeStyles = (status: string) => {
+    if (status === "ACTIVE" || status === "Active") {
+      return "bg-[#ECFDF3] text-[#377E36]";
+    } else {
+      return "bg-[#FDECEC] text-[#D34645]";
+    }
+  };
+
+  // Helper to get plan badge styles
+  const getPlanBadgeStyles = (plan: string) => {
+    if (plan === "Standard") {
+      return "bg-[#2668EF24] text-[#2668EF]";
+    } else if (plan === "Premium" || plan === "Max-Pro 2") {
+      return "bg-[#585BDC24] text-[#585BDC]";
+    } else if (plan === "Basic") {
+      return "bg-gray-100 text-gray-600";
+    } else {
+      return "bg-[#2668EF24] text-[#2668EF]";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
       {/* Main Container */}
@@ -83,7 +273,7 @@ const Usertable = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-2 mt-3">
 
-          {/* Total Portal */}
+          {/* Total Tenants */}
           <div
             className="
               bg-white
@@ -122,14 +312,14 @@ const Usertable = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  28
+                  {analytics.total}
                 </p>
               </div>
             </div>
 
-             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className="text-[#377E36] text-[13px] font-medium">
-                ↑ 14%
+            <div className="flex justify-end items-center gap-2 mt-1">
+              <span className={`text-[13px] font-medium ${analytics.totalGrowth && analytics.totalGrowth > 0 ? 'text-[#377E36]' : 'text-[#D34645]'}`}>
+                {analytics.totalGrowth && analytics.totalGrowth > 0 ? '↑' : '↓'} {Math.abs(analytics.totalGrowth || 0)}%
               </span>
 
               <span className="text-[12px] text-gray-500">
@@ -138,7 +328,7 @@ const Usertable = () => {
             </div>
           </div>
 
-          {/* Active Portal */}
+          {/* Active Tenants */}
           <div
             className="
               bg-white
@@ -173,14 +363,14 @@ const Usertable = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  28
+                  {analytics.active}
                 </p>
               </div>
             </div>
 
-             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className="text-[#377E36] text-[13px] font-medium">
-                ↑ 14%
+            <div className="flex justify-end items-center gap-2 mt-1">
+              <span className={`text-[13px] font-medium ${analytics.activeGrowth && analytics.activeGrowth > 0 ? 'text-[#377E36]' : 'text-[#D34645]'}`}>
+                {analytics.activeGrowth && analytics.activeGrowth > 0 ? '↑' : '↓'} {Math.abs(analytics.activeGrowth || 0)}%
               </span>
 
               <span className="text-[12px] text-gray-500">
@@ -189,7 +379,7 @@ const Usertable = () => {
             </div>
           </div>
 
-          {/* Inactive Portal */}
+          {/* Inactive Tenants */}
           <div
             className="
               bg-white
@@ -224,14 +414,14 @@ const Usertable = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  10
+                  {analytics.inactive}
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className="text-[#D34645] text-[13px] font-medium">
-                ↓ 5%
+              <span className={`text-[13px] font-medium ${analytics.inactiveGrowth && analytics.inactiveGrowth > 0 ? 'text-[#377E36]' : 'text-[#D34645]'}`}>
+                {analytics.inactiveGrowth && analytics.inactiveGrowth > 0 ? '↑' : '↓'} {Math.abs(analytics.inactiveGrowth || 0)}%
               </span>
 
               <span className="text-[12px] text-gray-500">
@@ -287,6 +477,9 @@ const Usertable = () => {
 
               <input
                 placeholder="Search by keyword"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={handleKeyPress}
                 className="
                   w-full
                   outline-none
@@ -326,7 +519,7 @@ const Usertable = () => {
             {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing 10 Of 50
+                Showing {userItems.length} Of {totalRecords || analytics.total}
               </span>
             </div>
           </div>
@@ -352,7 +545,7 @@ const Usertable = () => {
                     "Domain",
                     "Phone Number",
                     "Email",
-                    "start Date",
+                    "Start Date",
                     "Plan",
                     "User",
                     "Renewal Date",
@@ -381,7 +574,13 @@ const Usertable = () => {
               {/* Table Body */}
               <tbody>
 
-                {userItems.length > 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={10} className="p-5 text-center text-gray-500">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : userItems.length > 0 ? (
                   userItems.map((item, index) => (
                     <tr
                       key={index}
@@ -394,30 +593,32 @@ const Usertable = () => {
                       "
                     >
 
-                      {/* user Name */}
+                      {/* Tenant Name */}
                       <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
-                        {item.portalName}
+                        {item.tenantName}
                       </td>
 
-                      {/* user Type */}
+                      {/* Domain */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
-                        {item.Domin}
+                        {item.domain}
                       </td>
 
-                      {/* Description */}
+                      {/* Phone Number */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
-                        {item.PhoneNumber}
+                        {item.phoneNumber}
                       </td>
 
+                      {/* Email */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.Email}
+                        {item.email}
                       </td>
 
+                      {/* Start Date */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.StartDate}
+                        {item.startDate}
                       </td>
 
-                      {/* Status */}
+                      {/* Plan */}
                       <td className="py-3 px-3">
                         <span
                           className={`
@@ -428,26 +629,25 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${
-                              item.Plan === "Standard"
-                                ? "bg-[#2668EF24] text-[#2668EF]"
-                                : "bg-[#585BDC24] text-[#585BDC]"
-                            }
+                            ${getPlanBadgeStyles(item.plan)}
                           `}
                         >
-                          {item.Plan}
+                          {item.plan}
                         </span>
                       </td>
 
+                      {/* Users */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.User}
+                        {item.users || 0}
                       </td>
 
-                        <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.RenewalDate}
+                      {/* Renewal Date */}
+                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                        {item.renewalDate}
                       </td>
 
-            <         td className="py-3 px-3">
+                      {/* Tenant Status */}
+                      <td className="py-3 px-3">
                         <span
                           className={`
                             inline-flex
@@ -457,14 +657,10 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${
-                              item.TenantStatus === "Active"
-                                ? "bg-[#ECFDF3] text-[#377E36]"
-                                : "bg-[#FDECEC] text-[#D34645]"
-                            }
+                            ${getStatusBadgeStyles(item.status)}
                           `}
                         >
-                          {item.TenantStatus}
+                          {item.status}
                         </span>
                       </td>
 
@@ -500,7 +696,8 @@ const Usertable = () => {
                             className="
                               absolute
                               right-3
-                              top-9
+                              top-full
+                              mt-1
                               w-28
                               bg-white
                               dark:bg-[#2C2C2C]
@@ -521,18 +718,17 @@ const Usertable = () => {
                                 text-[10px]
                                 hover:bg-gray-100
                                 dark:hover:bg-gray-700
+                                rounded-t-lg
                               "
                               onClick={() => {
                                 setOpenMenu(null);
-
                                 router.push(
-                                  `/super-admin/ui/users&roles/all_tenant?portalName=${encodeURIComponent(
-                                    item.portalName
+                                  `/super-admin/ui/users&roles/all_tenant?tenantCode=${encodeURIComponent(
+                                    item.tenantCode
                                   )}`
                                 );
                               }}
                             >
-
                               View Details
                             </button>
 
@@ -545,6 +741,7 @@ const Usertable = () => {
                                 text-[10px]
                                 hover:bg-gray-100
                                 dark:hover:bg-gray-700
+                                rounded-b-lg
                               "
                             >
                               Edit
@@ -557,7 +754,7 @@ const Usertable = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={10}
                       className="p-5 text-center text-gray-500"
                     >
                       No data available

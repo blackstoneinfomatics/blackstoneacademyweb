@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { HiUserGroup } from "react-icons/hi2";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
-import { MdTune} from "react-icons/md";
+import { MdTune } from "react-icons/md";
 
 const tableItems = [
   {
@@ -79,15 +79,15 @@ const Usercards = () => {
   }, [openMenu]);
 
   return (
-      <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
+    <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
 
-        <div className="flex items-center justify-between mt-2 px-4 py-2">
-          <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
-            Institute Portal & Roles
-          </h2>
+      <div className="flex items-center justify-between mt-2 px-4 py-2">
+        <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
+          Institute Portal & Roles
+        </h2>
 
-            <button
-              className="
+        <button
+          className="
                 bg-[#5872C5]
                 hover:bg-[#4D66B3]
                 text-white
@@ -98,16 +98,16 @@ const Usercards = () => {
                 rounded-lg
                 transition
               "
-            >
-              Add Portal
-            </button>
+        >
+          Add Portal
+        </button>
 
-        </div>
+      </div>
 
-    <div className="grid grid-cols-1 lg:grid-cols-3 px-4 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 px-4 gap-3">
 
-      <div
-        className="
+        <div
+          className="
           lg:col-span-2
           bg-white
           dark:bg-[#343434]
@@ -118,15 +118,15 @@ const Usercards = () => {
           py-3
           h-[96px]
         "
-      >
-        <div className="flex items-center justify-between h-full">
+        >
+          <div className="flex items-center justify-between h-full">
 
-          {/* LEFT CONTENT */}
-          <div className="flex items-center gap-4">
+            {/* LEFT CONTENT */}
+            <div className="flex items-center gap-4">
 
-            {/* Tenant Logo */}
-            <div
-              className="
+              {/* Tenant Logo */}
+              <div
+                className="
                 w-[60px]
                 h-[60px]
                 rounded-full
@@ -137,86 +137,86 @@ const Usercards = () => {
                 overflow-hidden
                 shrink-0
               "
-            >
-              <img
-                src="/assets/images/bsicon.png"
-                alt="Tenant Logo"
-                className="
+              >
+                <img
+                  src="/assets/images/bsicon.png"
+                  alt="Tenant Logo"
+                  className="
                   w-[55px]
                   h-[55px]
                   object-contain
                 "
-              />
-            </div>
+                />
+              </div>
 
-            {/* Tenant Details */}
-            <div>
+              {/* Tenant Details */}
+              <div>
 
-              {/* Name + Status */}
-              <div className="flex items-center gap-2">
+                {/* Name + Status */}
+                <div className="flex items-center gap-2">
 
-                <h2
-                  className="
+                  <h2
+                    className="
                     text-[16px]
                     font-semibold
                     text-[#1B1B1B]
                     dark:text-white
                   "
-                >
-                  Blackstone Academy
-                </h2>
+                  >
+                    Blackstone Academy
+                  </h2>
 
-                <span
-                  className="
+                  <span
+                    className="
                     text-[11px]
                     font-medium
                     text-[#2FB344]
                   "
-                >
-                  Active
-                </span>
+                  >
+                    Active
+                  </span>
 
-              </div>
+                </div>
 
-              {/* Domain */}
-              <p
-                className="
+                {/* Domain */}
+                <p
+                  className="
                   text-[12px]
                   text-gray-500
                   dark:text-gray-400
                   mt-[3px]
                 "
-              >
-                blackstoneacademy.com
-              </p>
+                >
+                  blackstoneacademy.com
+                </p>
 
-              {/* Created + ID */}
-              <div
-                className="
+                {/* Created + ID */}
+                <div
+                  className="
                   flex
                   items-center
                   gap-1
                   mt-[3px]
                   text-[10px]
                 "
-              >
-                <span className="text-gray-400 text-[11px]">
-                  Created on : 02,July,2000 |
-                </span>
+                >
+                  <span className="text-gray-400 text-[11px]">
+                    Created on : 02,July,2000 |
+                  </span>
 
-                <span className="font-medium text-[10px] text-[#576CBC]">
-                  ID: TEN 22001
-                </span>
+                  <span className="font-medium text-[10px] text-[#576CBC]">
+                    ID: TEN 22001
+                  </span>
+                </div>
+
               </div>
-
             </div>
-          </div>
 
-          {/* PLAN BADGE */}
-          <div className="self-start mt-2">
+            {/* PLAN BADGE */}
+            <div className="self-start mt-2">
 
-            <span
-              className="
+              <span
+                className="
                 inline-flex
                 items-center
                 px-2
@@ -227,17 +227,17 @@ const Usercards = () => {
                 text-[10px]
                 font-medium
               "
-            >
-              Standard
-            </span>
+              >
+                Standard
+              </span>
+
+            </div>
 
           </div>
-
         </div>
-      </div>
 
-      <div
-        className="
+        <div
+          className="
           bg-white
           dark:bg-[#343434]
           rounded-xl
@@ -247,13 +247,13 @@ const Usercards = () => {
           py-3
           h-[96px]
         "
-      >
+        >
 
-        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
 
-          {/* Icon */}
-          <div
-            className="
+            {/* Icon */}
+            <div
+              className="
               w-[45px]
               h-[45px]
               rounded-full
@@ -263,78 +263,78 @@ const Usercards = () => {
               justify-center
               shrink-0
             "
-          >
-            <HiUserGroup
-              className="
+            >
+              <HiUserGroup
+                className="
                 text-[#3B82F6]
                 text-[22px]
               "
-            />
-          </div>
+              />
+            </div>
 
-          {/* Usage Details */}
-          <div>
+            {/* Usage Details */}
+            <div>
 
-            <p
-              className="
+              <p
+                className="
                 text-[12px]
                 font-medium
                 text-[#3B82F6]
               "
-            >
-              Portal Usage
-            </p>
+              >
+                Portal Usage
+              </p>
 
-            <div className="flex items-center gap-1 mt-[2px]">
+              <div className="flex items-center gap-1 mt-[2px]">
 
-              <span
-                className="
+                <span
+                  className="
                   text-[16px]
                   font-semibold
                   text-[#222222]
                   dark:text-white
                 "
-              >
-                8
-              </span>
+                >
+                  8
+                </span>
 
-              <span
-                className="
+                <span
+                  className="
                   text-[14px]
                   font-medium
                   text-[#222222]
                   dark:text-gray-300
                 "
-              >
-                / 10
-              </span>
+                >
+                  / 10
+                </span>
+
+              </div>
 
             </div>
 
           </div>
 
-        </div>
-
-        {/* Available Slots */}
-        <div
-          className="
+          {/* Available Slots */}
+          <div
+            className="
             text-[11px]
             text-gray-500
             dark:text-gray-400
             mt-[5px]
             ml-[57px]
           "
-        >
-          2 user slots available
+          >
+            2 user slots available
+          </div>
+
         </div>
 
       </div>
 
-    </div>
-
-          {/* Section Title */}
-        <div
-          className="
+      {/* Section Title */}
+      <div
+        className="
             bg-white
             dark:bg-[#343434]
             rounded-xl
@@ -343,17 +343,17 @@ const Usercards = () => {
             overflow-hidden
             mx-4
           "
-        >
+      >
 
-          {/* Section Title */}
-          <div className="px-3 pt-3 pb-2">
-            <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
-              All Tenants
-            </h2>
-          </div>
-          
-          <div
-            className="
+        {/* Section Title */}
+        <div className="px-3 pt-3 pb-2">
+          <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
+            All Tenants
+          </h2>
+        </div>
+
+        <div
+          className="
               grid
               grid-cols-1
               md:grid-cols-3
@@ -362,11 +362,11 @@ const Usercards = () => {
               bg-[#FAFAFB]
               dark:bg-[#2E2E2E]
             "
-          >
+        >
 
-            {/* Search */}
-            <div
-              className="
+          {/* Search */}
+          <div
+            className="
                 flex
                 items-center
                 px-3
@@ -374,12 +374,12 @@ const Usercards = () => {
                 border-r
                 border-[#E7EAF3]
               "
-            >
-              <FiSearch className="text-gray-400 mr-2 text-[15px]" />
+          >
+            <FiSearch className="text-gray-400 mr-2 text-[15px]" />
 
-              <input
-                placeholder="Search by keyword"
-                className="
+            <input
+              placeholder="Search by keyword"
+              className="
                   w-full
                   outline-none
                   bg-transparent
@@ -388,12 +388,12 @@ const Usercards = () => {
                   dark:text-gray-200
                   placeholder:text-gray-400
                 "
-              />
-            </div>
+            />
+          </div>
 
-            {/* Filter */}
-            <div
-              className="
+          {/* Filter */}
+          <div
+            className="
                 flex
                 items-center
                 justify-between
@@ -403,57 +403,57 @@ const Usercards = () => {
                 border-[#E7EAF3]
                 cursor-pointer
               "
-            >
-              <div className="flex items-center">
-                <MdTune className="text-gray-400 mr-2 text-[16px]" />
+          >
+            <div className="flex items-center">
+              <MdTune className="text-gray-400 mr-2 text-[16px]" />
 
-                <span className="text-[11px] text-gray-400">
-                  Filter
-                </span>
-              </div>
-
-              <FiChevronDown className="text-gray-400 text-[14px]" />
-            </div>
-
-            {/* Count */}
-            <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing 10 Of 50
+                Filter
               </span>
             </div>
+
+            <FiChevronDown className="text-gray-400 text-[14px]" />
           </div>
 
-          {/* TABLE */}
+          {/* Count */}
+          <div className="flex items-center px-4 h-10">
+            <span className="text-[11px] text-gray-400">
+              Showing 10 Of 50
+            </span>
+          </div>
+        </div>
 
-          <div className="overflow-x-auto">
+        {/* TABLE */}
 
-            <table className="w-full min-w-[750px] text-xs border-collapse">
+        <div className="overflow-x-auto">
 
-              {/* Table Header */}
-              <thead
-                className="
+          <table className="w-full min-w-[750px] text-xs border-collapse">
+
+            {/* Table Header */}
+            <thead
+              className="
                   bg-[#4C6993]
                   text-white
                   text-[13px]
                   dark:bg-[#44699D]
                 "
-              >
-                <tr>
-                  {[
-                    "Tenants Name",
-                    "Domain",
-                    "Phone Number",
-                    "Email",
-                    "start Date",
-                    "Plan",
-                    "User",
-                    "Renewal Date",
-                    "Tenant Status",
-                    "Action",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="
+            >
+              <tr>
+                {[
+                  "Tenants Name",
+                  "Domain",
+                  "Phone Number",
+                  "Email",
+                  "start Date",
+                  "Plan",
+                  "User",
+                  "Renewal Date",
+                  "Tenant Status",
+                  "Action",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="
                         py-3
                         px-3
                         whitespace-nowrap
@@ -463,56 +463,56 @@ const Usercards = () => {
                         border-r
                         border-[#466993]
                       "
-                    >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
 
-              {/* Table Body */}
-              <tbody>
+            {/* Table Body */}
+            <tbody>
 
-                {tableItems.length > 0 ? (
-                  tableItems.map((item, index) => (
-                    <tr
-                      key={index}
-                      className="
+              {tableItems.length > 0 ? (
+                tableItems.map((item, index) => (
+                  <tr
+                    key={index}
+                    className="
                         text-[11px]
                         odd:bg-[#F8F8F8]
                         even:bg-white
                         dark:odd:bg-[#2C2C2C]
                         dark:even:bg-[#303030]
                       "
-                    >
+                  >
 
-                      {/* user Name */}
-                      <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
-                        {item.portalName}
-                      </td>
+                    {/* user Name */}
+                    <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
+                      {item.portalName}
+                    </td>
 
-                      {/* user Type */}
-                      <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
-                        {item.Domin}
-                      </td>
+                    {/* user Type */}
+                    <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
+                      {item.Domin}
+                    </td>
 
-                      {/* Description */}
-                      <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
-                        {item.PhoneNumber}
-                      </td>
+                    {/* Description */}
+                    <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
+                      {item.PhoneNumber}
+                    </td>
 
-                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.Email}
-                      </td>
+                    <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                      {item.Email}
+                    </td>
 
-                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.StartDate}
-                      </td>
+                    <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                      {item.StartDate}
+                    </td>
 
-                      {/* Status */}
-                      <td className="py-3 px-3">
-                        <span
-                          className={`
+                    {/* Status */}
+                    <td className="py-3 px-3">
+                      <span
+                        className={`
                             inline-flex
                             items-center
                             px-3
@@ -520,76 +520,74 @@ const Usercards = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${
-                              item.Plan === "Standard"
-                                ? "bg-[#2668EF24] text-[#2668EF]"
-                                : "bg-[#585BDC24] text-[#585BDC]"
-                            }
-                          `}
-                        >
-                          {item.Plan}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.User}
-                      </td>
-
-                        <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.RenewalDate}
-                      </td>
-
-            <         td className="py-3 px-3">
-                        <span
-                          className={`
-                            inline-flex
-                            items-center
-                            px-3
-                            py-1
-                            rounded-md
-                            text-[9px]
-                            font-medium
-                            ${
-                              item.TenantStatus === "Active"
-                                ? "bg-[#ECFDF3] text-[#377E36]"
-                                : "bg-[#FDECEC] text-[#D34645]"
-                            }
-                          `}
-                        >
-                          {item.TenantStatus}
-                        </span>
-                      </td>
-
-                      {/* Action */}
-                      <td
-                        className="py-3 px-3 relative"
-                        ref={
-                          openMenu === index
-                            ? openMenuRef
-                            : null
-                        }
-                      >
-                        <button
-                          onClick={() =>
-                            setOpenMenu(
-                              openMenu === index
-                                ? null
-                                : index
-                            )
+                            ${item.Plan === "Standard"
+                            ? "bg-[#2668EF24] text-[#2668EF]"
+                            : "bg-[#585BDC24] text-[#585BDC]"
                           }
-                          className="
+                          `}
+                      >
+                        {item.Plan}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                      {item.User}
+                    </td>
+
+                    <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                      {item.RenewalDate}
+                    </td>
+
+                    <         td className="py-3 px-3">
+                      <span
+                        className={`
+                            inline-flex
+                            items-center
+                            px-3
+                            py-1
+                            rounded-md
+                            text-[9px]
+                            font-medium
+                            ${item.TenantStatus === "Active"
+                            ? "bg-[#ECFDF3] text-[#377E36]"
+                            : "bg-[#FDECEC] text-[#D34645]"
+                          }
+                          `}
+                      >
+                        {item.TenantStatus}
+                      </span>
+                    </td>
+
+                    {/* Action */}
+                    <td
+                      className="py-3 px-3 relative"
+                      ref={
+                        openMenu === index
+                          ? openMenuRef
+                          : null
+                      }
+                    >
+                      <button
+                        onClick={() =>
+                          setOpenMenu(
+                            openMenu === index
+                              ? null
+                              : index
+                          )
+                        }
+                        className="
                             p-1
                             rounded-md
                             hover:bg-gray-100
                             dark:hover:bg-gray-700
                           "
-                        >
-                          <BsThreeDotsVertical className="text-[14px]" />
-                        </button>
+                      >
+                        <BsThreeDotsVertical className="text-[14px]" />
+                      </button>
 
-                        {openMenu === index && (
-                          <div
-                            className="
+                      {openMenu === index && (
+                        <div
+                          className="
                               absolute
                               right-3
                               top-9
@@ -603,9 +601,33 @@ const Usercards = () => {
                               dark:border-gray-700
                               z-50
                             "
+                        >
+                          <button
+                            className="
+                                w-full
+                                text-center
+                                px-3
+                                py-2
+                                text-[10px]
+                                hover:bg-gray-100
+                                dark:hover:bg-gray-700
+                              "
+                            onClick={() => {
+                              setOpenMenu(null);
+
+                              router.push(
+                                `/super-admin/ui/users&roles/all_tenant?portalName=${encodeURIComponent(
+                                  item.portalName
+                                )}`
+                              );
+                            }}
                           >
-                            <button
-                              className="
+
+                            View Details
+                          </button>
+
+                          <button
+                            className="
                                 w-full
                                 text-center
                                 px-3
@@ -614,58 +636,34 @@ const Usercards = () => {
                                 hover:bg-gray-100
                                 dark:hover:bg-gray-700
                               "
-                              onClick={() => {
-                                setOpenMenu(null);
-
-                                router.push(
-                                  `/super-admin/ui/users&roles/all_tenant?portalName=${encodeURIComponent(
-                                    item.portalName
-                                  )}`
-                                );
-                              }}
-                            >
-
-                              View Details
-                            </button>
-
-                            <button
-                              className="
-                                w-full
-                                text-center
-                                px-3
-                                py-2
-                                text-[10px]
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-700
-                              "
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="p-5 text-center text-gray-500"
-                    >
-                      No data available
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
-                )}
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="p-5 text-center text-gray-500"
+                  >
+                    No data available
+                  </td>
+                </tr>
+              )}
 
-              </tbody>
-            </table>
-          </div>
+            </tbody>
+          </table>
+        </div>
 
-          <div className="flex justify-end items-center gap-1 px-3 py-4">
+        <div className="flex justify-end items-center gap-1 px-3 py-4">
 
-            {/* Previous */}
-            <button
-              className="
+          {/* Previous */}
+          <button
+            className="
                 w-7
                 h-7
                 rounded-md
@@ -677,13 +675,13 @@ const Usercards = () => {
                 text-gray-400
                 bg-[#F5F5F2]
               "
-            >
-              <span className="text-[23px] color-[#999FAC]">‹</span>
-            </button>
+          >
+            <span className="text-[23px] color-[#999FAC]">‹</span>
+          </button>
 
-            {/* Page 1 */}
-            <button
-              className="
+          {/* Page 1 */}
+          <button
+            className="
                 w-7
                 h-7
                 rounded-md
@@ -693,13 +691,13 @@ const Usercards = () => {
                 bg-[#FAFAFB]
                 text-[11px]
               "
-            >
-              1
-            </button>
+          >
+            1
+          </button>
 
-            {/* Page 2 */}
-            <button
-              className="
+          {/* Page 2 */}
+          <button
+            className="
                 w-7
                 h-7
                 rounded-md
@@ -709,13 +707,13 @@ const Usercards = () => {
                 bg-[#F5F5F2]
                 text-[11px]
               "
-            >
-              2
-            </button>
+          >
+            2
+          </button>
 
-            {/* Page 3 */}
-            <button
-              className="
+          {/* Page 3 */}
+          <button
+            className="
                 w-7
                 h-7
                 rounded-md
@@ -725,13 +723,13 @@ const Usercards = () => {
                 bg-[#F5F5F2]
                 text-[11px]
               "
-            >
-              3
-            </button>
+          >
+            3
+          </button>
 
-            {/* Dots */}
-            <button
-              className="
+          {/* Dots */}
+          <button
+            className="
                 w-7
                 h-7
                 rounded-md
@@ -741,13 +739,13 @@ const Usercards = () => {
                 bg-[#F5F5F2]
                 text-[11px]
               "
-            >
-              ...
-            </button>
+          >
+            ...
+          </button>
 
-            {/* Page 10 */}
-            <button
-              className="
+          {/* Page 10 */}
+          <button
+            className="
                 w-7
                 h-7
                 rounded-md
@@ -757,13 +755,13 @@ const Usercards = () => {
                 bg-[#F5F5F2]
                 text-[11px]
               "
-            >
-              10
-            </button>
+          >
+            10
+          </button>
 
-            {/* Next */}
-            <button
-              className="
+          {/* Next */}
+          <button
+            className="
                 w-7
                 h-7
                 rounded-md
@@ -775,11 +773,11 @@ const Usercards = () => {
                 text-gray-400
                 bg-[#F5F5F2]
               "
-            >
-              <span className="text-[23px] color-[#999FAC]">›</span>
-            </button>
-          </div>
+          >
+            <span className="text-[23px] color-[#999FAC]">›</span>
+          </button>
         </div>
+      </div>
 
     </div>
   );

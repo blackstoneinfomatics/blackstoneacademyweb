@@ -313,12 +313,17 @@ export const AppApiEndpoints = {
     GET_TRIALS: "/subscription-trials",
     GET_TRIALS_DASHBOARD_COUNT: "/subscription-trials/dashboard-count",
     UPDATE_TRIALS: "/subscription-trials",
-  },
+  }
+  ,
   TENANT: {
     GET_TENANT: "/tenant",
     CREATE_TENANT: "/tenant",
     UPDATE_TENANT: "/tenant",
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
     UPDATE_SUBSCRIPTION_PLAN: "/tenant/subscription-plan/{tenantCode}",
+  },
+  FINANCE: {
+    GET_ANALYTICS_COUNT: "/finance/analytics/count",
+    GET_GRAPH_DATA: "/finance/dashboard/graph",
   },
 };

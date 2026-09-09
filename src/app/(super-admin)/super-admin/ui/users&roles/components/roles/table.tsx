@@ -1,46 +1,136 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react";
 import { useRouter } from "next/navigation";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown, FiLayers } from "react-icons/fi";
 import { MdTune, MdCheckCircle, MdCancel } from "react-icons/md";
+import axios from "axios";
 
-const portalItems = [
-  {
-    portalName: "Admin",
-    portalType: "Academic",
-    description: "Manage student information and activities",
-    tenantStatus: "Active",
-    createdDate: "02 Sep 2026",
-  },
-  {
-    portalName: "Teacher",
-    portalType: "Academic",
-    description: "Manage teacher information and activities",
-    tenantStatus: "Active",
-    createdDate: "02 Sep 2026",
-  },
-  {
-    portalName: "Student",
-    portalType: "Academic",
-    description: "Manage student information and activities",
-    tenantStatus: "Active",
-    createdDate: "02 Sep 2026",
-  },
-  {
-    portalName: "Academy",
-    portalType: "Finance",
-    description: "Manage fees, payments and financial records",
-    tenantStatus: "Active",
-    createdDate: "02 Sep 2026",
-  },
-];
+interface PortalItem {
+  _id: string;
+  portalId: string;
+  portalName: string;
+  portalType: string;
+  roleType: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
 
-const Table = () => {
+interface DashboardStats {
+  total: number;
+  active: number;
+  inactive: number;
+  archived: number;
+}
+
+interface PaginationData {
+  page: number;
+  limit: number;
+  totalRecords: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
+interface TableHandle {
+  refreshData: () => void;
+}
+
+interface TableProps {
+  onPortalCreated?: () => void;
+}
+
+const Table = forwardRef<TableHandle, TableProps>(({ onPortalCreated }, ref) => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [portalItems, setPortalItems] = useState<PortalItem[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    archived: 0
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [pagination, setPagination] = useState<PaginationData | null>(null);
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/portal/dashboard/count"
+      );
+
+      if (response.data.success) {
+        setStats(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+    }
+  };
+
+
+  const fetchPortalList = async (page: number = 1, search: string = "") => {
+    try {
+      setLoading(true);
+      let url = `http://localhost:5001/portal?page=${page}&limit=10`;
+
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+      }
+
+      const response = await axios.get(url);
+
+      if (response.data.success) {
+        setPortalItems(response.data.data.items);
+        setPagination(response.data.data.pagination);
+        setTotalPages(response.data.data.pagination.totalPages);
+        setTotalRecords(response.data.data.pagination.totalRecords);
+        setCurrentPage(response.data.data.pagination.page);
+      }
+    } catch (error) {
+      console.error("Error fetching portal list:", error);
+      setPortalItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  useImperativeHandle(ref, () => ({
+    refreshData: () => {
+      fetchDashboardStats();
+      fetchPortalList(1, searchTerm);
+    },
+  }));
+
+
+  useEffect(() => {
+    fetchDashboardStats();
+    fetchPortalList(1);
+  }, []);
+
+
+  const handleSearch = () => {
+    fetchPortalList(1, searchTerm);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      fetchPortalList(page, searchTerm);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -59,6 +149,25 @@ const Table = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [openMenu]);
+
+  // Helper function to format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Helper function to get status badge styles
+  const getStatusBadgeStyles = (status: string) => {
+    if (status === "ACTIVE" || status === "Active") {
+      return "bg-[#E7F8ED] text-[#2E9D4D]";
+    } else {
+      return "bg-[#FDECEC] text-[#E53935]";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
@@ -102,14 +211,14 @@ const Table = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  28
+                  {stats.total}
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
               <span className="text-[12px] text-gray-500">
-                 All Portal in the system
+                All Portal in the system
               </span>
             </div>
           </div>
@@ -149,7 +258,7 @@ const Table = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  28
+                  {stats.active}
                 </p>
               </div>
             </div>
@@ -196,7 +305,7 @@ const Table = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  10
+                  {stats.inactive}
                 </p>
               </div>
             </div>
@@ -228,7 +337,6 @@ const Table = () => {
             </h2>
           </div>
 
-
           <div
             className="
               grid
@@ -256,6 +364,9 @@ const Table = () => {
 
               <input
                 placeholder="Search by keyword"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={handleKeyPress}
                 className="
                   w-full
                   outline-none
@@ -295,7 +406,7 @@ const Table = () => {
             {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing 10 Of 50
+                Showing {portalItems.length} Of {totalRecords}
               </span>
             </div>
           </div>
@@ -346,7 +457,13 @@ const Table = () => {
               {/* Table Body */}
               <tbody>
 
-                {portalItems.length > 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="p-5 text-center text-gray-500">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : portalItems.length > 0 ? (
                   portalItems.map((item, index) => (
                     <tr
                       key={index}
@@ -366,7 +483,7 @@ const Table = () => {
 
                       {/* Portal Type */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
-                        {item.portalType}
+                        {item.portalType.charAt(0).toUpperCase() + item.portalType.slice(1).toLowerCase()}
                       </td>
 
                       {/* Description */}
@@ -385,23 +502,19 @@ const Table = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${
-                              item.tenantStatus === "Active"
-                                ? "bg-[#E7F8ED] text-[#2E9D4D]"
-                                : "bg-[#FDECEC] text-[#E53935]"
-                            }
+                            ${getStatusBadgeStyles(item.status)}
                           `}
                         >
-                          {item.tenantStatus}
+                          {item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()}
                         </span>
                       </td>
 
                       {/* Created Date */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.createdDate}
+                        {formatDate(item.createdAt)}
                       </td>
 
-                      {/* Action */}
+                      {/* Action - Dropdown appears BELOW the button */}
                       <td
                         className="py-3 px-3 relative"
                         ref={
@@ -419,11 +532,11 @@ const Table = () => {
                             )
                           }
                           className="
-                            p-1
-                            rounded-md
-                            hover:bg-gray-100
-                            dark:hover:bg-gray-700
-                          "
+      p-1
+      rounded-md
+      hover:bg-gray-100
+      dark:hover:bg-gray-700
+    "
                         >
                           <BsThreeDotsVertical className="text-[14px]" />
                         </button>
@@ -431,33 +544,34 @@ const Table = () => {
                         {openMenu === index && (
                           <div
                             className="
-                              absolute
-                              right-3
-                              top-9
-                              w-28
-                              bg-white
-                              dark:bg-[#2C2C2C]
-                              rounded-lg
-                              shadow-lg
-                              border
-                              border-gray-100
-                              dark:border-gray-700
-                              z-50
-                            "
+        absolute
+        right-3
+        top-full
+        mt-1
+        w-28
+        bg-white
+        dark:bg-[#2C2C2C]
+        rounded-lg
+        shadow-lg
+        border
+        border-gray-100
+        dark:border-gray-700
+        z-50
+      "
                           >
                             <button
                               className="
-                                w-full
-                                text-center
-                                px-3
-                                py-2
-                                text-[10px]
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-700
-                              "
+          w-full
+          text-center
+          px-3
+          py-2
+          text-[10px]
+          hover:bg-gray-100
+          dark:hover:bg-gray-700
+          rounded-t-lg
+        "
                               onClick={() => {
                                 setOpenMenu(null);
-
                                 router.push(
                                   `/super-admin/ui/users&roles/portal_details?portalName=${encodeURIComponent(
                                     item.portalName
@@ -470,14 +584,15 @@ const Table = () => {
 
                             <button
                               className="
-                                w-full
-                                text-center
-                                px-3
-                                py-2
-                                text-[10px]
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-700
-                              "
+          w-full
+          text-center
+          px-3
+          py-2
+          text-[10px]
+          hover:bg-gray-100
+          dark:hover:bg-gray-700
+          rounded-b-lg
+        "
                             >
                               Edit
                             </button>
@@ -501,11 +616,14 @@ const Table = () => {
             </table>
           </div>
 
+          {/* Pagination */}
           <div className="flex justify-end items-center gap-1 px-3 py-4">
 
             {/* Previous */}
             <button
-              className="
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={!pagination?.hasPrevious}
+              className={`
                 w-7
                 h-7
                 rounded-md
@@ -516,94 +634,102 @@ const Table = () => {
                 justify-center
                 text-gray-400
                 bg-[#F5F5F2]
-              "
+                ${!pagination?.hasPrevious ? "opacity-50 cursor-not-allowed" : ""}
+              `}
             >
               <span className="text-[23px] color-[#999FAC]">‹</span>
             </button>
 
             {/* Page 1 */}
             <button
-              className="
+              onClick={() => handlePageChange(1)}
+              className={`
                 w-7
                 h-7
                 rounded-md
                 border
-                border-[#203F78]
-                text-[#203F78]
-                bg-[#FAFAFB]
+                ${currentPage === 1 ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
                 text-[11px]
-              "
+              `}
             >
               1
             </button>
 
             {/* Page 2 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              2
-            </button>
+            {totalPages >= 2 && (
+              <button
+                onClick={() => handlePageChange(2)}
+                className={`
+                  w-7
+                  h-7
+                  rounded-md
+                  border
+                  ${currentPage === 2 ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
+                  text-[11px]
+                `}
+              >
+                2
+              </button>
+            )}
 
             {/* Page 3 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              3
-            </button>
+            {totalPages >= 3 && (
+              <button
+                onClick={() => handlePageChange(3)}
+                className={`
+                  w-7
+                  h-7
+                  rounded-md
+                  border
+                  ${currentPage === 3 ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
+                  text-[11px]
+                `}
+              >
+                3
+              </button>
+            )}
 
             {/* Dots */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              ...
-            </button>
+            {totalPages > 3 && currentPage < totalPages - 1 && (
+              <button
+                className="
+                  w-7
+                  h-7
+                  rounded-md
+                  border
+                  border-[#E6E7EA]
+                  text-gray-400
+                  bg-[#F5F5F2]
+                  text-[11px]
+                "
+                disabled
+              >
+                ...
+              </button>
+            )}
 
-            {/* Page 10 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              10
-            </button>
+            {/* Last Page */}
+            {totalPages > 3 && (
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                className={`
+                  w-7
+                  h-7
+                  rounded-md
+                  border
+                  ${currentPage === totalPages ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
+                  text-[11px]
+                `}
+              >
+                {totalPages}
+              </button>
+            )}
 
             {/* Next */}
             <button
-              className="
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={!pagination?.hasNext}
+              className={`
                 w-7
                 h-7
                 rounded-md
@@ -614,7 +740,8 @@ const Table = () => {
                 justify-center
                 text-gray-400
                 bg-[#F5F5F2]
-              "
+                ${!pagination?.hasNext ? "opacity-50 cursor-not-allowed" : ""}
+              `}
             >
               <span className="text-[23px] color-[#999FAC]">›</span>
             </button>
@@ -624,6 +751,8 @@ const Table = () => {
       </div>
     </div>
   );
-};
+});
+
+Table.displayName = "Table";
 
 export default Table;
