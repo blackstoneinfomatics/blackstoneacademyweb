@@ -1,161 +1,786 @@
-import React from "react";
-import { ArrowUp, ArrowDown } from "lucide-react";
-import { MdCheckCircle, MdCancel } from "react-icons/md";
+"use client";
+
+import { useRouter } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
 import { HiUserGroup } from "react-icons/hi2";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { FiSearch, FiChevronDown } from "react-icons/fi";
+import { MdTune} from "react-icons/md";
 
-const data = {
-  tenants: {
-    title: "Total Tenants",
-    value: "28",
-    icon: HiUserGroup,
-    iconBg: "bg-[#E5DFFD]",
-    iconColor: "text-[#5225FC]",
-    titleColor: "text-[#5225FC]",
-    trendColor: "text-green-600",
-    percentage: "14%",
-    isIncrease: true,
-    text: "vs last Month",
+const tableItems = [
+  {
+    portalName: "Admin",
+    Domin: "blackstoneacademy.com",
+    PhoneNumber: "1234567890",
+    Email: "blackstone@gm.....",
+    StartDate: "Sep, 12 2023",
+    Plan: "Standard",
+    User: "570",
+    RenewalDate: "02 Sep 2026",
+    TenantStatus: "Active",
   },
-
-  totalUser: {
-    title: "Total User",
-    value: "28",
-    icon: HiUserGroup,
-    iconBg: "bg-[#E2ECFC]",
-    iconColor: "text-[#3B82F6]",
-    titleColor: "text-[#3B82F6]",
-    trendColor: "text-green-600",
-    percentage: "14%",
-    isIncrease: true,
-    text: "vs last Month",
+  {
+    portalName: "Admin",
+    Domin: "blackstoneacademy.com",
+    PhoneNumber: "1234567890",
+    Email: "blackstone@gm.....",
+    StartDate: "Sep, 12 2023",
+    Plan: "Standard",
+    User: "570",
+    RenewalDate: "02 Sep 2026",
+    TenantStatus: "Active",
   },
-
-  cards: [
-    {
-      title: "Active User",
-      value: "18",
-      icon: MdCheckCircle,
-      iconBg: "bg-[#E3F4E7]",
-      iconColor: "text-[#40BD5F]",
-      titleColor: "text-[#40BD5F]",
-      trendColor: "text-red-500",
-      percentage: "14%",
-      isIncrease: false,
-      text: "vs last Month",
-    },
-    {
-      title: "Inactive User",
-      value: "10",
-      icon: MdCancel,
-      iconBg: "bg-[#F8E4E4]",
-      iconColor: "text-[#D34645]",
-      titleColor: "text-[#D34645]",
-      trendColor: "text-green-600",
-      percentage: "14%",
-      isIncrease: true,
-      text: "vs last Month",
-    },
-  ],
-};
+  {
+    portalName: "Admin",
+    Domin: "blackstoneacademy.com",
+    PhoneNumber: "1234567890",
+    Email: "blackstone@gm.....",
+    StartDate: "Sep, 12 2023",
+    Plan: "Standard",
+    User: "570",
+    RenewalDate: "02 Sep 2026",
+    TenantStatus: "Active",
+  },
+  {
+    portalName: "Admin",
+    Domin: "blackstoneacademy.com",
+    PhoneNumber: "1234567890",
+    Email: "blackstone@gm.....",
+    StartDate: "Sep, 12 2023",
+    Plan: "Standard",
+    User: "570",
+    RenewalDate: "02 Sep 2026",
+    TenantStatus: "Active",
+  },
+];
 
 const Usercards = () => {
+
+  const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const openMenuRef = useRef<HTMLTableCellElement | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        openMenu !== null &&
+        openMenuRef.current &&
+        !openMenuRef.current.contains(event.target as Node)
+      ) {
+        setOpenMenu(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openMenu]);
+
   return (
-    <div className="grid grid-cols-4 gap-4">
-      {/* Large Card */}
-      <div className="col-span-2 bg-white rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
-        <div className="flex items-center justify-between">
-          {/* Left */}
+      <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
+
+        <div className="flex items-center justify-between mt-2 px-4 py-2">
+          <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
+            Institute Portal & Roles
+          </h2>
+
+            <button
+              className="
+                bg-[#5872C5]
+                hover:bg-[#4D66B3]
+                text-white
+                text-[12px]
+                font-medium
+                px-4
+                py-3
+                rounded-lg
+                transition
+              "
+            >
+              Add Portal
+            </button>
+
+        </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-3 px-4 gap-3">
+
+      <div
+        className="
+          lg:col-span-2
+          bg-white
+          dark:bg-[#343434]
+          rounded-xl
+          shadow-[0_3px_12px_rgba(0,0,0,0.05)]
+          border border-[#F0F1F5]
+          px-5
+          py-3
+          h-[96px]
+        "
+      >
+        <div className="flex items-center justify-between h-full">
+
+          {/* LEFT CONTENT */}
           <div className="flex items-center gap-4">
-            {/* Logo */}
-            <div className="p-4 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+
+            {/* Tenant Logo */}
+            <div
+              className="
+                w-[60px]
+                h-[60px]
+                rounded-full
+                bg-[#EEEEEE]
+                flex
+                items-center
+                justify-center
+                overflow-hidden
+                shrink-0
+              "
+            >
               <img
                 src="/assets/images/bsicon.png"
                 alt="Tenant Logo"
-                className="w-[100px] h-full bg-center bg-cover object-contain"
+                className="
+                  w-[55px]
+                  h-[55px]
+                  object-contain
+                "
               />
             </div>
 
-            {/* Details */}
+            {/* Tenant Details */}
             <div>
+
+              {/* Name + Status */}
               <div className="flex items-center gap-2">
-                <h2 className="text-[20px] font-semibold text-[#1B1B1B]">
+
+                <h2
+                  className="
+                    text-[16px]
+                    font-semibold
+                    text-[#1B1B1B]
+                    dark:text-white
+                  "
+                >
                   Blackstone Academy
                 </h2>
 
-                <span className="text-[12px] font-medium text-[#2FB344]">
+                <span
+                  className="
+                    text-[11px]
+                    font-medium
+                    text-[#2FB344]
+                  "
+                >
                   Active
                 </span>
+
               </div>
 
-              <p className="text-[14px] text-gray-500 mt-1">
+              {/* Domain */}
+              <p
+                className="
+                  text-[12px]
+                  text-gray-500
+                  dark:text-gray-400
+                  mt-[3px]
+                "
+              >
                 blackstoneacademy.com
               </p>
 
-              <div className="flex items-center gap-1 mt-1 text-[12px]">
-                <span className="text-gray-400">Created on 02,July,2000 |</span>
+              {/* Created + ID */}
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-1
+                  mt-[3px]
+                  text-[10px]
+                "
+              >
+                <span className="text-gray-400 text-[11px]">
+                  Created on : 02,July,2000 |
+                </span>
 
-                <span className="font-medium text-[#576CBC]">
+                <span className="font-medium text-[10px] text-[#576CBC]">
                   ID: TEN 22001
                 </span>
               </div>
+
             </div>
           </div>
 
-          {/* Right Badge */}
-          <div>
-            <span className="px-3 py-1 rounded-md bg-[#E9F1FF] text-[#4F7DF3] text-xs font-medium">
+          {/* PLAN BADGE */}
+          <div className="self-start mt-2">
+
+            <span
+              className="
+                inline-flex
+                items-center
+                px-2
+                py-[4px]
+                rounded-[4px]
+                bg-[#E9F1FF]
+                text-[#4F7DF3]
+                text-[10px]
+                font-medium
+              "
+            >
               Standard
             </span>
+
           </div>
+
         </div>
       </div>
 
-      {/* Small Cards */}
-      {data.cards.map((card, index) => {
-        const Icon = card.icon;
+      <div
+        className="
+          bg-white
+          dark:bg-[#343434]
+          rounded-xl
+          shadow-[0_3px_12px_rgba(0,0,0,0.05)]
+          border border-[#F0F1F5]
+          px-4
+          py-3
+          h-[96px]
+        "
+      >
 
-        return (
+        <div className="flex items-center gap-3">
+
+          {/* Icon */}
           <div
-            key={index}
-            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
+            className="
+              w-[45px]
+              h-[45px]
+              rounded-full
+              bg-[#E8F1FF]
+              flex
+              items-center
+              justify-center
+              shrink-0
+            "
           >
-            <div className="flex items-start gap-4">
-              <div
-                className={`w-14 h-14 rounded-full mt-2 flex items-center justify-center ${card.iconBg}`}
-              >
-                <Icon className={`w-6 h-6 ${card.iconColor}`} />
-              </div>
+            <HiUserGroup
+              className="
+                text-[#3B82F6]
+                text-[22px]
+              "
+            />
+          </div>
 
-              <div className="space-y-2">
-                <p
-                  className={`text-md mt-[4px] text-[15px] font-medium ${card.titleColor}`}
-                >
-                  {card.title}
-                </p>
-                <h2 className="text-[19px] font-semibold text-gray-800 mt-1">
-                  {card.value}
-                </h2>
-              </div>
+          {/* Usage Details */}
+          <div>
+
+            <p
+              className="
+                text-[12px]
+                font-medium
+                text-[#3B82F6]
+              "
+            >
+              Portal Usage
+            </p>
+
+            <div className="flex items-center gap-1 mt-[2px]">
+
+              <span
+                className="
+                  text-[16px]
+                  font-semibold
+                  text-[#222222]
+                  dark:text-white
+                "
+              >
+                8
+              </span>
+
+              <span
+                className="
+                  text-[14px]
+                  font-medium
+                  text-[#222222]
+                  dark:text-gray-300
+                "
+              >
+                / 10
+              </span>
+
             </div>
 
-            {/* Bottom */}
-            <div className="flex items-center text-[16px] gap-2 mt-6 ml-[72px]">
-              <div className={`flex items-center ${card.trendColor}`}>
-                {card.isIncrease ? (
-                  <ArrowUp className="w-4 h-4" />
-                ) : (
-                  <ArrowDown className="w-4 h-4" />
-                )}
-                <span className="font-medium text-[14px] text-sm ml-1">
-                  {card.percentage}
+          </div>
+
+        </div>
+
+        {/* Available Slots */}
+        <div
+          className="
+            text-[11px]
+            text-gray-500
+            dark:text-gray-400
+            mt-[5px]
+            ml-[57px]
+          "
+        >
+          2 user slots available
+        </div>
+
+      </div>
+
+    </div>
+
+          {/* Section Title */}
+        <div
+          className="
+            bg-white
+            dark:bg-[#343434]
+            rounded-xl
+            shadow-[0_4px_15px_rgba(0,0,0,0.05)]
+            mt-3 
+            overflow-hidden
+            mx-4
+          "
+        >
+
+          {/* Section Title */}
+          <div className="px-3 pt-3 pb-2">
+            <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
+              All Tenants
+            </h2>
+          </div>
+          
+          <div
+            className="
+              grid
+              grid-cols-1
+              md:grid-cols-3
+              border-y
+              border-[#E7EAF3]
+              bg-[#FAFAFB]
+              dark:bg-[#2E2E2E]
+            "
+          >
+
+            {/* Search */}
+            <div
+              className="
+                flex
+                items-center
+                px-3
+                h-10
+                border-r
+                border-[#E7EAF3]
+              "
+            >
+              <FiSearch className="text-gray-400 mr-2 text-[15px]" />
+
+              <input
+                placeholder="Search by keyword"
+                className="
+                  w-full
+                  outline-none
+                  bg-transparent
+                  text-[11px]
+                  text-gray-600
+                  dark:text-gray-200
+                  placeholder:text-gray-400
+                "
+              />
+            </div>
+
+            {/* Filter */}
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                px-3
+                h-10
+                border-r
+                border-[#E7EAF3]
+                cursor-pointer
+              "
+            >
+              <div className="flex items-center">
+                <MdTune className="text-gray-400 mr-2 text-[16px]" />
+
+                <span className="text-[11px] text-gray-400">
+                  Filter
                 </span>
               </div>
 
-              <span className="text-gray-500 text-[13px]">{card.text}</span>
+              <FiChevronDown className="text-gray-400 text-[14px]" />
+            </div>
+
+            {/* Count */}
+            <div className="flex items-center px-4 h-10">
+              <span className="text-[11px] text-gray-400">
+                Showing 10 Of 50
+              </span>
             </div>
           </div>
-        );
-      })}
+
+          {/* TABLE */}
+
+          <div className="overflow-x-auto">
+
+            <table className="w-full min-w-[750px] text-xs border-collapse">
+
+              {/* Table Header */}
+              <thead
+                className="
+                  bg-[#4C6993]
+                  text-white
+                  text-[13px]
+                  dark:bg-[#44699D]
+                "
+              >
+                <tr>
+                  {[
+                    "Tenants Name",
+                    "Domain",
+                    "Phone Number",
+                    "Email",
+                    "start Date",
+                    "Plan",
+                    "User",
+                    "Renewal Date",
+                    "Tenant Status",
+                    "Action",
+                  ].map((header) => (
+                    <th
+                      key={header}
+                      className="
+                        py-3
+                        px-3
+                        whitespace-nowrap
+                        font-medium
+                        text-left
+                        text-[11px]
+                        border-r
+                        border-[#466993]
+                      "
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              {/* Table Body */}
+              <tbody>
+
+                {tableItems.length > 0 ? (
+                  tableItems.map((item, index) => (
+                    <tr
+                      key={index}
+                      className="
+                        text-[11px]
+                        odd:bg-[#F8F8F8]
+                        even:bg-white
+                        dark:odd:bg-[#2C2C2C]
+                        dark:even:bg-[#303030]
+                      "
+                    >
+
+                      {/* user Name */}
+                      <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
+                        {item.portalName}
+                      </td>
+
+                      {/* user Type */}
+                      <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
+                        {item.Domin}
+                      </td>
+
+                      {/* Description */}
+                      <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
+                        {item.PhoneNumber}
+                      </td>
+
+                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                        {item.Email}
+                      </td>
+
+                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                        {item.StartDate}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3 px-3">
+                        <span
+                          className={`
+                            inline-flex
+                            items-center
+                            px-3
+                            py-1
+                            rounded-md
+                            text-[9px]
+                            font-medium
+                            ${
+                              item.Plan === "Standard"
+                                ? "bg-[#2668EF24] text-[#2668EF]"
+                                : "bg-[#585BDC24] text-[#585BDC]"
+                            }
+                          `}
+                        >
+                          {item.Plan}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                        {item.User}
+                      </td>
+
+                        <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                        {item.RenewalDate}
+                      </td>
+
+            <         td className="py-3 px-3">
+                        <span
+                          className={`
+                            inline-flex
+                            items-center
+                            px-3
+                            py-1
+                            rounded-md
+                            text-[9px]
+                            font-medium
+                            ${
+                              item.TenantStatus === "Active"
+                                ? "bg-[#ECFDF3] text-[#377E36]"
+                                : "bg-[#FDECEC] text-[#D34645]"
+                            }
+                          `}
+                        >
+                          {item.TenantStatus}
+                        </span>
+                      </td>
+
+                      {/* Action */}
+                      <td
+                        className="py-3 px-3 relative"
+                        ref={
+                          openMenu === index
+                            ? openMenuRef
+                            : null
+                        }
+                      >
+                        <button
+                          onClick={() =>
+                            setOpenMenu(
+                              openMenu === index
+                                ? null
+                                : index
+                            )
+                          }
+                          className="
+                            p-1
+                            rounded-md
+                            hover:bg-gray-100
+                            dark:hover:bg-gray-700
+                          "
+                        >
+                          <BsThreeDotsVertical className="text-[14px]" />
+                        </button>
+
+                        {openMenu === index && (
+                          <div
+                            className="
+                              absolute
+                              right-3
+                              top-9
+                              w-28
+                              bg-white
+                              dark:bg-[#2C2C2C]
+                              rounded-lg
+                              shadow-lg
+                              border
+                              border-gray-100
+                              dark:border-gray-700
+                              z-50
+                            "
+                          >
+                            <button
+                              className="
+                                w-full
+                                text-center
+                                px-3
+                                py-2
+                                text-[10px]
+                                hover:bg-gray-100
+                                dark:hover:bg-gray-700
+                              "
+                              onClick={() => {
+                                setOpenMenu(null);
+
+                                router.push(
+                                  `/super-admin/ui/users&roles/all_tenant?portalName=${encodeURIComponent(
+                                    item.portalName
+                                  )}`
+                                );
+                              }}
+                            >
+
+                              View Details
+                            </button>
+
+                            <button
+                              className="
+                                w-full
+                                text-center
+                                px-3
+                                py-2
+                                text-[10px]
+                                hover:bg-gray-100
+                                dark:hover:bg-gray-700
+                              "
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="p-5 text-center text-gray-500"
+                    >
+                      No data available
+                    </td>
+                  </tr>
+                )}
+
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end items-center gap-1 px-3 py-4">
+
+            {/* Previous */}
+            <button
+              className="
+                w-7
+                h-7
+                rounded-md
+                border
+                border-[#E5E7EB]
+                flex
+                items-center
+                justify-center
+                text-gray-400
+                bg-[#F5F5F2]
+              "
+            >
+              <span className="text-[23px] color-[#999FAC]">‹</span>
+            </button>
+
+            {/* Page 1 */}
+            <button
+              className="
+                w-7
+                h-7
+                rounded-md
+                border
+                border-[#203F78]
+                text-[#203F78]
+                bg-[#FAFAFB]
+                text-[11px]
+              "
+            >
+              1
+            </button>
+
+            {/* Page 2 */}
+            <button
+              className="
+                w-7
+                h-7
+                rounded-md
+                border
+                border-[#E6E7EA]
+                text-gray-400
+                bg-[#F5F5F2]
+                text-[11px]
+              "
+            >
+              2
+            </button>
+
+            {/* Page 3 */}
+            <button
+              className="
+                w-7
+                h-7
+                rounded-md
+                border
+                border-[#E6E7EA]
+                text-gray-400
+                bg-[#F5F5F2]
+                text-[11px]
+              "
+            >
+              3
+            </button>
+
+            {/* Dots */}
+            <button
+              className="
+                w-7
+                h-7
+                rounded-md
+                border
+                border-[#E6E7EA]
+                text-gray-400
+                bg-[#F5F5F2]
+                text-[11px]
+              "
+            >
+              ...
+            </button>
+
+            {/* Page 10 */}
+            <button
+              className="
+                w-7
+                h-7
+                rounded-md
+                border
+                border-[#E6E7EA]
+                text-gray-400
+                bg-[#F5F5F2]
+                text-[11px]
+              "
+            >
+              10
+            </button>
+
+            {/* Next */}
+            <button
+              className="
+                w-7
+                h-7
+                rounded-md
+                border
+                border-[#E5E7EB]
+                flex
+                items-center
+                justify-center
+                text-gray-400
+                bg-[#F5F5F2]
+              "
+            >
+              <span className="text-[23px] color-[#999FAC]">›</span>
+            </button>
+          </div>
+        </div>
+
     </div>
   );
 };
