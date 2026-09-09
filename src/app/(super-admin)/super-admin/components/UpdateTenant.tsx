@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import {
   X,
   ChevronLeft,
@@ -26,14 +28,20 @@ type UpdateTenantProps = {
     panNo: string;
     website: string;
     startDate: string;
+    timeZone: string;
+    planId?: string;
     plan: string;
+    currency: string;
     users: number;
     renewalDate: string;
     status: string;
     state: string;
     country: string;
     city: string;
+    street: string;
+    landMark: string;
     pincode: string;
+    companyRegistrationCertificate: string;
   };
   readonly onClose: () => void;
   readonly onSave: (data: {
@@ -46,12 +54,18 @@ type UpdateTenantProps = {
     panNo: string;
     website: string;
     status: string;
+    timeZone: string;
+    planId?: string;
     plan: string;
+    currency: string;
     country: string;
     state: string;
     city: string;
+    street: string;
+    landMark: string;
     pincode: string;
     comments: string;
+    companyRegistrationCertificate: string;
   }) => void;
 };
 
@@ -67,13 +81,14 @@ type TenantFormData = {
   website: string;
   status: string;
   timeZone: string;
+  planId: string;
   plan: string;
   currency: string;
   country: string;
   state: string;
   city: string;
   street: string;
-  landmark: string;
+  landMark: string;
   pincode: string;
   tenantBackup: boolean;
   logo: File | null;
@@ -83,6 +98,7 @@ type TenantFormData = {
   adminName: string;
   adminEmail: string;
   adminPhone: string;
+  companyRegistrationCertificate: string;
 };
 
 type FileField =
@@ -90,6 +106,22 @@ type FileField =
   | "gstCertificate"
   | "registrationCertificate"
   | "addressProof";
+
+type AvailablePlan = {
+  planId: string;
+  planName: string;
+};
+
+const getObjectId = (value: unknown): string => {
+  if (typeof value === "string") return value;
+
+  if (value && typeof value === "object") {
+    const objectValue = value as { $oid?: unknown };
+    return typeof objectValue.$oid === "string" ? objectValue.$oid : "";
+  }
+
+  return "";
+};
 
 const fieldBase =
   "w-full h-11 rounded-lg border px-4 text-sm outline-none transition " +
@@ -115,6 +147,8 @@ function TextField({
   type = "text",
   required = false,
   disabled = false,
+  inputClassName = "",
+  title,
 }: {
   label: string;
   name: string;
@@ -124,6 +158,8 @@ function TextField({
   type?: string;
   required?: boolean;
   disabled?: boolean;
+  inputClassName?: string;
+  title?: string;
 }) {
   return (
     <div>
@@ -140,7 +176,8 @@ function TextField({
         onChange={onChange}
         disabled={disabled}
         placeholder={placeholder}
-        className={`${fieldBase} ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+        title={title}
+        className={`${fieldBase} ${disabled ? "cursor-not-allowed opacity-70" : ""} ${inputClassName}`}
       />
     </div>
   );
@@ -154,6 +191,7 @@ function SelectField({
   options,
   placeholder = "Select",
   required = false,
+  disabled = false,
 }: {
   label: string;
   name: string;
@@ -162,6 +200,7 @@ function SelectField({
   options: string[];
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -176,9 +215,10 @@ function SelectField({
           name={name}
           value={value}
           onChange={onChange}
+          disabled={disabled}
           className={`${fieldBase} appearance-none pr-10 ${
-            value ? "" : "text-gray-400 dark:text-gray-500"
-          }`}
+            disabled ? "cursor-not-allowed opacity-70" : ""
+          } ${value ? "" : "text-gray-400 dark:text-gray-500"}`}
         >
           <option value="">{placeholder}</option>
 
@@ -306,13 +346,14 @@ const createEmptyFormData = (): TenantFormData => ({
   comments: "",
   status: "",
   timeZone: "",
+  planId: "",
   plan: "",
   currency: "",
   country: "",
   state: "",
   city: "",
   street: "",
-  landmark: "",
+  landMark: "",
   pincode: "",
   tenantBackup: false,
   logo: null,
@@ -322,6 +363,7 @@ const createEmptyFormData = (): TenantFormData => ({
   adminName: "",
   adminEmail: "",
   adminPhone: "",
+  companyRegistrationCertificate: "",
 });
 
 export default function UpdateTenant({
@@ -330,6 +372,12 @@ export default function UpdateTenant({
   onSave,
 }: UpdateTenantProps) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [showPlanEditor, setShowPlanEditor] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState<AvailablePlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState(tenant.planId || "");
+  const [isPlanLoading, setIsPlanLoading] = useState(false);
+  const [isPlanSaving, setIsPlanSaving] = useState(false);
+  const [planError, setPlanError] = useState("");
 
   const [formData, setFormData] = useState<TenantFormData>({
     ...createEmptyFormData(),
@@ -342,14 +390,20 @@ export default function UpdateTenant({
     website: tenant.website || "",
     domain: tenant.domain || "",
     status: tenant.status || "",
+    timeZone: tenant.timeZone || "",
+    planId: tenant.planId || "",
     plan: tenant.plan || "",
+    currency: tenant.currency || "",
     country: tenant.country || "",
     state: tenant.state || "",
     city: tenant.city || "",
+    street: tenant.street || "",
+    landMark: tenant.landMark || "",
     pincode: tenant.pincode || "",
     adminName: tenant.tenantName || "",
     adminEmail: tenant.email || "",
     adminPhone: tenant.phoneNumber || "",
+    companyRegistrationCertificate: tenant.companyRegistrationCertificate || "",
   });
 
   const steps = [
@@ -359,6 +413,81 @@ export default function UpdateTenant({
     "Invite Admin",
   ];
   const totalSteps = steps.length;
+
+  const openPlanEditor = async () => {
+    setShowPlanEditor(true);
+    setPlanError("");
+
+    if (availablePlans.length > 0) return;
+
+    try {
+      setIsPlanLoading(true);
+      const response = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`,
+      );
+      const responseData = response.data?.data ?? response.data;
+      const plans = Array.isArray(responseData)
+        ? responseData
+        : (responseData?.plans ?? responseData?.items ?? []);
+
+      const normalizedPlans = plans
+        .map((plan: { _id?: string; planName?: string; name?: string }) => ({
+          planId: plan._id ?? "",
+          planName: plan.planName ?? plan.name ?? "Unnamed plan",
+        }))
+        .filter((plan: AvailablePlan) => plan.planId);
+
+      setAvailablePlans(normalizedPlans);
+      const currentPlan = normalizedPlans.find(
+        (plan: AvailablePlan) =>
+          plan.planName.trim().toLowerCase() ===
+          formData.plan.trim().toLowerCase(),
+      );
+      if (currentPlan) setSelectedPlanId(currentPlan.planId);
+    } catch {
+      setPlanError("Unable to load plans. Please try again.");
+    } finally {
+      setIsPlanLoading(false);
+    }
+  };
+
+  const handlePlanUpdate = async () => {
+    if (!selectedPlanId || !tenant.tenantCode) return;
+
+    try {
+      setIsPlanSaving(true);
+      setPlanError("");
+      const token = localStorage.getItem("SuperAdminAuthToken");
+      const updatePlanUrl =
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.UPDATE_SUBSCRIPTION_PLAN}`.replace(
+          "{tenantCode}",
+          tenant.tenantCode,
+        );
+      const selectedPlan = availablePlans.find(
+        (plan) => plan.planId === selectedPlanId,
+      );
+      const response = await axios.put(
+        updatePlanUrl,
+        {
+          planId: selectedPlanId,
+          planName: selectedPlan?.planName ?? "",
+        },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+      );
+      const updatedPlanName = response.data?.data?.data?.subscription?.planName;
+
+      setFormData((prev) => ({
+        ...prev,
+        planId: selectedPlanId,
+        plan: updatedPlanName ?? selectedPlan?.planName ?? prev.plan,
+      }));
+      setShowPlanEditor(false);
+    } catch {
+      setPlanError("Unable to update the plan. Please try again.");
+    } finally {
+      setIsPlanSaving(false);
+    }
+  };
 
   const handleInput = (
     e: React.ChangeEvent<
@@ -373,7 +502,10 @@ export default function UpdateTenant({
       return;
     }
 
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -407,13 +539,19 @@ export default function UpdateTenant({
       panNo: formData.panNo,
       faxNo: formData.faxNo,
       website: formData.website,
+      timeZone: formData.timeZone,
+      planId: formData.planId,
       status: formData.status,
       plan: formData.plan,
+      currency: formData.currency,
       country: formData.country,
       state: formData.state,
       city: formData.city,
+      street: formData.street,
+      landMark: formData.landMark,
       pincode: formData.pincode,
       comments: formData.comments,
+      companyRegistrationCertificate: formData.companyRegistrationCertificate,
     });
   };
 
@@ -552,45 +690,61 @@ export default function UpdateTenant({
                   placeholder="https://example.com"
                 />
 
-                <SelectField
+                <TextField
                   label="Status"
                   name="status"
                   value={formData.status}
                   onChange={handleInput}
-                  placeholder="Select status"
-                  options={["Active", "Inactive", "Trial", "Expiring Soon"]}
+                  placeholder="Enter status"
                 />
 
-                <SelectField
+                <TextField
                   label="Time Zone"
                   name="timeZone"
                   value={formData.timeZone}
                   onChange={handleInput}
-                  placeholder="Select time zone"
-                  options={[
-                    "Asia/Kolkata",
-                    "UTC",
-                    "America/New_York",
-                    "Europe/London",
-                  ]}
+                  placeholder="Enter time zone"
                 />
 
-                <SelectField
-                  label="Plan"
-                  name="plan"
-                  value={formData.plan}
-                  onChange={handleInput}
-                  placeholder="Select plan"
-                  options={["Basic", "Standard", "Premium", "Enterprise"]}
-                />
+                <div>
+                  {formData.status.trim().toLowerCase() === "trial" ? (
+                    <TextField
+                      label="Plan"
+                      name="plan"
+                      value={formData.plan}
+                      onChange={() => {}}
+                      placeholder="Select plan"
+                      disabled
+                      title="Plans are unavailable for Trial tenants. You cannot select a plan while the status is Trial."
+                    />
+                  ) : (
+                    <SelectField
+                      label="Plan"
+                      name="plan"
+                      value={formData.plan}
+                      onChange={handleInput}
+                      placeholder="Select plan"
+                      options={["Basic", "Standard", "Premium", "Enterprise"]}
+                    />
+                  )}
 
-                <SelectField
+                  {formData.status.trim().toLowerCase() !== "trial" && (
+                    <button
+                      type="button"
+                      onClick={openPlanEditor}
+                      className="mt-2 text-xs font-medium text-[#5967E8] hover:underline"
+                    >
+                      Update Plan
+                    </button>
+                  )}
+                </div>
+
+                <TextField
                   label="Currency"
                   name="currency"
                   value={formData.currency}
                   onChange={handleInput}
-                  placeholder="Select currency"
-                  options={["INR", "USD", "EUR", "GBP"]}
+                  placeholder=""
                 />
               </div>
 
@@ -610,27 +764,20 @@ export default function UpdateTenant({
               <h3 className={`${sectionTitle} mb-4 mt-8`}>Address</h3>
 
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-                <SelectField
+                <TextField
                   label="Country"
                   name="country"
                   value={formData.country}
                   onChange={handleInput}
                   placeholder="Select country"
-                  options={[
-                    "India",
-                    "United States",
-                    "United Kingdom",
-                    "Singapore",
-                  ]}
                 />
 
-                <SelectField
+                <TextField
                   label="State"
                   name="state"
                   value={formData.state}
                   onChange={handleInput}
                   placeholder="Select state"
-                  options={["Tamil Nadu", "Karnataka", "Kerala", "Maharashtra"]}
                 />
 
                 <SelectField
@@ -653,7 +800,7 @@ export default function UpdateTenant({
                 <TextField
                   label="Landmark"
                   name="landmark"
-                  value={formData.landmark}
+                  value={formData.landMark}
                   onChange={handleInput}
                   placeholder="Enter landmark"
                 />
@@ -861,6 +1008,73 @@ export default function UpdateTenant({
           </button>
         </div>
       </div>
+
+      {showPlanEditor && formData.status.trim().toLowerCase() !== "trial" && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-[#343434]">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Update Plan
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Select a new subscription plan for this tenant.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close update plan dialog"
+                onClick={() => setShowPlanEditor(false)}
+                className="rounded-lg p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-[#4A4A4A]"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <label htmlFor="update-plan" className={labelBase}>
+              Available plans
+            </label>
+            <select
+              id="update-plan"
+              value={selectedPlanId}
+              onChange={(event) => setSelectedPlanId(event.target.value)}
+              disabled={isPlanLoading || isPlanSaving}
+              className={`${fieldBase} mt-2`}
+            >
+              <option value="">
+                {isPlanLoading ? "Loading plans..." : "Select plan"}
+              </option>
+              {availablePlans.map((plan) => (
+                <option key={plan.planId} value={plan.planId}>
+                  {plan.planName}
+                </option>
+              ))}
+            </select>
+
+            {planError && (
+              <p className="mt-2 text-sm text-red-500">{planError}</p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPlanEditor(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-[#4A4A4A] dark:text-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePlanUpdate}
+                disabled={!selectedPlanId || isPlanLoading || isPlanSaving}
+                className="rounded-lg bg-[#5967E8] px-4 py-2 text-sm font-medium text-white hover:bg-[#4A57D4] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isPlanSaving ? "Updating..." : "Update"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

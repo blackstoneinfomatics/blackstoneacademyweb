@@ -24,15 +24,21 @@ interface TenantType {
   website: string;
   email: string;
   startDate: string;
+  timeZone: string;
+  planId?: string;
   plan: string;
+  currency: string;
   users: number;
   renewalDate: string;
   status: string;
   state: string;
   country: string;
   city: string;
+  street: string;
+  landMark: string;
   pincode: string;
   isNew: boolean;
+  companyRegistrationCertificate: string;
 }
 
 const NEW_TENANT_WINDOW_DAYS = 30;
@@ -106,13 +112,16 @@ const page = () => {
                 item.website || item.domain || item.emailId || "",
               ),
               phoneNumber: item.mobileNumber || item.phoneNumber || "N/A",
-              gstNo: item.gstNo  || "N/A",
-              panNo: item.panNo  || "N/A",
-              faxNo: item.faxNo  || "N/A",
+              gstNo: item.gstNo || "N/A",
+              panNo: item.panNo || "N/A",
+              faxNo: item.faxNo || "N/A",
               website: item.website || "N/A",
               email: item.emailId || item.email || "N/A",
+              timeZone: item.timeZone || "N/A",
+              planId: item.planId || item.subscription?.planId || "",
               startDate: formatDate(createdRaw),
               plan: capitalizeFirst(item.plan || "basic"),
+              currency: item.currency || "N/A",
               users: item.users || 0,
               renewalDate: formatDate(
                 item.renewalDate || item.activeLicense?.expiryDate,
@@ -121,7 +130,11 @@ const page = () => {
               state: item.state || "",
               country: item.country || "",
               city: item.city || "",
+              street: item.street || "",
+              landMark: item.landMark || "",
               pincode: item.postalCode || item.pincode || "",
+              companyRegistrationCertificate:
+                item.companyRegistrationCertificate || "",
               isNew,
             };
           },
@@ -690,11 +703,19 @@ const page = () => {
                         faxNo: formData.faxNo || item.faxNo,
                         website: formData.website || item.website,
                         status: formData.status || item.status,
+                        timeZone: formData.timeZone || item.timeZone,
+                        planId: formData.planId || item.planId,
                         plan: formData.plan || item.plan,
+                        currency: formData.currency || item.currency,
                         country: formData.country || item.country,
                         state: formData.state || item.state,
                         city: formData.city || item.city,
+                        street: formData.street || item.street,
+                        landMark: formData.landMark || item.landMark,
                         pincode: formData.pincode || item.pincode,
+                        companyRegistrationCertificate:
+                          formData.companyRegistrationCertificate ||
+                          item.companyRegistrationCertificate,
                       }
                     : item,
                 ),

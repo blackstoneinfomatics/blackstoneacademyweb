@@ -18,6 +18,7 @@ import GenerateInvoice from "./SubscriptionInvoice";
 import CreatePlan from "./CreatePlan";
 import AddNewUser from "./AddNewUser";
 import AddBilling from "./AddBilling";
+import { CreateInvoiceForm } from "@/app/(super-admin)/super-admin/ui/finance/invoices/create/page";
 
 type Props = {
   readonly currentSection: string;
@@ -107,6 +108,7 @@ export default function SuperAdminHeader({
     plan: false,
   });
   const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
+  const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [showAddBilling, setShowAddBilling] = useState(false);
   const loadPermissions = () => {
@@ -513,7 +515,7 @@ export default function SuperAdminHeader({
     ) {
       return (
         <button
-          onClick={() => router.push("/super-admin/ui/finance/invoices/create")}
+          onClick={() => setShowCreateInvoice(true)}
           className="rounded-lg bg-[#576CBC] px-4 py-2 text-sm text-white hover:bg-[#3a4f8a]"
         >
           Create Invoice
@@ -624,6 +626,15 @@ export default function SuperAdminHeader({
                 <div className="relative bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-[#4E709D] scrollbar-track-[#F0F2F9] dark:bg-[#252525]">
                   <GenerateInvoice
                     onClose={() => setShowGenerateInvoice(false)}
+                  />
+                </div>
+              </div>
+            )}
+            {showCreateInvoice && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="relative max-h-[95vh] overflow-y-scroll scrollbar-none rounded-lg bg-white shadow-lg dark:bg-[#252525]">
+                  <CreateInvoiceForm
+                    onClose={() => setShowCreateInvoice(false)}
                   />
                 </div>
               </div>

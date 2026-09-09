@@ -499,7 +499,7 @@ const RefundTable = () => {
                                   setOpenMenu(null);
                                 }}
                               >
-                                View Details
+                                Update Details
                               </button>
 
                               <button

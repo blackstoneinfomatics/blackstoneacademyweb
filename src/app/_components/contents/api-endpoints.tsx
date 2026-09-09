@@ -175,6 +175,21 @@ export const AppApiEndpoints = {
     GET_DASHBOARD_COUNT: "/refund-transactions/dashboard-count",
   },
 
+  REVENUE: {
+    GET_DASHBOARD_COUNT: "/revenue/dashboard/count",
+    GET_LATEST_TENANTS: "/revenue/latesttenant",
+    GET_NET_REVENUE_OVERVIEW: "/revenue/netrevenue-overview",
+    GET_MONTH_REVENUE: "/revenue/month-revenue",
+  },
+
+  TENANT_SUBSCRIPTION: {
+    GET: "/tenantsubscription",
+  },
+
+  CUSTOM_SERVICE_INVOICE: {
+    CREATE: "/custom-service-invoices",
+  },
+
   BILLING: {
     CREATE: "/billing",
     GET: "/billing",
@@ -298,13 +313,12 @@ export const AppApiEndpoints = {
     GET_TRIALS: "/subscription-trials",
     GET_TRIALS_DASHBOARD_COUNT: "/subscription-trials/dashboard-count",
     UPDATE_TRIALS: "/subscription-trials",
-  }
-,
-TENANT: {
+  },
+  TENANT: {
     GET_TENANT: "/tenant",
     CREATE_TENANT: "/tenant",
     UPDATE_TENANT: "/tenant",
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
-
-  }
+    UPDATE_SUBSCRIPTION_PLAN: "/tenant/subscription-plan/{tenantCode}",
+  },
 };
