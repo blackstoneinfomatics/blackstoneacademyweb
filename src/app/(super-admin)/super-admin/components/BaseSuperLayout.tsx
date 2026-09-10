@@ -50,7 +50,7 @@ const SuperSidebarItems = [
   },
   {
     name: "Feature Control",
-    href: "/super-admin/ui/featurecontrol",
+    href: "/super-admin/ui/featureandcontrol",
     icon: AiFillControl,
   },
   {
