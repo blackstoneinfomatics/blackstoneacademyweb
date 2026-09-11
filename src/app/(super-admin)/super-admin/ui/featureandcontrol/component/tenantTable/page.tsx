@@ -127,7 +127,7 @@ const Usertable = () => {
               </div>
             </div>
 
-             <div className="flex justify-end items-center gap-2 mt-1">
+            <div className="flex justify-end items-center gap-2 mt-1">
               <span className="text-[#377E36] text-[13px] font-medium">
                 ↑ 14%
               </span>
@@ -178,7 +178,7 @@ const Usertable = () => {
               </div>
             </div>
 
-             <div className="flex justify-end items-center gap-2 mt-1">
+            <div className="flex justify-end items-center gap-2 mt-1">
               <span className="text-[#377E36] text-[13px] font-medium">
                 ↑ 14%
               </span>
@@ -428,10 +428,9 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${
-                              item.Plan === "Standard"
-                                ? "bg-[#2668EF24] text-[#2668EF]"
-                                : "bg-[#585BDC24] text-[#585BDC]"
+                            ${item.Plan === "Standard"
+                              ? "bg-[#2668EF24] text-[#2668EF]"
+                              : "bg-[#585BDC24] text-[#585BDC]"
                             }
                           `}
                         >
@@ -443,11 +442,11 @@ const Usertable = () => {
                         {item.User}
                       </td>
 
-                        <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
+                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
                         {item.RenewalDate}
                       </td>
 
-            <         td className="py-3 px-3">
+                      <         td className="py-3 px-3">
                         <span
                           className={`
                             inline-flex
@@ -457,10 +456,9 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${
-                              item.TenantStatus === "Active"
-                                ? "bg-[#ECFDF3] text-[#377E36]"
-                                : "bg-[#FDECEC] text-[#D34645]"
+                            ${item.TenantStatus === "Active"
+                              ? "bg-[#ECFDF3] text-[#377E36]"
+                              : "bg-[#FDECEC] text-[#D34645]"
                             }
                           `}
                         >
@@ -525,11 +523,11 @@ const Usertable = () => {
                               onClick={() => {
                                 setOpenMenu(null);
 
-                                // router.push(
-                                //   `/super-admin/ui/featureandcontrol/featureandtenant?portalName=${encodeURIComponent(
-                                //     item.portalName
-                                //   )}`
-                                // );
+                                router.push(
+                                  `/super-admin/ui/featureandcontrol/featureandtenant?portalName=${encodeURIComponent(
+                                    item.portalName
+                                  )}`
+                                );
                               }}
                             >
 

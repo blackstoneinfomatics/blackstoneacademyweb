@@ -17,7 +17,6 @@ interface FormData {
   status: string;
 }
 
-// Props for Table component to refresh data
 interface TableProps {
   refreshData?: () => void;
 }
@@ -36,7 +35,6 @@ const Page = () => {
   });
   const [createdPortalName, setCreatedPortalName] = useState<string>("");
 
-  // Ref to trigger table refresh
   const tableRef = React.useRef<{ refreshData: () => void }>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -52,7 +50,7 @@ const Page = () => {
     setIsLoading(true);
 
     try {
-      // Prepare payload for API
+
       const payload = {
         portalName: formData.portalRoles,
         description: formData.description,
@@ -63,19 +61,19 @@ const Page = () => {
 
       console.log("Sending payload:", payload);
 
-      // Make API call to create portal
+
       const response = await axios.post("http://localhost:5001/portal", payload);
 
       console.log("API Response:", response.data);
 
       if (response.data.success) {
-        // Store the created portal name for display in success modal
+
         setCreatedPortalName(formData.portalRoles);
         setShowSuccess(true);
         setShowAddPortalModal(false);
         toast.success(response.data.message || "Portal created successfully!");
 
-        // Reset form
+
         setFormData({
           portalRoles: "",
           description: "",
@@ -83,12 +81,12 @@ const Page = () => {
           status: "Active",
         });
 
-        // Refresh table data
+
         if (tableRef.current) {
           tableRef.current.refreshData();
         }
       } else {
-        // Store the portal name for failure modal
+
         setCreatedPortalName(formData.portalRoles);
         setShowFailure(true);
         setShowAddPortalModal(false);
@@ -97,10 +95,10 @@ const Page = () => {
     } catch (error: any) {
       console.error("Error creating portal:", error);
 
-      // Store the portal name for failure modal
+
       setCreatedPortalName(formData.portalRoles);
 
-      // Handle different error scenarios
+
       const errorMessage = error.response?.data?.message ||
         error.response?.data?.error ||
         "Failed to create portal. Please try again.";
@@ -130,9 +128,8 @@ const Page = () => {
     });
   };
 
-  // Function to refresh portal list from parent
   const refreshPortalList = () => {
-    // This will be called from Table component via ref
+
   };
 
   return (
@@ -289,7 +286,6 @@ const Page = () => {
                   className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#5872C5] focus:border-transparent dark:bg-[#1F1F1F] dark:text-white text-sm"
                 >
                   <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
                 </select>
               </div>
 
