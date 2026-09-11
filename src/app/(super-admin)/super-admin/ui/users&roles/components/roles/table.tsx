@@ -436,7 +436,7 @@ const Table = forwardRef<TableHandle, TableProps>(
                       "Portal Name",
                       "Portal Type",
                       "Description",
-                      "Tenant Status",
+                      "Portal Status",
                       "Created Date",
                     ].map((header) => (
                       <th

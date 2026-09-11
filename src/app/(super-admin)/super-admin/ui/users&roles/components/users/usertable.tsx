@@ -230,8 +230,12 @@ const Usertable = () => {
         };
       });
 
+      const normalizedSearch = search.trim().toLowerCase();
       const normalizedPlan = filters.plan.trim().toLowerCase();
       const filteredTenants = mappedTenants.filter((tenant: any) => {
+        const matchesSearch = normalizedSearch
+          ? tenant.tenantName.toLowerCase().includes(normalizedSearch)
+          : true;
         const matchesName = filters.tenantName.trim()
           ? tenant.tenantName
               .toLowerCase()
@@ -252,6 +256,7 @@ const Usertable = () => {
           : true;
 
         return (
+          matchesSearch &&
           matchesName &&
           matchesStartDate &&
           matchesPlan &&
@@ -261,6 +266,7 @@ const Usertable = () => {
       });
 
       const filteredTotal =
+        search.trim() ||
         filters.tenantName ||
         filters.startDate ||
         filters.plan ||
@@ -588,7 +594,7 @@ const Usertable = () => {
                 placeholder="Search by keyword"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 className="
                   w-full
                   outline-none

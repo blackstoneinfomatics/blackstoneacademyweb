@@ -557,7 +557,7 @@ const Usercards = () => {
         {/* Section Title */}
         <div className="px-3 pt-3 pb-2">
           <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
-            All Tenants
+            All Tenants Portals
           </h2>
         </div>
 
@@ -618,31 +618,26 @@ const Usercards = () => {
 
         {/* TABLE */}
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed text-xs border-collapse">
+          <table className="w-full min-w-[750px] text-xs border-collapse">
             {/* Table Header */}
             <thead className="bg-[#4C6993] text-white text-[13px] dark:bg-[#44699D]">
               <tr>
-                <th className="w-[13%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
-                  Portal Name
-                </th>
-                <th className="w-[20%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
-                  Portal Type
-                </th>
-                <th className="w-[20%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
-                  Role Type
-                </th>
-                <th className="w-[30%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
-                  User Limit
-                </th>
-                <th className="w-[10%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
-                  Portal Status
-                </th>
-                <th className="w-[9%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
-                  Access
-                </th>
-                <th className="w-[13%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
-                  Action
-                </th>
+                {[
+                  "Portal Name",
+                  "Portal Type",
+                  "Role Type",
+                  "User Limit",
+                  "Portal Status",
+                  "Access",
+                  "Action",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="py-3 px-3 whitespace-nowrap font-medium text-left text-[11px] border-r border-[#466993]"
+                  >
+                    {header}
+                  </th>
+                ))}
               </tr>
             </thead>
 
@@ -650,7 +645,7 @@ const Usercards = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-5 text-center text-gray-500">
+                  <td colSpan={7} className="p-5 text-center text-gray-500">
                     Loading portals...
                   </td>
                 </tr>
@@ -659,7 +654,7 @@ const Usercards = () => {
                   <tr
                     key={index}
                     className="
-                      text-[13px]
+                      text-[11px]
                       odd:bg-[#F8F8F8]
                       even:bg-white
                       dark:odd:bg-[#2C2C2C]
@@ -667,41 +662,41 @@ const Usercards = () => {
                     "
                   >
                     {/* Portal Name */}
-                    <td className="py-4 px-4 font-medium text-[#1E293B] dark:text-white break-words">
+                    <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
                       {item.portalName}
                     </td>
 
                     {/* Portal Type */}
-                    <td className="py-4 px-4 text-[#1E293B] dark:text-gray-200 break-words">
+                    <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                       {item.portalType === "DEFAULT" ? "Default" : "Custom"}
                     </td>
                     {/* Role Type */}
-                    <td className="py-4 px-4 text-[#1E293B] dark:text-gray-200 break-words">
+                    <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                       {roleTypeLabels[item.roleType] || "-"}
                     </td>
 
                     {/* User Limit */}
-                    <td className="py-4 px-4 text-[#1E293B] dark:text-gray-200 break-words">
+                    <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                       {item.userLimit > 0 ? `${item.userLimit} Users` : "-"}
                     </td>
 
                     {/* Portal Status */}
-                    <td className="py-4 px-4">
-                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-md text-[12px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
+                    <td className="py-3 px-3">
+                      <span className="inline-flex items-center px-3 py-1 rounded-md text-[9px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
                         {item.status === "ACTIVE" ? "Active" : item.status}
                       </span>
                     </td>
 
                     {/* Access */}
-                    <td className="py-4 px-4">
-                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-md text-[12px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
+                    <td className="py-3 px-3">
+                      <span className="inline-flex items-center px-3 py-1 rounded-md text-[9px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
                         {item.isEnabled ? "Enable" : "Disable"}
                       </span>
                     </td>
 
                     {/* Action */}
                     <td
-                      className="py-4 px-4 relative"
+                      className="py-3 px-3 relative"
                       ref={openMenu === index ? openMenuRef : null}
                     >
                       <button
@@ -749,7 +744,7 @@ const Usercards = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="p-5 text-center text-gray-500">
+                  <td colSpan={7} className="p-5 text-center text-gray-500">
                     No data available
                   </td>
                 </tr>

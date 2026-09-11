@@ -83,7 +83,7 @@ const PortalListFilterForm = ({
           </label>
 
           <label className="block">
-            <span className={labelClassName}>Tenant Status</span>
+            <span className={labelClassName}>Portal Status</span>
             <select
               value={draftValues.status}
               onChange={(event) => updateValue("status", event.target.value)}
