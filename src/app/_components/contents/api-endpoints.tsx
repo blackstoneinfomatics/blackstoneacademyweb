@@ -188,6 +188,9 @@ export const AppApiEndpoints = {
 
   CUSTOM_SERVICE_INVOICE: {
     CREATE: "/custom-service-invoices",
+    GET_BY_ID: "/custom-service-invoices",
+    PAYMENT: (invoiceId: string) =>
+      `/custom-service-invoices/${invoiceId}/payment`,
   },
 
   BILLING: {
@@ -313,14 +316,17 @@ export const AppApiEndpoints = {
     GET_TRIALS: "/subscription-trials",
     GET_TRIALS_DASHBOARD_COUNT: "/subscription-trials/dashboard-count",
     UPDATE_TRIALS: "/subscription-trials",
-  }
-  ,
+  },
   TENANT: {
     GET_TENANT: "/tenant",
     CREATE_TENANT: "/tenant",
     UPDATE_TENANT: "/tenant",
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
     UPDATE_SUBSCRIPTION_PLAN: "/tenant/subscription-plan/{tenantCode}",
+  },
+  PORTAL: {
+    GET_BY_TENANT: "/portal/tenant/{tenantId}",
+    CREATE_BY_TENANT: "/portal/tenant",
   },
   FINANCE: {
     GET_ANALYTICS_COUNT: "/finance/analytics/count",

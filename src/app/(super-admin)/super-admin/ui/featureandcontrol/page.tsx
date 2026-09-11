@@ -5,6 +5,9 @@ import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSupe
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import Table from "./component/featureTable/page";
 import TenantTable from "./component/tenantTable/page";
+import AddFeatureForm, {
+  FeatureFormData,
+} from "./featureandtenant/AddFeatureForm";
 import { BsX } from "react-icons/bs";
 import { FiChevronDown } from "react-icons/fi";
 import axios from "axios";
@@ -14,6 +17,12 @@ import { toast } from "react-toastify";
 interface FormData {
   portal: string;
   category: string;
+  navigationType: "parent" | "child";
+  parentNavigation: string;
+  parentNavigationName: string;
+  childNavigationName: string;
+  childNavigations: string[];
+  featureName: string;
   moduleType: "parent" | "child";
   parentModule: string;
   childModuleName: string;
@@ -34,7 +43,13 @@ const Page = () => {
   /* ====== FORM STATE ====== */
   const [formData, setFormData] = useState<FormData>({
     portal: "Student",
-    category: "Module",
+    category: "Normal Feature",
+    navigationType: "child",
+    parentNavigation: "Chat & Support",
+    parentNavigationName: "",
+    childNavigationName: "",
+    childNavigations: ["Ticket"],
+    featureName: "",
     moduleType: "child",
     parentModule: "Chat & Support",
     childModuleName: "",
@@ -57,11 +72,26 @@ const Page = () => {
     setFormData((prev) => ({ ...prev, moduleType: type }));
   };
 
+  const toggleChildNavigation = (navigation: string) => {
+    setFormData((previous) => ({
+      ...previous,
+      childNavigations: previous.childNavigations.includes(navigation)
+        ? previous.childNavigations.filter((item) => item !== navigation)
+        : [...previous.childNavigations, navigation],
+    }));
+  };
+
   /* ====== RESET FORM ====== */
   const resetForm = () => {
     setFormData({
       portal: "Student",
-      category: "Module",
+      category: "Normal Feature",
+      navigationType: "child",
+      parentNavigation: "Chat & Support",
+      parentNavigationName: "",
+      childNavigationName: "",
+      childNavigations: ["Ticket"],
+      featureName: "",
       moduleType: "child",
       parentModule: "Chat & Support",
       childModuleName: "",
@@ -94,6 +124,12 @@ const Page = () => {
       const payload = {
         portal: formData.portal,
         category: formData.category,
+        navigationType: formData.navigationType,
+        parentNavigation: formData.parentNavigation,
+        parentNavigationName: formData.parentNavigationName,
+        childNavigationName: formData.childNavigationName,
+        childNavigations: formData.childNavigations,
+        featureName: formData.featureName,
         moduleType: formData.moduleType,
         parentModule: formData.parentModule,
         childModuleName: formData.childModuleName,
@@ -135,7 +171,7 @@ const Page = () => {
       setShowAddFeatureModal(false);
       toast.error(
         error.response?.data?.message ||
-        "Failed to add feature. Please try again.",
+          "Failed to add feature. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -176,10 +212,11 @@ const Page = () => {
           <div className="flex items-center gap-6 px-5 mt-1">
             <button
               onClick={() => setActiveTab("feature")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "feature"
-                ? "text-[#5872C5]"
-                : "text-[#24324B] dark:text-gray-300"
-                }`}
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${
+                activeTab === "feature"
+                  ? "text-[#5872C5]"
+                  : "text-[#24324B] dark:text-gray-300"
+              }`}
             >
               Feature
               {activeTab === "feature" && (
@@ -189,10 +226,11 @@ const Page = () => {
 
             <button
               onClick={() => setActiveTab("tenants")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "tenants"
-                ? "text-[#5872C5]"
-                : "text-[#24324B] dark:text-gray-300"
-                }`}
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${
+                activeTab === "tenants"
+                  ? "text-[#5872C5]"
+                  : "text-[#24324B] dark:text-gray-300"
+              }`}
             >
               Tenants
               {activeTab === "tenants" && (
@@ -211,6 +249,21 @@ const Page = () => {
       {/* ==================== ADD FEATURE MODAL ===================== */}
       {/* ============================================================ */}
       {showAddFeatureModal && (
+        <AddFeatureForm
+          formData={formData as FeatureFormData}
+          isLoading={isLoading}
+          onClose={closeAddFeatureModal}
+          onReset={resetForm}
+          onSubmit={handleSubmit}
+          onInputChange={handleInputChange}
+          onNavigationTypeChange={(navigationType) =>
+            setFormData((previous) => ({ ...previous, navigationType }))
+          }
+          onChildNavigationToggle={toggleChildNavigation}
+        />
+      )}
+
+      {false && showAddFeatureModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl shadow-2xl w-full max-w-[700px] mx-6 max-h-[92vh] overflow-y-auto scrollbar-none">
             {/* Header */}
@@ -288,10 +341,11 @@ const Page = () => {
                 <div className="flex items-center gap-8 mb-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <span
-                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${formData.moduleType === "parent"
-                        ? "border-[#4F5BD5]"
-                        : "border-gray-300 dark:border-gray-600"
-                        }`}
+                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${
+                        formData.moduleType === "parent"
+                          ? "border-[#4F5BD5]"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                     >
                       {formData.moduleType === "parent" && (
                         <span className="w-[9px] h-[9px] rounded-full bg-[#4F5BD5]" />
@@ -312,10 +366,11 @@ const Page = () => {
 
                   <label className="flex items-center gap-2 cursor-pointer">
                     <span
-                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${formData.moduleType === "child"
-                        ? "border-[#4F5BD5]"
-                        : "border-gray-300 dark:border-gray-600"
-                        }`}
+                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${
+                        formData.moduleType === "child"
+                          ? "border-[#4F5BD5]"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                     >
                       {formData.moduleType === "child" && (
                         <span className="w-[9px] h-[9px] rounded-full bg-[#4F5BD5]" />

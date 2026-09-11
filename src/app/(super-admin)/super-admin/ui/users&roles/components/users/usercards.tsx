@@ -1,40 +1,149 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { HiUserGroup } from "react-icons/hi2";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune } from "react-icons/md";
+import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import AddPortalForm, { PortalFormData } from "./AddPortalForm";
 
-const tableItems = [
-  {
-    portalName: "Admin",
-    portalType: "Default",
-    userLimit: "-",
-    portalStatus: "Active",
-    access: "Enable",
-  },
-  {
-    portalName: "Teacher",
-    portalType: "Default",
-    userLimit: "-",
-    portalStatus: "Active",
-    access: "Enable",
-  },
-  {
-    portalName: "Student",
-    portalType: "Default",
-    userLimit: "500 Students",
-    portalStatus: "Active",
-    access: "Enable",
-  },
-];
+interface PortalItem {
+  _id: string;
+  portalId: string;
+  portalCode: string;
+  portalName: string;
+  portalType: string;
+  userLimit: number;
+  status: string;
+  isEnabled: boolean;
+  createdAt: string;
+}
+
+const initialPortalForm: PortalFormData = {
+  portalName: "",
+  portalType: "CUSTOM",
+  userLimit: "",
+  status: "Active",
+};
 
 const Usercards = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [tableItems, setTableItems] = useState<PortalItem[]>([]);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [showAddPortal, setShowAddPortal] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showFailure, setShowFailure] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [portalForm, setPortalForm] =
+    useState<PortalFormData>(initialPortalForm);
+  const [createdPortalName, setCreatedPortalName] = useState("");
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tenantId =
+    searchParams.get("tenantId") ?? searchParams.get("tenantCode");
+
+  const resetPortalForm = () => setPortalForm(initialPortalForm);
+
+  const handlePortalInputChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = event.target;
+    setPortalForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleAddPortal = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSaving(true);
+
+    const payload = {
+      tenantId: tenantId ?? "TEN000010",
+      subscriptionId: "6a893c1994d5c944a8173cd6",
+      supervisorId:
+        searchParams.get("supervisorId") ??
+        (typeof window !== "undefined"
+          ? localStorage.getItem("SupervisorPortalId")
+          : null),
+      portalName: portalForm.portalName,
+      portalType: portalForm.portalType,
+      roleType: "ACADEMIC",
+      userLimit: Number(portalForm.userLimit),
+      isEnabled: portalForm.status === "Active",
+      description: "Custom portal for student management",
+      createdBy: "SUPER_ADMIN",
+    };
+
+    try {
+      const response = await axios.post(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.CREATE_BY_TENANT}`,
+        payload,
+      );
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to add portal");
+      }
+
+      setCreatedPortalName(portalForm.portalName);
+      setShowAddPortal(false);
+      setShowSuccess(true);
+      resetPortalForm();
+      setTableItems((previous) => {
+        const createdItem = response.data.data?.item ?? response.data.data;
+        return createdItem?._id ? [createdItem, ...previous] : previous;
+      });
+      setTotalRecords((previous) => previous + 1);
+    } catch (error) {
+      console.error("Error creating tenant portal:", error);
+      setCreatedPortalName(portalForm.portalName);
+      setShowAddPortal(false);
+      setShowFailure(true);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchTenantPortals = async () => {
+      if (!tenantId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const portalEndpoint = AppApiEndpoints.PORTAL.GET_BY_TENANT.replace(
+          "{tenantId}",
+          encodeURIComponent(tenantId),
+        );
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${portalEndpoint}`,
+        );
+
+        if (response.data.success) {
+          const items = response.data.data.items ?? [];
+          setTableItems(items);
+          setTotalRecords(
+            response.data.data.pagination?.totalRecords ?? items.length,
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching tenant portal list:", error);
+        setTableItems([]);
+        setTotalRecords(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTenantPortals();
+  }, [tenantId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,6 +171,11 @@ const Usercards = () => {
         </h2>
 
         <button
+          type="button"
+          onClick={() => {
+            resetPortalForm();
+            setShowAddPortal(true);
+          }}
           className="
             bg-[#5872C5]
             hover:bg-[#4D66B3]
@@ -77,6 +191,73 @@ const Usercards = () => {
           Add Portal
         </button>
       </div>
+
+      {showAddPortal && (
+        <AddPortalForm
+          formData={portalForm}
+          isSaving={isSaving}
+          onClose={() => setShowAddPortal(false)}
+          onSubmit={handleAddPortal}
+          onChange={handlePortalInputChange}
+        />
+      )}
+
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[312px] rounded-lg bg-white px-5 py-5 text-center shadow-2xl">
+            <FaCheckCircle className="mx-auto mb-3 text-[34px] text-[#08A66A]" />
+            <h2 className="text-[20px] font-bold text-[#101B3D]">
+              Portal Added Successfully
+            </h2>
+            <p className="mt-1 text-[13px] text-gray-500">
+              The {createdPortalName} portal has been added successfully.
+            </p>
+            <div className="mx-auto my-5 h-1 w-24 rounded-full bg-[#08A66A]" />
+            <button
+              type="button"
+              onClick={() => setShowSuccess(false)}
+              className="w-full rounded-md bg-[#5872C5] py-3 text-[13px] font-semibold text-white"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showFailure && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[312px] rounded-lg bg-white px-5 py-5 text-center shadow-2xl">
+            <FaExclamationCircle className="mx-auto mb-3 text-[34px] text-[#F0444F]" />
+            <h2 className="text-[20px] font-bold text-[#101B3D]">
+              Failed to Add Portal
+            </h2>
+            <p className="mt-1 text-[13px] text-gray-500">
+              We couldn&apos;t add the {createdPortalName} portal. Please try
+              again.
+            </p>
+            <div className="mx-auto my-5 h-1 w-24 rounded-full bg-[#F0444F]" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFailure(false)}
+                className="flex-1 rounded-md border border-[#F0444F] py-3 text-[13px] font-semibold text-[#F0444F]"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFailure(false);
+                  setShowAddPortal(true);
+                }}
+                className="flex-1 rounded-md bg-[#F0444F] py-3 text-[13px] font-semibold text-white"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 px-4 gap-3">
         <div
@@ -295,7 +476,7 @@ const Usercards = () => {
           {/* Count */}
           <div className="flex items-center px-4 h-10">
             <span className="text-[11px] text-gray-400">
-              Showing 10 Of 50
+              Showing {tableItems.length} Of {totalRecords}
             </span>
           </div>
         </div>
@@ -329,7 +510,13 @@ const Usercards = () => {
 
             {/* Table Body */}
             <tbody>
-              {tableItems.length > 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="p-5 text-center text-gray-500">
+                    Loading portals...
+                  </td>
+                </tr>
+              ) : tableItems.length > 0 ? (
                 tableItems.map((item, index) => (
                   <tr
                     key={index}
@@ -348,25 +535,25 @@ const Usercards = () => {
 
                     {/* Portal Type */}
                     <td className="py-4 px-4 text-[#1E293B] dark:text-gray-200 break-words">
-                      {item.portalType}
+                      {item.portalType === "DEFAULT" ? "Default" : "Custom"}
                     </td>
 
                     {/* User Limit */}
                     <td className="py-4 px-4 text-[#1E293B] dark:text-gray-200 break-words">
-                      {item.userLimit}
+                      {item.userLimit > 0 ? `${item.userLimit} Users` : "-"}
                     </td>
 
                     {/* Portal Status */}
                     <td className="py-4 px-4">
                       <span className="inline-flex items-center justify-center px-3 py-1 rounded-md text-[12px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
-                        {item.portalStatus}
+                        {item.status === "ACTIVE" ? "Active" : item.status}
                       </span>
                     </td>
 
                     {/* Access */}
                     <td className="py-4 px-4">
                       <span className="inline-flex items-center justify-center px-3 py-1 rounded-md text-[12px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
-                        {item.access}
+                        {item.isEnabled ? "Enable" : "Disable"}
                       </span>
                     </td>
 
@@ -407,16 +594,12 @@ const Usercards = () => {
                               setOpenMenu(null);
                               router.push(
                                 `/super-admin/ui/users&roles/portal_details?portalName=${encodeURIComponent(
-                                  item.portalName
-                                )}`
+                                  item.portalName,
+                                )}`,
                               );
                             }}
                           >
                             View Details
-                          </button>
-
-                          <button className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700">
-                            Edit
                           </button>
                         </div>
                       )}

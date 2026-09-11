@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import DatePickerInput from "@/app/(super-admin)/super-admin/components/DatePickerInput";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import { toast } from "react-toastify";
 
 interface InvoiceItem {
   service: string;
@@ -64,7 +65,7 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
     service: "",
     description: "",
     unitPrice: "",
-    taxRate: "18",
+    taxRate: "",
   });
   const [form, setForm] = useState({
     tenant: "",
@@ -74,8 +75,8 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
     invoiceDate: null as Date | null,
     dueDate: null as Date | null,
     currency: "INR",
-    paymentTerms: "15",
-    notes: "Thank you for choosing Blackstone Nexus.",
+    paymentTerms: "",
+    notes: "Thank you for Choosing Blackstone.",
   });
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -195,7 +196,7 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
         })),
         customerNotes: form.notes,
         attachments: [],
-        createdBy:"SUPERADMIN",
+        createdBy: "SUPERADMIN",
       };
 
       const response = await fetch(
@@ -206,8 +207,8 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
           body: JSON.stringify(payload),
         },
       );
-     console.log("Payload sent to API:", payload);
-     
+      console.log("Payload sent to API:", payload);
+
       const result = await response.json().catch(() => null);
       if (!response.ok) {
         const validationMessage = Array.isArray(result?.errors)
@@ -228,9 +229,13 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
         throw new Error(result.message ?? "Unable to send invoice");
       }
 
-      console.log("Invoice sent successfully");
+      toast.success("Invoice sent successfully");
+      onClose?.();
     } catch (err) {
       console.error("Custom service invoice API error:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Unable to send invoice",
+      );
     } finally {
       setLoading(false);
     }
@@ -245,7 +250,7 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
       !itemForm.description.trim() ||
       unitPrice <= 0
     ) {
-      alert("Enter service, description, and a valid unit price");
+      toast.error("Enter service, description, and a valid unit price");
       return;
     }
 
@@ -531,28 +536,18 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
               Payment Terms
             </label>
 
-            <div className="relative">
-              <select
-                name="paymentTerms"
-                value={form.paymentTerms}
-                onChange={handleChange}
-                className="h-9 w-full appearance-none rounded-md border border-[#D4D4D4] bg-white px-3 pr-10 text-[#344054] outline-none transition-all focus:border-[#576CBC]"
-                style={{
-                  fontSize: "clamp(11px,0.9vw,12px)",
-                }}
-              >
-                <option value="7">7 Days</option>
-                <option value="15">15 Days</option>
-                <option value="30">30 Days</option>
-                <option value="45">45 Days</option>
-                <option value="60">60 Days</option>
-              </select>
-
-              <ChevronDown
-                size={16}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#667085]"
-              />
-            </div>
+            <input
+              type="number"
+              name="paymentTerms"
+              min="1"
+              value={form.paymentTerms}
+              onChange={handleChange}
+              placeholder="15"
+              className="h-9 w-full rounded-md border border-[#D4D4D4] bg-white px-3 text-[#344054] outline-none transition-all focus:border-[#576CBC]"
+              style={{
+                fontSize: "clamp(11px,0.9vw,12px)",
+              }}
+            />
           </div>
         </div>
       </section>

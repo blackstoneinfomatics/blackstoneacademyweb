@@ -8,6 +8,7 @@ import { MdTune } from "react-icons/md";
 import { HiOutlineArrowLeft } from "react-icons/hi";
 import BaseSuperLayout from "../../../components/BaseSuperLayout";
 import SuperAdminHeader from "../../../components/SuperAdminHeader";
+import AddFeatureForm from "./AddFeatureForm";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -34,7 +35,10 @@ interface FeatureItem {
 interface FormData {
   portal: string;
   category: string;
+  navigationType: "parent" | "child";
   parentNavigation: string;
+  parentNavigationName: string;
+  childNavigationName: string;
   childNavigations: string[];
   featureName: string;
   description: string;
@@ -250,7 +254,10 @@ const Usercards = () => {
   const [formData, setFormData] = useState<FormData>({
     portal: "Student",
     category: "Normal Feature",
+    navigationType: "child",
     parentNavigation: "Chat & Support",
+    parentNavigationName: "",
+    childNavigationName: "",
     childNavigations: ["Ticket"],
     featureName: "",
     description: "",
@@ -307,7 +314,10 @@ const Usercards = () => {
     setFormData({
       portal: "Student",
       category: "Normal Feature",
+      navigationType: "child",
       parentNavigation: "Chat & Support",
+      parentNavigationName: "",
+      childNavigationName: "",
       childNavigations: ["Ticket"],
       featureName: "",
       description: "",
@@ -320,14 +330,17 @@ const Usercards = () => {
     resetForm();
   };
 
+  const openAddFeatureModal = () => {
+    resetForm();
+    setShowAddFeatureModal(true);
+  };
+
   const closeModals = () => {
     setShowSuccess(false);
     setShowFailure(false);
     setIsLoading(false);
     setCreatedFeatureName("");
   };
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,7 +350,10 @@ const Usercards = () => {
       const payload = {
         portal: formData.portal,
         category: formData.category,
+        navigationType: formData.navigationType,
         parentNavigation: formData.parentNavigation,
+        parentNavigationName: formData.parentNavigationName,
+        childNavigationName: formData.childNavigationName,
         childNavigations: formData.childNavigations,
         featureName: formData.featureName,
         description: formData.description,
@@ -346,7 +362,6 @@ const Usercards = () => {
 
       console.log("Sending payload:", payload);
 
-    
       // const response = await axios.post("http://localhost:5001/feature", payload);
 
       await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -370,7 +385,7 @@ const Usercards = () => {
       setShowAddFeatureModal(false);
       toast.error(
         error.response?.data?.message ||
-        "Failed to add feature. Please try again.",
+          "Failed to add feature. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -395,10 +410,11 @@ const Usercards = () => {
   /* ================= HELPERS ================= */
   const getStatusBadge = (status: string) => (
     <span
-      className={`inline-flex items-center justify-center px-3 py-1 rounded-md text-[11px] font-medium ${status === "Enable"
-        ? "bg-[#E8F5E9] text-[#2E7D32] dark:bg-green-900/30 dark:text-green-400"
-        : "bg-[#FDECEC] text-[#D34645] dark:bg-red-900/30 dark:text-red-400"
-        }`}
+      className={`inline-flex items-center justify-center px-3 py-1 rounded-md text-[11px] font-medium ${
+        status === "Enable"
+          ? "bg-[#E8F5E9] text-[#2E7D32] dark:bg-green-900/30 dark:text-green-400"
+          : "bg-[#FDECEC] text-[#D34645] dark:bg-red-900/30 dark:text-red-400"
+      }`}
     >
       {status}
     </span>
@@ -477,7 +493,6 @@ const Usercards = () => {
       <SuperAdminHeader currentSection="Feature Control" />
 
       <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
-
         <div className="px-2 pt-2">
           <div className="w-full bg-white dark:bg-[#343434] rounded-xl shadow-[0_3px_12px_rgba(0,0,0,0.05)] border border-[#F0F1F5] dark:border-gray-700 px-5 py-3">
             {/* Top Row: Back Button + Title + Add Feature Button */}
@@ -495,13 +510,12 @@ const Usercards = () => {
               </div>
 
               <button
-                onClick={() => setShowAddFeatureModal(true)}
+                type="button"
+                onClick={openAddFeatureModal}
                 className="bg-[#576CBC] hover:bg-[#4350C0] text-white text-[13px] font-medium px-5 py-2.5 rounded-lg transition"
               >
                 Add Feature
               </button>
-
-
             </div>
 
             {/* Bottom Row: Tenant Info + Stats */}
@@ -668,9 +682,10 @@ const Usercards = () => {
                   onClick={() => setActivePortal(portal)}
                   className={`
                     text-left px-3 py-2.5 rounded-lg text-[13px]  font-medium transition
-                    ${activePortal === portal
-                      ? "bg-gradient-to-b border border-blue-300 from-[#fcfdff] to-[#dbe2fd] text-black"
-                      : "text-[#1E293B] dark:text-gray-300 hover:bg-[#F5F6FA] dark:hover:bg-[#3A3A3A]"
+                    ${
+                      activePortal === portal
+                        ? "bg-gradient-to-b border border-blue-300 from-[#fcfdff] to-[#dbe2fd] text-black"
+                        : "text-[#1E293B] dark:text-gray-300 hover:bg-[#F5F6FA] dark:hover:bg-[#3A3A3A]"
                     }
                   `}
                 >
@@ -684,10 +699,11 @@ const Usercards = () => {
             <div className="flex items-center gap-6 px-5 pt-4 pb-2">
               <button
                 onClick={() => setActiveTab("module")}
-                className={`relative text-[14px] font-medium pb-2 transition-colors ${activeTab === "module"
-                  ? "text-[#5872C5] dark:text-[#8296E6]"
-                  : "text-[#1E293B] dark:text-gray-300"
-                  }`}
+                className={`relative text-[14px] font-medium pb-2 transition-colors ${
+                  activeTab === "module"
+                    ? "text-[#5872C5] dark:text-[#8296E6]"
+                    : "text-[#1E293B] dark:text-gray-300"
+                }`}
               >
                 Module List
                 {activeTab === "module" && (
@@ -697,10 +713,11 @@ const Usercards = () => {
 
               <button
                 onClick={() => setActiveTab("feature")}
-                className={`relative text-[14px] font-medium pb-2 transition-colors ${activeTab === "feature"
-                  ? "text-[#5872C5] dark:text-[#8296E6]"
-                  : "text-[#1E293B] dark:text-gray-300"
-                  }`}
+                className={`relative text-[14px] font-medium pb-2 transition-colors ${
+                  activeTab === "feature"
+                    ? "text-[#5872C5] dark:text-[#8296E6]"
+                    : "text-[#1E293B] dark:text-gray-300"
+                }`}
               >
                 Feature List
                 {activeTab === "feature" && (
@@ -798,7 +815,10 @@ const Usercards = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="p-5 text-center text-gray-500">
+                        <td
+                          colSpan={7}
+                          className="p-5 text-center text-gray-500"
+                        >
                           No modules available
                         </td>
                       </tr>
@@ -867,7 +887,10 @@ const Usercards = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="p-5 text-center text-gray-500">
+                        <td
+                          colSpan={7}
+                          className="p-5 text-center text-gray-500"
+                        >
                           No features available
                         </td>
                       </tr>
@@ -904,8 +927,23 @@ const Usercards = () => {
         </div>
       </div>
 
-
       {showAddFeatureModal && (
+        <AddFeatureForm
+          formData={formData}
+          isLoading={isLoading}
+          onClose={closeAddFeatureModal}
+          onReset={resetForm}
+          onSubmit={handleSubmit}
+          onInputChange={handleInputChange}
+          onNavigationTypeChange={(navigationType) =>
+            setFormData((previous) => ({ ...previous, navigationType }))
+          }
+          onChildNavigationToggle={toggleChildNavigation}
+        />
+      )}
+
+      {/* Legacy form markup below is intentionally unreachable; AddFeatureForm above is the current design. */}
+      {false && showAddFeatureModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="relative bg-white dark:bg-[#2C2C2C] rounded-2xl shadow-2xl w-full max-w-[750px] mx-6 max-h-[92vh] overflow-y-auto scrollbar-none">
             {/* ================= CLOSE BUTTON (TOP RIGHT) ================= */}
@@ -966,7 +1004,7 @@ const Usercards = () => {
                         <option value="Normal Feature">Normal Feature</option>
                         <option value="Premium Feature">Premium Feature</option>
                         <option value="Module">Module</option>
-                        <option value="Navigation">Navigation</option>
+                        <option value="Navigation Menu">Navigation Menu</option>
                       </select>
                       <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px]" />
                     </div>
@@ -980,90 +1018,165 @@ const Usercards = () => {
                   Navigation Menu Information
                 </h3>
 
-                {/* Parent Navigation */}
-                <div className="mb-3">
-                  <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-1.5">
-                    Parent Navigation
-                  </label>
-                  <div className="relative">
-                    <select
-                      name="parentNavigation"
-                      value={formData.parentNavigation}
+                {formData.category === "Navigation Menu" && (
+                  <div className="mb-3 flex items-center gap-8">
+                    <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#1E293B] dark:text-gray-200">
+                      <input
+                        type="radio"
+                        name="navigationType"
+                        checked={formData.navigationType === "parent"}
+                        onChange={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            navigationType: "parent",
+                          }))
+                        }
+                        className="h-4 w-4 accent-[#5872C5]"
+                      />
+                      Parent Navigation
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#1E293B] dark:text-gray-200">
+                      <input
+                        type="radio"
+                        name="navigationType"
+                        checked={formData.navigationType === "child"}
+                        onChange={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            navigationType: "child",
+                          }))
+                        }
+                        className="h-4 w-4 accent-[#5872C5]"
+                      />
+                      Child Navigation
+                    </label>
+                  </div>
+                )}
+
+                {formData.category === "Navigation Menu" &&
+                formData.navigationType === "parent" ? (
+                  <div className="mb-3">
+                    <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-1.5">
+                      Parent Navigation Name
+                    </label>
+                    <input
+                      type="text"
+                      name="parentNavigationName"
+                      value={formData.parentNavigationName}
                       onChange={handleInputChange}
-                      className="w-full appearance-none px-3 py-2 pr-9 border border-[#E4E8EF] dark:border-gray-600 rounded-md text-[12px] text-[#1E293B] dark:text-white bg-white dark:bg-[#1F1F1F] focus:outline-none focus:border-[#5872C5]"
-                    >
-                      <option value="Chat & Support">Chat & Support</option>
-                      <option value="Dashboard">Dashboard</option>
-                      <option value="Subscriptions">Subscriptions</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Users & Roles">Users & Roles</option>
-                      <option value="Feature Control">Feature Control</option>
-                      <option value="Analytics">Analytics</option>
-                      <option value="Settings">Settings</option>
-                      <option value="Backup & Restore">Backup & Restore</option>
-                    </select>
-                    <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px]" />
+                      placeholder="Chat & Support"
+                      className="w-full px-3 py-2 border border-[#E4E8EF] dark:border-gray-600 rounded-md text-[12px] text-[#1E293B] dark:text-white placeholder:text-gray-400 bg-white dark:bg-[#1F1F1F] focus:outline-none focus:border-[#5872C5]"
+                    />
                   </div>
-                </div>
-
-                {/* Info Banner */}
-                <div className="flex items-center gap-3 bg-[#EEF1FB] dark:bg-[#4F5BD5]/20 rounded-md px-4 py-3 mb-3">
-                  <div className="w-[16px] h-[16px] rounded-full bg-[#4F5BD5] flex items-center justify-center shrink-0">
-                    <span
-                      className="text-white text-[11px] leading-none italic"
-                      style={{ fontFamily: "Georgia, serif" }}
-                    >
-                      i
-                    </span>
+                ) : (
+                  <div className="mb-3">
+                    <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-1.5">
+                      Parent Navigation
+                    </label>
+                    <div className="relative">
+                      <select
+                        name="parentNavigation"
+                        value={formData.parentNavigation}
+                        onChange={handleInputChange}
+                        className="w-full appearance-none px-3 py-2 pr-9 border border-[#E4E8EF] dark:border-gray-600 rounded-md text-[12px] text-[#1E293B] dark:text-white bg-white dark:bg-[#1F1F1F] focus:outline-none focus:border-[#5872C5]"
+                      >
+                        <option value="Chat & Support">Chat & Support</option>
+                        <option value="Dashboard">Dashboard</option>
+                        <option value="Subscriptions">Subscriptions</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Users & Roles">Users & Roles</option>
+                        <option value="Feature Control">Feature Control</option>
+                        <option value="Analytics">Analytics</option>
+                        <option value="Settings">Settings</option>
+                        <option value="Backup & Restore">
+                          Backup & Restore
+                        </option>
+                      </select>
+                      <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px]" />
+                    </div>
                   </div>
-                  <p className="text-[12px] text-[#1E293B] dark:text-gray-200 leading-relaxed">
-                    To Add this feature under a child navigation, select a child
-                    navigation from the list below.
-                  </p>
-                </div>
+                )}
 
-                {/* Child Navigation — Multi-select chips */}
-                <div className="mb-3">
-                  <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-2">
-                    Child Navigation
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {childNavigationOptions.map((nav) => {
-                      const isSelected = formData.childNavigations.includes(nav);
-                      return (
-                        <button
-                          key={nav}
-                          type="button"
-                          onClick={() => toggleChildNavigation(nav)}
-                          className={`
+                {formData.category !== "Navigation Menu" && (
+                  <div className="flex items-center gap-3 bg-[#EEF1FB] dark:bg-[#4F5BD5]/20 rounded-md px-4 py-3 mb-3">
+                    <div className="w-[16px] h-[16px] rounded-full bg-[#4F5BD5] flex items-center justify-center shrink-0">
+                      <span
+                        className="text-white text-[11px] leading-none italic"
+                        style={{ fontFamily: "Georgia, serif" }}
+                      >
+                        i
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-[#1E293B] dark:text-gray-200 leading-relaxed">
+                      To Add this feature under a child navigation, select a
+                      child navigation from the list below.
+                    </p>
+                  </div>
+                )}
+
+                {formData.category !== "Navigation Menu" && (
+                  <div className="mb-3">
+                    <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-2">
+                      Child Navigation
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {childNavigationOptions.map((nav) => {
+                        const isSelected =
+                          formData.childNavigations.includes(nav);
+                        return (
+                          <button
+                            key={nav}
+                            type="button"
+                            onClick={() => toggleChildNavigation(nav)}
+                            className={`
                       px-4 py-2 rounded-md text-[12px] font-medium border transition
-                      ${isSelected
-                              ? "bg-[#EEF0FB] border-[#4F5BD5] text-[#4F5BD5] dark:bg-[#4F5BD5]/20 dark:text-[#8296E6]"
-                              : "bg-white dark:bg-transparent border-[#E4E8EF] dark:border-gray-600 text-[#1E293B] dark:text-gray-300 hover:border-gray-300"
-                            }
+                      ${
+                        isSelected
+                          ? "bg-[#EEF0FB] border-[#4F5BD5] text-[#4F5BD5] dark:bg-[#4F5BD5]/20 dark:text-[#8296E6]"
+                          : "bg-white dark:bg-transparent border-[#E4E8EF] dark:border-gray-600 text-[#1E293B] dark:text-gray-300 hover:border-gray-300"
+                      }
                     `}
-                        >
-                          {nav}
-                        </button>
-                      );
-                    })}
+                          >
+                            {nav}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Feature Name */}
-                <div className="mb-3">
-                  <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-1.5">
-                    Feature Name
-                  </label>
-                  <input
-                    type="text"
-                    name="featureName"
-                    value={formData.featureName}
-                    onChange={handleInputChange}
-                    placeholder="Video"
-                    className="w-full px-3 py-2 border border-[#E4E8EF] dark:border-gray-600 rounded-md text-[12px] text-[#1E293B] dark:text-white placeholder:text-gray-400 bg-white dark:bg-[#1F1F1F] focus:outline-none focus:border-[#5872C5]"
-                  />
-                </div>
+                {formData.category === "Navigation Menu" &&
+                  formData.navigationType === "child" && (
+                    <div className="mb-3">
+                      <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-1.5">
+                        Child Navigation Name
+                      </label>
+                      <input
+                        type="text"
+                        name="childNavigationName"
+                        value={formData.childNavigationName}
+                        onChange={handleInputChange}
+                        placeholder="Ticket"
+                        className="w-full px-3 py-2 border border-[#E4E8EF] dark:border-gray-600 rounded-md text-[12px] text-[#1E293B] dark:text-white placeholder:text-gray-400 bg-white dark:bg-[#1F1F1F] focus:outline-none focus:border-[#5872C5]"
+                      />
+                    </div>
+                  )}
+
+                {formData.category !== "Navigation Menu" && (
+                  <div className="mb-3">
+                    <label className="block text-[12px] font-medium text-[#1E293B] dark:text-gray-200 mb-1.5">
+                      Feature Name
+                    </label>
+                    <input
+                      type="text"
+                      name="featureName"
+                      value={formData.featureName}
+                      onChange={handleInputChange}
+                      placeholder="Video"
+                      className="w-full px-3 py-2 border border-[#E4E8EF] dark:border-gray-600 rounded-md text-[12px] text-[#1E293B] dark:text-white placeholder:text-gray-400 bg-white dark:bg-[#1F1F1F] focus:outline-none focus:border-[#5872C5]"
+                    />
+                  </div>
+                )}
 
                 {/* Description */}
                 <div>
