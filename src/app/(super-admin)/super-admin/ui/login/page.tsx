@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import CryptoJS from "crypto-js";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
@@ -22,6 +23,7 @@ const slides = [
     text: "Take control of your platform and lead with confidence.",
   },
 ];
+const secretKey = "my-secret-key";
 
 const SignIn: React.FC = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -52,13 +54,16 @@ const SignIn: React.FC = () => {
 
   const signIn = async (username: string, password: string) => {
     const url = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.LOGIN}`;
+     const encrypted = CryptoJS.AES.encrypt(password, secretKey).toString();
     const payload = {
       username,
-      password,
+      password:encrypted,
     };
-
+   console.log("password",encrypted)
     const response = await axios.post(url, payload);
+    console.log("data",response.data);
     return response.data;
+
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -105,6 +110,7 @@ const SignIn: React.FC = () => {
           setError(AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL);
         } else {
           const msg = data.message || AppValidationMessages.ERROR_MESSAGES.LOGIN_FAILED;
+          console.log("error ",msg);
           setError(msg);
           toast.error(msg);
         }
