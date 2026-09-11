@@ -327,6 +327,7 @@ export const AppApiEndpoints = {
   PORTAL: {
     GET_BY_TENANT: "/portal/tenant/{tenantId}",
     CREATE_BY_TENANT: "/portal/tenant",
+    UPDATE_STATUS: "/portal/tenant/{tenantPortalId}/status",
   },
   FINANCE: {
     GET_ANALYTICS_COUNT: "/finance/analytics/count",

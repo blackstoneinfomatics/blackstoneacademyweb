@@ -6,6 +6,9 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune, MdCancel, MdCheckCircle } from "react-icons/md";
 import axios from "axios";
+import TenantListFilterForm, {
+  TenantFilterValues,
+} from "./TenantListFilterForm";
 
 interface TenantItem {
   _id: string;
@@ -60,6 +63,18 @@ const Usertable = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
+  const [showFilterForm, setShowFilterForm] = useState(false);
+  const [filterValues, setFilterValues] = useState<TenantFilterValues>({
+    tenantName: "",
+    startDate: "",
+    plan: "",
+    renewalDate: "",
+    status: "",
+  });
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
 
@@ -84,7 +99,7 @@ const Usertable = () => {
     if (!value) return "—";
     try {
       return new URL(
-        value.includes("://") ? value : `https://${value}`
+        value.includes("://") ? value : `https://${value}`,
       ).hostname.replace("www.", "");
     } catch {
       return value;
@@ -101,7 +116,7 @@ const Usertable = () => {
   const fetchTenantAnalytics = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5001/tenants/analytics/cards"
+        "http://localhost:5001/tenants/analytics/cards",
       );
 
       console.log("Analytics API Response:", response.data);
@@ -123,23 +138,36 @@ const Usertable = () => {
   };
 
   // Fetch tenant list from API
-  const fetchTenantList = async (search: string = "") => {
+  const fetchTenantList = async (
+    search: string = searchTerm,
+    page = 1,
+    filters: TenantFilterValues = filterValues,
+  ) => {
     try {
       setLoading(true);
 
-      // Build URL with search param if provided
-      let url = "http://localhost:5001/tenant";
-      if (search) {
-        url += `?search=${encodeURIComponent(search)}`;
-      }
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: "5",
+      });
+      const tenantName = filters.tenantName.trim() || search.trim();
+      if (tenantName) params.set("search", tenantName);
+      if (filters.startDate) params.set("startDate", filters.startDate);
+      if (filters.plan) params.set("plan", filters.plan);
+      if (filters.renewalDate) params.set("renewalDate", filters.renewalDate);
+      if (filters.status) params.set("status", filters.status);
 
-      const response = await axios.get(url);
+      const response = await axios.get(
+        `http://localhost:5001/tenant?${params.toString()}`,
+      );
 
       console.log("Tenant List API Response:", response.data);
 
       // Extract tenants from response
       let tenants = [];
       let total = 0;
+      const pagination =
+        response.data?.data?.pagination ?? response.data?.pagination;
 
       if (response.data?.tenants) {
         tenants = response.data.tenants;
@@ -164,13 +192,17 @@ const Usertable = () => {
       const mappedTenants = tenants.map((item: any) => {
         const createdDate = item.createdDate || item.createdAt || "";
         const planName = item.plan || item.planName || "basic";
+        const renewalDate =
+          item.activeLicense?.expiryDate || item.renewalDate || "";
 
         return {
           _id: item._id || "",
           tenantCode: item.tenantCode || item.tenantJobCode || "N/A",
           tenantName: item.tenantName || item.organizationName || "N/A",
           organizationName: item.organizationName || "",
-          domain: extractDomain(item.website || item.domainName || item.domain || ""),
+          domain: extractDomain(
+            item.website || item.domainName || item.domain || "",
+          ),
           phoneNumber: item.phoneNumber || item.mobileNumber || "N/A",
           mobileNumber: item.mobileNumber || "",
           email: item.emailId || item.email || "N/A",
@@ -179,7 +211,9 @@ const Usertable = () => {
           createdDate: createdDate,
           plan: capitalizeFirst(planName),
           users: 0, // Default value as not in API response
-          renewalDate: formatDate(item.activeLicense?.expiryDate || item.renewalDate),
+          renewalDate: formatDate(renewalDate),
+          filterStartDate: createdDate,
+          filterRenewalDate: renewalDate,
           status: item.status || "Active",
           website: item.website || "",
           gstNo: item.gstNo || "N/A",
@@ -196,13 +230,69 @@ const Usertable = () => {
         };
       });
 
-      setUserItems(mappedTenants);
-      setTotalRecords(total);
+      const normalizedPlan = filters.plan.trim().toLowerCase();
+      const filteredTenants = mappedTenants.filter((tenant: any) => {
+        const matchesName = filters.tenantName.trim()
+          ? tenant.tenantName
+              .toLowerCase()
+              .includes(filters.tenantName.trim().toLowerCase())
+          : true;
+        const matchesStartDate = filters.startDate
+          ? tenant.filterStartDate.startsWith(filters.startDate)
+          : true;
+        const matchesPlan = normalizedPlan
+          ? tenant.plan.toLowerCase() === normalizedPlan ||
+            tenant.plan.toLowerCase().replace(/\s+/g, "-") === normalizedPlan
+          : true;
+        const matchesRenewalDate = filters.renewalDate
+          ? tenant.filterRenewalDate.startsWith(filters.renewalDate)
+          : true;
+        const matchesStatus = filters.status
+          ? tenant.status.toUpperCase() === filters.status.toUpperCase()
+          : true;
 
+        return (
+          matchesName &&
+          matchesStartDate &&
+          matchesPlan &&
+          matchesRenewalDate &&
+          matchesStatus
+        );
+      });
+
+      const filteredTotal =
+        filters.tenantName ||
+        filters.startDate ||
+        filters.plan ||
+        filters.renewalDate ||
+        filters.status
+          ? filteredTenants.length
+          : (pagination?.totalRecords ?? total);
+      const pageSize = 5;
+      const effectiveTotalPages = Math.max(
+        1,
+        Math.ceil(filteredTotal / pageSize),
+      );
+      const effectivePage = Math.min(page, effectiveTotalPages);
+      const pageItems = filteredTenants.slice(
+        (effectivePage - 1) * pageSize,
+        effectivePage * pageSize,
+      );
+
+      setUserItems(pageItems);
+      setTotalRecords(filteredTotal);
+      setCurrentPage(effectivePage);
+      setTotalPages(effectiveTotalPages);
+      setHasNextPage(effectivePage < effectiveTotalPages);
+      setHasPreviousPage(effectivePage > 1);
     } catch (error) {
       console.error("Error fetching tenant list:", error);
       setUserItems([]);
       setTotalRecords(0);
+      setCurrentPage(1);
+      setTotalPages(1);
+      setHasNextPage(false);
+      setHasPreviousPage(false);
     } finally {
       setLoading(false);
     }
@@ -211,12 +301,25 @@ const Usertable = () => {
   // Initial data fetch
   useEffect(() => {
     fetchTenantAnalytics();
-    fetchTenantList();
+    fetchTenantList("", 1, filterValues);
   }, []);
 
   // Handle search
   const handleSearch = () => {
-    fetchTenantList(searchTerm);
+    fetchTenantList(searchTerm, 1, filterValues);
+  };
+
+  const handleFilterApply = (values: TenantFilterValues) => {
+    setFilterValues(values);
+    setSearchTerm(values.tenantName);
+    setShowFilterForm(false);
+    fetchTenantList(values.tenantName, 1, values);
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      fetchTenantList(searchTerm, page, filterValues);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -270,9 +373,15 @@ const Usertable = () => {
     <div className="min-h-screen bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
       {/* Main Container */}
       <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
+        {showFilterForm && (
+          <TenantListFilterForm
+            values={filterValues}
+            onClose={() => setShowFilterForm(false)}
+            onApply={handleFilterApply}
+          />
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-2 mt-3">
-
           {/* Total Tenants */}
           <div
             className="
@@ -286,7 +395,6 @@ const Usertable = () => {
             "
           >
             <div className="flex items-start gap-3">
-
               <div
                 className="
                   w-11
@@ -318,13 +426,14 @@ const Usertable = () => {
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className={`text-[13px] font-medium ${analytics.totalGrowth && analytics.totalGrowth > 0 ? 'text-[#377E36]' : 'text-[#D34645]'}`}>
-                {analytics.totalGrowth && analytics.totalGrowth > 0 ? '↑' : '↓'} {Math.abs(analytics.totalGrowth || 0)}%
+              <span
+                className={`text-[13px] font-medium ${analytics.totalGrowth && analytics.totalGrowth > 0 ? "text-[#377E36]" : "text-[#D34645]"}`}
+              >
+                {analytics.totalGrowth && analytics.totalGrowth > 0 ? "↑" : "↓"}{" "}
+                {Math.abs(analytics.totalGrowth || 0)}%
               </span>
 
-              <span className="text-[12px] text-gray-500">
-                vs last Month
-              </span>
+              <span className="text-[12px] text-gray-500">vs last Month</span>
             </div>
           </div>
 
@@ -341,7 +450,6 @@ const Usertable = () => {
             "
           >
             <div className="flex items-start gap-3">
-
               <div
                 className="
                   w-11
@@ -369,13 +477,16 @@ const Usertable = () => {
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className={`text-[13px] font-medium ${analytics.activeGrowth && analytics.activeGrowth > 0 ? 'text-[#377E36]' : 'text-[#D34645]'}`}>
-                {analytics.activeGrowth && analytics.activeGrowth > 0 ? '↑' : '↓'} {Math.abs(analytics.activeGrowth || 0)}%
+              <span
+                className={`text-[13px] font-medium ${analytics.activeGrowth && analytics.activeGrowth > 0 ? "text-[#377E36]" : "text-[#D34645]"}`}
+              >
+                {analytics.activeGrowth && analytics.activeGrowth > 0
+                  ? "↑"
+                  : "↓"}{" "}
+                {Math.abs(analytics.activeGrowth || 0)}%
               </span>
 
-              <span className="text-[12px] text-gray-500">
-                vs last Month
-              </span>
+              <span className="text-[12px] text-gray-500">vs last Month</span>
             </div>
           </div>
 
@@ -392,7 +503,6 @@ const Usertable = () => {
             "
           >
             <div className="flex items-start gap-3">
-
               <div
                 className="
                   w-11
@@ -420,13 +530,16 @@ const Usertable = () => {
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className={`text-[13px] font-medium ${analytics.inactiveGrowth && analytics.inactiveGrowth > 0 ? 'text-[#377E36]' : 'text-[#D34645]'}`}>
-                {analytics.inactiveGrowth && analytics.inactiveGrowth > 0 ? '↑' : '↓'} {Math.abs(analytics.inactiveGrowth || 0)}%
+              <span
+                className={`text-[13px] font-medium ${analytics.inactiveGrowth && analytics.inactiveGrowth > 0 ? "text-[#377E36]" : "text-[#D34645]"}`}
+              >
+                {analytics.inactiveGrowth && analytics.inactiveGrowth > 0
+                  ? "↑"
+                  : "↓"}{" "}
+                {Math.abs(analytics.inactiveGrowth || 0)}%
               </span>
 
-              <span className="text-[12px] text-gray-500">
-                vs last Month
-              </span>
+              <span className="text-[12px] text-gray-500">vs last Month</span>
             </div>
           </div>
         </div>
@@ -442,7 +555,6 @@ const Usertable = () => {
             mx-2
           "
         >
-
           {/* Section Title */}
           <div className="px-3 pt-3 pb-2">
             <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
@@ -455,13 +567,10 @@ const Usertable = () => {
               grid
               grid-cols-1
               md:grid-cols-3
-              border-y
-              border-[#E7EAF3]
               bg-[#FAFAFB]
               dark:bg-[#2E2E2E]
             "
           >
-
             {/* Search */}
             <div
               className="
@@ -493,28 +602,19 @@ const Usertable = () => {
             </div>
 
             {/* Filter */}
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                px-3
-                h-10
-                border-r
-                border-[#E7EAF3]
-                cursor-pointer
-              "
+            <button
+              type="button"
+              onClick={() => setShowFilterForm(true)}
+              className="flex items-center justify-between px-3 h-10 border-r border-[#E7EAF3] text-left"
             >
               <div className="flex items-center">
                 <MdTune className="text-gray-400 mr-2 text-[16px]" />
 
-                <span className="text-[11px] text-gray-400">
-                  Filter
-                </span>
+                <span className="text-[11px] text-gray-400">Filter</span>
               </div>
 
               <FiChevronDown className="text-gray-400 text-[14px]" />
-            </div>
+            </button>
 
             {/* Count */}
             <div className="flex items-center px-4 h-10">
@@ -527,9 +627,7 @@ const Usertable = () => {
           {/* TABLE */}
 
           <div className="overflow-x-auto">
-
             <table className="w-full min-w-[750px] text-xs border-collapse">
-
               {/* Table Header */}
               <thead
                 className="
@@ -573,7 +671,6 @@ const Usertable = () => {
 
               {/* Table Body */}
               <tbody>
-
                 {loading ? (
                   <tr>
                     <td colSpan={10} className="p-5 text-center text-gray-500">
@@ -592,7 +689,6 @@ const Usertable = () => {
                         dark:even:bg-[#303030]
                       "
                     >
-
                       {/* Tenant Name */}
                       <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
                         {item.tenantName}
@@ -667,19 +763,11 @@ const Usertable = () => {
                       {/* Action */}
                       <td
                         className="py-3 px-3 relative"
-                        ref={
-                          openMenu === index
-                            ? openMenuRef
-                            : null
-                        }
+                        ref={openMenu === index ? openMenuRef : null}
                       >
                         <button
                           onClick={() =>
-                            setOpenMenu(
-                              openMenu === index
-                                ? null
-                                : index
-                            )
+                            setOpenMenu(openMenu === index ? null : index)
                           }
                           className="
                             p-1
@@ -724,8 +812,8 @@ const Usertable = () => {
                                 setOpenMenu(null);
                                 router.push(
                                   `/super-admin/ui/users&roles/all_tenant?tenantCode=${encodeURIComponent(
-                                    item.tenantCode
-                                  )}`
+                                    item.tenantCode,
+                                  )}`,
                                 );
                               }}
                             >
@@ -753,135 +841,34 @@ const Usertable = () => {
                   ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan={10}
-                      className="p-5 text-center text-gray-500"
-                    >
+                    <td colSpan={10} className="p-5 text-center text-gray-500">
                       No data available
                     </td>
                   </tr>
                 )}
-
               </tbody>
             </table>
           </div>
 
           <div className="flex justify-end items-center gap-1 px-3 py-4">
-
-            {/* Previous */}
             <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E5E7EB]
-                flex
-                items-center
-                justify-center
-                text-gray-400
-                bg-[#F5F5F2]
-              "
+              type="button"
+              disabled={!hasPreviousPage || loading}
+              onClick={() => handlePageChange(currentPage - 1)}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F5F5F2] text-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="text-[23px] color-[#999FAC]">‹</span>
+              <span className="text-[23px]">‹</span>
             </button>
-
-            {/* Page 1 */}
+            <span className="min-w-8 text-center text-[11px] text-[#203F78]">
+              {currentPage} / {totalPages}
+            </span>
             <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#203F78]
-                text-[#203F78]
-                bg-[#FAFAFB]
-                text-[11px]
-              "
+              type="button"
+              disabled={!hasNextPage || loading}
+              onClick={() => handlePageChange(currentPage + 1)}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F5F5F2] text-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              1
-            </button>
-
-            {/* Page 2 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              3
-            </button>
-
-            {/* Dots */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              ...
-            </button>
-
-            {/* Page 10 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              10
-            </button>
-
-            {/* Next */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E5E7EB]
-                flex
-                items-center
-                justify-center
-                text-gray-400
-                bg-[#F5F5F2]
-              "
-            >
-              <span className="text-[23px] color-[#999FAC]">›</span>
+              <span className="text-[23px]">›</span>
             </button>
           </div>
         </div>

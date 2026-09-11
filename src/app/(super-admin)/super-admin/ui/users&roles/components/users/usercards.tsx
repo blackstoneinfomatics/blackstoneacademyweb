@@ -10,6 +10,10 @@ import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import AddPortalForm, { PortalFormData } from "./AddPortalForm";
+import UpdatePortalStatusForm, {
+  PortalStatusFormData,
+} from "./UpdatePortalStatusForm";
+import PortalFilterForm, { PortalFilterValues } from "./PortalFilterForm";
 
 interface PortalItem {
   _id: string;
@@ -17,6 +21,7 @@ interface PortalItem {
   portalCode: string;
   portalName: string;
   portalType: string;
+  roleType: string;
   userLimit: number;
   status: string;
   isEnabled: boolean;
@@ -34,6 +39,19 @@ const Usercards = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [tableItems, setTableItems] = useState<PortalItem[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [showFilterForm, setShowFilterForm] = useState(false);
+  const [filterValues, setFilterValues] = useState<PortalFilterValues>({
+    portalType: "",
+    roleType: "",
+    status: "",
+    isEnabled: "",
+  });
   const [loading, setLoading] = useState(true);
   const [showAddPortal, setShowAddPortal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -42,6 +60,11 @@ const Usercards = () => {
   const [portalForm, setPortalForm] =
     useState<PortalFormData>(initialPortalForm);
   const [createdPortalName, setCreatedPortalName] = useState("");
+  const [portalToUpdate, setPortalToUpdate] = useState<PortalItem | null>(null);
+  const [updatePortalForm, setUpdatePortalForm] =
+    useState<PortalStatusFormData>({
+      isEnabled: "true",
+    });
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,6 +81,14 @@ const Usercards = () => {
       ...previous,
       [name]: value,
     }));
+  };
+
+  const roleTypeLabels: Record<string, string> = {
+    ACADEMIC: "Academic",
+    ADMINISTRATION: "Administration",
+    FINANCE: "Finance",
+    TRANSPORT: "Transport",
+    HOSTEL: "Hostel",
   };
 
   const handleAddPortal = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -110,39 +141,122 @@ const Usercards = () => {
     }
   };
 
+  const handleUpdatePortalInputChange = (
+    event: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    const { name, value } = event.target;
+    setUpdatePortalForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleUpdatePortal = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!portalToUpdate) return;
+
+    setIsSaving(true);
+    const updateEndpoint = AppApiEndpoints.PORTAL.UPDATE_STATUS.replace(
+      "{tenantPortalId}",
+      encodeURIComponent(portalToUpdate._id),
+    );
+
+    try {
+      const response = await axios.put(
+        `${AppApiEndpoints.API_END_POINT}${updateEndpoint}`,
+        {
+          isEnabled: updatePortalForm.isEnabled === "true",
+        },
+      );
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to update portal");
+      }
+
+      setTableItems((previous) =>
+        previous.map((item) =>
+          item._id === portalToUpdate._id
+            ? {
+                ...item,
+                isEnabled: updatePortalForm.isEnabled === "true",
+              }
+            : item,
+        ),
+      );
+      setPortalToUpdate(null);
+    } catch (error) {
+      console.error("Error updating tenant portal status:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const fetchTenantPortals = async (
+    page = 1,
+    search = searchTerm,
+    status = statusFilter,
+    filters = filterValues,
+  ) => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const portalEndpoint = AppApiEndpoints.PORTAL.GET_BY_TENANT.replace(
+        "{tenantId}",
+        encodeURIComponent(tenantId),
+      );
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: "5",
+      });
+
+      if (search.trim()) params.set("search", search.trim());
+      if (status) params.set("status", status);
+      if (filters.portalType) params.set("portalType", filters.portalType);
+      if (filters.roleType) params.set("roleType", filters.roleType);
+      if (filters.status) params.set("status", filters.status);
+      if (filters.isEnabled) params.set("isEnabled", filters.isEnabled);
+
+      const response = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${portalEndpoint}?${params.toString()}`,
+      );
+
+      if (response.data.success) {
+        const items = response.data.data.items ?? [];
+        const pagination = response.data.data.pagination;
+        setTableItems(items);
+        setTotalRecords(pagination?.totalRecords ?? items.length);
+        setCurrentPage(pagination?.page ?? page);
+        setTotalPages(pagination?.totalPages ?? 1);
+        setHasNextPage(Boolean(pagination?.hasNext));
+        setHasPreviousPage(Boolean(pagination?.hasPrevious));
+      }
+    } catch (error) {
+      console.error("Error fetching tenant portal list:", error);
+      setTableItems([]);
+      setTotalRecords(0);
+      setTotalPages(1);
+      setHasNextPage(false);
+      setHasPreviousPage(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTenantPortals = async () => {
-      if (!tenantId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const portalEndpoint = AppApiEndpoints.PORTAL.GET_BY_TENANT.replace(
-          "{tenantId}",
-          encodeURIComponent(tenantId),
-        );
-        const response = await axios.get(
-          `${AppApiEndpoints.API_END_POINT}${portalEndpoint}`,
-        );
-
-        if (response.data.success) {
-          const items = response.data.data.items ?? [];
-          setTableItems(items);
-          setTotalRecords(
-            response.data.data.pagination?.totalRecords ?? items.length,
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching tenant portal list:", error);
-        setTableItems([]);
-        setTotalRecords(0);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTenantPortals();
+    fetchTenantPortals(1, "", "", {
+      portalType: "",
+      roleType: "",
+      status: "",
+      isEnabled: "",
+    });
+    // The initial request should run when the selected tenant changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
   useEffect(() => {
@@ -257,6 +371,30 @@ const Usercards = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {portalToUpdate && (
+        <UpdatePortalStatusForm
+          portalName={portalToUpdate.portalName}
+          formData={updatePortalForm}
+          isSaving={isSaving}
+          onClose={() => setPortalToUpdate(null)}
+          onSubmit={handleUpdatePortal}
+          onChange={handleUpdatePortalInputChange}
+        />
+      )}
+
+      {showFilterForm && (
+        <PortalFilterForm
+          values={filterValues}
+          onClose={() => setShowFilterForm(false)}
+          onApply={(values) => {
+            setFilterValues(values);
+            setStatusFilter(values.status);
+            setShowFilterForm(false);
+            fetchTenantPortals(1, searchTerm, values.status, values);
+          }}
+        />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 px-4 gap-3">
@@ -409,6 +547,7 @@ const Usercards = () => {
           bg-white
           dark:bg-[#343434]
           rounded-xl
+          border border-[#F0F1F5]
           shadow-[0_4px_15px_rgba(0,0,0,0.05)]
           mt-3
           overflow-hidden
@@ -427,8 +566,6 @@ const Usercards = () => {
             grid
             grid-cols-2
             md:grid-cols-3
-            border-y
-            border-[#E7EAF3]
             bg-[#FAFAFB]
             dark:bg-[#2E2E2E]
           "
@@ -439,6 +576,13 @@ const Usercards = () => {
 
             <input
               placeholder="Search by keyword"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  fetchTenantPortals(1, searchTerm, statusFilter, filterValues);
+                }
+              }}
               className="
                 w-full
                 outline-none
@@ -452,26 +596,17 @@ const Usercards = () => {
           </div>
 
           {/* Filter */}
-          <div
-            className="
-              flex
-              items-center
-              justify-between
-              px-3
-              h-10
-              border-r
-              border-[#E7EAF3]
-              cursor-pointer
-            "
+          <button
+            type="button"
+            onClick={() => setShowFilterForm(true)}
+            className="flex items-center justify-between px-3 h-10 border-r border-[#E7EAF3] text-left"
           >
             <div className="flex items-center">
               <MdTune className="text-gray-400 mr-2 text-[16px]" />
-
               <span className="text-[11px] text-gray-400">Filter</span>
             </div>
-
-            <FiChevronDown className="text-gray-400 text-[14px]" />
-          </div>
+            <FiChevronDown className="pointer-events-none text-gray-400 text-[14px]" />
+          </button>
 
           {/* Count */}
           <div className="flex items-center px-4 h-10">
@@ -492,6 +627,9 @@ const Usercards = () => {
                 </th>
                 <th className="w-[20%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
                   Portal Type
+                </th>
+                <th className="w-[20%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
+                  Role Type
                 </th>
                 <th className="w-[30%] py-3 px-4 text-left font-medium text-[13px] whitespace-nowrap">
                   User Limit
@@ -536,6 +674,10 @@ const Usercards = () => {
                     {/* Portal Type */}
                     <td className="py-4 px-4 text-[#1E293B] dark:text-gray-200 break-words">
                       {item.portalType === "DEFAULT" ? "Default" : "Custom"}
+                    </td>
+                    {/* Role Type */}
+                    <td className="py-4 px-4 text-[#1E293B] dark:text-gray-200 break-words">
+                      {roleTypeLabels[item.roleType] || "-"}
                     </td>
 
                     {/* User Limit */}
@@ -592,14 +734,13 @@ const Usercards = () => {
                             className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700"
                             onClick={() => {
                               setOpenMenu(null);
-                              router.push(
-                                `/super-admin/ui/users&roles/portal_details?portalName=${encodeURIComponent(
-                                  item.portalName,
-                                )}`,
-                              );
+                              setUpdatePortalForm({
+                                isEnabled: item.isEnabled ? "true" : "false",
+                              });
+                              setPortalToUpdate(item);
                             }}
                           >
-                            View Details
+                            Update
                           </button>
                         </div>
                       )}
@@ -618,8 +759,10 @@ const Usercards = () => {
         </div>
 
         <div className="flex justify-end items-center gap-1 px-3 py-4">
-          {/* Previous */}
           <button
+            type="button"
+            disabled={!hasPreviousPage || loading}
+            onClick={() => fetchTenantPortals(currentPage - 1)}
             className="
               w-7
               h-7
@@ -631,93 +774,19 @@ const Usercards = () => {
               justify-center
               text-gray-400
               bg-[#F5F5F2]
+              disabled:cursor-not-allowed
+              disabled:opacity-50
             "
           >
             <span className="text-[23px] color-[#999FAC]">‹</span>
           </button>
-
-          {/* Page 1 */}
+          <span className="min-w-7 text-center text-[11px] text-[#203F78]">
+            {currentPage} / {totalPages}
+          </span>
           <button
-            className="
-              w-7
-              h-7
-              rounded-md
-              border
-              border-[#203F78]
-              text-[#203F78]
-              bg-[#FAFAFB]
-              text-[11px]
-            "
-          >
-            1
-          </button>
-
-          {/* Page 2 */}
-          <button
-            className="
-              w-7
-              h-7
-              rounded-md
-              border
-              border-[#E6E7EA]
-              text-gray-400
-              bg-[#F5F5F2]
-              text-[11px]
-            "
-          >
-            2
-          </button>
-
-          {/* Page 3 */}
-          <button
-            className="
-              w-7
-              h-7
-              rounded-md
-              border
-              border-[#E6E7EA]
-              text-gray-400
-              bg-[#F5F5F2]
-              text-[11px]
-            "
-          >
-            3
-          </button>
-
-          {/* Dots */}
-          <button
-            className="
-              w-7
-              h-7
-              rounded-md
-              border
-              border-[#E6E7EA]
-              text-gray-400
-              bg-[#F5F5F2]
-              text-[11px]
-            "
-          >
-            ...
-          </button>
-
-          {/* Page 10 */}
-          <button
-            className="
-              w-7
-              h-7
-              rounded-md
-              border
-              border-[#E6E7EA]
-              text-gray-400
-              bg-[#F5F5F2]
-              text-[11px]
-            "
-          >
-            10
-          </button>
-
-          {/* Next */}
-          <button
+            type="button"
+            disabled={!hasNextPage || loading}
+            onClick={() => fetchTenantPortals(currentPage + 1)}
             className="
               w-7
               h-7
@@ -729,6 +798,8 @@ const Usercards = () => {
               justify-center
               text-gray-400
               bg-[#F5F5F2]
+              disabled:cursor-not-allowed
+              disabled:opacity-50
             "
           >
             <span className="text-[23px] color-[#999FAC]">›</span>
