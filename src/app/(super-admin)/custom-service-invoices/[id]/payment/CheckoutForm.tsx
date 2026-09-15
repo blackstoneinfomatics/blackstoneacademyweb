@@ -87,18 +87,27 @@ export default function CheckoutForm({
   }).format(amount);
   const invoiceNumber = invoice?.invoiceNumber || invoice?._id || "Invoice";
   const serviceName = invoice?.items?.[0]?.service || "Custom service";
-  const invoiceId = invoice?._id;
+  const invoiceId = invoice?.invoiceId;
   const paymentEndpoint = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CUSTOM_SERVICE_INVOICE.PAYMENT(invoiceId)}`;
 
   const handleSubmit = async (event: React.FormEvent) => {
+    console.log("clicked " ,"hanblde ");
     event.preventDefault();
+     console.log("stripe:", stripe);
+console.log("elements:", elements);
+console.log("invoiceId:", invoiceId);
+console.log("invoice details",invoice);
     if (!stripe || !elements || !invoiceId) return;
+   
     setLoading(true);
     setMessage("");
 
     const card = elements.getElement(CardNumberElement);
     const expiry = elements.getElement(CardExpiryElement);
     const cvc = elements.getElement(CardCvcElement);
+    console.log("card:", card);
+console.log("expiry:", expiry);
+console.log("cvc:", cvc);
     if (!card || !expiry || !cvc) {
       setMessage("Payment elements not ready. Please try again.");
       setLoading(false);
@@ -106,66 +115,60 @@ export default function CheckoutForm({
     }
 
     try {
-      const current = await stripe.retrievePaymentIntent(clientSecret);
-      if (current.error) {
-        setMessage(current.error.message ?? "Unable to read payment status.");
-        return;
-      }
+  const { error, paymentIntent } = await stripe.confirmCardPayment(
+    clientSecret,
+    {
+      payment_method: {
+        card,
+        billing_details: { address: { postal_code: zip } },
+      },
+    }
+  );
 
-      let paymentIntent = current.paymentIntent;
-      if (paymentIntent?.status === "succeeded") {
-        const response = await fetch(paymentEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            payload: {
-              invoiceId,
-              paymentIntentResponse: paymentIntent,
-            },
-          }),
-        });
-        setMessage(
-          response.ok
-            ? "Payment successful!"
-            : "Backend failed to confirm payment.",
-        );
-        return;
-      }
+  console.log("Stripe result:", { error, paymentIntent });
 
-      if (paymentIntent?.status === "processing") {
-        setMessage("Payment is processing. Please wait for confirmation.");
-        return;
-      }
+  // ✅ ALWAYS handle error FIRST
+  if (error) {
+    console.error("Stripe error:", error);
+    setMessage(error.message || "Payment failed");
+    return;
+  }
 
-      if (paymentIntent?.status === "canceled") {
-        setMessage("This payment session has expired. Please start again.");
-        return;
-      }
+  // Safety check
+  if (!paymentIntent) {
+    setMessage("No payment information returned.");
+    return;
+  }
 
-      const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card,
-          billing_details: { address: { postal_code: zip } },
-        },
-      });
-      if (result.error) {
-        setMessage(result.error.message ?? "An unexpected error occurred.");
-      } else if (result.paymentIntent?.status === "succeeded") {
-        paymentIntent = result.paymentIntent;
-        const response = await fetch(paymentEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            payload: { invoiceId, paymentIntentResponse: paymentIntent },
-          }),
-        });
-        setMessage(
-          response.ok
-            ? "Payment successful!"
-            : "Backend failed to confirm payment.",
-        );
-      }
-    } catch (error) {
+  // ✅ SUCCESS
+  if (paymentIntent.status === "succeeded") {
+    const response = await fetch(paymentEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+  paymentIntentResponse: paymentIntent
+}),
+    });
+
+    console.log("Backend response:", response);
+
+    setMessage(
+      response.ok
+        ? "Payment successful!"
+        : "Payment succeeded but backend failed."
+    );
+    return;
+  }
+
+  // 🟡 PROCESSING
+  if (paymentIntent.status === "processing") {
+    setMessage("Payment is processing. Please wait...");
+    return;
+  }
+
+  // 🔴 OTHER STATES
+  setMessage(`Payment status: ${paymentIntent.status}`);
+} catch (error) {
       setMessage(error instanceof Error ? error.message : "Payment failed.");
     } finally {
       setLoading(false);
@@ -374,6 +377,7 @@ export default function CheckoutForm({
                 </div>
                 <button
                   type="submit"
+                  onSubmit={handleSubmit}
                   disabled={!stripe || loading}
                   className="flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg bg-[#223857] px-4 text-sm font-semibold text-white disabled:bg-slate-300"
                 >
