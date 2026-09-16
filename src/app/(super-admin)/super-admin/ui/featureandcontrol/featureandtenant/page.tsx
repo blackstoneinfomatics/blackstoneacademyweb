@@ -20,22 +20,22 @@ import {
   addTenantChildModule,
   addTenantModuleFeature,
   addTenantChildFeature,
-  getTenantModules,
   type TenantModule,
   type PortalStatus,
 } from "@/api/portalModule";
 
 /* ================= TYPES ================= */
-interface ModuleItem {
+interface ModuleListRow {
   _id: string;
   moduleName: string;
+  childModule: string;
   order: number | string;
   description: string;
   addOn: string;
   status: "Enable" | "Disable";
 }
 
-interface FeatureItem {
+interface FeatureListRow {
   _id: string;
   featureName: string;
   parentModule: string;
@@ -44,6 +44,75 @@ interface FeatureItem {
   addOn: string;
   status: "Enable" | "Disable";
 }
+
+const formatDate = (value?: string) =>
+  value
+    ? new Date(value).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "-";
+
+/* Flattens tenant modules -> one row per parent module + one row per child module */
+const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
+  const rows: ModuleListRow[] = [];
+  modules.forEach((module) => {
+    rows.push({
+      _id: module.moduleId,
+      moduleName: module.moduleName,
+      childModule: "-",
+      order: module.orderNo,
+      description: "-",
+      addOn: formatDate(module.createdAt),
+      status: module.isEnabled ? "Enable" : "Disable",
+    });
+    module.children.forEach((child) => {
+      rows.push({
+        _id: child.childModuleId,
+        moduleName: module.moduleName,
+        childModule: child.childModuleName,
+        order: "-",
+        description: "-",
+        addOn: formatDate(child.createdAt),
+        status: child.isEnabled ? "Enable" : "Disable",
+      });
+    });
+  });
+  return rows;
+};
+
+/* Flattens tenant modules -> one row per feature, under its parent module and (if any) child module */
+const buildFeatureRows = (modules: TenantModule[]): FeatureListRow[] => {
+  const rows: FeatureListRow[] = [];
+  modules.forEach((module) => {
+    module.features.forEach((feature) => {
+      rows.push({
+        _id: feature.featureId,
+        featureName: feature.featureName,
+        parentModule: module.moduleName,
+        childModule: "-",
+        description: "-",
+        addOn: formatDate(feature.createdAt),
+        status: feature.isEnabled ? "Enable" : "Disable",
+      });
+    });
+    module.children.forEach((child) => {
+      child.features.forEach((feature) => {
+        rows.push({
+          _id: feature.featureId,
+          featureName: feature.featureName,
+          parentModule: module.moduleName,
+          childModule: child.childModuleName,
+          description: "-",
+          addOn: formatDate(feature.createdAt),
+          status: feature.isEnabled ? "Enable" : "Disable",
+        });
+      });
+    });
+  });
+  return rows;
+};
 
 interface FormData {
   portal: string;
@@ -59,193 +128,6 @@ interface FormData {
   status: string;
 }
 
-/* ================= MODULE DATA ================= */
-const moduleItems: ModuleItem[] = [
-  {
-    _id: "m1",
-    moduleName: "Dashboard",
-    order: 1,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m2",
-    moduleName: "Subscriptions",
-    order: 2,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m3",
-    moduleName: "Finance",
-    order: 3,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m4",
-    moduleName: "Users & Roles",
-    order: 4,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m5",
-    moduleName: "Feature Control",
-    order: 5,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m6",
-    moduleName: "Analytics",
-    order: 6,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m7",
-    moduleName: "Chat & Support",
-    order: 7,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m8",
-    moduleName: "Settings",
-    order: 8,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "m9",
-    moduleName: "Backup & Restore",
-    order: 9,
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-];
-
-/* ================= FEATURE DATA ================= */
-const featureItems: FeatureItem[] = [
-  {
-    _id: "1",
-    featureName: "Billing",
-    parentModule: "Finance",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "2",
-    featureName: "group chat",
-    parentModule: "Chat & Support",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "3",
-    featureName: "class",
-    parentModule: "Subscriptions",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "4",
-    featureName: "Finance",
-    parentModule: "Finance",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "5",
-    featureName: "Users & Roles",
-    parentModule: "Users & Roles",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "6",
-    featureName: "Feature Control",
-    parentModule: "Feature Control",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "7",
-    featureName: "Analytics",
-    parentModule: "Analytics",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "8",
-    featureName: "Chat & Support",
-    parentModule: "Chat & Support",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "9",
-    featureName: "Chat & Support",
-    parentModule: "Chat & Support",
-    childModule: "Tickets",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "10",
-    featureName: "Settings",
-    parentModule: "Settings",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-  {
-    _id: "11",
-    featureName: "Backup & Restore",
-    parentModule: "Backup & Restore",
-    childModule: "-",
-    description: "Access designed for students.",
-    addOn: "Sep, 12 2023",
-    status: "Enable",
-  },
-];
-
-const portalSidebarItems = [
-  "Student",
-  "Teacher",
-  "Academy",
-  "Supervisor",
-  "Admin",
-];
-
 /* ================= CHILD NAVIGATION OPTIONS ================= */
 const childNavigationOptions = ["Ticket", "Message"];
 
@@ -255,15 +137,42 @@ interface TenantPortalListItem {
   portalName: string;
 }
 
+interface TenantDetails {
+  tenantCode: string;
+  tenantName: string;
+  tenantLogo: string | null;
+  domainName: string | null;
+  organizationName: string | null;
+  emailId: string;
+  phoneNumber: string;
+  mobileNumber: string;
+  plan: string;
+  status: string;
+}
+
+interface SubscriptionDetails {
+  planId: string;
+  planName: string;
+  subscriptionCode: string;
+  duration: number;
+  status: string;
+  paymentStatus: string;
+  startDate: string;
+  endDate: string;
+  nextRenewalDate: string;
+  autoRenew: boolean;
+  remarks: string;
+}
+
 const Usercards = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
-  const [activePortal, setActivePortal] = useState<string>("Student");
   const [activeTab, setActiveTab] = useState<"module" | "feature">("module");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const tenantId = searchParams.get("tenantId") ?? "";
+  const portalIdParam = searchParams.get("portalId") ?? "";
 
   /* ====== MODAL STATES ====== */
   const [showAddFeatureModal, setShowAddFeatureModal] = useState(false);
@@ -273,10 +182,14 @@ const Usercards = () => {
   const [createdFeatureName, setCreatedFeatureName] = useState<string>("");
   const [portalOptions, setPortalOptions] = useState<TenantPortalOption[]>([]);
   const [tenantModules, setTenantModules] = useState<TenantModule[]>([]);
+  const [tenantDetails, setTenantDetails] = useState<TenantDetails | null>(null);
+  const [subscriptionDetails, setSubscriptionDetails] =
+    useState<SubscriptionDetails | null>(null);
+  const [configCreatedAt, setConfigCreatedAt] = useState<string | null>(null);
 
   /* ====== FORM STATE ====== */
   const [formData, setFormData] = useState<FormData>({
-    portal: "",
+    portal: portalIdParam,
     category: "Feature",
     navigationType: "child",
     parentNavigation: "",
@@ -361,7 +274,7 @@ const Usercards = () => {
     loadTenantPortals();
   }, [tenantId]);
 
-  /* ====== LOAD TENANT MODULES (for Parent Module dropdowns) ====== */
+  /* ====== LOAD TENANT CONFIG (modules, tenant details, subscription details) ====== */
   const loadTenantModules = async () => {
     if (!tenantId || !formData.portal) {
       setTenantModules([]);
@@ -369,16 +282,37 @@ const Usercards = () => {
     }
 
     try {
-      const modules = await getTenantModules(tenantId, formData.portal);
+      const params = new URLSearchParams({
+        tenantId,
+        portalId: formData.portal,
+      });
+      const response = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
+      );
+
+      if (!response.data.success) {
+        // Not every module/portal combination has a tenantPortalConfig yet -
+        // just show an empty module/feature list for this portal, keep
+        // showing the tenant's own details (name, plan, domain, ...) as-is.
+        setTenantModules([]);
+        return;
+      }
+
+      const data = response.data.data;
+      const modules: TenantModule[] = data?.modules ?? [];
+
       setTenantModules(modules);
+      setTenantDetails(data?.tenantDetails ?? null);
+      setSubscriptionDetails(data?.subscriptionDetails ?? null);
+      setConfigCreatedAt(data?.createdAt ?? null);
       setFormData((previous) => ({
         ...previous,
-        parentNavigation: previous.parentNavigation || modules[0]?.moduleId || "",
-        parentModule: previous.parentModule || modules[0]?.moduleId || "",
+        parentNavigation: modules[0]?.moduleId || "",
+        parentModule: modules[0]?.moduleId || "",
       }));
     } catch (error: any) {
-      console.error("Error fetching tenant modules:", error);
-      toast.error(error?.message || "Failed to load parent modules");
+      console.error("Error fetching tenant config:", error);
+      setTenantModules([]);
     }
   };
 
@@ -411,8 +345,8 @@ const Usercards = () => {
   };
 
   const resetForm = () => {
-    setFormData({
-      portal: portalOptions[0]?.id ?? "",
+    setFormData((previous) => ({
+      portal: previous.portal || portalOptions[0]?.id || "",
       category: "Feature",
       navigationType: "child",
       parentNavigation: tenantModules[0]?.moduleId ?? "",
@@ -423,7 +357,7 @@ const Usercards = () => {
       parentModule: tenantModules[0]?.moduleId ?? "",
       description: "",
       status: "Active",
-    });
+    }));
   };
 
   const closeAddFeatureModal = () => {
@@ -460,16 +394,50 @@ const Usercards = () => {
 
       if (formData.category === "Module") {
         if (formData.navigationType === "parent") {
-          await addTenantModule({
-            tenantId,
-            portalId,
-            moduleName: formData.parentNavigationName,
-            moduleStatus: status,
-            createdBy: "SUPER_ADMIN",
-          });
-          setCreatedFeatureName(
-            formData.parentNavigationName || "Parent Module",
-          );
+          if (formData.parentNavigationName.trim()) {
+            const config = await addTenantModule({
+              tenantId,
+              portalId,
+              moduleName: formData.parentNavigationName,
+              moduleStatus: status,
+              createdBy: "SUPER_ADMIN",
+            });
+            setCreatedFeatureName(
+              formData.parentNavigationName || "Parent Module",
+            );
+
+            if (formData.featureName.trim()) {
+              const newModule = config.modules.find(
+                (module) => module.moduleName === formData.parentNavigationName,
+              );
+              if (newModule) {
+                await addTenantModuleFeature(newModule.moduleId, {
+                  tenantId,
+                  portalId,
+                  featureName: formData.featureName,
+                  featureStatus: status,
+                  createdBy: "SUPER_ADMIN",
+                });
+              }
+            }
+          } else {
+            const parent = tenantModules.find(
+              (module) => module.moduleId === formData.parentModule,
+            );
+            if (!parent) {
+              throw new Error(
+                "Enter a new parent module name or select an existing one",
+              );
+            }
+            await addTenantModuleFeature(parent.moduleId, {
+              tenantId,
+              portalId,
+              featureName: formData.featureName,
+              featureStatus: status,
+              createdBy: "SUPER_ADMIN",
+            });
+            setCreatedFeatureName(formData.featureName || "Feature");
+          }
         } else {
           const parent = tenantModules.find(
             (module) => module.moduleId === formData.parentNavigation,
@@ -543,18 +511,21 @@ const Usercards = () => {
   };
 
   /* ================= FILTERS ================= */
-  const filteredModules = moduleItems.filter(
+  const moduleRows = buildModuleRows(tenantModules);
+  const featureRows = buildFeatureRows(tenantModules);
+  const totalFeaturesCount = featureRows.length;
+
+  const filteredModules = moduleRows.filter(
     (item) =>
       item.moduleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchTerm.toLowerCase()),
+      item.childModule.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const filteredFeatures = featureItems.filter(
+  const filteredFeatures = featureRows.filter(
     (item) =>
       item.featureName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.parentModule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.childModule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchTerm.toLowerCase()),
+      item.childModule.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   /* ================= HELPERS ================= */
@@ -673,7 +644,7 @@ const Usercards = () => {
               <div className="flex items-center gap-4">
                 <div className="w-[52px] h-[52px] rounded-full bg-[#EEEEEE] flex items-center justify-center overflow-hidden shrink-0">
                   <img
-                    src="/assets/images/bsicon.png"
+                    src={tenantDetails?.tenantLogo || "/assets/images/bsicon.png"}
                     alt="Tenant Logo"
                     className="w-[48px] h-[48px] object-contain"
                   />
@@ -682,23 +653,25 @@ const Usercards = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-[15px] font-semibold text-[#1B1B1B] dark:text-white">
-                      Blackstone Academy
+                      {tenantDetails?.tenantName || "Tenant"}
                     </h2>
                     <span className="inline-flex items-center px-2 py-[3px] rounded-[4px] bg-[#E9F1FF] text-[#4F7DF3] text-[10px] font-medium">
-                      Standard
+                      {subscriptionDetails?.planName || tenantDetails?.plan || "-"}
                     </span>
                   </div>
 
                   <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-[2px]">
-                    blackstoneacademy.com
+                    {tenantDetails?.domainName ||
+                      tenantDetails?.organizationName ||
+                      "-"}
                   </p>
 
                   <div className="flex items-center gap-1 mt-[2px] text-[10px]">
                     <span className="text-gray-400 text-[11px]">
-                      Created on : 02,July,2000 |
+                      Created on : {formatDate(configCreatedAt || undefined)} |
                     </span>
                     <span className="font-medium text-[10px] text-[#576CBC]">
-                      ID: TEN 22001
+                      ID: {tenantDetails?.tenantCode || tenantId}
                     </span>
                   </div>
                 </div>
@@ -751,7 +724,7 @@ const Usercards = () => {
                       Users
                     </p>
                     <p className="text-[15px] font-semibold text-[#1E293B] dark:text-white mt-[1px]">
-                      3
+                      -
                     </p>
                   </div>
                 </div>
@@ -802,7 +775,7 @@ const Usercards = () => {
                       Features
                     </p>
                     <p className="text-[15px] font-semibold text-[#22A34A] dark:text-green-400 mt-[1px]">
-                      500
+                      {totalFeaturesCount}
                     </p>
                   </div>
                 </div>
@@ -826,22 +799,36 @@ const Usercards = () => {
             </h3>
 
             <div className="flex flex-col gap-1">
-              {portalSidebarItems.map((portal) => (
-                <button
-                  key={portal}
-                  onClick={() => setActivePortal(portal)}
-                  className={`
-                    text-left px-3 py-2.5 rounded-lg text-[13px]  font-medium transition
-                    ${
-                      activePortal === portal
-                        ? "bg-gradient-to-b border border-blue-300 from-[#fcfdff] to-[#dbe2fd] text-black"
-                        : "text-[#1E293B] dark:text-gray-300 hover:bg-[#F5F6FA] dark:hover:bg-[#3A3A3A]"
+              {portalOptions.length === 0 ? (
+                <span className="px-3 py-2.5 text-[12px] text-gray-400">
+                  {tenantId ? "Loading portals..." : "No tenant selected"}
+                </span>
+              ) : (
+                portalOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() =>
+                      setFormData((previous) => ({
+                        ...previous,
+                        portal: option.id,
+                        parentNavigation: "",
+                        parentModule: "",
+                        childNavigations: [],
+                      }))
                     }
-                  `}
-                >
-                  {portal}
-                </button>
-              ))}
+                    className={`
+                      text-left px-3 py-2.5 rounded-lg text-[13px]  font-medium transition
+                      ${
+                        formData.portal === option.id
+                          ? "bg-gradient-to-b border border-blue-300 from-[#fcfdff] to-[#dbe2fd] text-black"
+                          : "text-[#1E293B] dark:text-gray-300 hover:bg-[#F5F6FA] dark:hover:bg-[#3A3A3A]"
+                      }
+                    `}
+                  >
+                    {option.name}
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
@@ -942,7 +929,7 @@ const Usercards = () => {
                             {item.moduleName}
                           </td>
                           <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
-                            -
+                            {item.childModule}
                           </td>
                           <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200">
                             {getOrderBox(item.order)}
@@ -1091,6 +1078,13 @@ const Usercards = () => {
             setFormData((previous) => ({ ...previous, navigationType }))
           }
           onChildNavigationToggle={toggleChildNavigation}
+          onParentModuleSelect={(moduleId) =>
+            setFormData((previous) => ({
+              ...previous,
+              parentModule: moduleId,
+              parentNavigationName: "",
+            }))
+          }
         />
       )}
 

@@ -1,84 +1,86 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune, MdCancel, MdCheckCircle } from "react-icons/md";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import ActionDropdown from "@/app/(super-admin)/super-admin/components/ActionMenu";
 
-const userItems = [
-  {
-    tenantId: "TEN000010",
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
-  {
-    tenantId: "TEN000010",
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
-  {
-    tenantId: "TEN000010",
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
-  {
-    tenantId: "TEN000010",
-    portalName: "Admin",
-    Domin: "blackstoneacademy.com",
-    PhoneNumber: "1234567890",
-    Email: "blackstone@gm.....",
-    StartDate: "Sep, 12 2023",
-    Plan: "Standard",
-    User: "570",
-    RenewalDate: "02 Sep 2026",
-    TenantStatus: "Active",
-  },
+interface TenantConfigRow {
+  tenantId: string;
+  portalId: string;
+  tenantName: string;
+  domain: string;
+  phoneNumber: string;
+  email: string;
+  startDate: string;
+  plan: string;
+  renewalDate: string;
+  status: string;
+}
+
+// TODO: replace with a real tenant/portal list once a "list all tenants" API
+// is available - /modules/tenant/config is scoped to a single tenant+portal.
+const KNOWN_TENANT_PORTALS = [
+  { tenantId: "TEN000010", portalId: "6aa002bb4afeaa160576aeec" },
 ];
 
+const formatDate = (value?: string) =>
+  value
+    ? new Date(value).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "-";
+
 const Usertable = () => {
-  const [openMenu, setOpenMenu] = useState<number | null>(null);
-  const openMenuRef = useRef<HTMLTableCellElement | null>(null);
+  const [userItems, setUserItems] = useState<TenantConfigRow[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        openMenu !== null &&
-        openMenuRef.current &&
-        !openMenuRef.current.contains(event.target as Node)
-      ) {
-        setOpenMenu(null);
-      }
+    const loadTenantConfigs = async () => {
+      const rows = await Promise.all(
+        KNOWN_TENANT_PORTALS.map(async ({ tenantId, portalId }) => {
+          try {
+            const params = new URLSearchParams({ tenantId, portalId });
+            const response = await axios.get(
+              `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
+            );
+
+            if (!response.data.success) return null;
+
+            const data = response.data.data;
+            const tenantDetails = data?.tenantDetails ?? {};
+            const subscriptionDetails = data?.subscriptionDetails ?? {};
+
+            const row: TenantConfigRow = {
+              tenantId: data?.tenantId ?? tenantId,
+              portalId: data?.portalId ?? portalId,
+              tenantName: tenantDetails.tenantName ?? "-",
+              domain: tenantDetails.domainName ?? "-",
+              phoneNumber: tenantDetails.phoneNumber ?? "-",
+              email: tenantDetails.emailId ?? "-",
+              startDate: formatDate(subscriptionDetails.startDate),
+              plan: subscriptionDetails.planName ?? "-",
+              renewalDate: formatDate(subscriptionDetails.nextRenewalDate),
+              status: tenantDetails.status ?? "-",
+            };
+            return row;
+          } catch (error) {
+            console.error("Error fetching tenant config:", error);
+            return null;
+          }
+        }),
+      );
+
+      setUserItems(rows.filter((row): row is TenantConfigRow => row !== null));
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [openMenu]);
+    loadTenantConfigs();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
@@ -400,25 +402,25 @@ const Usertable = () => {
 
                       {/* user Name */}
                       <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
-                        {item.portalName}
+                        {item.tenantName}
                       </td>
 
                       {/* user Type */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
-                        {item.Domin}
+                        {item.domain}
                       </td>
 
                       {/* Description */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
-                        {item.PhoneNumber}
+                        {item.phoneNumber}
                       </td>
 
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.Email}
+                        {item.email}
                       </td>
 
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.StartDate}
+                        {item.startDate}
                       </td>
 
                       {/* Status */}
@@ -432,25 +434,25 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${item.Plan === "Standard"
+                            ${item.plan === "Standard"
                               ? "bg-[#2668EF24] text-[#2668EF]"
                               : "bg-[#585BDC24] text-[#585BDC]"
                             }
                           `}
                         >
-                          {item.Plan}
+                          {item.plan}
                         </span>
                       </td>
 
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.User}
+                        -
                       </td>
 
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        {item.RenewalDate}
+                        {item.renewalDate}
                       </td>
 
-                      <         td className="py-3 px-3">
+                      <td className="py-3 px-3">
                         <span
                           className={`
                             inline-flex
@@ -460,101 +462,38 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${item.TenantStatus === "Active"
+                            ${item.status === "Active"
                               ? "bg-[#ECFDF3] text-[#377E36]"
                               : "bg-[#FDECEC] text-[#D34645]"
                             }
                           `}
                         >
-                          {item.TenantStatus}
+                          {item.status}
                         </span>
                       </td>
 
                       {/* Action */}
-                      <td
-                        className="py-3 px-3 relative"
-                        ref={
-                          openMenu === index
-                            ? openMenuRef
-                            : null
-                        }
-                      >
-                        <button
-                          onClick={() =>
-                            setOpenMenu(
-                              openMenu === index
-                                ? null
-                                : index
-                            )
-                          }
-                          className="
-                            p-1
-                            rounded-md
-                            hover:bg-gray-100
-                            dark:hover:bg-gray-700
-                          "
-                        >
-                          <BsThreeDotsVertical className="text-[14px]" />
-                        </button>
-
-                        {openMenu === index && (
-                          <div
-                            className="
-                              absolute
-                              right-3
-                              top-9
-                              w-28
-                              bg-white
-                              dark:bg-[#2C2C2C]
-                              rounded-lg
-                              shadow-lg
-                              border
-                              border-gray-100
-                              dark:border-gray-700
-                              z-50
-                            "
-                          >
-                            <button
-                              className="
-                                w-full
-                                text-center
-                                px-3
-                                py-2
-                                text-[10px]
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-700
-                              "
-                              onClick={() => {
-                                setOpenMenu(null);
-
+                      <td className="py-3 px-3 text-center">
+                        <ActionDropdown
+                          row={item}
+                          items={[
+                            {
+                              label: "View Details",
+                              onClick: (row) =>
                                 router.push(
                                   `/super-admin/ui/featureandcontrol/featureandtenant?tenantId=${encodeURIComponent(
-                                    item.tenantId
-                                  )}&portalName=${encodeURIComponent(
-                                    item.portalName
-                                  )}`
-                                );
-                              }}
-                            >
-
-                              View Details
-                            </button>
-
-                            <button
-                              className="
-                                w-full
-                                text-center
-                                px-3
-                                py-2
-                                text-[10px]
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-700
-                              "
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        )}
+                                    row.tenantId,
+                                  )}&portalId=${encodeURIComponent(
+                                    row.portalId,
+                                  )}`,
+                                ),
+                            },
+                            {
+                              label: "Edit",
+                              onClick: () => {},
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))

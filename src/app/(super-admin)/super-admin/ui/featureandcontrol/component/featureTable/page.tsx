@@ -14,6 +14,8 @@ import {
 } from "react-icons/fi";
 import { MdTune, MdCheckCircle, MdCancel } from "react-icons/md";
 import axios from "axios";
+import { toast } from "react-toastify";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface FeatureCardData {
   totalFeatures: FeatureMetric;
@@ -39,15 +41,18 @@ interface ModuleFeature {
   featureName: string;
   description: string;
   status: string;
+  isEnabled: boolean;
   createdAt: string;
 }
 
 interface ChildModule {
+  childModuleId: string;
   childModuleName: string;
   features: ModuleFeature[];
 }
 
 interface ParentModule {
+  parentModuleId: string;
   portal: string;
   parentModuleName: string;
   features: ModuleFeature[];
@@ -69,12 +74,16 @@ interface ModulesResponse {
 }
 
 interface FeatureTableItem {
+  featureId: string;
+  parentModuleId: string;
+  childModuleId: string | null;
   featureName: string;
   portal: string;
   parentModule: string;
   childModule: string;
   description: string;
   status: string;
+  isEnabled: boolean;
   addOnDate: string;
 }
 
@@ -145,39 +154,49 @@ const Table = () => {
     const fetchModules = async () => {
       try {
         const response = await axios.get<ModulesResponse>(
-          "http://localhost:5001/modules",
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE.GET_LIST}`,
           { params: { page: currentPage, limit: PAGE_LIMIT } },
         );
 
         if (response.data.success) {
-          const items = response.data.data.flatMap((parentModule) => [
-            ...parentModule.features.map((feature) => ({
-              featureName: feature.featureName,
-              portal: parentModule.portal,
-              parentModule: parentModule.parentModuleName,
-              childModule: "-",
-              description: feature.description,
-              status: feature.status,
-              addOnDate: new Date(feature.createdAt).toLocaleDateString(
-                "en-GB",
-                { day: "2-digit", month: "short", year: "numeric" },
-              ),
-            })),
-            ...parentModule.children.flatMap((childModule) =>
-              childModule.features.map((feature) => ({
+          const items: FeatureTableItem[] = response.data.data.flatMap(
+            (parentModule) => [
+              ...parentModule.features.map((feature) => ({
+                featureId: feature.featureId,
+                parentModuleId: parentModule.parentModuleId,
+                childModuleId: null,
                 featureName: feature.featureName,
                 portal: parentModule.portal,
                 parentModule: parentModule.parentModuleName,
-                childModule: childModule.childModuleName,
+                childModule: "-",
                 description: feature.description,
                 status: feature.status,
+                isEnabled: feature.isEnabled,
                 addOnDate: new Date(feature.createdAt).toLocaleDateString(
                   "en-GB",
                   { day: "2-digit", month: "short", year: "numeric" },
                 ),
               })),
-            ),
-          ]);
+              ...parentModule.children.flatMap((childModule) =>
+                childModule.features.map((feature) => ({
+                  featureId: feature.featureId,
+                  parentModuleId: parentModule.parentModuleId,
+                  childModuleId: childModule.childModuleId,
+                  featureName: feature.featureName,
+                  portal: parentModule.portal,
+                  parentModule: parentModule.parentModuleName,
+                  childModule: childModule.childModuleName,
+                  description: feature.description,
+                  status: feature.status,
+                  isEnabled: feature.isEnabled,
+                  addOnDate: new Date(feature.createdAt).toLocaleDateString(
+                    "en-GB",
+                    { day: "2-digit", month: "short", year: "numeric" },
+                  ),
+                })),
+              ),
+            ],
+          );
 
           setFeatureItems(items);
           setTotalFeatureItems(response.data.pagination.totalRecords);
@@ -219,6 +238,57 @@ const Table = () => {
   const closeMenu = () => {
     setOpenMenu(null);
     setMenuPosition(null);
+  };
+
+  const handleToggleFeatureAccess = async (
+    item: FeatureTableItem,
+    isEnabled: boolean,
+  ) => {
+    closeMenu();
+
+    const endpoint = item.childModuleId
+      ? AppApiEndpoints.MODULE.UPDATE_CHILD_FEATURE_ACCESS.replace(
+          "{parentModuleId}",
+          item.parentModuleId,
+        )
+          .replace("{childModuleId}", item.childModuleId)
+          .replace("{featureId}", item.featureId)
+      : AppApiEndpoints.MODULE.UPDATE_PARENT_FEATURE_ACCESS.replace(
+          "{parentModuleId}",
+          item.parentModuleId,
+        ).replace("{featureId}", item.featureId);
+
+    try {
+      const response = await axios.patch(
+        `${AppApiEndpoints.API_END_POINT}${endpoint}`,
+        { isEnabled, updatedBy: "SUPER_ADMIN" },
+      );
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to update feature");
+      }
+
+      setFeatureItems((previous) =>
+        previous.map((feature) =>
+          feature.featureId === item.featureId &&
+          feature.childModuleId === item.childModuleId
+            ? {
+                ...feature,
+                isEnabled,
+                status: isEnabled ? "Active" : "Inactive",
+              }
+            : feature,
+        ),
+      );
+      toast.success(`Feature ${isEnabled ? "enabled" : "disabled"} successfully!`);
+    } catch (error: any) {
+      console.error("Failed to update feature access:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update feature",
+      );
+    }
   };
 
   useEffect(() => {
@@ -632,24 +702,11 @@ const Table = () => {
                                   hover:bg-gray-100
                                   dark:hover:bg-gray-700
                                 "
-                                onClick={closeMenu}
+                                onClick={() =>
+                                  handleToggleFeatureAccess(item, !item.isEnabled)
+                                }
                               >
-                                Enable
-                              </button>
-
-                              <button
-                                className="
-                                  w-full
-                                  text-center
-                                  px-3
-                                  py-2
-                                  text-[10px]
-                                  hover:bg-gray-100
-                                  dark:hover:bg-gray-700
-                                "
-                                onClick={closeMenu}
-                              >
-                                Disable
+                                {item.isEnabled ? "Disable" : "Enable"}
                               </button>
 
                               <button

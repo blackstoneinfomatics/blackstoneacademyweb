@@ -44,6 +44,7 @@ interface AddTenantFeatureFormProps {
   ) => void;
   onNavigationTypeChange: (type: "parent" | "child" | "feature") => void;
   onChildNavigationToggle: (navigation: string) => void;
+  onParentModuleSelect: (moduleId: string) => void;
 }
 
 const selectClassName =
@@ -63,6 +64,7 @@ const AddTenantFeatureForm = ({
   onInputChange,
   onNavigationTypeChange,
   onChildNavigationToggle,
+  onParentModuleSelect,
 }: AddTenantFeatureFormProps) => {
   const isModule = formData.category === "Module";
   const selectedParentModule = parentModuleOptions.find(
@@ -174,6 +176,30 @@ const AddTenantFeatureForm = ({
                       className={inputClassName}
                     />
                   </label>
+                  <div className="mb-3">
+                    <span className={labelClassName}>
+                      Existing Parent Modules (select one to add the feature
+                      against it)
+                    </span>
+                    <div className="flex flex-wrap gap-2 rounded-md border border-[#D6D8DE] p-2.5">
+                      {parentModuleOptions.length === 0 ? (
+                        <span className="px-1 py-1 text-[11px] text-gray-400">
+                          No parent modules yet
+                        </span>
+                      ) : (
+                        parentModuleOptions.map((option) => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => onParentModuleSelect(option.id)}
+                            className={`rounded-md px-3 py-1.5 text-[11px] transition ${formData.parentModule === option.id ? "border border-[#5872C5] bg-[#E5EAFF] text-[#17244A]" : "bg-[#E5EAFF] text-[#17244A] hover:bg-[#DCE3FF]"}`}
+                          >
+                            {option.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
                   <label className="mb-3 block">
                     <span className={labelClassName}>
                       Feature Name (optional - adds a feature directly under

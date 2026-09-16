@@ -329,6 +329,17 @@ export const AppApiEndpoints = {
     CREATE_BY_TENANT: "/portal/tenant",
     UPDATE_STATUS: "/portal/tenant/{tenantPortalId}/status",
   },
+  MODULE_TENANT: {
+    GET_CONFIG: "/modules/tenant/config",
+  },
+  MODULE: {
+    GET_LIST: "/modules",
+    UPDATE_PARENT_ACCESS: "/modules/{parentModuleId}/enable",
+    UPDATE_CHILD_ACCESS: "/modules/{parentModuleId}/children/{childModuleId}/enable",
+    UPDATE_PARENT_FEATURE_ACCESS: "/modules/{parentModuleId}/features/{featureId}/enable",
+    UPDATE_CHILD_FEATURE_ACCESS:
+      "/modules/{parentModuleId}/children/{childModuleId}/features/{featureId}/enable",
+  },
   FINANCE: {
     GET_ANALYTICS_COUNT: "/finance/analytics/count",
     GET_GRAPH_DATA: "/finance/dashboard/graph",
