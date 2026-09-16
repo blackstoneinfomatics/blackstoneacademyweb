@@ -125,7 +125,7 @@ const SignIn: React.FC = () => {
 
   const checkEmail = async (email: string) => {
     try {
-      const response = await axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CHECKMAIL.CREATE_CHECK_EMAIL}`, {
+      const response = await axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CHECKMAIL.CREATE_CHECK}`, {
         email,
       });
 
@@ -151,6 +151,7 @@ const SignIn: React.FC = () => {
   };
 
   const getGoogleUserInfo = async (accessToken: string) => {
+    console.log("access token",accessToken);
     try {
       const response = await axios.get(
         "https://www.googleapis.com/oauth2/v3/userinfo",
@@ -175,6 +176,7 @@ const SignIn: React.FC = () => {
               .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
               .join('')
           );
+          console.log("parsed ",jsonPayload);
           return JSON.parse(jsonPayload);
         }
       } catch (decodeError) {
@@ -203,38 +205,13 @@ const SignIn: React.FC = () => {
     try {
       setLoading(true);
       const result = await checkEmail(email);
-      const role = result?.data?.role;
-
-      if (result?.message === "Email exists" && role?.includes("Student")) {
-        let course = result.data.course || result.data.courseName || result.data.student?.course || result.data.student?.courseName || (Array.isArray(result.data.courses) ? result.data.courses[0] : "");
-        let portalName = result.data.username || result.data.username1 || result.data.student?.username || result.data.student?.studentName || "";
-
-        if (!course) {
-              try {
-            const studentId = result.data.id;
-            const token = result.data.accessToken;
-            const detailRes = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ALSTUDENTS.GET}/${studentId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            
-
-            const details = detailRes.data?.studentDetails || detailRes.data;
-            course = details?.course || details?.courseName || details?.student?.course || details?.student?.courseName || "";
-
-            if (!portalName) {
-              portalName = details?.username || details?.student?.username || details?.student?.studentName || "";
-            }
-
-          } catch (fetchErr) {
-            toast.error(AppFailureToastMessages.UNEXPECTED_ERROR + " Failed to retrieve student profile.");
-          }
-        }
+       console.log("result",result);
+      if (result?.data.success == true) {
+        let portalName = result.data.username;
 
         localStorage.setItem("SuperAdminAuthToken", result.data.accessToken);
         localStorage.setItem("SuperAdminPortalId", result.data.id);
         localStorage.setItem("SuperAdminPortalName", portalName);
-        localStorage.setItem("SuperAdminPackage", result.data.package);
-        localStorage.setItem("SuperAdmincourseName", course);
         if (result.data.tenantId) {
           localStorage.setItem("tenantId", result.data.tenantId);
         }
@@ -245,8 +222,6 @@ const SignIn: React.FC = () => {
           SuperAdminAuthToken: result.data.accessToken,
           SuperAdminPortalId: result.data.id,
           SuperAdminPortalName: portalName,
-          SuperAdminPackage: result.data.package,
-          SuperAdmincourseName: course,
           FullData: result.data // Log full object
         });
         router.push(

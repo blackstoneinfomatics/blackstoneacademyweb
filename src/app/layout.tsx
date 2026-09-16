@@ -26,7 +26,7 @@ export default function RootLayout({
       <body className={poppins.className} suppressHydrationWarning>
         <ApiSetupInitializer />
         <ThemeProvider>
-          <GoogleOAuthProvider clientId="672400357916-n7nem2lvccl389dtpg50guj2i6gdsl8t.apps.googleusercontent.com">
+          <GoogleOAuthProvider clientId="808839308794-3eomcaalqhd64m3c0i2vn2m2jd35i6uv.apps.googleusercontent.com">
             {children}
             <ToastProvider />
           </GoogleOAuthProvider>
