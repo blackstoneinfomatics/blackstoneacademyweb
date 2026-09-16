@@ -8,6 +8,7 @@ import { MdTune, MdCancel, MdCheckCircle } from "react-icons/md";
 
 const userItems = [
   {
+    tenantId: "TEN000010",
     portalName: "Admin",
     Domin: "blackstoneacademy.com",
     PhoneNumber: "1234567890",
@@ -19,6 +20,7 @@ const userItems = [
     TenantStatus: "Active",
   },
   {
+    tenantId: "TEN000010",
     portalName: "Admin",
     Domin: "blackstoneacademy.com",
     PhoneNumber: "1234567890",
@@ -30,6 +32,7 @@ const userItems = [
     TenantStatus: "Active",
   },
   {
+    tenantId: "TEN000010",
     portalName: "Admin",
     Domin: "blackstoneacademy.com",
     PhoneNumber: "1234567890",
@@ -41,6 +44,7 @@ const userItems = [
     TenantStatus: "Active",
   },
   {
+    tenantId: "TEN000010",
     portalName: "Admin",
     Domin: "blackstoneacademy.com",
     PhoneNumber: "1234567890",
@@ -524,7 +528,9 @@ const Usertable = () => {
                                 setOpenMenu(null);
 
                                 router.push(
-                                  `/super-admin/ui/featureandcontrol/featureandtenant?portalName=${encodeURIComponent(
+                                  `/super-admin/ui/featureandcontrol/featureandtenant?tenantId=${encodeURIComponent(
+                                    item.tenantId
+                                  )}&portalName=${encodeURIComponent(
                                     item.portalName
                                   )}`
                                 );

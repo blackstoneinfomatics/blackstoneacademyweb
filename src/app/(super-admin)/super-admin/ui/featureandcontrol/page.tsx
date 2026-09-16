@@ -1,23 +1,43 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import Table from "./component/featureTable/page";
 import TenantTable from "./component/tenantTable/page";
-import AddFeatureForm, {
-  FeatureFormData,
-} from "./featureandtenant/AddFeatureForm";
+import AddFeatureForm, { FeatureFormData } from "./component/AddFeatureForm";
 import { BsX } from "react-icons/bs";
 import { FiChevronDown } from "react-icons/fi";
-import axios from "axios";
 import { toast } from "react-toastify";
+import axios from "axios";
+import {
+  createParentModule,
+  createChildModule,
+  createFeature,
+  createParentFeature,
+  getParentModules,
+  getChildModules,
+  type ParentModule,
+  type ChildModule,
+  type Status,
+} from "@/api/portalModule";
 
 /* ================= TYPES ================= */
+interface PortalListItem {
+  _id: string;
+  portalId?: string;
+  portalName: string;
+  portalType: string;
+  roleType: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
+
 interface FormData {
   portal: string;
   category: string;
-  navigationType: "parent" | "child";
+  navigationType: "parent" | "child" | "feature";
   parentNavigation: string;
   parentNavigationName: string;
   childNavigationName: string;
@@ -39,23 +59,77 @@ const Page = () => {
   const [showFailure, setShowFailure] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [createdFeatureName, setCreatedFeatureName] = useState<string>("");
+  const [parentModules, setParentModules] = useState<ParentModule[]>([]);
+  const [portals, setPortals] = useState<PortalListItem[]>([]);
+  const [childModules, setChildModules] = useState<ChildModule[]>([]);
 
   /* ====== FORM STATE ====== */
   const [formData, setFormData] = useState<FormData>({
-    portal: "Student",
-    category: "Normal Feature",
+    portal: "",
+    category: "Module",
     navigationType: "child",
-    parentNavigation: "Chat & Support",
+    parentNavigation: "",
     parentNavigationName: "",
     childNavigationName: "",
-    childNavigations: ["Ticket"],
+    childNavigations: [],
     featureName: "",
     moduleType: "child",
-    parentModule: "Chat & Support",
+    parentModule: "",
     childModuleName: "",
     description: "",
     status: "Active",
   });
+
+  /* ====== LOAD PARENT MODULES (for Navigation Menu + Feature dropdowns) ====== */
+  const loadParentModules = async () => {
+    try {
+      const modules = await getParentModules();
+      setParentModules(modules);
+      setFormData((previous) => ({
+        ...previous,
+        parentNavigation:
+          previous.parentNavigation || modules[0]?.parentModuleId || "",
+        parentModule: previous.parentModule || modules[0]?.parentModuleId || "",
+      }));
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to load parent navigations");
+    }
+  };
+
+  /* ====== LOAD CHILD MODULES (for the Feature category's Child Module list) ====== */
+  useEffect(() => {
+    if (!formData.parentModule || formData.category !== "Feature") {
+      setChildModules([]);
+      return;
+    }
+
+    getChildModules(formData.parentModule)
+      .then(setChildModules)
+      .catch((error: any) => {
+        console.error("Error fetching child modules:", error);
+        toast.error(error?.message || "Failed to load child modules");
+      });
+  }, [formData.parentModule, formData.category]);
+
+  /* ====== LOAD PORTALS (for Select Module dropdown) ====== */
+  const loadPortals = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/portal?limit=100",
+      );
+      if (response.data.success) {
+        const items: PortalListItem[] = response.data.data.items ?? [];
+        setPortals(items);
+        setFormData((previous) => ({
+          ...previous,
+          portal: previous.portal || items[0]?.portalName || "",
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching portal list:", error);
+      toast.error("Failed to load portal list");
+    }
+  };
 
   /* ====== HANDLE INPUT CHANGE ====== */
   const handleInputChange = (
@@ -64,7 +138,11 @@ const Page = () => {
     >,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "parentModule" ? { childNavigations: [] } : {}),
+    }));
   };
 
   /* ====== HANDLE RADIO CHANGE ====== */
@@ -72,28 +150,28 @@ const Page = () => {
     setFormData((prev) => ({ ...prev, moduleType: type }));
   };
 
-  const toggleChildNavigation = (navigation: string) => {
+  const toggleChildNavigation = (childModuleId: string) => {
     setFormData((previous) => ({
       ...previous,
-      childNavigations: previous.childNavigations.includes(navigation)
-        ? previous.childNavigations.filter((item) => item !== navigation)
-        : [...previous.childNavigations, navigation],
+      childNavigations: previous.childNavigations.includes(childModuleId)
+        ? previous.childNavigations.filter((id) => id !== childModuleId)
+        : [...previous.childNavigations, childModuleId],
     }));
   };
 
   /* ====== RESET FORM ====== */
   const resetForm = () => {
     setFormData({
-      portal: "Student",
-      category: "Normal Feature",
+      portal: portals[0]?.portalName ?? "",
+      category: "Module",
       navigationType: "child",
-      parentNavigation: "Chat & Support",
+      parentNavigation: parentModules[0]?.parentModuleId ?? "",
       parentNavigationName: "",
       childNavigationName: "",
-      childNavigations: ["Ticket"],
+      childNavigations: [],
       featureName: "",
       moduleType: "child",
-      parentModule: "Chat & Support",
+      parentModule: parentModules[0]?.parentModuleId ?? "",
       childModuleName: "",
       description: "",
       status: "Active",
@@ -114,65 +192,122 @@ const Page = () => {
     setCreatedFeatureName("");
   };
 
+  const createdItemType =
+    formData.category === "Navigation Menu" ? "Navigation" : "Feature";
+  const successTitle = `${createdItemType} Added Successfully!`;
+  const successMessage = `The ${createdFeatureName || createdItemType} ${createdItemType.toLowerCase()} has been added successfully.`;
+  const failureTitle = `${createdItemType} Added Failed`;
+  const failureMessage = `The ${createdFeatureName || createdItemType} ${createdItemType.toLowerCase()} could not be added. Please check the details and try again.`;
+
   /* ====== HANDLE SUBMIT ====== */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.portal) {
+      toast.error("Select module");
+      return;
+    }
+
+    if (!formData.parentModule) {
+      toast.error("Select the parent module");
+      return;
+    }
+
+    if (formData.category === "Feature" && formData.childNavigations.length === 0) {
+      toast.error("Select the child module");
+      return;
+    }
+
     setIsLoading(true);
 
+    const isEnabled = formData.status === "Active";
+    const status = formData.status as Status;
+
     try {
-      // ================= API PAYLOAD =================
-      const payload = {
-        portal: formData.portal,
-        category: formData.category,
-        navigationType: formData.navigationType,
-        parentNavigation: formData.parentNavigation,
-        parentNavigationName: formData.parentNavigationName,
-        childNavigationName: formData.childNavigationName,
-        childNavigations: formData.childNavigations,
-        featureName: formData.featureName,
-        moduleType: formData.moduleType,
-        parentModule: formData.parentModule,
-        childModuleName: formData.childModuleName,
-        description: formData.description,
-        status: formData.status.toUpperCase(),
-      };
-
-      console.log("Sending payload:", payload);
-
-      // Replace with actual API endpoint
-      // const response = await axios.post("http://localhost:5001/feature", payload);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      // For demo: 90% success rate
-      if (Math.random() > 0.1) {
-        setCreatedFeatureName(
-          formData.childModuleName || formData.parentModule || "Feature",
+      if (formData.category === "Navigation Menu") {
+        if (formData.navigationType === "parent") {
+          await createParentModule({
+            portal: formData.portal,
+            parentModuleName: formData.parentNavigationName,
+            description: formData.description,
+            status,
+            isEnabled,
+            createdBy: "SUPER_ADMIN",
+          });
+          setCreatedFeatureName(
+            formData.parentNavigationName || "Parent Navigation",
+          );
+        } else {
+          const parent = parentModules.find(
+            (module) => module.parentModuleId === formData.parentNavigation,
+          );
+          if (!parent) {
+            throw new Error("Select a parent navigation first");
+          }
+          await createChildModule(parent.parentModuleId, {
+            childModuleName: formData.childNavigationName,
+            description: formData.description,
+            status,
+            isEnabled,
+            createdBy: "SUPER_ADMIN",
+          });
+          setCreatedFeatureName(
+            formData.childNavigationName || "Child Navigation",
+          );
+        }
+        await loadParentModules();
+        setShowSuccess(true);
+        setShowAddFeatureModal(false);
+        toast.success("Navigation added successfully!");
+        resetForm();
+      } else {
+        const parent = parentModules.find(
+          (module) => module.parentModuleId === formData.parentModule,
         );
+        if (!parent) {
+          throw new Error("Select a parent module first");
+        }
+
+        const featurePayload = {
+          featureName: formData.featureName,
+          description: formData.description,
+          status,
+          isEnabled,
+          createdBy: "SUPER_ADMIN",
+        };
+
+        if (formData.childNavigations.length === 0) {
+          await createParentFeature(parent.parentModuleId, featurePayload);
+        } else {
+          await Promise.all(
+            formData.childNavigations.map((childModuleId) =>
+              createFeature(
+                parent.parentModuleId,
+                childModuleId,
+                featurePayload,
+              ),
+            ),
+          );
+        }
+
+        setCreatedFeatureName(formData.featureName || "Feature");
+        await loadParentModules();
         setShowSuccess(true);
         setShowAddFeatureModal(false);
         toast.success("Feature added successfully!");
         resetForm();
-      } else {
-        setCreatedFeatureName(
-          formData.childModuleName || formData.parentModule || "Feature",
-        );
-        setShowFailure(true);
-        setShowAddFeatureModal(false);
-        toast.error("Failed to add feature");
       }
     } catch (error: any) {
       console.error("Error creating feature:", error);
       setCreatedFeatureName(
-        formData.childModuleName || formData.parentModule || "Feature",
+        formData.featureName ||
+          formData.childNavigationName ||
+          formData.parentNavigationName ||
+          "Feature",
       );
       setShowFailure(true);
       setShowAddFeatureModal(false);
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to add feature. Please try again.",
-      );
+      toast.error(error?.message || "Failed to add feature. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -191,7 +326,11 @@ const Page = () => {
 
             {activeTab === "feature" && (
               <button
-                onClick={() => setShowAddFeatureModal(true)}
+                onClick={() => {
+                  setShowAddFeatureModal(true);
+                  loadParentModules();
+                  loadPortals();
+                }}
                 className="
                   bg-[#5872C5]
                   hover:bg-[#4D66B3]
@@ -252,12 +391,35 @@ const Page = () => {
         <AddFeatureForm
           formData={formData as FeatureFormData}
           isLoading={isLoading}
+          portalOptions={portals.map((portal) => ({
+            id: portal._id,
+            name: portal.portalName,
+          }))}
+          parentModuleOptions={parentModules.map((module) => ({
+            id: module.parentModuleId,
+            name: module.parentModuleName,
+            children: module.children.map((child) => ({
+              id: child.childModuleId,
+              name: child.childModuleName,
+            })),
+          }))}
+          childModuleOptions={childModules.map((child) => ({
+            id: child.childModuleId,
+            name: child.childModuleName,
+          }))}
           onClose={closeAddFeatureModal}
           onReset={resetForm}
           onSubmit={handleSubmit}
           onInputChange={handleInputChange}
           onNavigationTypeChange={(navigationType) =>
             setFormData((previous) => ({ ...previous, navigationType }))
+          }
+          onParentModuleSelect={(moduleId) =>
+            setFormData((previous) => ({
+              ...previous,
+              parentModule: moduleId,
+              childNavigations: [],
+            }))
           }
           onChildNavigationToggle={toggleChildNavigation}
         />
@@ -512,11 +674,11 @@ const Page = () => {
             </div>
 
             <h2 className="text-[20px] font-bold text-[#1E293B] dark:text-white mb-2">
-              Navigation Added Successfully!
+              {successTitle}
             </h2>
 
             <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-5 leading-relaxed">
-              The Student Management Navigation has been added successfully.
+              {successMessage}
             </p>
 
             <div className="flex justify-center mb-6">
@@ -558,12 +720,11 @@ const Page = () => {
             </div>
 
             <h2 className="text-[20px] font-bold text-[#1E293B] dark:text-white mb-2">
-              Navigation Added Failed
+              {failureTitle}
             </h2>
 
             <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-5 leading-relaxed">
-              The Student Management navigation could not be added. Please check
-              the details and try again.
+              {failureMessage}
             </p>
 
             <div className="flex justify-center mb-6">

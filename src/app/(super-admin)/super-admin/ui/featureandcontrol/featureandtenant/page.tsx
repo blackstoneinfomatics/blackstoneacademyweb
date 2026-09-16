@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { BsThreeDotsVertical, BsX } from "react-icons/bs";
 import { FiSearch, FiChevronDown, FiInfo } from "react-icons/fi";
@@ -8,9 +8,22 @@ import { MdTune } from "react-icons/md";
 import { HiOutlineArrowLeft } from "react-icons/hi";
 import BaseSuperLayout from "../../../components/BaseSuperLayout";
 import SuperAdminHeader from "../../../components/SuperAdminHeader";
-import AddFeatureForm from "./AddFeatureForm";
+import AddTenantFeatureForm, {
+  type TenantParentModuleOption,
+  type TenantPortalOption,
+} from "../component/AddTenantFeatureForm";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import {
+  addTenantModule,
+  addTenantChildModule,
+  addTenantModuleFeature,
+  addTenantChildFeature,
+  getTenantModules,
+  type TenantModule,
+  type PortalStatus,
+} from "@/api/portalModule";
 
 /* ================= TYPES ================= */
 interface ModuleItem {
@@ -35,12 +48,13 @@ interface FeatureItem {
 interface FormData {
   portal: string;
   category: string;
-  navigationType: "parent" | "child";
+  navigationType: "parent" | "child" | "feature";
   parentNavigation: string;
   parentNavigationName: string;
   childNavigationName: string;
   childNavigations: string[];
   featureName: string;
+  parentModule: string;
   description: string;
   status: string;
 }
@@ -235,6 +249,12 @@ const portalSidebarItems = [
 /* ================= CHILD NAVIGATION OPTIONS ================= */
 const childNavigationOptions = ["Ticket", "Message"];
 
+interface TenantPortalListItem {
+  _id: string;
+  portalId: string;
+  portalName: string;
+}
+
 const Usercards = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [activePortal, setActivePortal] = useState<string>("Student");
@@ -242,6 +262,8 @@ const Usercards = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tenantId = searchParams.get("tenantId") ?? "";
 
   /* ====== MODAL STATES ====== */
   const [showAddFeatureModal, setShowAddFeatureModal] = useState(false);
@@ -249,20 +271,34 @@ const Usercards = () => {
   const [showFailure, setShowFailure] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [createdFeatureName, setCreatedFeatureName] = useState<string>("");
+  const [portalOptions, setPortalOptions] = useState<TenantPortalOption[]>([]);
+  const [tenantModules, setTenantModules] = useState<TenantModule[]>([]);
 
   /* ====== FORM STATE ====== */
   const [formData, setFormData] = useState<FormData>({
-    portal: "Student",
-    category: "Normal Feature",
+    portal: "",
+    category: "Feature",
     navigationType: "child",
-    parentNavigation: "Chat & Support",
+    parentNavigation: "",
     parentNavigationName: "",
     childNavigationName: "",
     childNavigations: ["Ticket"],
     featureName: "",
+    parentModule: "",
     description: "",
     status: "Active",
   });
+
+  const parentModuleOptions: TenantParentModuleOption[] = tenantModules.map(
+    (module) => ({
+      id: module.moduleId,
+      name: module.moduleName,
+      children: module.children.map((child) => ({
+        id: child.childModuleId,
+        name: child.childModuleName,
+      })),
+    }),
+  );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -286,6 +322,70 @@ const Usercards = () => {
     setSearchTerm("");
     setOpenMenu(null);
   }, [activeTab]);
+
+  /* ====== LOAD TENANT PORTAL LIST (for Select Portal dropdown) ====== */
+  useEffect(() => {
+    if (!tenantId) {
+      setPortalOptions([]);
+      return;
+    }
+
+    const loadTenantPortals = async () => {
+      try {
+        const portalEndpoint = AppApiEndpoints.PORTAL.GET_BY_TENANT.replace(
+          "{tenantId}",
+          encodeURIComponent(tenantId),
+        );
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${portalEndpoint}`,
+        );
+
+        if (response.data.success) {
+          const items: TenantPortalListItem[] = response.data.data?.items ?? [];
+          const options: TenantPortalOption[] = items.map((item) => ({
+            id: item.portalId,
+            name: item.portalName,
+          }));
+          setPortalOptions(options);
+          setFormData((previous) => ({
+            ...previous,
+            portal: previous.portal || options[0]?.id || "",
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching tenant portal list:", error);
+        toast.error("Failed to load portal list");
+      }
+    };
+
+    loadTenantPortals();
+  }, [tenantId]);
+
+  /* ====== LOAD TENANT MODULES (for Parent Module dropdowns) ====== */
+  const loadTenantModules = async () => {
+    if (!tenantId || !formData.portal) {
+      setTenantModules([]);
+      return;
+    }
+
+    try {
+      const modules = await getTenantModules(tenantId, formData.portal);
+      setTenantModules(modules);
+      setFormData((previous) => ({
+        ...previous,
+        parentNavigation: previous.parentNavigation || modules[0]?.moduleId || "",
+        parentModule: previous.parentModule || modules[0]?.moduleId || "",
+      }));
+    } catch (error: any) {
+      console.error("Error fetching tenant modules:", error);
+      toast.error(error?.message || "Failed to load parent modules");
+    }
+  };
+
+  useEffect(() => {
+    loadTenantModules();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, formData.portal]);
 
   /* ====== FORM HANDLERS ====== */
   const handleInputChange = (
@@ -312,14 +412,15 @@ const Usercards = () => {
 
   const resetForm = () => {
     setFormData({
-      portal: "Student",
-      category: "Normal Feature",
+      portal: portalOptions[0]?.id ?? "",
+      category: "Feature",
       navigationType: "child",
-      parentNavigation: "Chat & Support",
+      parentNavigation: tenantModules[0]?.moduleId ?? "",
       parentNavigationName: "",
       childNavigationName: "",
-      childNavigations: ["Ticket"],
+      childNavigations: [],
       featureName: "",
+      parentModule: tenantModules[0]?.moduleId ?? "",
       description: "",
       status: "Active",
     });
@@ -346,47 +447,96 @@ const Usercards = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    const portalId = formData.portal;
+    const status = formData.status.toUpperCase() as PortalStatus;
+
     try {
-      const payload = {
-        portal: formData.portal,
-        category: formData.category,
-        navigationType: formData.navigationType,
-        parentNavigation: formData.parentNavigation,
-        parentNavigationName: formData.parentNavigationName,
-        childNavigationName: formData.childNavigationName,
-        childNavigations: formData.childNavigations,
-        featureName: formData.featureName,
-        description: formData.description,
-        status: formData.status.toUpperCase(),
-      };
-
-      console.log("Sending payload:", payload);
-
-      // const response = await axios.post("http://localhost:5001/feature", payload);
-
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      if (Math.random() > 0.1) {
-        setCreatedFeatureName(formData.featureName || "Feature");
-        setShowSuccess(true);
-        setShowAddFeatureModal(false);
-        toast.success("Feature added successfully!");
-        resetForm();
-      } else {
-        setCreatedFeatureName(formData.featureName || "Feature");
-        setShowFailure(true);
-        setShowAddFeatureModal(false);
-        toast.error("Failed to add feature");
+      if (!tenantId) {
+        throw new Error("Missing tenant id");
       }
+      if (!portalId) {
+        throw new Error("Select a portal first");
+      }
+
+      if (formData.category === "Module") {
+        if (formData.navigationType === "parent") {
+          await addTenantModule({
+            tenantId,
+            portalId,
+            moduleName: formData.parentNavigationName,
+            moduleStatus: status,
+            createdBy: "SUPER_ADMIN",
+          });
+          setCreatedFeatureName(
+            formData.parentNavigationName || "Parent Module",
+          );
+        } else {
+          const parent = tenantModules.find(
+            (module) => module.moduleId === formData.parentNavigation,
+          );
+          if (!parent) {
+            throw new Error("Select a parent module first");
+          }
+          await addTenantChildModule(parent.moduleId, {
+            tenantId,
+            portalId,
+            childModuleName: formData.childNavigationName,
+            childModuleStatus: status,
+            createdBy: "SUPER_ADMIN",
+          });
+          setCreatedFeatureName(
+            formData.childNavigationName || "Child Module",
+          );
+        }
+      } else {
+        const parent = tenantModules.find(
+          (module) => module.moduleId === formData.parentModule,
+        );
+        if (!parent) {
+          throw new Error("Select a parent module first");
+        }
+
+        const featurePayload = {
+          tenantId,
+          portalId,
+          featureName: formData.featureName,
+          featureStatus: status,
+          createdBy: "SUPER_ADMIN",
+        };
+
+        if (formData.childNavigations.length === 0) {
+          await addTenantModuleFeature(parent.moduleId, featurePayload);
+        } else {
+          await Promise.all(
+            formData.childNavigations.map((childModuleId) =>
+              addTenantChildFeature(
+                parent.moduleId,
+                childModuleId,
+                featurePayload,
+              ),
+            ),
+          );
+        }
+
+        setCreatedFeatureName(formData.featureName || "Feature");
+      }
+
+      await loadTenantModules();
+      setShowSuccess(true);
+      setShowAddFeatureModal(false);
+      toast.success("Saved successfully!");
+      resetForm();
     } catch (error: any) {
       console.error("Error creating feature:", error);
-      setCreatedFeatureName(formData.featureName || "Feature");
+      setCreatedFeatureName(
+        formData.featureName ||
+          formData.childNavigationName ||
+          formData.parentNavigationName ||
+          "Feature",
+      );
       setShowFailure(true);
       setShowAddFeatureModal(false);
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to add feature. Please try again.",
-      );
+      toast.error(error?.message || "Failed to save. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -928,9 +1078,11 @@ const Usercards = () => {
       </div>
 
       {showAddFeatureModal && (
-        <AddFeatureForm
+        <AddTenantFeatureForm
           formData={formData}
           isLoading={isLoading}
+          portalOptions={portalOptions}
+          parentModuleOptions={parentModuleOptions}
           onClose={closeAddFeatureModal}
           onReset={resetForm}
           onSubmit={handleSubmit}
@@ -942,7 +1094,7 @@ const Usercards = () => {
         />
       )}
 
-      {/* Legacy form markup below is intentionally unreachable; AddFeatureForm above is the current design. */}
+      {/* Legacy form markup below is intentionally unreachable; AddTenantFeatureForm above is the current design. */}
       {false && showAddFeatureModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="relative bg-white dark:bg-[#2C2C2C] rounded-2xl shadow-2xl w-full max-w-[750px] mx-6 max-h-[92vh] overflow-y-auto scrollbar-none">
