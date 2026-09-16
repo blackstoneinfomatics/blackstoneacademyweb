@@ -17,7 +17,7 @@ import { TfiReload } from "react-icons/tfi";
 import { AiOutlineAudit } from "react-icons/ai";
 import { LuDatabaseBackup } from "react-icons/lu";
 import { IoIosSettings } from "react-icons/io";
-
+import { IoIosArrowDown } from "react-icons/io";
 interface Props {
   readonly children: ReactNode | ReactNode[];
 }
@@ -60,8 +60,11 @@ const SuperSidebarItems = [
   },
   {
     name: "Chat & Support",
-    href: "/super-admin/ui/chatsupport",
+    href: "/super-admin/ui/chatandsupport",
     icon: PiChats,
+     subItems: [
+      { name: "Tickets", href: "/super-admin/ui/tickets" },
+    ],
   },
   {
     name: "Updates",
@@ -85,12 +88,16 @@ const SuperSidebarItems = [
   },
 ];
 
+
 function SuperSidebar() {
   const pathname = usePathname();
+
   const [permissions, setPermissions] = useState<any>({});
+  const [isChatSupportOpen, setIsChatSupportOpen] = useState(false);
 
   useEffect(() => {
     const roleAccessRaw = localStorage.getItem("SupervisorRolePermission");
+
     if (roleAccessRaw) {
       try {
         const roleAccess = JSON.parse(roleAccessRaw);
@@ -102,10 +109,18 @@ function SuperSidebar() {
     }
   }, []);
 
+  // Automatically open Chat & Support when Tickets page is active
+  useEffect(() => {
+    if (pathname === "/super-admin/ui/tickets") {
+      setIsChatSupportOpen(true);
+    }
+  }, [pathname]);
+
   return (
     <div className="sidebar__wrapper bg-[#012A4A] dark:bg-[#1D1D1D] p-4 h-full w-full max-w-full overflow-y-auto flex flex-col">
+
       {/* Logo Section */}
-      <div className="flex items-center gap-2  mb-4 px-2">
+      <div className="flex items-center gap-2 mb-4 px-2">
         <Image
           src="/assets/images/blackstone.png"
           width={150}
@@ -117,39 +132,103 @@ function SuperSidebar() {
 
       {/* Menu List */}
       <ul className="space-y-2 flex-1">
-        {SuperSidebarItems.map(({ name, href, icon: Icon }) => {
-          const key = name.toLowerCase().replace(/\s+/g, "");
-          const modulePermission = permissions?.[key] || {};
-          const hasReadAccess = modulePermission.read ?? true;
-          return (
-            <li key={name}>
-              <Link
-                href={hasReadAccess ? href : "#"}
-                className="block no-underline"
-              >
-                <button
-                  className={`w-full flex items-center gap-2 px-2 py-2
-                    text-[12px] sm:text-[13px] xl:text-[14px]
-                    cursor-${hasReadAccess ? "pointer" : "not-allowed"} rounded transition-colors duration-200
-                    ${
-                      pathname === href
-                        ? "text-white font-medium bg-[#576CBC]"
-                        : hasReadAccess
-                          ? "text-[#818790] hover:text-[#a0c4ff]"
-                          : "text-[#818790] hover:text-[#a0c4ff] opacity-70"
-                    }
-                  `}
-                  disabled={!hasReadAccess}
-                >
-                  <span className="text-[18px] w-5 flex justify-center">
-                    <Icon size={20} />
-                  </span>
-                  <span className="flex-1 text-left">{name}</span>
-                </button>
-              </Link>
-            </li>
-          );
-        })}
+        {SuperSidebarItems.map(
+          ({ name, href, icon: Icon, subItems }) => {
+
+            const key = name.toLowerCase().replace(/\s+/g, "");
+
+            const modulePermission = permissions?.[key] || {};
+
+            const hasReadAccess = modulePermission.read ?? true;
+
+            // Only Chat & Support has dropdown
+            const isChatSupport = name === "Chat & Support";
+
+            return (
+              <li key={name}>
+
+                {/* Main Menu */}
+                <div className="flex items-center w-full">
+
+                  {/* Main Menu Link */}
+                  <Link
+                    href={hasReadAccess ? href : "#"}
+                    className="flex-1 no-underline"
+                  >
+                    <button
+                      className={`w-full flex items-center gap-2 px-2 py-2
+                        text-[12px] sm:text-[13px] xl:text-[14px]
+                        rounded transition-colors duration-200
+                        ${
+                          pathname === href
+                            ? "text-white font-medium bg-[#576CBC]"
+                            : hasReadAccess
+                              ? "text-[#818790] hover:text-[#a0c4ff]"
+                              : "text-[#818790] opacity-70 cursor-not-allowed"
+                        }
+                      `}
+                      disabled={!hasReadAccess}
+                    >
+                      <span className="text-[18px] w-5 flex justify-center">
+                        <Icon size={20} />
+                      </span>
+
+                      <span className="flex-1 text-left">
+                        {name}
+                      </span>
+                    </button>
+                  </Link>
+
+                  {/* Arrow ONLY for Chat & Support */}
+                  {isChatSupport && hasReadAccess && subItems && subItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIsChatSupportOpen((prev) => !prev)
+                      }
+                      className="px-2 py-2 text-[#818790] hover:text-white"
+                    >
+                      <IoIosArrowDown
+                        size={18}
+                        className={`transition-transform duration-200 ${
+                          isChatSupportOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
+
+                {/* Tickets Dropdown ONLY for Chat & Support */}
+                {isChatSupport &&
+                  hasReadAccess &&
+                  isChatSupportOpen &&
+                  subItems &&
+                  subItems.length > 0 && (
+                    <ul className="ml-7 mt-1 space-y-1">
+                      {subItems.map((subItem) => (
+                        <li key={subItem.name}>
+                          <Link
+                            href={subItem.href}
+                            className={`block rounded px-2 py-1
+                              text-[11px] sm:text-[12px] xl:text-[13px]
+                              no-underline transition-colors duration-200
+                              ${
+                                pathname === subItem.href
+                                  ? "bg-[#576CBC] text-white font-medium"
+                                  : "text-[#818790] hover:text-[#a0c4ff]"
+                              }
+                            `}
+                          >
+                            {subItem.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+              </li>
+            );
+          }
+        )}
       </ul>
     </div>
   );
