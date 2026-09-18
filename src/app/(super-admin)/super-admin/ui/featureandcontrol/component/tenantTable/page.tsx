@@ -21,6 +21,27 @@ interface TenantConfigRow {
   status: string;
 }
 
+interface TenantAnalyticsMetric {
+  currentCount: number;
+  previousMonthCount: number;
+  percentage: number;
+  trend: "up" | "down" | "same";
+}
+
+interface TenantAnalyticsCards {
+  totalTenants: TenantAnalyticsMetric;
+  activeTenants: TenantAnalyticsMetric;
+  trialTenants: TenantAnalyticsMetric;
+  inactiveTenants: TenantAnalyticsMetric;
+  expiringTenants: TenantAnalyticsMetric;
+}
+
+interface TenantAnalyticsCardsResponse {
+  success: boolean;
+  message: string;
+  data: TenantAnalyticsCards;
+}
+
 // TODO: replace with a real tenant/portal list once a "list all tenants" API
 // is available - /modules/tenant/config is scoped to a single tenant+portal.
 const KNOWN_TENANT_PORTALS = [
@@ -36,9 +57,47 @@ const formatDate = (value?: string) =>
       })
     : "-";
 
+const renderTrend = (metric?: TenantAnalyticsMetric) => {
+  if (!metric) return null;
+
+  const arrow = metric.trend === "up" ? "↑" : metric.trend === "down" ? "↓" : "–";
+  const color =
+    metric.trend === "up"
+      ? "text-[#377E36]"
+      : metric.trend === "down"
+        ? "text-[#D34645]"
+        : "text-gray-500";
+
+  return (
+    <span className={`text-[13px] font-medium ${color}`}>
+      {arrow} {metric.percentage}%
+    </span>
+  );
+};
+
 const Usertable = () => {
   const [userItems, setUserItems] = useState<TenantConfigRow[]>([]);
+  const [analyticsCards, setAnalyticsCards] =
+    useState<TenantAnalyticsCards | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchAnalyticsCards = async () => {
+      try {
+        const response = await axios.get<TenantAnalyticsCardsResponse>(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_ANALYTICS_CARDS}`,
+        );
+
+        if (response.data.success) {
+          setAnalyticsCards(response.data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch tenant analytics cards:", error);
+      }
+    };
+
+    fetchAnalyticsCards();
+  }, []);
 
   useEffect(() => {
     const loadTenantConfigs = async () => {
@@ -128,15 +187,13 @@ const Usertable = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  28
+                  {analyticsCards?.totalTenants.currentCount ?? "-"}
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className="text-[#377E36] text-[13px] font-medium">
-                ↑ 14%
-              </span>
+              {renderTrend(analyticsCards?.totalTenants)}
 
               <span className="text-[12px] text-gray-500">
                 vs last Month
@@ -179,15 +236,13 @@ const Usertable = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  28
+                  {analyticsCards?.activeTenants.currentCount ?? "-"}
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className="text-[#377E36] text-[13px] font-medium">
-                ↑ 14%
-              </span>
+              {renderTrend(analyticsCards?.activeTenants)}
 
               <span className="text-[12px] text-gray-500">
                 vs last Month
@@ -230,15 +285,13 @@ const Usertable = () => {
                 </p>
 
                 <p className="text-[18px] font-semibold text-[#303030] dark:text-white mt-1">
-                  10
+                  {analyticsCards?.inactiveTenants.currentCount ?? "-"}
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span className="text-[#D34645] text-[13px] font-medium">
-                ↓ 5%
-              </span>
+              {renderTrend(analyticsCards?.inactiveTenants)}
 
               <span className="text-[12px] text-gray-500">
                 vs last Month
