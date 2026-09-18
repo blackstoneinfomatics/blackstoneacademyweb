@@ -22,7 +22,7 @@ import {
   addTenantChildFeature,
   type TenantModule,
   type PortalStatus,
-} from "@/api/portalModule";
+} from "../../../portalModule/index";
 
 /* ================= TYPES ================= */
 interface ModuleListRow {

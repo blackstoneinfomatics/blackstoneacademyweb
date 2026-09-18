@@ -20,7 +20,7 @@ import {
   type ParentModule,
   type ChildModule,
   type Status,
-} from "@/api/portalModule";
+} from "../../portalModule/index";
 
 /* ================= TYPES ================= */
 interface PortalListItem {
@@ -193,7 +193,7 @@ const Page = () => {
   };
 
   const createdItemType =
-    formData.category === "Navigation Menu" ? "Navigation" : "Feature";
+    formData.category === "Module" ? "Navigation" : "Feature";
   const successTitle = `${createdItemType} Added Successfully!`;
   const successMessage = `The ${createdFeatureName || createdItemType} ${createdItemType.toLowerCase()} has been added successfully.`;
   const failureTitle = `${createdItemType} Added Failed`;
@@ -224,7 +224,7 @@ const Page = () => {
     const status = formData.status as Status;
 
     try {
-      if (formData.category === "Navigation Menu") {
+      if (formData.category === "Module") {
         if (formData.navigationType === "parent") {
           await createParentModule({
             portal: formData.portal,

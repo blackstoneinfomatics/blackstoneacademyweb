@@ -363,7 +363,7 @@ const page = () => {
                     <p className={`text-md mt-[4px] font-medium ${card.titleColor}`}>
                       {card.title}
                     </p>
-                    <h2 className="text-[25px] font-semibold text-gray-800 mt-1">
+                    <h2 className="text-[25px] font-semibold text-gray-800 dark:text-white mt-1">
                       {card.value}
                     </h2>
                   </div>
@@ -564,14 +564,14 @@ const page = () => {
 
           {showFilterPanel && (
             <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
-              <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] bg-white p-5 shadow-2xl">
+              <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c] p-5 shadow-2xl">
                 <div className="mb-5 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-[#101B41] font-sans">
+                  <h3 className="text-lg font-semibold text-[#101B41] dark:text-white font-sans">
                     Filter by
                   </h3>
                   <button
                     onClick={() => setShowFilterPanel(false)}
-                    className="text-[#B8C0D3] hover:text-[#6E7891]"
+                    className="text-[#B8C0D3] hover:text-[#6E7891] dark:hover:text-white"
                   >
                     <X size={20} />
                   </button>
@@ -579,7 +579,7 @@ const page = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
                       Title
                     </label>
                     <input
@@ -591,12 +591,12 @@ const page = () => {
                         }))
                       }
                       placeholder="Enter update title"
-                      className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                      className="h-8 w-full rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none placeholder:text-[#8693AE] dark:placeholder:text-[#7A7A7A]"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
                       Category
                     </label>
                     <div className="relative">
@@ -608,7 +608,7 @@ const page = () => {
                             category: e.target.value,
                           }))
                         }
-                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 pr-9 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none"
                       >
                         <option value="All">Select Category</option>
                         {categoryOptions.map((option) => (
@@ -619,13 +619,13 @@ const page = () => {
                       </select>
                       <ChevronDown
                         size={18}
-                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F] dark:text-[#B5B5B5]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
                       Priority
                     </label>
                     <div className="relative">
@@ -637,7 +637,7 @@ const page = () => {
                             priority: e.target.value,
                           }))
                         }
-                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 pr-9 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none"
                       >
                         <option value="All">Select Priority</option>
                         {priorityOptions.map((option) => (
@@ -648,13 +648,13 @@ const page = () => {
                       </select>
                       <ChevronDown
                         size={18}
-                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F] dark:text-[#B5B5B5]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
                       Audience
                     </label>
                     <div className="relative">
@@ -666,7 +666,7 @@ const page = () => {
                             audience: e.target.value,
                           }))
                         }
-                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 pr-9 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none"
                       >
                         <option value="All">Select Audience</option>
                         {audienceOptions.map((option) => (
@@ -677,13 +677,13 @@ const page = () => {
                       </select>
                       <ChevronDown
                         size={18}
-                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F] dark:text-[#B5B5B5]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
                       Status
                     </label>
                     <div className="relative">
@@ -695,7 +695,7 @@ const page = () => {
                             status: e.target.value,
                           }))
                         }
-                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                        className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 pr-9 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none"
                       >
                         <option value="All">Select Status</option>
                         {statusOptions.map((option) => (
@@ -706,13 +706,13 @@ const page = () => {
                       </select>
                       <ChevronDown
                         size={18}
-                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F] dark:text-[#B5B5B5]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
                       Release Date
                     </label>
                     <div className="grid grid-cols-2 gap-2">
@@ -726,7 +726,7 @@ const page = () => {
                               fromDate: e.target.value,
                             }))
                           }
-                          className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                          className="h-8 w-full rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 pr-9 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none"
                         />
                       </div>
 
@@ -740,14 +740,14 @@ const page = () => {
                               toDate: e.target.value,
                             }))
                           }
-                          className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                          className="h-8 w-full rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 pr-9 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="my-5 h-px bg-[#E4E8F1]" />
+                <div className="my-5 h-px bg-[#E4E8F1] dark:bg-[#4A4A4A]" />
 
                 <div className="grid grid-cols-2 gap-3">
                   <button

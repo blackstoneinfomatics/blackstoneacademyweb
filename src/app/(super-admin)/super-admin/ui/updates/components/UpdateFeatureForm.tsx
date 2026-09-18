@@ -130,20 +130,20 @@ export default function UpdateFeatureForm({
   };
 
   return (
-    <div className="w-full max-w-[640px] rounded-md bg-white p-4 shadow-sm">
+    <div className="w-full max-w-[640px] rounded-md bg-white dark:bg-[#343434] p-4 shadow-sm">
       {/* =====================================================
           HEADER
       ====================================================== */}
 
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-[16px] font-semibold text-[#172554]">
+        <h2 className="text-[16px] font-semibold text-[#172554] dark:text-white">
           Update Feature
         </h2>
 
         <button
           type="button"
           onClick={onClose}
-          className="text-[#9CA3AF] hover:text-[#172554]"
+          className="text-[#9CA3AF] hover:text-[#172554] dark:hover:text-white"
         >
           <IoClose size={20} />
         </button>
@@ -157,7 +157,7 @@ export default function UpdateFeatureForm({
         {/* Title */}
 
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
             Title
           </label>
 
@@ -166,14 +166,14 @@ export default function UpdateFeatureForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Enter Update Title"
-            className="h-[34px] w-full rounded border border-[#D9DDE5] px-2 text-[12px] text-[#596579] outline-none focus:border-[#576CBC]"
+            className="h-[34px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] text-[#596579] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
           />
         </div>
 
         {/* Category */}
 
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
             Category
           </label>
 
@@ -181,7 +181,7 @@ export default function UpdateFeatureForm({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="h-[34px] w-full appearance-none rounded border border-[#D9DDE5] bg-white px-2 pr-7 text-[12px] text-[#596579] outline-none focus:border-[#576CBC]"
+              className="h-[34px] w-full appearance-none rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 pr-7 text-[12px] text-[#596579] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
             >
               <option value="Feature Release">Feature Release</option>
               <option value="Bug Fix">Bug Fix</option>
@@ -191,7 +191,7 @@ export default function UpdateFeatureForm({
 
             <IoChevronDown
               size={15}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579]"
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579] dark:text-[#B5B5B5]"
             />
           </div>
         </div>
@@ -202,14 +202,14 @@ export default function UpdateFeatureForm({
       ====================================================== */}
 
       <div className="mt-3">
-        <label className="mb-2 block text-[12px] font-medium text-[#172554]">
+        <label className="mb-2 block text-[12px] font-medium text-[#172554] dark:text-white">
           Audience
         </label>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           {/* All Tenants */}
 
-          <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579]">
+          <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
             <input
               type="checkbox"
               checked={allTenants}
@@ -222,7 +222,7 @@ export default function UpdateFeatureForm({
 
           {/* Select Tenants */}
 
-          <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579]">
+          <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
             <input
               type="checkbox"
               checked={selectTenants}
@@ -240,7 +240,7 @@ export default function UpdateFeatureForm({
           {plans.map((plan) => (
             <label
               key={plan.planId}
-              className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579]"
+              className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579] dark:text-[#B5B5B5]"
             >
               <input
                 type="checkbox"
@@ -262,7 +262,7 @@ export default function UpdateFeatureForm({
 
       {selectTenants && (
         <div className="mt-3">
-          <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
             Select Tenants
           </label>
 
@@ -270,7 +270,7 @@ export default function UpdateFeatureForm({
             <select
               value={selectedTenant}
               onChange={(e) => setSelectedTenant(e.target.value)}
-              className="h-[34px] w-full appearance-none rounded border border-[#D9DDE5] bg-white px-2 pr-7 text-[12px] text-[#596579] outline-none focus:border-[#576CBC]"
+              className="h-[34px] w-full appearance-none rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 pr-7 text-[12px] text-[#596579] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
             >
               <option value="">Select Tenants</option>
 
@@ -283,7 +283,7 @@ export default function UpdateFeatureForm({
 
             <IoChevronDown
               size={15}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579]"
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579] dark:text-[#B5B5B5]"
             />
           </div>
         </div>
@@ -293,7 +293,7 @@ export default function UpdateFeatureForm({
           INFORMATION MESSAGE
       ====================================================== */}
 
-      <div className="mt-3 flex items-center gap-2 rounded bg-[#E5ECFF] px-3 py-2.5 text-[12px] text-[#304674]">
+      <div className="mt-3 flex items-center gap-2 rounded bg-[#E5ECFF] dark:bg-[#36477e33] px-3 py-2.5 text-[12px] text-[#304674] dark:text-[#C7D2FE]">
         <FaInfoCircle size={13} className="shrink-0 text-[#576CBC]" />
 
         <span>
@@ -312,7 +312,7 @@ export default function UpdateFeatureForm({
       ====================================================== */}
 
       <div className="mt-3">
-        <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+        <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
           Description
         </label>
 
@@ -320,7 +320,7 @@ export default function UpdateFeatureForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Today Update day"
-          className="h-[100px] w-full resize-none rounded border border-[#D9DDE5] p-2 text-[12px] text-[#596579] outline-none focus:border-[#576CBC]"
+          className="h-[100px] w-full resize-none rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] p-2 text-[12px] text-[#596579] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC] placeholder:text-[#A5AAB4] dark:placeholder:text-[#7A7A7A]"
         />
       </div>
 
@@ -332,7 +332,7 @@ export default function UpdateFeatureForm({
         {/* Publish Date */}
 
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
             Publish Date
           </label>
 
@@ -341,12 +341,12 @@ export default function UpdateFeatureForm({
               type="date"
               value={publishDate}
               onChange={(e) => setPublishDate(e.target.value)}
-              className="h-[34px] w-full rounded border border-[#D9DDE5] bg-white px-2 pr-8 text-[12px] text-[#596579] outline-none focus:border-[#576CBC]"
+              className="h-[34px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 pr-8 text-[12px] text-[#596579] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
             />
 
             <LuCalendarDays
               size={15}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579]"
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579] dark:text-[#B5B5B5]"
             />
           </div>
         </div>
@@ -354,7 +354,7 @@ export default function UpdateFeatureForm({
         {/* Priority */}
 
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
             Priority
           </label>
 
@@ -362,7 +362,7 @@ export default function UpdateFeatureForm({
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as UpdatePriority)}
-              className="h-[34px] w-full appearance-none rounded border border-[#D9DDE5] bg-white px-2 pr-7 text-[12px] text-[#596579] outline-none focus:border-[#576CBC]"
+              className="h-[34px] w-full appearance-none rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 pr-7 text-[12px] text-[#596579] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
             >
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
@@ -371,7 +371,7 @@ export default function UpdateFeatureForm({
 
             <IoChevronDown
               size={15}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579]"
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#596579] dark:text-[#B5B5B5]"
             />
           </div>
         </div>
@@ -385,12 +385,12 @@ export default function UpdateFeatureForm({
         {/* Attachments */}
 
         <div>
-          <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
             Attachments
           </label>
 
-          <div className="flex h-[34px] items-center justify-between rounded border border-[#D9DDE5] px-2">
-            <span className="text-[12px] text-[#596579]">File</span>
+          <div className="flex h-[34px] items-center justify-between rounded border border-[#D9DDE5] dark:border-[#4A4A4A] px-2">
+            <span className="text-[12px] text-[#596579] dark:text-[#B5B5B5]">File</span>
 
             <label className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-[#576CBC]">
               <LuUpload size={13} />
@@ -403,14 +403,14 @@ export default function UpdateFeatureForm({
         {/* Sent Notification */}
 
         <div>
-          <label className="mb-2 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-2 block text-[12px] font-medium text-[#172554] dark:text-white">
             Sent Notification
           </label>
 
           <div className="flex items-center gap-4">
             {/* Email */}
 
-            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579]">
+            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
               <input
                 type="checkbox"
                 checked={sendEmail}
@@ -422,7 +422,7 @@ export default function UpdateFeatureForm({
 
             {/* In App */}
 
-            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579]">
+            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
               <input
                 type="checkbox"
                 checked={sendInApp}
@@ -439,7 +439,7 @@ export default function UpdateFeatureForm({
           FOOTER
       ====================================================== */}
 
-      <div className="mt-3 flex justify-end border-t border-[#E5E7EB] pt-2">
+      <div className="mt-3 flex justify-end border-t border-[#E5E7EB] dark:border-[#4A4A4A] pt-2">
         <button
           type="button"
           onClick={handlePublish}

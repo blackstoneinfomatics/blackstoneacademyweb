@@ -448,12 +448,12 @@ const [broadcastData, setBroadcastData] = useState({
   return (
     <BaseLayout3>
     <SuperAdminHeader currentSection="Chats" />
-      <div className="min-h-screen rounded-2xl bg-[#F5F7FC] p-4 md:p-6">
+      <div className="min-h-screen rounded-2xl bg-[#F5F7FC] dark:bg-[#1F1F1F] p-4 md:p-6">
 
         {/* PAGE HEADER */}
         <div className="flex items-center justify-between mb-4">
 
-          <h1 className="text-[22px] font-semibold text-[#010E30]">
+          <h1 className="text-[22px] font-semibold text-[#010E30] dark:text-white">
             Institute Chats
           </h1>
 
@@ -470,19 +470,19 @@ const [broadcastData, setBroadcastData] = useState({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-[420px] bg-white rounded-md shadow-xl border border-[#576CBC]"
+      className="w-[420px] bg-white dark:bg-[#343434] rounded-md shadow-xl border border-[#576CBC]"
     >
 
       {/* HEADER */}
       <div className="flex items-center justify-between px-3 py-3">
 
-        <h2 className="text-[17px] font-semibold text-[#010E30]">
+        <h2 className="text-[17px] font-semibold text-[#010E30] dark:text-white">
           Broadcast Chat
         </h2>
 
         <button
           onClick={() => setShowBroadcast(false)}
-          className="text-[#777D89] hover:text-[#010E30] text-lg"
+          className="text-[#777D89] dark:text-[#B5B5B5] hover:text-[#010E30] dark:hover:text-white text-lg"
         >
           ×
         </button>
@@ -495,13 +495,13 @@ const [broadcastData, setBroadcastData] = useState({
         {/* SEND TO */}
         <div className="mb-3">
 
-          <p className="text-[12px] font-medium text-[#252B3A] mb-2">
+          <p className="text-[12px] font-medium text-[#252B3A] dark:text-[#E2E2E2] mb-2">
             Send To
           </p>
 
           <div className="flex items-center gap-4">
 
-            <label className="flex items-center gap-1.5 text-[11px] text-[#4D5360]">
+            <label className="flex items-center gap-1.5 text-[11px] text-[#4D5360] dark:text-[#B5B5B5]">
               <input
                 type="checkbox"
                 checked
@@ -511,7 +511,7 @@ const [broadcastData, setBroadcastData] = useState({
               All Tenants
             </label>
 
-            <label className="flex items-center gap-1.5 text-[11px] text-[#4D5360]">
+            <label className="flex items-center gap-1.5 text-[11px] text-[#4D5360] dark:text-[#B5B5B5]">
               <input
                 type="checkbox"
                 className="accent-[#576CBC]"
@@ -524,13 +524,13 @@ const [broadcastData, setBroadcastData] = useState({
         </div>
 
         {/* INFO MESSAGE */}
-        <div className="flex items-center gap-2 bg-[#EEF2FF] rounded-md px-3 py-2 mb-3">
+        <div className="flex items-center gap-2 bg-[#EEF2FF] dark:bg-[#36477e33] rounded-md px-3 py-2 mb-3">
 
           <span className="text-[#576CBC] text-[12px]">
             ●
           </span>
 
-          <p className="text-[11px] text-[#4E5A7A]">
+          <p className="text-[11px] text-[#4E5A7A] dark:text-[#C7D2FE]">
             This message will be sent to all tenants (288 tenants)
           </p>
 
@@ -539,7 +539,7 @@ const [broadcastData, setBroadcastData] = useState({
         {/* MESSAGE TITLE */}
         <div className="mb-3">
 
-          <label className="block text-[11px] font-medium text-[#252B3A] mb-1">
+          <label className="block text-[11px] font-medium text-[#252B3A] dark:text-[#E2E2E2] mb-1">
             Message Title
           </label>
 
@@ -552,7 +552,7 @@ const [broadcastData, setBroadcastData] = useState({
                 messageTitle: e.target.value,
               })
             }
-            className="w-full h-8 border border-[#D9DBE2] rounded-md px-2 text-[11px] outline-none focus:border-[#576CBC]"
+            className="w-full h-8 border border-[#D9DBE2] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md px-2 text-[11px] text-[#252B3A] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
           />
 
         </div>
@@ -560,7 +560,7 @@ const [broadcastData, setBroadcastData] = useState({
         {/* MESSAGE TYPE */}
         <div className="mb-3">
 
-          <label className="block text-[11px] font-medium text-[#252B3A] mb-1">
+          <label className="block text-[11px] font-medium text-[#252B3A] dark:text-[#E2E2E2] mb-1">
             Message
           </label>
 
@@ -572,7 +572,7 @@ const [broadcastData, setBroadcastData] = useState({
                 messageType: e.target.value,
               })
             }
-            className="w-full h-8 border border-[#D9DBE2] rounded-md px-2 text-[11px] text-[#555B68] outline-none focus:border-[#576CBC]"
+            className="w-full h-8 border border-[#D9DBE2] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md px-2 text-[11px] text-[#555B68] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
           >
             <option value="Select">Select</option>
             <option value="Announcement">Announcement</option>
@@ -595,7 +595,7 @@ const [broadcastData, setBroadcastData] = useState({
                 message: e.target.value,
               })
             }
-            className="w-full h-[90px] border border-[#D9DBE2] rounded-md p-2 text-[11px] resize-none outline-none focus:border-[#576CBC]"
+            className="w-full h-[90px] border border-[#D9DBE2] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md p-2 text-[11px] text-[#252B3A] dark:text-[#E2E2E2] resize-none outline-none focus:border-[#576CBC]"
           />
 
         </div>
@@ -603,13 +603,13 @@ const [broadcastData, setBroadcastData] = useState({
         {/* ATTACHMENT */}
         <div className="mb-4">
 
-          <label className="block text-[11px] font-medium text-[#252B3A] mb-1">
+          <label className="block text-[11px] font-medium text-[#252B3A] dark:text-[#E2E2E2] mb-1">
             Attachments
           </label>
 
-          <div className="flex items-center border border-[#D9DBE2] rounded-md h-8 overflow-hidden">
+          <div className="flex items-center border border-[#D9DBE2] dark:border-[#4A4A4A] rounded-md h-8 overflow-hidden">
 
-            <label className="flex-1 px-2 text-[11px] text-[#777D89] cursor-pointer">
+            <label className="flex-1 px-2 text-[11px] text-[#777D89] dark:text-[#B5B5B5] cursor-pointer">
 
               {broadcastData.attachment
                 ? broadcastData.attachment.name
@@ -679,14 +679,14 @@ const [broadcastData, setBroadcastData] = useState({
           {/* LEFT CHAT LIST */}
           {/* ========================================= */}
 
-          <div className="w-[350px] bg-white rounded-lg shadow-sm border border-[#E8EAF0] flex flex-col">
+          <div className="w-[350px] bg-white dark:bg-[#343434] rounded-lg shadow-sm border border-[#E8EAF0] dark:border-[#3F3F3F] flex flex-col">
 
             {/* CURRENT USER */}
-            <div className="p-3 border-b border-[#EEEEEE]">
+            <div className="p-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F]">
 
               <div className="flex items-center gap-3">
 
-                <div className="w-10 h-10 rounded-md bg-[#E7EAF2] flex items-center justify-center overflow-hidden">
+                <div className="w-10 h-10 rounded-md bg-[#E7EAF2] dark:bg-[#2c2c2c] flex items-center justify-center overflow-hidden">
                   <img
                     src="/assets/images/account.png"
                     alt="Profile"
@@ -696,11 +696,11 @@ const [broadcastData, setBroadcastData] = useState({
 
                 <div className="flex-1 min-w-0">
 
-                  <h3 className="text-[14px] font-semibold text-[#010E30]">
+                  <h3 className="text-[14px] font-semibold text-[#010E30] dark:text-white">
                     {currentUser.userName}
                   </h3>
 
-                  <p className="text-[11px] text-[#7B8190]">
+                  <p className="text-[11px] text-[#7B8190] dark:text-[#B5B5B5]">
                     {currentUser.role}
                   </p>
 
@@ -719,7 +719,7 @@ const [broadcastData, setBroadcastData] = useState({
 
                   <FiSearch
                     size={13}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE]"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE] dark:text-[#8a8a8a]"
                   />
 
                   <input
@@ -729,13 +729,13 @@ const [broadcastData, setBroadcastData] = useState({
                     onChange={(e) =>
                       setSearchQuery(e.target.value)
                     }
-                    className="w-full h-8 pl-9 pr-3 border border-[#DDDFE6] rounded-md text-[12px] outline-none focus:border-[#576CBC]"
+                    className="w-full h-8 pl-9 pr-3 border border-[#DDDFE6] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md text-[12px] text-[#252B3A] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
                   />
 
                 </div>
 
                 <button
-                  className="w-8 h-8 border border-[#DDDFE6] rounded-md flex items-center justify-center text-[#777D89] hover:bg-[#F5F6FA]"
+                  className="w-8 h-8 border border-[#DDDFE6] dark:border-[#4A4A4A] rounded-md flex items-center justify-center text-[#777D89] dark:text-[#B5B5B5] hover:bg-[#F5F6FA] dark:hover:bg-[#2F2F2F]"
                 >
                   <FiFilter size={13} />
                 </button>
@@ -745,14 +745,14 @@ const [broadcastData, setBroadcastData] = useState({
             </div>
 
             {/* TABS */}
-            <div className="flex items-center px-3 mt-2 border-b border-[#EEEEEE]">
+            <div className="flex items-center px-3 mt-2 border-b border-[#EEEEEE] dark:border-[#3F3F3F]">
 
               <button
                 onClick={() => setActiveTab("all")}
                 className={`text-[12px] px-2 py-2 ${
                   activeTab === "all"
                     ? "text-[#576CBC] border-b-2 border-[#576CBC] font-medium"
-                    : "text-[#6D7280]"
+                    : "text-[#6D7280] dark:text-[#B5B5B5]"
                 }`}
               >
                 All
@@ -763,7 +763,7 @@ const [broadcastData, setBroadcastData] = useState({
                 className={`text-[12px] px-2 py-2 ${
                   activeTab === "unread"
                     ? "text-[#576CBC] border-b-2 border-[#576CBC] font-medium"
-                    : "text-[#6D7280]"
+                    : "text-[#6D7280] dark:text-[#B5B5B5]"
                 }`}
               >
                 Unread
@@ -774,7 +774,7 @@ const [broadcastData, setBroadcastData] = useState({
                 className={`text-[12px] px-2 py-2 ${
                   activeTab === "groups"
                     ? "text-[#576CBC] border-b-2 border-[#576CBC] font-medium"
-                    : "text-[#6D7280]"
+                    : "text-[#6D7280] dark:text-[#B5B5B5]"
                 }`}
               >
                 Groups
@@ -806,9 +806,9 @@ const [broadcastData, setBroadcastData] = useState({
                       key={user._id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] text-left hover:bg-[#F7F8FC] ${
+                      className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F] ${
                         selectedUser?._id === user._id
-                          ? "bg-[#F4F6FB]"
+                          ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]"
                           : ""
                       }`}
                       onClick={() =>
@@ -819,14 +819,14 @@ const [broadcastData, setBroadcastData] = useState({
                       {/* AVATAR */}
                       <div className="relative flex-shrink-0">
 
-                        <div className="w-8 h-8 rounded-md bg-[#E7E8EC] flex items-center justify-center">
-                          <span className="text-[12px] font-medium text-[#9297A2]">
+                        <div className="w-8 h-8 rounded-md bg-[#E7E8EC] dark:bg-[#242424] flex items-center justify-center">
+                          <span className="text-[12px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
                             B
                           </span>
                         </div>
 
                         <span
-                          className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white ${getStatusColor(
+                          className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
                             user.status
                           )}`}
                         />
@@ -838,17 +838,17 @@ const [broadcastData, setBroadcastData] = useState({
 
                         <div className="flex items-center gap-1">
 
-                          <span className="text-[12px] font-semibold text-[#252B3A] truncate">
+                          <span className="text-[12px] font-semibold text-[#252B3A] dark:text-white truncate">
                             {user.userName}
                           </span>
 
-                          <span className="text-[10px] px-1.5 py-[1px] rounded bg-[#E9F0FF] text-[#576CBC]">
+                          <span className="text-[10px] px-1.5 py-[1px] rounded bg-[#E9F0FF] dark:bg-[#36477e33] text-[#576CBC]">
                             {user.role[0]}
                           </span>
 
                         </div>
 
-                        <p className="text-[12px] text-[#989DA8] truncate mt-[2px]">
+                        <p className="text-[12px] text-[#989DA8] dark:text-[#8a8a8a] truncate mt-[2px]">
                           {lastMessage?.messages ||
                             "No messages yet"}
                         </p>
@@ -858,7 +858,7 @@ const [broadcastData, setBroadcastData] = useState({
                       {/* TIME */}
                       <div className="flex flex-col items-end gap-1">
 
-                        <span className="text-[10px] text-[#A2A6AF]">
+                        <span className="text-[10px] text-[#A2A6AF] dark:text-[#8a8a8a]">
                           {lastMessage
                             ? lastMessage.time
                             : user.lastSeen}
@@ -884,26 +884,26 @@ const [broadcastData, setBroadcastData] = useState({
           {/* RIGHT CHAT */}
           {/* ========================================= */}
 
-          <div className="flex-1 bg-white rounded-lg shadow-sm border border-[#E8EAF0] flex flex-col min-w-0">
+          <div className="flex-1 bg-white dark:bg-[#343434] rounded-lg shadow-sm border border-[#E8EAF0] dark:border-[#3F3F3F] flex flex-col min-w-0">
 
             {selectedUser ? (
               <>
 
                 {/* CHAT HEADER */}
-                <div className="h-[58px] px-4 border-b border-[#EEEEEE] flex items-center justify-between">
+                <div className="h-[58px] px-4 border-b border-[#EEEEEE] dark:border-[#3F3F3F] flex items-center justify-between">
 
                   <div className="flex items-center gap-3">
 
                     <div className="relative">
 
-                      <div className="w-9 h-9 rounded-md bg-[#E7E8EC] flex items-center justify-center">
-                        <span className="text-[13px] font-medium text-[#9297A2]">
+                      <div className="w-9 h-9 rounded-md bg-[#E7E8EC] dark:bg-[#242424] flex items-center justify-center">
+                        <span className="text-[13px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
                           B
                         </span>
                       </div>
 
                       <span
-                        className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white ${getStatusColor(
+                        className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
                           selectedUser.status
                         )}`}
                       />
@@ -912,11 +912,11 @@ const [broadcastData, setBroadcastData] = useState({
 
                     <div>
 
-                      <h3 className="text-[13px] font-semibold text-[#252B3A]">
+                      <h3 className="text-[13px] font-semibold text-[#252B3A] dark:text-white">
                         {selectedUser.userName}
                       </h3>
 
-                      <p className="text-[10px] text-[#8C919C]">
+                      <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5]">
                         {selectedUser.role[0]}
                       </p>
 
@@ -924,14 +924,14 @@ const [broadcastData, setBroadcastData] = useState({
 
                   </div>
 
-                  <button className="text-[#777D89]">
+                  <button className="text-[#777D89] dark:text-[#B5B5B5]">
                     <FiMoreVertical size={15} />
                   </button>
 
                 </div>
 
                 {/* MESSAGES */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#FCFCFD]">
+                <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#FCFCFD] dark:bg-[#2c2c2c]">
 
                   {Object.entries(groupedMessages).map(
                     ([date, msgs]) => (
@@ -940,7 +940,7 @@ const [broadcastData, setBroadcastData] = useState({
                         {/* DATE */}
                         <div className="text-center mb-4">
 
-                          <span className="text-[10px] text-[#A3A7B0]">
+                          <span className="text-[10px] text-[#A3A7B0] dark:text-[#8a8a8a]">
                             {date}
                           </span>
 
@@ -966,7 +966,7 @@ const [broadcastData, setBroadcastData] = useState({
                                 className={`max-w-[240px] px-3 py-2 rounded-lg ${
                                   isMine
                                     ? "bg-[#576CBC] text-white rounded-br-sm"
-                                    : "bg-[#F0F1F3] text-[#252B3A] rounded-bl-sm"
+                                    : "bg-[#F0F1F3] dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] rounded-bl-sm"
                                 }`}
                               >
 
@@ -978,7 +978,7 @@ const [broadcastData, setBroadcastData] = useState({
                                   className={`text-[7px] mt-1 text-right ${
                                     isMine
                                       ? "text-white/70"
-                                      : "text-[#9B9FA8]"
+                                      : "text-[#9B9FA8] dark:text-[#8a8a8a]"
                                   }`}
                                 >
                                   {msg.time}
@@ -999,11 +999,11 @@ const [broadcastData, setBroadcastData] = useState({
                 </div>
 
                 {/* MESSAGE INPUT */}
-                <div className="p-3 border-t border-[#EEEEEE]">
+                <div className="p-3 border-t border-[#EEEEEE] dark:border-[#3F3F3F]">
 
-                  <div className="h-10 bg-[#F6F7F9] rounded-md flex items-center px-2">
+                  <div className="h-10 bg-[#F6F7F9] dark:bg-[#2c2c2c] rounded-md flex items-center px-2">
 
-                    <button className="p-2 text-[#8E939D]">
+                    <button className="p-2 text-[#8E939D] dark:text-[#B5B5B5]">
                       <GrAttachment size={13} />
                     </button>
 
@@ -1022,7 +1022,7 @@ const [broadcastData, setBroadcastData] = useState({
                           handleSendMessage();
                         }
                       }}
-                      className="flex-1 bg-transparent outline-none text-[11px] text-[#252B3A] placeholder:text-[#A5A9B2]"
+                      className="flex-1 bg-transparent outline-none text-[11px] text-[#252B3A] dark:text-[#E2E2E2] placeholder:text-[#A5A9B2] dark:placeholder:text-[#7A7A7A]"
                     />
 
                     <motion.button
@@ -1045,7 +1045,7 @@ const [broadcastData, setBroadcastData] = useState({
 
               <div className="flex-1 flex items-center justify-center">
 
-                <p className="text-[13px] text-[#9A9EA8]">
+                <p className="text-[13px] text-[#9A9EA8] dark:text-[#8a8a8a]">
                   Select a conversation to start chatting
                 </p>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -90,6 +90,20 @@ interface FeatureTableItem {
 const MENU_WIDTH = 112; // w-28
 const PAGE_LIMIT = 5;
 
+const formatAddOnDate = (createdAt: string): string => {
+  if (!createdAt) return "-";
+
+  const date = new Date(createdAt);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 const Table = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState<{
@@ -99,6 +113,7 @@ const Table = () => {
   const [featureCardData, setFeatureCardData] =
     useState<FeatureCardData | null>(null);
   const [featureItems, setFeatureItems] = useState<FeatureTableItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [totalFeatureItems, setTotalFeatureItems] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -172,10 +187,7 @@ const Table = () => {
                 description: feature.description,
                 status: feature.status,
                 isEnabled: feature.isEnabled,
-                addOnDate: new Date(feature.createdAt).toLocaleDateString(
-                  "en-GB",
-                  { day: "2-digit", month: "short", year: "numeric" },
-                ),
+                addOnDate: formatAddOnDate(feature.createdAt),
               })),
               ...parentModule.children.flatMap((childModule) =>
                 childModule.features.map((feature) => ({
@@ -189,10 +201,7 @@ const Table = () => {
                   description: feature.description,
                   status: feature.status,
                   isEnabled: feature.isEnabled,
-                  addOnDate: new Date(feature.createdAt).toLocaleDateString(
-                    "en-GB",
-                    { day: "2-digit", month: "short", year: "numeric" },
-                  ),
+                  addOnDate: formatAddOnDate(feature.createdAt),
                 })),
               ),
             ],
@@ -209,6 +218,22 @@ const Table = () => {
 
     fetchModules();
   }, [currentPage]);
+
+  const filteredFeatureItems = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) return featureItems;
+
+    return featureItems.filter((item) =>
+      [
+        item.featureName,
+        item.portal,
+        item.parentModule,
+        item.childModule,
+        item.description,
+      ].some((field) => field?.toLowerCase().includes(term)),
+    );
+  }, [featureItems, searchTerm]);
 
   const toggleMenu = (index: number) => {
     if (openMenu === index) {
@@ -511,6 +536,8 @@ const Table = () => {
 
               <input
                 placeholder="Search by keyword"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
                 className="
                   w-full
                   outline-none
@@ -548,7 +575,7 @@ const Table = () => {
             {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing {featureItems.length} Of {totalFeatureItems}
+                Showing {filteredFeatureItems.length} Of {totalFeatureItems}
               </span>
             </div>
           </div>
@@ -568,10 +595,10 @@ const Table = () => {
               >
                 <tr>
                   {[
-                    "Feature Name",
                     "Portal",
                     "Parent Module",
                     "Child Module",
+                    "Feature Name",
                     "Description",
                     "Status",
                     "Add On Date",
@@ -598,8 +625,8 @@ const Table = () => {
 
               {/* Table Body */}
               <tbody>
-                {featureItems.length > 0 ? (
-                  featureItems.map((item, index) => (
+                {filteredFeatureItems.length > 0 ? (
+                  filteredFeatureItems.map((item, index) => (
                     <tr
                       key={index}
                       className="
@@ -611,9 +638,7 @@ const Table = () => {
                       "
                     >
                       {/* Portal Name */}
-                      <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
-                        {item.featureName}
-                      </td>
+                      
                       {/* Portal Type */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                         {item.portal}
@@ -623,6 +648,9 @@ const Table = () => {
                       </td>{" "}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                         {item.childModule}
+                      </td>
+                      <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
+                        {item.featureName}
                       </td>
                       {/* Description */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
@@ -731,7 +759,7 @@ const Table = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="p-5 text-center text-gray-500">
+                    <td colSpan={8} className="p-5 text-center text-gray-500">
                       No data available
                     </td>
                   </tr>

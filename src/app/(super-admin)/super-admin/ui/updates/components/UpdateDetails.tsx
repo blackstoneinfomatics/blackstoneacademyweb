@@ -34,15 +34,15 @@ const statusTextClass = (status: ProductUpdate["status"]) => {
 
 export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
   return (
-    <div className="w-full max-w-[440px] rounded-md bg-white p-3 shadow-sm">
+    <div className="w-full max-w-[440px] rounded-md bg-white dark:bg-[#343434] p-3 shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#D9DDE5] pb-2">
-        <h2 className="text-[14px] font-semibold text-[#172554]">Details</h2>
+      <div className="flex items-center justify-between border-b border-[#D9DDE5] dark:border-[#4A4A4A] pb-2">
+        <h2 className="text-[14px] font-semibold text-[#172554] dark:text-white">Details</h2>
 
         <button
           type="button"
           onClick={onClose}
-          className="text-[#9CA3AF] hover:text-[#172554]"
+          className="text-[#9CA3AF] hover:text-[#172554] dark:hover:text-white"
         >
           <IoClose size={20} />
         </button>
@@ -54,7 +54,7 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
         <div className="grid grid-cols-2 gap-3">
           {/* Update Title */}
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+            <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
               Update Title
             </label>
 
@@ -62,13 +62,13 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
               type="text"
               value={update.title}
               readOnly
-              className="h-[32px] w-full rounded border border-[#D9DDE5] bg-white px-2 text-[12px] text-[#596579] outline-none"
+              className="h-[32px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] text-[#596579] dark:text-[#B5B5B5] outline-none"
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+            <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
               Category
             </label>
 
@@ -76,21 +76,21 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
               type="text"
               value={update.category}
               readOnly
-              className="h-[32px] w-full rounded border border-[#D9DDE5] bg-white px-2 text-[12px] text-[#596579] outline-none"
+              className="h-[32px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] text-[#596579] dark:text-[#B5B5B5] outline-none"
             />
           </div>
         </div>
 
         {/* Description */}
         <div className="mt-3">
-          <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+          <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
             Description
           </label>
 
           <textarea
             value={update.description}
             readOnly
-            className="h-[65px] w-full resize-none rounded border border-[#D9DDE5] bg-white p-2 text-[12px] text-[#596579] outline-none"
+            className="h-[65px] w-full resize-none rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] p-2 text-[12px] text-[#596579] dark:text-[#B5B5B5] outline-none"
           />
         </div>
 
@@ -98,7 +98,7 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
         <div className="mt-3 grid grid-cols-2 gap-3">
           {/* Audience */}
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+            <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
               Audience
             </label>
 
@@ -106,13 +106,13 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
               type="text"
               value={update.audience}
               readOnly
-              className="h-[32px] w-full rounded border border-[#D9DDE5] bg-white px-2 text-[12px] text-[#596579] outline-none"
+              className="h-[32px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] text-[#596579] dark:text-[#B5B5B5] outline-none"
             />
           </div>
 
           {/* Release Date */}
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+            <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
               Release Date
             </label>
 
@@ -120,7 +120,7 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
               type="text"
               value={update.releaseDate}
               readOnly
-              className="h-[32px] w-full rounded border border-[#D9DDE5] bg-white px-2 text-[12px] text-[#596579] outline-none"
+              className="h-[32px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] text-[#596579] dark:text-[#B5B5B5] outline-none"
             />
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
         <div className="mt-3 grid grid-cols-3 gap-3">
           {/* Purchase Tenant */}
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+            <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
               Purchase Tenant
             </label>
 
@@ -137,13 +137,13 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
               type="text"
               value={update.affectedTenants ?? "-"}
               readOnly
-              className="h-[32px] w-full rounded border border-[#D9DDE5] bg-white px-2 text-[12px] text-[#596579] outline-none"
+              className="h-[32px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] text-[#596579] dark:text-[#B5B5B5] outline-none"
             />
           </div>
 
           {/* Priority */}
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+            <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
               Priority
             </label>
 
@@ -151,13 +151,13 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
               type="text"
               value={update.priority}
               readOnly
-              className={`h-[32px] w-full rounded border border-[#D9DDE5] bg-white px-2 text-[12px] font-medium outline-none ${priorityTextClass(update.priority)}`}
+              className={`h-[32px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] font-medium outline-none ${priorityTextClass(update.priority)}`}
             />
           </div>
 
           {/* Status */}
           <div>
-            <label className="mb-1 block text-[12px] font-medium text-[#172554]">
+            <label className="mb-1 block text-[12px] font-medium text-[#172554] dark:text-white">
               Status
             </label>
 
@@ -165,7 +165,7 @@ export default function UpdateDetails({ update, onClose }: UpdateDetailsProps) {
               type="text"
               value={update.status}
               readOnly
-              className={`h-[32px] w-full rounded border border-[#D9DDE5] bg-white px-2 text-[12px] font-medium outline-none ${statusTextClass(update.status)}`}
+              className={`h-[32px] w-full rounded border border-[#D9DDE5] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[12px] font-medium outline-none ${statusTextClass(update.status)}`}
             />
           </div>
         </div>
