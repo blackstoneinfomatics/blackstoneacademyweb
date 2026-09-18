@@ -1,71 +1,78 @@
-import React from 'react'
-import {
-  LogIn,
-  Monitor,
-  Eye,
-  MessageSquare,
-  Upload,
-} from "lucide-react";
+"use client";
+import React, { useEffect, useState } from 'react';
+
+// Local icons
+const ICONS: Record<string, string> = {
+  logins: '/assets/images/superadmin-analytics-quickinsights-best-revenue-month.svg',
+  sessions: '/assets/images/superadmin-analytics-quickinsights-top-payning-tenant.svg',
+  page_views: '/assets/images/superadmin-analytics-quickinsights-collection-rate.svg',
+  messages: '/assets/images/superadmin-analytics-quickinsights-overdue-amount.svg',
+};
+
+type InsightItem = {
+  key: string;
+  title: string;
+  value: string;
+  period: string;
+  image?: string;
+};
+
+const FALLBACK_DATA: InsightItem[] = [
+  { key: 'logins', title: 'Logins', value: '2,00,000', period: 'May 2026' },
+  { key: 'sessions', title: 'Sessions', value: '2,00,000', period: 'May 2026' },
+  { key: 'page_views', title: 'Page Views', value: '90%', period: 'May 2026' },
+  { key: 'messages', title: 'Messages Sent', value: '50,000', period: 'May 2026' },
+];
 
 const QuickInsights = () => {
+  const [data, setData] = useState<InsightItem[]>(FALLBACK_DATA);
 
-    const data = [
-    {
-      title: "Logins",
-      value: "2,00,000",
-      icon: LogIn,
-    },
-    {
-      title: "Sessions",
-      value: "2,00,000",
-      icon: Monitor,
-    },
-    {
-      title: "Page Views",
-      value: "90%",
-      icon: Eye,
-    },
-    {
-      title: "Messages Sent",
-      value: "50,000",
-      icon: MessageSquare,
-    },
-    {
-      title: "Files Uploaded",
-      value: "50,000",
-      icon: Upload,
-    },
-  ];
+  useEffect(() => {
+    fetch('/api/quick-insights')
+      .then((res) => res.json())
+      .then((json) => {
+        if (Array.isArray(json?.data)) setData(json.data);
+      })
+      .catch(() => { });
+  }, []);
 
   return (
-<div className="rounded-2xl bg-white p-5 shadow-sm">
-      <h2 className="mb-5 text-lg font-semibold text-[#101B41]">
+    <div className="w-full h-[350px] rounded-2xl bg-white p-4 shadow-sm sm:p-5 dark:bg-[#343434] dark:shadow-none dark:border dark:border-[#454545]">
+      <h2 className="mb-4 text-base font-semibold text-[#101B41] sm:mb-5 sm:text-lg dark:text-white">
         Quick Insights
       </h2>
 
-      <div className="space-y-5">
+      <div className="space-y-5 sm:space-y-7">
         {data.map((item, index) => {
-          const Icon = item.icon;
+          const imgSrc = item.image || ICONS[item.key];
 
           return (
             <div
-              key={index}
-              className="flex items-center justify-between"
+              key={item.key ?? index}
+              className="flex items-center justify-between gap-3"
             >
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-gray-100 p-3">
-                  <Icon size={18} />
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-[#454545]">
+                  {imgSrc && (
+                    <img
+                      src={imgSrc}
+                      alt={item.title}
+                      className="h-10 w-10 object-contain"
+                    />
+                  )}
                 </div>
 
-                <div>
-                  <p className="font-medium">{item.title}</p>
-                  <p className="text-xs text-gray-500">
-                    May 2026
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[#101B41] sm:text-base dark:text-white">
+                    {item.title}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {item.period}
                   </p>
                 </div>
               </div>
 
-              <span className="font-semibold">
+              <span className="flex-shrink-0 text-sm font-semibold text-[#101B41] sm:text-base dark:text-white">
                 {item.value}
               </span>
             </div>
@@ -73,7 +80,7 @@ const QuickInsights = () => {
         })}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default QuickInsights
+export default QuickInsights;
