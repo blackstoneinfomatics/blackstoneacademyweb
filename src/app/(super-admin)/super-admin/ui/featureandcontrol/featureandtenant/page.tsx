@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BsThreeDotsVertical, BsX } from "react-icons/bs";
 import { FiSearch, FiChevronDown, FiInfo } from "react-icons/fi";
 import { MdTune } from "react-icons/md";
@@ -20,29 +21,39 @@ import {
   addTenantChildModule,
   addTenantModuleFeature,
   addTenantChildFeature,
+  updateTenantModuleAccess,
+  updateTenantChildModuleAccess,
+  updateTenantModuleFeatureAccess,
+  updateTenantChildFeatureAccess,
   type TenantModule,
+  type TenantAccessPayload,
   type PortalStatus,
 } from "../../../portalModule/index";
 
 /* ================= TYPES ================= */
 interface ModuleListRow {
-  _id: string;
+  moduleId: string;
+  childModuleId: string | null;
   moduleName: string;
   childModule: string;
   order: number | string;
   description: string;
   addOn: string;
   status: "Enable" | "Disable";
+  isEnabled: boolean;
 }
 
 interface FeatureListRow {
-  _id: string;
+  featureId: string;
+  moduleId: string;
+  childModuleId: string | null;
   featureName: string;
   parentModule: string;
   childModule: string;
   description: string;
   addOn: string;
   status: "Enable" | "Disable";
+  isEnabled: boolean;
 }
 
 const formatDate = (value?: string) =>
@@ -59,23 +70,27 @@ const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
   const rows: ModuleListRow[] = [];
   modules.forEach((module) => {
     rows.push({
-      _id: module.moduleId,
+      moduleId: module.moduleId,
+      childModuleId: null,
       moduleName: module.moduleName,
       childModule: "-",
       order: module.orderNo,
       description: "-",
       addOn: formatDate(module.createdAt),
       status: module.isEnabled ? "Enable" : "Disable",
+      isEnabled: module.isEnabled,
     });
     module.children.forEach((child) => {
       rows.push({
-        _id: child.childModuleId,
+        moduleId: module.moduleId,
+        childModuleId: child.childModuleId,
         moduleName: module.moduleName,
         childModule: child.childModuleName,
         order: "-",
         description: "-",
         addOn: formatDate(child.createdAt),
         status: child.isEnabled ? "Enable" : "Disable",
+        isEnabled: child.isEnabled,
       });
     });
   });
@@ -88,25 +103,31 @@ const buildFeatureRows = (modules: TenantModule[]): FeatureListRow[] => {
   modules.forEach((module) => {
     module.features.forEach((feature) => {
       rows.push({
-        _id: feature.featureId,
+        featureId: feature.featureId,
+        moduleId: module.moduleId,
+        childModuleId: null,
         featureName: feature.featureName,
         parentModule: module.moduleName,
         childModule: "-",
         description: "-",
         addOn: formatDate(feature.createdAt),
         status: feature.isEnabled ? "Enable" : "Disable",
+        isEnabled: feature.isEnabled,
       });
     });
     module.children.forEach((child) => {
       child.features.forEach((feature) => {
         rows.push({
-          _id: feature.featureId,
+          featureId: feature.featureId,
+          moduleId: module.moduleId,
+          childModuleId: child.childModuleId,
           featureName: feature.featureName,
           parentModule: module.moduleName,
           childModule: child.childModuleName,
           description: "-",
           addOn: formatDate(feature.createdAt),
           status: feature.isEnabled ? "Enable" : "Disable",
+          isEnabled: feature.isEnabled,
         });
       });
     });
@@ -130,6 +151,26 @@ interface FormData {
 
 /* ================= CHILD NAVIGATION OPTIONS ================= */
 const childNavigationOptions = ["Ticket", "Message"];
+const PAGE_LIMIT = 10;
+const MENU_WIDTH = 112; // w-28
+
+const paginate = <T,>(items: T[], page: number, limit: number): T[] => {
+  const start = (page - 1) * limit;
+  return items.slice(start, start + limit);
+};
+
+const getPageNumbers = (current: number, total: number): (number | "...")[] => {
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 3) {
+    return [1, 2, 3, "...", total];
+  }
+  if (current >= total - 2) {
+    return [1, "...", total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
+};
 
 interface TenantPortalListItem {
   _id: string;
@@ -166,9 +207,21 @@ interface SubscriptionDetails {
 
 const Usercards = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<"module" | "feature">("module");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const openMenuRef = useRef<HTMLTableCellElement | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [togglingModuleKey, setTogglingModuleKey] = useState<string | null>(
+    null,
+  );
+  const [togglingFeatureKey, setTogglingFeatureKey] = useState<string | null>(
+    null,
+  );
+  const openMenuRef = useRef<HTMLDivElement | null>(null);
+  const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const router = useRouter();
   const searchParams = useSearchParams();
   const tenantId = searchParams.get("tenantId") ?? "";
@@ -213,28 +266,73 @@ const Usercards = () => {
     }),
   );
 
+  const closeMenu = () => {
+    setOpenMenu(null);
+    setMenuPosition(null);
+  };
+
+  const toggleMenu = (index: number) => {
+    if (openMenu === index) {
+      closeMenu();
+      return;
+    }
+
+    const button = buttonRefs.current[index];
+
+    if (button) {
+      const rect = button.getBoundingClientRect();
+      const left = Math.min(
+        rect.right - MENU_WIDTH,
+        window.innerWidth - MENU_WIDTH - 8,
+      );
+
+      setMenuPosition({
+        top: rect.bottom + 4,
+        left: Math.max(left, 8),
+      });
+    }
+
+    setOpenMenu(index);
+  };
+
   useEffect(() => {
+    if (openMenu === null) return;
+
     const handleClickOutside = (event: MouseEvent) => {
+      const button = buttonRefs.current[openMenu];
+
       if (
-        openMenu !== null &&
         openMenuRef.current &&
-        !openMenuRef.current.contains(event.target as Node)
+        !openMenuRef.current.contains(event.target as Node) &&
+        button &&
+        !button.contains(event.target as Node)
       ) {
-        setOpenMenu(null);
+        closeMenu();
       }
     };
 
+    const handleReposition = () => closeMenu();
+
     document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
     };
   }, [openMenu]);
 
   useEffect(() => {
     setSearchTerm("");
     setOpenMenu(null);
+    setCurrentPage(1);
   }, [activeTab]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   /* ====== LOAD TENANT PORTAL LIST (for Select Portal dropdown) ====== */
   useEffect(() => {
@@ -320,6 +418,214 @@ const Usercards = () => {
     loadTenantModules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, formData.portal]);
+
+  /* ====== TENANT PARENT/CHILD MODULE + FEATURE ENABLE-DISABLE (in-place, independent updates) ====== */
+  const setModuleEnabled = (moduleId: string, isEnabled: boolean) => {
+    setTenantModules((previous) =>
+      previous.map((module) =>
+        module.moduleId === moduleId ? { ...module, isEnabled } : module,
+      ),
+    );
+  };
+
+  const setChildModuleEnabled = (
+    moduleId: string,
+    childModuleId: string,
+    isEnabled: boolean,
+  ) => {
+    setTenantModules((previous) =>
+      previous.map((module) =>
+        module.moduleId !== moduleId
+          ? module
+          : {
+              ...module,
+              children: module.children.map((child) =>
+                child.childModuleId === childModuleId
+                  ? { ...child, isEnabled }
+                  : child,
+              ),
+            },
+      ),
+    );
+  };
+
+  const setParentFeatureEnabled = (
+    moduleId: string,
+    featureId: string,
+    isEnabled: boolean,
+  ) => {
+    setTenantModules((previous) =>
+      previous.map((module) =>
+        module.moduleId !== moduleId
+          ? module
+          : {
+              ...module,
+              features: module.features.map((feature) =>
+                feature.featureId === featureId
+                  ? { ...feature, isEnabled }
+                  : feature,
+              ),
+            },
+      ),
+    );
+  };
+
+  const setChildFeatureEnabled = (
+    moduleId: string,
+    childModuleId: string,
+    featureId: string,
+    isEnabled: boolean,
+  ) => {
+    setTenantModules((previous) =>
+      previous.map((module) =>
+        module.moduleId !== moduleId
+          ? module
+          : {
+              ...module,
+              children: module.children.map((child) =>
+                child.childModuleId !== childModuleId
+                  ? child
+                  : {
+                      ...child,
+                      features: child.features.map((feature) =>
+                        feature.featureId === featureId
+                          ? { ...feature, isEnabled }
+                          : feature,
+                      ),
+                    },
+              ),
+            },
+      ),
+    );
+  };
+
+  const buildTenantAccessPayload = (isEnabled: boolean): TenantAccessPayload => ({
+    tenantId,
+    portalId: formData.portal,
+    isEnabled,
+    updatedBy: "SUPER_ADMIN",
+  });
+
+  const canToggleTenantAccess = () => {
+    if (!tenantId || !formData.portal) {
+      toast.error("Select a tenant and portal first");
+      return false;
+    }
+    return true;
+  };
+
+  /* Module List tab - parent module toggle only */
+  const handleToggleModule = async (moduleId: string, nextEnabled: boolean) => {
+    if (!canToggleTenantAccess()) return;
+
+    const key = `module:${moduleId}`;
+    setTogglingModuleKey(key);
+    setModuleEnabled(moduleId, nextEnabled);
+
+    try {
+      await updateTenantModuleAccess(
+        moduleId,
+        buildTenantAccessPayload(nextEnabled),
+      );
+      toast.success(
+        `Module ${nextEnabled ? "enabled" : "disabled"} successfully!`,
+      );
+    } catch (error: any) {
+      setModuleEnabled(moduleId, !nextEnabled);
+      toast.error(error?.message || "Failed to update module status");
+    } finally {
+      setTogglingModuleKey(null);
+    }
+  };
+
+  /* Module List tab - child module toggle only */
+  const handleToggleChildModule = async (
+    moduleId: string,
+    childModuleId: string,
+    nextEnabled: boolean,
+  ) => {
+    if (!canToggleTenantAccess()) return;
+
+    const key = `child:${moduleId}:${childModuleId}`;
+    setTogglingModuleKey(key);
+    setChildModuleEnabled(moduleId, childModuleId, nextEnabled);
+
+    try {
+      await updateTenantChildModuleAccess(
+        moduleId,
+        childModuleId,
+        buildTenantAccessPayload(nextEnabled),
+      );
+      toast.success(
+        `Child module ${nextEnabled ? "enabled" : "disabled"} successfully!`,
+      );
+    } catch (error: any) {
+      setChildModuleEnabled(moduleId, childModuleId, !nextEnabled);
+      toast.error(error?.message || "Failed to update child module status");
+    } finally {
+      setTogglingModuleKey(null);
+    }
+  };
+
+  /* Feature List tab - feature directly under a parent module */
+  const handleToggleParentFeature = async (
+    moduleId: string,
+    featureId: string,
+    nextEnabled: boolean,
+  ) => {
+    if (!canToggleTenantAccess()) return;
+
+    const key = `feature:${moduleId}:${featureId}`;
+    setTogglingFeatureKey(key);
+    setParentFeatureEnabled(moduleId, featureId, nextEnabled);
+
+    try {
+      await updateTenantModuleFeatureAccess(
+        moduleId,
+        featureId,
+        buildTenantAccessPayload(nextEnabled),
+      );
+      toast.success(
+        `Feature ${nextEnabled ? "enabled" : "disabled"} successfully!`,
+      );
+    } catch (error: any) {
+      setParentFeatureEnabled(moduleId, featureId, !nextEnabled);
+      toast.error(error?.message || "Failed to update feature status");
+    } finally {
+      setTogglingFeatureKey(null);
+    }
+  };
+
+  /* Feature List tab - feature nested under a child module */
+  const handleToggleChildFeature = async (
+    moduleId: string,
+    childModuleId: string,
+    featureId: string,
+    nextEnabled: boolean,
+  ) => {
+    if (!canToggleTenantAccess()) return;
+
+    const key = `childFeature:${moduleId}:${childModuleId}:${featureId}`;
+    setTogglingFeatureKey(key);
+    setChildFeatureEnabled(moduleId, childModuleId, featureId, nextEnabled);
+
+    try {
+      await updateTenantChildFeatureAccess(
+        moduleId,
+        childModuleId,
+        featureId,
+        buildTenantAccessPayload(nextEnabled),
+      );
+      toast.success(
+        `Feature ${nextEnabled ? "enabled" : "disabled"} successfully!`,
+      );
+    } catch (error: any) {
+      setChildFeatureEnabled(moduleId, childModuleId, featureId, !nextEnabled);
+      toast.error(error?.message || "Failed to update feature status");
+    } finally {
+      setTogglingFeatureKey(null);
+    }
+  };
 
   /* ====== FORM HANDLERS ====== */
   const handleInputChange = (
@@ -528,6 +834,22 @@ const Usercards = () => {
       item.childModule.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  /* ================= PAGINATION ================= */
+  const activeRowCount =
+    activeTab === "module" ? filteredModules.length : filteredFeatures.length;
+  const totalPages = Math.max(1, Math.ceil(activeRowCount / PAGE_LIMIT));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedModules = paginate(filteredModules, safeCurrentPage, PAGE_LIMIT);
+  const pagedFeatures = paginate(filteredFeatures, safeCurrentPage, PAGE_LIMIT);
+  const shownRowCount =
+    activeTab === "module" ? pagedModules.length : pagedFeatures.length;
+
+  const goToPage = (page: number) => {
+    setOpenMenu(null);
+    setCurrentPage(Math.min(Math.max(page, 1), totalPages));
+  };
+
+  
   /* ================= HELPERS ================= */
   const getStatusBadge = (status: string) => (
     <span
@@ -578,34 +900,55 @@ const Usercards = () => {
     return <span className="text-[#1E293B] dark:text-gray-200">{value}</span>;
   };
 
-  const renderActionCell = (id: string, index: number, routeBase: string) => (
-    <td
-      className="py-3.5 px-4 relative"
-      ref={openMenu === index ? openMenuRef : null}
-    >
+  const renderActionCell = (
+    id: string,
+    index: number,
+    routeBase: string,
+    toggle: { label: string; loading: boolean; onClick: () => void },
+  ) => (
+    <td className="py-3.5 px-4 relative">
       <button
-        onClick={() => setOpenMenu(openMenu === index ? null : index)}
+        ref={(el) => {
+          buttonRefs.current[index] = el;
+        }}
+        onClick={() => toggleMenu(index)}
         className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
       >
         <BsThreeDotsVertical className="text-[16px] text-gray-700 dark:text-gray-300" />
       </button>
 
-      {openMenu === index && (
-        <div className="absolute right-4 top-12 w-28 bg-white dark:bg-[#2C2C2C] rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50">
-          <button
-            className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-lg"
-            onClick={() => {
-              setOpenMenu(null);
-              router.push(`${routeBase}?id=${id}`);
+      {openMenu === index &&
+        menuPosition &&
+        createPortal(
+          <div
+            ref={openMenuRef}
+            style={{
+              position: "fixed",
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: MENU_WIDTH,
             }}
+            className="bg-white dark:bg-[#2C2C2C] rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50"
           >
-            View Details
-          </button>
-          <button className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg">
-            Edit
-          </button>
-        </div>
-      )}
+            
+            <button className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={closeMenu}
+            >
+              Cancel
+            </button>
+            <button
+              disabled={toggle.loading}
+              className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => {
+                closeMenu();
+                toggle.onClick();
+              }}
+            >
+              {toggle.loading ? "Updating..." : toggle.label}
+            </button>
+          </div>,
+          document.body,
+        )}
     </td>
   );
 
@@ -884,7 +1227,7 @@ const Usercards = () => {
 
               <div className="flex items-center px-4 h-10">
                 <span className="text-[12px] text-gray-500">
-                  Showing 10 Of 50
+                  Showing {shownRowCount} Of {activeRowCount}
                 </span>
               </div>
             </div>
@@ -919,37 +1262,59 @@ const Usercards = () => {
                   </thead>
 
                   <tbody>
-                    {filteredModules.length > 0 ? (
-                      filteredModules.map((item, index) => (
-                        <tr
-                          key={item._id}
-                          className="text-[12px] odd:bg-white even:bg-[#F8F8F8] dark:odd:bg-[#303030] dark:even:bg-[#2C2C2C]"
-                        >
-                          <td className="py-3.5 px-4 font-medium text-[#1E293B] dark:text-white break-words">
-                            {item.moduleName}
-                          </td>
-                          <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
-                            {item.childModule}
-                          </td>
-                          <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200">
-                            {getOrderBox(item.order)}
-                          </td>
-                          <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
-                            {item.description}
-                          </td>
-                          <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 whitespace-nowrap">
-                            {item.addOn}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            {getStatusBadge(item.status)}
-                          </td>
-                          {renderActionCell(
-                            item._id,
-                            index,
-                            "/super-admin/ui/feature-control/module_details",
-                          )}
-                        </tr>
-                      ))
+                    {pagedModules.length > 0 ? (
+                      pagedModules.map((item, index) => {
+                        const isChildRow = item.childModuleId !== null;
+                        const toggleKey = isChildRow
+                          ? `child:${item.moduleId}:${item.childModuleId}`
+                          : `module:${item.moduleId}`;
+
+                        return (
+                          <tr
+                            key={`${item.moduleId}-${item.childModuleId ?? "root"}`}
+                            className="text-[12px] odd:bg-white even:bg-[#F8F8F8] dark:odd:bg-[#303030] dark:even:bg-[#2C2C2C]"
+                          >
+                            <td className="py-3.5 px-4 font-medium text-[#1E293B] dark:text-white break-words">
+                              {item.moduleName}
+                            </td>
+                            <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
+                              {item.childModule}
+                            </td>
+                            <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200">
+                              {getOrderBox(item.order)}
+                            </td>
+                            <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
+                              {item.description}
+                            </td>
+                            <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 whitespace-nowrap">
+                              {item.addOn}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {getStatusBadge(item.status)}
+                            </td>
+                            {renderActionCell(
+                              item.childModuleId ?? item.moduleId,
+                              index,
+                              "/super-admin/ui/feature-control/module_details",
+                              {
+                                label: item.isEnabled ? "Disable" : "Enable",
+                                loading: togglingModuleKey === toggleKey,
+                                onClick: () =>
+                                  isChildRow
+                                    ? handleToggleChildModule(
+                                        item.moduleId,
+                                        item.childModuleId as string,
+                                        !item.isEnabled,
+                                      )
+                                    : handleToggleModule(
+                                        item.moduleId,
+                                        !item.isEnabled,
+                                      ),
+                              },
+                            )}
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td
@@ -991,37 +1356,61 @@ const Usercards = () => {
                   </thead>
 
                   <tbody>
-                    {filteredFeatures.length > 0 ? (
-                      filteredFeatures.map((item, index) => (
-                        <tr
-                          key={item._id}
-                          className="text-[12px] odd:bg-white even:bg-[#F8F8F8] dark:odd:bg-[#303030] dark:even:bg-[#2C2C2C]"
-                        >
-                          <td className="py-3.5 px-4 font-medium text-[#1E293B] dark:text-white break-words">
-                            {item.featureName}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            {getParentModuleCell(item.parentModule)}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            {getChildModuleCell(item.childModule)}
-                          </td>
-                          <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
-                            {item.description}
-                          </td>
-                          <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 whitespace-nowrap">
-                            {item.addOn}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            {getStatusBadge(item.status)}
-                          </td>
-                          {renderActionCell(
-                            item._id,
-                            index,
-                            "/super-admin/ui/feature-control/feature_details",
-                          )}
-                        </tr>
-                      ))
+                    {pagedFeatures.length > 0 ? (
+                      pagedFeatures.map((item, index) => {
+                        const isChildFeature = item.childModuleId !== null;
+                        const toggleKey = isChildFeature
+                          ? `childFeature:${item.moduleId}:${item.childModuleId}:${item.featureId}`
+                          : `feature:${item.moduleId}:${item.featureId}`;
+
+                        return (
+                          <tr
+                            key={`${item.moduleId}-${item.childModuleId ?? "root"}-${item.featureId}`}
+                            className="text-[12px] odd:bg-white even:bg-[#F8F8F8] dark:odd:bg-[#303030] dark:even:bg-[#2C2C2C]"
+                          >
+                            <td className="py-3.5 px-4 font-medium text-[#1E293B] dark:text-white break-words">
+                              {item.featureName}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {getParentModuleCell(item.parentModule)}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {getChildModuleCell(item.childModule)}
+                            </td>
+                            <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
+                              {item.description}
+                            </td>
+                            <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 whitespace-nowrap">
+                              {item.addOn}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {getStatusBadge(item.status)}
+                            </td>
+                            {renderActionCell(
+                              item.featureId,
+                              index,
+                              "/super-admin/ui/feature-control/feature_details",
+                              {
+                                label: item.isEnabled ? "Disable" : "Enable",
+                                loading: togglingFeatureKey === toggleKey,
+                                onClick: () =>
+                                  isChildFeature
+                                    ? handleToggleChildFeature(
+                                        item.moduleId,
+                                        item.childModuleId as string,
+                                        item.featureId,
+                                        !item.isEnabled,
+                                      )
+                                    : handleToggleParentFeature(
+                                        item.moduleId,
+                                        item.featureId,
+                                        !item.isEnabled,
+                                      ),
+                              },
+                            )}
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td
@@ -1038,25 +1427,42 @@ const Usercards = () => {
             </div>
 
             <div className="flex justify-end items-center gap-1 px-4 py-4">
-              <button className="w-7 h-7 rounded-md border border-[#E5E7EB] dark:border-gray-600 flex items-center justify-center text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A]">
+              <button
+                onClick={() => goToPage(safeCurrentPage - 1)}
+                disabled={safeCurrentPage === 1}
+                className="w-7 h-7 rounded-md border border-[#E5E7EB] dark:border-gray-600 flex items-center justify-center text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <span className="text-[20px]">‹</span>
               </button>
-              <button className="w-7 h-7 rounded-md border border-[#203F78] dark:border-[#8296E6] text-[#203F78] dark:text-[#8296E6] bg-[#FAFAFB] dark:bg-[#3A3A3A] text-[11px]">
-                1
-              </button>
-              <button className="w-7 h-7 rounded-md border border-[#E6E7EA] dark:border-gray-600 text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A] text-[11px]">
-                2
-              </button>
-              <button className="w-7 h-7 rounded-md border border-[#E6E7EA] dark:border-gray-600 text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A] text-[11px]">
-                3
-              </button>
-              <button className="w-7 h-7 rounded-md border border-[#E6E7EA] dark:border-gray-600 text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A] text-[11px]">
-                ...
-              </button>
-              <button className="w-7 h-7 rounded-md border border-[#E6E7EA] dark:border-gray-600 text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A] text-[11px]">
-                10
-              </button>
-              <button className="w-7 h-7 rounded-md border border-[#E5E7EB] dark:border-gray-600 flex items-center justify-center text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A]">
+
+              {getPageNumbers(safeCurrentPage, totalPages).map((page, idx) =>
+                page === "..." ? (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="w-7 h-7 flex items-center justify-center text-gray-400 text-[11px]"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    className={`w-7 h-7 rounded-md border text-[11px] ${
+                      page === safeCurrentPage
+                        ? "border-[#203F78] dark:border-[#8296E6] text-[#203F78] dark:text-[#8296E6] bg-[#FAFAFB] dark:bg-[#3A3A3A]"
+                        : "border-[#E6E7EA] dark:border-gray-600 text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A]"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+
+              <button
+                onClick={() => goToPage(safeCurrentPage + 1)}
+                disabled={safeCurrentPage === totalPages}
+                className="w-7 h-7 rounded-md border border-[#E5E7EB] dark:border-gray-600 flex items-center justify-center text-gray-400 bg-[#F5F5F2] dark:bg-[#3A3A3A] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <span className="text-[20px]">›</span>
               </button>
             </div>
