@@ -48,6 +48,10 @@ interface ModuleFeature {
 interface ChildModule {
   childModuleId: string;
   childModuleName: string;
+  description: string;
+  status: string;
+  isEnabled: boolean;
+  createdAt: string;
   features: ModuleFeature[];
 }
 
@@ -168,56 +172,80 @@ const Table = () => {
   useEffect(() => {
     const fetchModules = async () => {
       try {
-        const response = await axios.get<ModulesResponse>(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE.GET_LIST}`,
-          { params: { page: currentPage, limit: PAGE_LIMIT } },
-        );
+        const parentModules: ParentModule[] = [];
+        let page = 1;
+        let totalPagesFromServer = 1;
 
-        if (response.data.success) {
-          const items: FeatureTableItem[] = response.data.data.flatMap(
-            (parentModule) => [
-              ...parentModule.features.map((feature) => ({
-                featureId: feature.featureId,
-                parentModuleId: parentModule.parentModuleId,
-                childModuleId: null,
-                featureName: feature.featureName,
-                portal: parentModule.portal,
-                parentModule: parentModule.parentModuleName,
-                childModule: "-",
-                description: feature.description,
-                status: feature.status,
-                isEnabled: feature.isEnabled,
-                addOnDate: formatAddOnDate(feature.createdAt),
-              })),
-              ...parentModule.children.flatMap((childModule) =>
-                childModule.features.map((feature) => ({
-                  featureId: feature.featureId,
-                  parentModuleId: parentModule.parentModuleId,
-                  childModuleId: childModule.childModuleId,
-                  featureName: feature.featureName,
-                  portal: parentModule.portal,
-                  parentModule: parentModule.parentModuleName,
-                  childModule: childModule.childModuleName,
-                  description: feature.description,
-                  status: feature.status,
-                  isEnabled: feature.isEnabled,
-                  addOnDate: formatAddOnDate(feature.createdAt),
-                })),
-              ),
-            ],
+        do {
+          const response = await axios.get<ModulesResponse>(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE.GET_LIST}`,
+            { params: { page, limit: 100 } },
           );
 
-          setFeatureItems(items);
-          setTotalFeatureItems(response.data.pagination.totalRecords);
-          setTotalPages(response.data.pagination.totalPages);
-        }
+          if (!response.data.success) break;
+
+          parentModules.push(...response.data.data);
+          totalPagesFromServer = response.data.pagination.totalPages;
+          page += 1;
+        } while (page <= totalPagesFromServer);
+
+        const items: FeatureTableItem[] = parentModules.flatMap(
+          (parentModule) => [
+            ...parentModule.features.map((feature) => ({
+              featureId: feature.featureId,
+              parentModuleId: parentModule.parentModuleId,
+              childModuleId: null,
+              featureName: feature.featureName,
+              portal: parentModule.portal,
+              parentModule: parentModule.parentModuleName,
+              childModule: "-",
+              description: feature.description,
+              status: feature.status,
+              isEnabled: feature.isEnabled,
+              addOnDate: formatAddOnDate(feature.createdAt),
+            })),
+            ...parentModule.children.flatMap((childModule) =>
+              childModule.features.length > 0
+                ? childModule.features.map((feature) => ({
+                    featureId: feature.featureId,
+                    parentModuleId: parentModule.parentModuleId,
+                    childModuleId: childModule.childModuleId,
+                    featureName: feature.featureName,
+                    portal: parentModule.portal,
+                    parentModule: parentModule.parentModuleName,
+                    childModule: childModule.childModuleName,
+                    description: feature.description,
+                    status: feature.status,
+                    isEnabled: feature.isEnabled,
+                    addOnDate: formatAddOnDate(feature.createdAt),
+                  }))
+                : [
+                    {
+                      featureId: childModule.childModuleId,
+                      parentModuleId: parentModule.parentModuleId,
+                      childModuleId: childModule.childModuleId,
+                      featureName: "-",
+                      portal: parentModule.portal,
+                      parentModule: parentModule.parentModuleName,
+                      childModule: childModule.childModuleName,
+                      description: childModule.description,
+                      status: childModule.status,
+                      isEnabled: childModule.isEnabled,
+                      addOnDate: formatAddOnDate(childModule.createdAt),
+                    },
+                  ],
+            ),
+          ],
+        );
+
+        setFeatureItems(items);
       } catch (error) {
         console.error("Failed to fetch modules:", error);
       }
     };
 
     fetchModules();
-  }, [currentPage]);
+  }, []);
 
   const filteredFeatureItems = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -234,6 +262,24 @@ const Table = () => {
       ].some((field) => field?.toLowerCase().includes(term)),
     );
   }, [featureItems, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setTotalFeatureItems(filteredFeatureItems.length);
+    setTotalPages(Math.max(1, Math.ceil(filteredFeatureItems.length / PAGE_LIMIT)));
+  }, [filteredFeatureItems]);
+
+  const pagedFeatureItems = useMemo(
+    () =>
+      filteredFeatureItems.slice(
+        (currentPage - 1) * PAGE_LIMIT,
+        currentPage * PAGE_LIMIT,
+      ),
+    [filteredFeatureItems, currentPage],
+  );
 
   const toggleMenu = (index: number) => {
     if (openMenu === index) {
@@ -271,17 +317,29 @@ const Table = () => {
   ) => {
     closeMenu();
 
-    const endpoint = item.childModuleId
-      ? AppApiEndpoints.MODULE.UPDATE_CHILD_FEATURE_ACCESS.replace(
-          "{parentModuleId}",
-          item.parentModuleId,
-        )
-          .replace("{childModuleId}", item.childModuleId)
-          .replace("{featureId}", item.featureId)
-      : AppApiEndpoints.MODULE.UPDATE_PARENT_FEATURE_ACCESS.replace(
-          "{parentModuleId}",
-          item.parentModuleId,
-        ).replace("{featureId}", item.featureId);
+    const isPlaceholderRow = item.featureName === "-";
+
+    const endpoint = isPlaceholderRow
+      ? item.childModuleId
+        ? AppApiEndpoints.MODULE.UPDATE_CHILD_ACCESS.replace(
+            "{parentModuleId}",
+            item.parentModuleId,
+          ).replace("{childModuleId}", item.childModuleId)
+        : AppApiEndpoints.MODULE.UPDATE_PARENT_ACCESS.replace(
+            "{parentModuleId}",
+            item.parentModuleId,
+          )
+      : item.childModuleId
+        ? AppApiEndpoints.MODULE.UPDATE_CHILD_FEATURE_ACCESS.replace(
+            "{parentModuleId}",
+            item.parentModuleId,
+          )
+            .replace("{childModuleId}", item.childModuleId)
+            .replace("{featureId}", item.featureId)
+        : AppApiEndpoints.MODULE.UPDATE_PARENT_FEATURE_ACCESS.replace(
+            "{parentModuleId}",
+            item.parentModuleId,
+          ).replace("{featureId}", item.featureId);
 
     try {
       const response = await axios.patch(
@@ -575,7 +633,7 @@ const Table = () => {
             {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing {filteredFeatureItems.length} Of {totalFeatureItems}
+                Showing {pagedFeatureItems.length} Of {totalFeatureItems}
               </span>
             </div>
           </div>
@@ -625,8 +683,8 @@ const Table = () => {
 
               {/* Table Body */}
               <tbody>
-                {filteredFeatureItems.length > 0 ? (
-                  filteredFeatureItems.map((item, index) => (
+                {pagedFeatureItems.length > 0 ? (
+                  pagedFeatureItems.map((item, index) => (
                     <tr
                       key={index}
                       className="
