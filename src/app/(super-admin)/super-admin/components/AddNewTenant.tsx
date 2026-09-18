@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { Country, State, City } from "country-state-city";
+import type { ICountry, IState, ICity } from "country-state-city";
+import { allTimezones } from "react-timezone-select";
 import SuccessPopup from "@/app/(tenant)/modules/users/supervisor/components/successPopup";
 import FailedPopup from "@/app/(tenant)/modules/users/supervisor/components/failedPopup";
 import {
@@ -58,6 +61,38 @@ type TenantFormData = {
 };
 
 type FileField = "logo" | "gstCertificate" | "registrationCertificate" | "addressProof";
+
+/* ------------------------------------------------------------------ */
+/* Country -> Time Zone / State -> City data (country-state-city +    */
+/* react-timezone-select packages)                                    */
+/* ------------------------------------------------------------------ */
+
+const ALL_COUNTRIES: ICountry[] = Country.getAllCountries();
+
+const TIME_ZONE_OPTIONS = Array.from(
+  new Set([
+    ...Object.keys(allTimezones),
+    ...ALL_COUNTRIES.flatMap(
+      (country) => country.timezones?.map((tz) => tz.zoneName) ?? [],
+    ),
+  ]),
+).sort();
+
+const getStatesForCountry = (countryName: string): IState[] => {
+  const country = ALL_COUNTRIES.find((c) => c.name === countryName);
+  return country ? State.getStatesOfCountry(country.isoCode) : [];
+};
+
+const getCitiesForState = (countryName: string, stateName: string): ICity[] => {
+  const country = ALL_COUNTRIES.find((c) => c.name === countryName);
+  if (!country) return [];
+
+  const state = getStatesForCountry(countryName).find(
+    (s) => s.name === stateName,
+  );
+
+  return state ? City.getCitiesOfState(country.isoCode, state.isoCode) : [];
+};
 
 /* ------------------------------------------------------------------ */
 /* Shared styles                                                       */
@@ -132,6 +167,7 @@ function SelectField({
   options,
   placeholder = "Select",
   required = false,
+  disabled = false,
 }: {
   label: string;
   name: string;
@@ -140,6 +176,7 @@ function SelectField({
   options: string[];
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -154,9 +191,10 @@ function SelectField({
           name={name}
           value={value}
           onChange={onChange}
+          disabled={disabled}
           className={`${fieldBase} appearance-none pr-10 ${
             value ? "" : "text-gray-400 dark:text-gray-500"
-          }`}
+          } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
         >
           <option value="">{placeholder}</option>
 
@@ -294,6 +332,7 @@ export default function AddNewTenant({ onClose }: Props) {
   const [failed, setFailed] = useState(false);
   const [failedMessage, setFailedMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<TenantFormData>({
     companyName: "",
@@ -339,6 +378,36 @@ export default function AddNewTenant({ onClose }: Props) {
       const { checked } = e.target as HTMLInputElement;
 
       setFormData((prev) => ({ ...prev, [name]: checked }));
+
+      return;
+    }
+
+    if (name === "status") {
+      setFormData((prev) => ({
+        ...prev,
+        status: value,
+        plan: value === "Trial" ? "" : prev.plan,
+      }));
+
+      return;
+    }
+
+    if (name === "country") {
+      const country = ALL_COUNTRIES.find((c) => c.name === value);
+
+      setFormData((prev) => ({
+        ...prev,
+        country: value,
+        timeZone: country?.timezones?.[0]?.zoneName ?? "",
+        state: "",
+        city: "",
+      }));
+
+      return;
+    }
+
+    if (name === "state") {
+      setFormData((prev) => ({ ...prev, state: value, city: "" }));
 
       return;
     }
@@ -396,6 +465,10 @@ export default function AddNewTenant({ onClose }: Props) {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+
     try {
       // The backend route only allows multipart/form-data and reads the
       // uploaded filename off each file part's `.hapi.filename`, so files
@@ -421,7 +494,11 @@ export default function AddNewTenant({ onClose }: Props) {
         fd.append("addressProof", formData.addressProof, formData.addressProof.name);
       if (formData.gstCertificate)
         fd.append("gstCertificate", formData.gstCertificate, formData.gstCertificate.name);
-      fd.append("plan", formData.plan || "");
+      // Plan is hidden/cleared on the form when Status is "Trial" (see
+      // handleInput), but the backend's Tenants schema still requires a
+      // non-empty plan value - fall back to "Trial" so that submission
+      // isn't rejected for a field the user was never shown.
+      fd.append("plan", formData.plan || (formData.status === "Trial" ? "Trial" : ""));
       fd.append("timeZone", formData.timeZone || "");
       fd.append("currency", formData.currency || "");
       fd.append("emailId", formData.email || "");
@@ -439,6 +516,7 @@ export default function AddNewTenant({ onClose }: Props) {
       const response = await axios.post(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.CREATE_TENANT}`,
         fd,
+        { timeout: 30000 },
       );
 
       console.log("Create tenant response:", response.data);
@@ -449,11 +527,15 @@ export default function AddNewTenant({ onClose }: Props) {
       console.error("Create tenant error:", err);
 
       setFailedMessage(
-        err.response?.data?.message ||
-          AppFailureToastMessages.SUPER_ADMIN_TENANT_CREATE,
+        err.code === "ECONNABORTED"
+          ? "The server took too long to respond. Please try again."
+          : err.response?.data?.message ||
+              AppFailureToastMessages.SUPER_ADMIN_TENANT_CREATE,
       );
 
       setFailed(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -610,18 +692,20 @@ export default function AddNewTenant({ onClose }: Props) {
                   name="timeZone"
                   value={formData.timeZone}
                   onChange={handleInput}
-                  placeholder="Select time zone"
-                  options={["Asia/Kolkata", "UTC", "America/New_York", "Europe/London"]}
+                  placeholder="Select country first"
+                  options={TIME_ZONE_OPTIONS}
                 />
 
-                <SelectField
-                  label="Plan"
-                  name="plan"
-                  value={formData.plan}
-                  onChange={handleInput}
-                  placeholder="Select plan"
-                  options={["Basic", "Standard", "Premium", "Enterprise"]}
-                />
+                {formData.status !== "Trial" && (
+                  <SelectField
+                    label="Plan"
+                    name="plan"
+                    value={formData.plan}
+                    onChange={handleInput}
+                    placeholder="Select plan"
+                    options={["Basic", "Standard", "Premium", "Enterprise"]}
+                  />
+                )}
 
                 <SelectField
                   label="Currency"
@@ -656,7 +740,7 @@ export default function AddNewTenant({ onClose }: Props) {
                   value={formData.country}
                   onChange={handleInput}
                   placeholder="Select country"
-                  options={["India", "United States", "United Kingdom", "Singapore"]}
+                  options={ALL_COUNTRIES.map((c) => c.name)}
                 />
 
                 <SelectField
@@ -664,8 +748,13 @@ export default function AddNewTenant({ onClose }: Props) {
                   name="state"
                   value={formData.state}
                   onChange={handleInput}
-                  placeholder="Select state"
-                  options={["Tamil Nadu", "Karnataka", "Kerala", "Maharashtra"]}
+                  placeholder={
+                    formData.country ? "Select state" : "Select country first"
+                  }
+                  options={getStatesForCountry(formData.country).map(
+                    (s) => s.name,
+                  )}
+                  disabled={!formData.country}
                 />
 
                 <SelectField
@@ -673,8 +762,14 @@ export default function AddNewTenant({ onClose }: Props) {
                   name="city"
                   value={formData.city}
                   onChange={handleInput}
-                  placeholder="Select city"
-                  options={["Coimbatore", "Chennai", "Bengaluru", "Mumbai"]}
+                  placeholder={
+                    formData.state ? "Select city" : "Select state first"
+                  }
+                  options={getCitiesForState(
+                    formData.country,
+                    formData.state,
+                  ).map((c) => c.name)}
+                  disabled={!formData.state}
                 />
 
                 <TextField
@@ -900,9 +995,14 @@ export default function AddNewTenant({ onClose }: Props) {
           <button
             type="button"
             onClick={currentStep === totalSteps ? handleSubmit : next}
-            className="flex items-center gap-1 rounded-lg bg-[#5967E8] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#4A57D4]"
+            disabled={currentStep === totalSteps && isSubmitting}
+            className="flex items-center gap-1 rounded-lg bg-[#5967E8] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#4A57D4] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {currentStep === totalSteps ? "Send Invite" : "Next"}
+            {currentStep === totalSteps
+              ? isSubmitting
+                ? "Sending..."
+                : "Send Invite"
+              : "Next"}
 
             {currentStep !== totalSteps && <ChevronRight size={16} />}
           </button>
