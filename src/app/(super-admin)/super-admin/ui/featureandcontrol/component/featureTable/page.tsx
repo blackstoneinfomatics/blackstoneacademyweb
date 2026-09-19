@@ -39,37 +39,24 @@ interface FeatureCardResponse {
   data: FeatureCardData;
 }
 
-interface ModuleFeature {
-  featureId: string;
-  featureName: string;
-  description: string;
-  status: string;
-  isEnabled: boolean;
-  createdAt: string;
-}
-
-interface ChildModule {
-  childModuleId: string;
-  childModuleName: string;
-  description: string;
-  status: string;
-  isEnabled: boolean;
-  createdAt: string;
-  features: ModuleFeature[];
-}
-
-interface ParentModule {
-  parentModuleId: string;
+interface FeatureControlRow {
   portal: string;
+  parentModuleId: string;
   parentModuleName: string;
-  features: ModuleFeature[];
-  children: ChildModule[];
+  childModuleId: string | null;
+  childModuleName: string | null;
+  featureId: string | null;
+  featureName: string | null;
+  description: string;
+  status: string;
+  isEnabled: boolean;
+  createdAt: string;
 }
 
-interface ModulesResponse {
+interface FeatureControlResponse {
   success: boolean;
   message: string;
-  data: ParentModule[];
+  data: FeatureControlRow[];
   pagination: {
     page: number;
     limit: number;
@@ -81,7 +68,7 @@ interface ModulesResponse {
 }
 
 interface FeatureTableItem {
-  featureId: string;
+  featureId: string | null;
   parentModuleId: string;
   childModuleId: string | null;
   featureName: string;
@@ -179,78 +166,41 @@ const Table = () => {
   useEffect(() => {
     const fetchModules = async () => {
       try {
-        const parentModules: ParentModule[] = [];
+        const rows: FeatureControlRow[] = [];
         let page = 1;
         let totalPagesFromServer = 1;
 
         do {
-          const response = await axios.get<ModulesResponse>(
-            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE.GET_LIST}`,
+          const response = await axios.get<FeatureControlResponse>(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FEATURE_CONTROL.GET_ALL}`,
             { params: { page, limit: 100 } },
           );
 
           if (!response.data.success) break;
 
-          parentModules.push(...response.data.data);
+          rows.push(...response.data.data);
           totalPagesFromServer = response.data.pagination.totalPages;
           page += 1;
         } while (page <= totalPagesFromServer);
 
-        const items: FeatureTableItem[] = parentModules.flatMap(
-          (parentModule) => [
-            ...parentModule.features.map((feature) => ({
-              featureId: feature.featureId,
-              parentModuleId: parentModule.parentModuleId,
-              childModuleId: null,
-              featureName: feature.featureName,
-              portal: parentModule.portal,
-              parentModule: parentModule.parentModuleName,
-              childModule: "-",
-              description: feature.description,
-              status: feature.status,
-              isEnabled: feature.isEnabled,
-              addOnDate: formatAddOnDate(feature.createdAt),
-              addOnDateValue: feature.createdAt,
-            })),
-            ...parentModule.children.flatMap((childModule) =>
-              childModule.features.length > 0
-                ? childModule.features.map((feature) => ({
-                    featureId: feature.featureId,
-                    parentModuleId: parentModule.parentModuleId,
-                    childModuleId: childModule.childModuleId,
-                    featureName: feature.featureName,
-                    portal: parentModule.portal,
-                    parentModule: parentModule.parentModuleName,
-                    childModule: childModule.childModuleName,
-                    description: feature.description,
-                    status: feature.status,
-                    isEnabled: feature.isEnabled,
-                    addOnDate: formatAddOnDate(feature.createdAt),
-                    addOnDateValue: feature.createdAt,
-                  }))
-                : [
-                    {
-                      featureId: childModule.childModuleId,
-                      parentModuleId: parentModule.parentModuleId,
-                      childModuleId: childModule.childModuleId,
-                      featureName: "-",
-                      portal: parentModule.portal,
-                      parentModule: parentModule.parentModuleName,
-                      childModule: childModule.childModuleName,
-                      description: childModule.description,
-                      status: childModule.status,
-                      isEnabled: childModule.isEnabled,
-                      addOnDate: formatAddOnDate(childModule.createdAt),
-                      addOnDateValue: childModule.createdAt,
-                    },
-                  ],
-            ),
-          ],
-        );
+        const items: FeatureTableItem[] = rows.map((row) => ({
+          featureId: row.featureId,
+          parentModuleId: row.parentModuleId,
+          childModuleId: row.childModuleId,
+          featureName: row.featureName ?? "-",
+          portal: row.portal,
+          parentModule: row.parentModuleName,
+          childModule: row.childModuleName ?? "-",
+          description: row.description,
+          status: row.status,
+          isEnabled: row.isEnabled,
+          addOnDate: formatAddOnDate(row.createdAt),
+          addOnDateValue: row.createdAt,
+        }));
 
         setFeatureItems(items);
       } catch (error) {
-        console.error("Failed to fetch modules:", error);
+        console.error("Failed to fetch features:", error);
       }
     };
 
@@ -404,9 +354,8 @@ const Table = () => {
   ) => {
     closeMenu();
 
-    const isPlaceholderRow = item.featureName === "-";
-
-    const endpoint = isPlaceholderRow
+    const featureId = item.featureId;
+    const endpoint = !featureId
       ? item.childModuleId
         ? AppApiEndpoints.MODULE.UPDATE_CHILD_ACCESS.replace(
             "{parentModuleId}",
@@ -422,11 +371,11 @@ const Table = () => {
             item.parentModuleId,
           )
             .replace("{childModuleId}", item.childModuleId)
-            .replace("{featureId}", item.featureId)
+            .replace("{featureId}", featureId)
         : AppApiEndpoints.MODULE.UPDATE_PARENT_FEATURE_ACCESS.replace(
             "{parentModuleId}",
             item.parentModuleId,
-          ).replace("{featureId}", item.featureId);
+          ).replace("{featureId}", featureId);
 
     try {
       const response = await axios.patch(
@@ -440,8 +389,9 @@ const Table = () => {
 
       setFeatureItems((previous) =>
         previous.map((feature) =>
-          feature.featureId === item.featureId &&
-          feature.childModuleId === item.childModuleId
+          feature.parentModuleId === item.parentModuleId &&
+          feature.childModuleId === item.childModuleId &&
+          feature.featureId === item.featureId
             ? {
                 ...feature,
                 isEnabled,

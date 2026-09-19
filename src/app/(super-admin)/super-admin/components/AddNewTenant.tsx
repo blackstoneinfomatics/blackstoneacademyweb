@@ -558,6 +558,10 @@ export default function AddNewTenant({ onClose }: Props) {
       fd.append("status", formData.status || "");
       fd.append("createdBy", formData.adminName || "");
       fd.append("lastUpdatedBy", formData.adminName || "");
+      fd.append("adminName", formData.adminName || "");
+      fd.append("adminEmail", formData.adminEmail || "");
+      fd.append("designation", "Tenant Admin");
+      fd.append("comments", formData.comments || "");
 
       const response = await axios.post(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.CREATE_TENANT}`,

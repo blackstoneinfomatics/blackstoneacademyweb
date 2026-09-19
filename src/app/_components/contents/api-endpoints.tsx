@@ -334,6 +334,9 @@ export const AppApiEndpoints = {
   MODULE_TENANT: {
     GET_CONFIG: "/modules/tenant/config",
   },
+  FEATURE_CONTROL: {
+    GET_ALL: "/feature-control/all",
+  },
   MODULE: {
     GET_LIST: "/modules",
     UPDATE_PARENT_ACCESS: "/modules/{parentModuleId}/enable",
