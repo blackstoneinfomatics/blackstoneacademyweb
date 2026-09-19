@@ -12,6 +12,10 @@ import { Search } from "lucide-react";
 import axios from "axios";
 import UpdateTenant from "../../components/UpdateTenant";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import OrganizationHeader, {
+  OrganizationTab,
+} from "../../components/OrganizationHeader";
+import AddNewTenant from "../../components/AddNewTenant";
 
 interface TenantType {
   tenantCode: string;
@@ -75,6 +79,7 @@ const page = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   searchParams.get("tenantCode");
+  const [showAddTenant, setAddTenant] = useState(false);
 
   const [tenants, setTenants] = useState<TenantType[]>([]);
   useEffect(() => {
@@ -156,6 +161,8 @@ const page = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<"All" | "New">("All");
+  const [tab, setTab] = useState<OrganizationTab>("Institute");
+
   const [showEditModal, setShowEditModal] = useState(false);
 
   const [selectedTenant, setSelectedTenant] = useState<TenantType | null>(null);
@@ -287,209 +294,240 @@ const page = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
       <BaseSuperLayout>
         <SuperAdminHeader currentSection="Tenant Management" />
+        <div>
+          <OrganizationHeader
+            showTabs
+            activeTab={tab}
+            onTabChange={setTab}
+            currentSection={""}
+          />
+        </div>
+        <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] px-3 py-2">
+          <div className="flex items-center justify-between mt-2 py-2">
+            <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
+              Institute Feature Control
+            </h2>
+            <button
+            onClick={() => setAddTenant(true)}
+              className="
+                  bg-[#5872C5]
+                  hover:bg-[#4D66B3]
+                  text-white
+                  text-[12px]
+                  font-medium
+                  px-4
+                  py-2
+                  rounded-lg
+                  transition
+                "
+            >
+              Add New Tenant
+            </button>
+          </div>{" "}
+          <TenantStats />
+          <br />
+          <div className="md:p-0 mx-auto w-full">
+            <div className="flex flex-col h-full w-full justify-between">
+              <div className="flex flex-col">
+                {/* Tabs */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
+                  <div className="flex flex-wrap gap-4 font-semibold">
+                    {tabOptions.map(({ type, label }) => (
+                      <button
+                        key={type}
+                        onClick={() => setActiveTab(type)}
+                        className={
+                          activeTab === type
+                            ? "text-[#576CBC] dark:text-[#8296E6] text-[14px] relative pb-1"
+                            : "text-[#010E30] dark:text-gray-300 text-[14px]"
+                        }
+                        style={
+                          activeTab === type
+                            ? {
+                                position: "relative",
+                              }
+                            : {}
+                        }
+                      >
+                        {label}
+                        {activeTab === type && (
+                          <div className="absolute bottom-0 left-10 transform -translate-x-1/2 w-12 h-0.5 bg-[#576CBC] dark:bg-[#8296E6] rounded-full" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-        <TenantStats />
-        <br />
+                {/* Search + Filter */}
+                <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by keyword"
+                        className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-400"
+                        value={searchKeyword}
+                        onChange={(e) => setSearchKeyword(e.target.value)}
+                      />
+                    </div>
 
-        <div className="md:p-0 mx-auto w-full">
-          <div className="flex flex-col h-full w-full justify-between">
-            <div className="flex flex-col">
-              {/* Tabs */}
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
-                <div className="flex flex-wrap gap-4 font-semibold">
-                  {tabOptions.map(({ type, label, count }) => (
-                    <button
-                      key={type}
-                      onClick={() => setActiveTab(type)}
-                      className={
-                        activeTab === type
-                          ? "text-[#576CBC] dark:text-[#8296E6] text-[18px] relative pb-1"
-                          : "text-[#010E30] dark:text-gray-300 text-[18px]"
-                      }
-                      style={
-                        activeTab === type
-                          ? {
-                              position: "relative",
-                            }
-                          : {}
-                      }
+                    <div
+                      onClick={() => setShowFilter(true)}
+                      className="flex items-center gap-2 text-sm text-gray-400 dark:border-[#606060] py-2 border-r-2 border-l-2 px-48 -ml-60 cursor-pointer"
                     >
-                      {label} ({count})
-                      {activeTab === type && (
-                        <div className="absolute bottom-0 left-10 transform -translate-x-1/2 w-12 h-0.5 bg-[#576CBC] dark:bg-[#8296E6] rounded-full" />
-                      )}
-                    </button>
-                  ))}
+                      <MdTune className="w-4 h-4" />
+                      <span>Filter</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
+                      <span className="text-left -ml-60">
+                        Showing {filteredTenants.length} of {tenants.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Table */}
+                  <table className="table-fixed w-full border-collapse">
+                    <thead className="text-[13px] bg-[#4C6993] text-white">
+                      <tr>
+                        {[
+                          "Tenant Name",
+                          "Domain",
+                          "Phone Number",
+                          "Email",
+                          "Start Date",
+                          "Plan",
+                          "User",
+                          "Renewal Date",
+                          "Tenant Status",
+                          "Action",
+                        ].map((header, tenantCodex) => (
+                          <th
+                            key={tenantCodex}
+                            className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedTenants.map((tenant, index) => {
+                        const rowBgClass =
+                          index % 2 === 0
+                            ? "bg-[#fff] dark:bg-[#2C2C2C]"
+                            : "bg-[#F8F8F8] dark:bg-[#383838]";
+
+                        return (
+                          <tr
+                            key={tenant.tenantCode}
+                            className={`text-[10px] ${rowBgClass}`}
+                          >
+                            <td className="px-3 py-3 break-words text-[11px] dark:text-white">
+                              {tenant.tenantName}
+                            </td>
+
+                            <td className="px-3 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
+                              {tenant.domain}
+                            </td>
+
+                            <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                              {tenant.phoneNumber}
+                            </td>
+
+                            <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                              {tenant.email}
+                            </td>
+
+                            <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                              {tenant.startDate}
+                            </td>
+
+                            <td className="px-4 py-4 text-left">
+                              <span
+                                className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getPlanStyle(
+                                  tenant.plan,
+                                )}`}
+                              >
+                                {tenant.plan}
+                              </span>
+                            </td>
+
+                            <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                              {tenant.users}
+                            </td>
+
+                            <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                              {tenant.renewalDate}
+                            </td>
+
+                            <td className="px-3 py-3 break-words text-left">
+                              <span
+                                className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getStatusStyle(
+                                  tenant.status,
+                                )}`}
+                              >
+                                {tenant.status}
+                              </span>
+                            </td>
+
+                            <td className="px-3 py-3 text-left relative text-[12px]">
+                              <button
+                                onClick={() =>
+                                  toggleDropdown(tenant.tenantCode)
+                                }
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+                              >
+                                <BsThreeDotsVertical />
+                              </button>
+
+                              {openDropdowntenantCode === tenant.tenantCode && (
+                                <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+                                  <button
+                                    className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                    onClick={() => {
+                                      setOpenDropdowntenantCode(null);
+                                      router.push(
+                                        `/super-admin/ui/tenants/tenants_management?tenantCode=${tenant.tenantCode}`,
+                                      );
+                                    }}
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                    onClick={() => {
+                                      setSelectedTenant(tenant);
+                                      setShowEditModal(true);
+                                      setOpenDropdowntenantCode(null);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
+                                    onClick={() => {
+                                      setOpenDropdowntenantCode(null);
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
               </div>
-
-              {/* Search + Filter */}
-              <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by keyword"
-                      className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-400"
-                      value={searchKeyword}
-                      onChange={(e) => setSearchKeyword(e.target.value)}
-                    />
-                  </div>
-
-                  <div
-                    onClick={() => setShowFilter(true)}
-                    className="flex items-center gap-2 text-sm text-gray-400 dark:border-[#606060] py-2 border-r-2 border-l-2 px-48 -ml-60 cursor-pointer"
-                  >
-                    <MdTune className="w-4 h-4" />
-                    <span>Filter</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
-                    <span className="text-left -ml-60">
-                      Showing {filteredTenants.length} of {tenants.length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Table */}
-                <table className="table-fixed w-full border-collapse">
-                  <thead className="text-[13px] bg-[#4C6993] text-white">
-                    <tr>
-                      {[
-                        "Tenant Name",
-                        "Domain",
-                        "Phone Number",
-                        "Email",
-                        "Start Date",
-                        "Plan",
-                        "User",
-                        "Renewal Date",
-                        "Tenant Status",
-                        "Action",
-                      ].map((header, tenantCodex) => (
-                        <th
-                          key={tenantCodex}
-                          className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedTenants.map((tenant, index) => {
-                      const rowBgClass =
-                        index % 2 === 0
-                          ? "bg-[#fff] dark:bg-[#2C2C2C]"
-                          : "bg-[#F8F8F8] dark:bg-[#383838]";
-
-                      return (
-                        <tr
-                          key={tenant.tenantCode}
-                          className={`text-[10px] ${rowBgClass}`}
-                        >
-                          <td className="px-3 py-3 break-words text-[11px] dark:text-white">
-                            {tenant.tenantName}
-                          </td>
-
-                          <td className="px-3 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
-                            {tenant.domain}
-                          </td>
-
-                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-                            {tenant.phoneNumber}
-                          </td>
-
-                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-                            {tenant.email}
-                          </td>
-
-                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-                            {tenant.startDate}
-                          </td>
-
-                          <td className="px-4 py-4 text-left">
-                            <span
-                              className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getPlanStyle(
-                                tenant.plan,
-                              )}`}
-                            >
-                              {tenant.plan}
-                            </span>
-                          </td>
-
-                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-                            {tenant.users}
-                          </td>
-
-                          <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
-                            {tenant.renewalDate}
-                          </td>
-
-                          <td className="px-3 py-3 break-words text-left">
-                            <span
-                              className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getStatusStyle(
-                                tenant.status,
-                              )}`}
-                            >
-                              {tenant.status}
-                            </span>
-                          </td>
-
-                          <td className="px-3 py-3 text-left relative text-[12px]">
-                            <button
-                              onClick={() => toggleDropdown(tenant.tenantCode)}
-                              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
-                            >
-                              <BsThreeDotsVertical />
-                            </button>
-
-                            {openDropdowntenantCode === tenant.tenantCode && (
-                              <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
-                                <button
-                                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
-                                  onClick={() => {
-                                    setOpenDropdowntenantCode(null);
-                                    router.push(
-                                      `/super-admin/ui/tenants/tenants_management?tenantCode=${tenant.tenantCode}`,
-                                    );
-                                  }}
-                                >
-                                  View
-                                </button>
-                                <button
-                                  className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
-                                  onClick={() => {
-                                    setSelectedTenant(tenant);
-                                    setShowEditModal(true);
-                                    setOpenDropdowntenantCode(null);
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-                                  onClick={() => {
-                                    setOpenDropdowntenantCode(null);
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
             </div>
           </div>
         </div>
@@ -724,6 +762,9 @@ const page = () => {
             }}
           />
         )}
+
+              {showAddTenant && <AddNewTenant onClose={() => setAddTenant(false)} />}
+        
       </BaseSuperLayout>
     </div>
   );
