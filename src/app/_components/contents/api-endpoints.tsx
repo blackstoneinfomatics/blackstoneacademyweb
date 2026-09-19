@@ -231,6 +231,7 @@ export const AppApiEndpoints = {
     AMOUNT_BY_COUNTRY: "/amountbycountry",
     AMOUNT_BY_COURSE: "/amountbycourse",
     STUDENT_REVENUE: "/studentrevenue",
+    TENANTS_GROWTH: "/analytics/tenants-growth",
   },
 
   ASSIGNMENT: {

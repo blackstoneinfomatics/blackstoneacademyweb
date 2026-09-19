@@ -8,129 +8,105 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
+  Tooltip,
 } from "recharts";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-type Period = "daily" | "weekly" | "monthly" | "yearly";
+type Period = "weekly" | "monthly" | "yearly";
 
-interface GrowthPoint {
-  month: string;
-  total: number;
-  active: number;
+interface TenantGrowthPoint {
+  date: string;
+  totalTenants: number;
+  activeTenants: number;
 }
 
 interface ApiResponse {
   success: boolean;
   message: string;
   data: {
-    period: string;
+    period: Period;
     startDate: string;
     endDate: string;
-    data: GrowthPoint[];
+    data: TenantGrowthPoint[];
   };
 }
 
-// ─────────────────────────────────────────────
-// Endpoint
-// ─────────────────────────────────────────────
-const API_URL = "http://localhost:5001/analytics/tenants-growth";
+interface ChartPoint {
+  label: string;
+  total: number;
+  active: number;
+}
 
 const PERIOD_LABELS: Record<Period, string> = {
-  daily: "Daily",
   weekly: "Weekly",
   monthly: "Monthly",
   yearly: "Yearly",
 };
 
-// ─────────────────────────────────────────────
-// Fallback series
-// ─────────────────────────────────────────────
-const buildEmptySeries = (period: Period): GrowthPoint[] => {
-  const now = new Date();
-  const MONTHS = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
+const MONTH_LABELS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 
-  switch (period) {
-    case "daily":
-      return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (6 - i));
-        return {
-          month: `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, "0")}`,
-          total: 0,
-          active: 0,
-        };
-      });
-    case "weekly":
-      return Array.from({ length: 4 }, (_, i) => ({
-        month: `W${i + 1}`,
-        total: 0,
-        active: 0,
-      }));
-    case "yearly": {
-      const year = now.getFullYear();
-      return Array.from({ length: 5 }, (_, i) => ({
-        month: `${year - 4 + i}`,
-        total: 0,
-        active: 0,
-      }));
-    }
-    case "monthly":
-    default:
-      return Array.from({ length: 12 }, (_, i) => {
-        const d = new Date(now);
-        d.setMonth(d.getMonth() - (11 - i));
-        return {
-          month: MONTHS[d.getMonth()],
-          total: 0,
-          active: 0,
-        };
-      });
+const formatLabel = (date: string, period: Period): string => {
+  if (period === "yearly") {
+    const [, month] = date.split("-");
+    return MONTH_LABELS[Number(month) - 1] ?? date;
   }
+
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+
+  return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 };
+
+const buildChartPoints = (
+  points: TenantGrowthPoint[],
+  period: Period,
+): ChartPoint[] =>
+  points.map((point) => ({
+    label: formatLabel(point.date, period),
+    total: point.totalTenants ?? 0,
+    active: point.activeTenants ?? 0,
+  }));
 
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
 const TenentsGrowthChart = () => {
-  const [period, setPeriod] = useState<Period>("yearly");
-  const [chartData, setChartData] = useState<GrowthPoint[]>([]);
+  const [period, setPeriod] = useState<Period>("monthly");
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ── Fetch whenever period changes ──
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     (async () => {
       try {
-        const res = await fetch(`${API_URL}?period=${period}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json: ApiResponse = await res.json();
+        const response = await axios.get<ApiResponse>(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANTS_GROWTH}`,
+          { params: { period }, signal: controller.signal },
+        );
 
-        if (!cancelled) {
-          if (
-            json.success &&
-            Array.isArray(json.data.data) &&
-            json.data.data.length > 0
-          ) {
-            setChartData(json.data.data);
-          } else {
-            setChartData([]);
-          }
+        if (response.data.success) {
+          const resolvedPeriod = response.data.data.period ?? period;
+          setChartData(buildChartPoints(response.data.data.data ?? [], resolvedPeriod));
+        } else {
+          setChartData([]);
         }
-      } catch {
-        if (!cancelled) setChartData([]);
+      } catch (error) {
+        if (axios.isCancel(error)) return;
+        setChartData([]);
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [period]);
 
   // ── Close dropdown on outside click ──
@@ -146,9 +122,6 @@ const TenentsGrowthChart = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-
-  const hasRealData = chartData.length > 0;
-  const renderData = hasRealData ? chartData : buildEmptySeries(period);
 
   return (
     <div className="w-full h-[350px] rounded-[16px] bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.03)] dark:bg-[#343434] dark:shadow-none dark:border dark:border-[#454545]">
@@ -214,8 +187,8 @@ const TenentsGrowthChart = () => {
       <div className="h-[225px] w-full mt-6 -ml-4">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
-            data={renderData}
-            margin={{ top: 6, right: 0, left: 0, bottom: 0 }}
+            data={chartData}
+            margin={{ top: 6, right: 12, left: 0, bottom: 0 }}
           >
             <CartesianGrid
               horizontal={true}
@@ -225,15 +198,17 @@ const TenentsGrowthChart = () => {
               className="dark:opacity-30"
             />
 
-            <XAxis dataKey="month" hide />
+            <XAxis
+              dataKey="label"
+              axisLine={{ stroke: "#D0D0DD", strokeWidth: 1 }}
+              tickLine={false}
+              tick={{ fill: "#777789", fontSize: 12, fontWeight: 400 }}
+              className="dark:[&_.recharts-cartesian-axis-tick-value]:fill-gray-400 dark:[&_.recharts-cartesian-axis-line]:stroke-[#555]"
+            />
 
             <YAxis
-              domain={[0, 25000]}
-              ticks={[0, 5000, 10000, 15000, 20000, 25000]}
-              tickFormatter={(value) => {
-                if (value === 0) return "0";
-                return `${value / 1000}K`;
-              }}
+              allowDecimals={false}
+              domain={[0, "auto"]}
               axisLine={{ stroke: "#D0D0DD", strokeWidth: 1 }}
               tickLine={false}
               tick={{
@@ -241,37 +216,38 @@ const TenentsGrowthChart = () => {
                 fontSize: 12,
                 fontWeight: 400,
               }}
-              width={51}
+              width={40}
               className="dark:[&_.recharts-cartesian-axis-tick-value]:fill-gray-400 dark:[&_.recharts-cartesian-axis-line]:stroke-[#555]"
             />
 
-            <XAxis
-              dataKey="month"
-              axisLine={{ stroke: "#D0D0DD", strokeWidth: 1 }}
-              tickLine={false}
-              tick={false}
-              height={1}
-              className="dark:[&_.recharts-cartesian-axis-line]:stroke-[#555]"
+            <Tooltip
+              contentStyle={{
+                borderRadius: 8,
+                border: "1px solid #E5E7EB",
+                fontSize: 12,
+              }}
             />
 
             <Line
               type="monotone"
               dataKey="total"
-              stroke="#797979"
+              name="Total Tenants"
+              stroke="#4648d4"
               strokeWidth={2}
               dot={false}
-              activeDot={false}
+              activeDot={{ r: 4 }}
               isAnimationActive={false}
             />
 
             <Line
               type="monotone"
               dataKey="active"
-              stroke="#cec9c9ff"
+              name="Active Tenants"
+              stroke="#0058be"
               strokeWidth={2}
               strokeDasharray="7 5"
               dot={false}
-              activeDot={false}
+              activeDot={{ r: 4 }}
               isAnimationActive={false}
             />
           </LineChart>
@@ -287,7 +263,7 @@ const TenentsGrowthChart = () => {
               y1="4"
               x2="27"
               y2="4"
-              stroke="#797979"
+              stroke="#4648d4"
               strokeWidth="2"
             />
           </svg>
@@ -303,7 +279,7 @@ const TenentsGrowthChart = () => {
               y1="4"
               x2="27"
               y2="4"
-              stroke="#cec9c9ff"
+              stroke="#0058be"
               strokeWidth="2"
               strokeDasharray="6 4"
             />
