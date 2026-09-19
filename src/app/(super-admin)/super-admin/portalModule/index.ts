@@ -314,6 +314,7 @@ export const getFeatureCard = () => request<FeatureCard>("GET", "/features/card"
 export interface TenantFeature {
   featureId: string;
   featureName: string;
+  description?: string | null;
   featureStatus: PortalStatus;
   featuretype: PortalType; // note: lowercase "t" - matches the backend field name as-is
   isEnabled: boolean;
@@ -325,6 +326,7 @@ export interface TenantFeature {
 export interface TenantChildModule {
   childModuleId: string;
   childModuleName: string;
+  description?: string | null;
   childModuleStatus: PortalStatus;
   childModuleType: PortalType;
   isEnabled: boolean;
@@ -337,6 +339,7 @@ export interface TenantChildModule {
 export interface TenantModule {
   moduleId: string;
   moduleName: string;
+  description?: string | null;
   orderNo: number;
   moduleStatus: PortalStatus;
   moduleType: PortalType;
@@ -366,6 +369,7 @@ export interface AddTenantModulePayload {
   tenantId: string;
   portalId: string;
   moduleName: string;
+  description?: string;
   orderNo?: number;
   moduleStatus: PortalStatus;
   createdBy: string;
@@ -384,6 +388,7 @@ export interface AddTenantChildModulePayload {
   tenantId: string;
   portalId: string;
   childModuleName: string;
+  description?: string;
   childModuleStatus: PortalStatus;
   createdBy: string;
 }
@@ -400,6 +405,7 @@ export interface AddTenantFeaturePayload {
   tenantId: string;
   portalId: string;
   featureName: string;
+  description?: string;
   featureStatus: PortalStatus;
   createdBy: string;
 }
