@@ -76,22 +76,22 @@ async function fetchCards(): Promise<DashboardCardsData> {
 const cardConfig = {
     tenant: {
         image: "/assets/images/superadmin-analytics-totaltenants.svg",
-        iconBg: "bg-[#F3F0FF] dark:bg-[#2A2140]",
+        iconBg: "bg-[#e5dffd] dark:bg-[#e5dffd]",
         title: "Total Tenants",
-        titleColor: "text-[#6B46C1] dark:text-[#B794F4]",
+        titleColor: "text-[#5225fc] dark:text-[#5225fc]",
     },
     subscription: {
         image: "/assets/images/superadmin-analytics-totalsubscriptions.svg",
-        iconBg: "bg-[#E6F6EC] dark:bg-[#1C3326]",
+        iconBg: "bg-[#e3f4e7] dark:bg-[#e3f4e7]",
         title: "Total Subscriptions",
-        titleColor: "text-[#2F855A] dark:text-[#68D391]",
+        titleColor: "text-[#40BD5F] dark:text-[#40BD5F]",
     },
     revenue: {
         icon: IndianRupee,
-        iconBg: "bg-[#FEF3C7] dark:bg-[#3A2E14]",
-        iconColor: "text-[#D97706] dark:text-[#F6AD55]",
+        iconBg: "bg-[#fdf2df] dark:bg-[#fdf2df]",
+        iconColor: "text-[#FCAA25] dark:text-[#FCAA25]",
         title: "Total Revenue",
-        titleColor: "text-[#D97706] dark:text-[#F6AD55]",
+        titleColor: "text-[#FCAA25] dark:text-[#FCAA25]",
     },
 };
 
@@ -176,7 +176,7 @@ const AnalyticsCard = ({ type }: AnalyticsCardProps) => {
             {/* Top: Icon/Image + Title + Value */}
             <div className="flex items-center gap-4">
                 <div
-                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${config.iconBg}`}
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${config.iconBg}`}
                 >
                     {"image" in config && config.image ? (
                         <img
@@ -194,7 +194,7 @@ const AnalyticsCard = ({ type }: AnalyticsCardProps) => {
                 </div>
 
                 <div className="flex flex-col">
-                    <p className={`text-sm font-bold ${config.titleColor}`}>
+                    <p className={`text-sm font-semibold ${config.titleColor}`}>
                         {config.title}
                     </p>
 
@@ -221,7 +221,7 @@ const AnalyticsCard = ({ type }: AnalyticsCardProps) => {
                 ) : (
                     <>
                         <span className={trend.color}>{trend.label}</span>
-                        <span className="font-medium text-gray-400 dark:text-gray-400">
+                        <span className="font-medium text-[#646464] dark:text-gray-400">
                             vs last Month
                         </span>
                     </>

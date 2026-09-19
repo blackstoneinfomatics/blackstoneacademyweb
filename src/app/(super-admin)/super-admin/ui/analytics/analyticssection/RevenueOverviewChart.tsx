@@ -5,50 +5,47 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-type Period = "daily" | "monthly" | "yearly";
+type Period = "weekly" | "monthly";
 
 interface RevenuePoint {
-  month: string;
+  label: string;
   value: number;
+}
+
+interface MonthlyRow {
+  month: string;
+  monthNumber: number;
+  revenue: number;
+}
+
+interface WeeklyRow {
+  date: string;
+  day: string;
+  revenue: number;
 }
 
 interface ApiResponse {
   success: boolean;
   message: string;
   data: {
-    total: number;
-    subscriptions: {
-      planName: string | null;
-      count: number;
-      percentage: number;
-    }[];
+    period: string;
+    year?: number;
+    startDate?: string;
+    endDate?: string;
+    totalRevenue: number;
+    revenue: MonthlyRow[] | WeeklyRow[];
   };
 }
 
 // ─────────────────────────────────────────────
 // Endpoint
 // ─────────────────────────────────────────────
-const API_URL = "http://localhost:5001/analytics/chartcount";
+const API_URL = "http://localhost:5001/analytics/revenue-overview";
 
 const PERIOD_LABELS: Record<Period, string> = {
-  daily: "Daily",
+  weekly: "Weekly",
   monthly: "Monthly",
-  yearly: "Yearly",
 };
-
-// ─────────────────────────────────────────────
-// Fallback data
-// ─────────────────────────────────────────────
-const FALLBACK_DATA: RevenuePoint[] = [
-  { month: "Jan", value: 420 },
-  { month: "Feb", value: 310 },
-  { month: "Mar", value: 420 },
-  { month: "Apr", value: 160 },
-  { month: "May", value: 160 },
-  { month: "Jun", value: 650 },
-  { month: "Jul", value: 420 },
-  { month: "Aug", value: 500 },
-];
 
 // ─────────────────────────────────────────────
 // Layout constants
@@ -57,19 +54,57 @@ const CARD_HEIGHT = 350;
 const GRID_LINES = 5;
 const FIRST_GRID_TOP = 4;
 const GRID_STEP = 44;
-const BASELINE_TOP = FIRST_GRID_TOP + (GRID_LINES - 1) * GRID_STEP;
-const CHART_HEIGHT = BASELINE_TOP + 6;
+const BASELINE_TOP = FIRST_GRID_TOP + (GRID_LINES - 1) * GRID_STEP; // 180
+const CHART_HEIGHT = BASELINE_TOP + 6; // 186
 
 // ─────────────────────────────────────────────
-// Nice axis max
+// ✅ Compute Y-axis max = 2 × highest value, rounded to a nice number
 // ─────────────────────────────────────────────
-const niceMax = (raw: number): number => {
-  if (raw <= 0) return 100;
-  const steps = [
-    10, 20, 25, 50, 100, 150, 200, 250, 500, 750, 1000, 1500, 2000, 2500, 5000,
-    7500, 10000, 20000, 50000, 100000,
+const computeYMax = (maxValue: number): number => {
+  if (maxValue <= 0) return 1000;
+
+  const target = maxValue * 2;
+  // Pick the smallest "nice" step that is >= target
+  const niceSteps = [
+    1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000, 100000, 200000, 250000,
+    500000, 1000000,
   ];
-  return steps.find((s) => s >= raw) ?? Math.ceil(raw / 10000) * 10000;
+  return niceSteps.find((s) => s >= target) ?? Math.ceil(target / 100000) * 100000;
+};
+
+/** Format value for Y-axis label */
+const formatYLabel = (value: number): string => {
+  if (value === 0) return "0";
+  if (value >= 100000) {
+    const lakhs = value / 100000;
+    return `${Number.isInteger(lakhs) ? lakhs : lakhs.toFixed(2)}L`;
+  }
+  if (value >= 1000) {
+    const k = value / 1000;
+    return `${Number.isInteger(k) ? k : k.toFixed(1)}K`;
+  }
+  return `${value}`;
+};
+
+// ─────────────────────────────────────────────
+// Normalize API → chart points
+// ─────────────────────────────────────────────
+const normalizeData = (json: ApiResponse, period: Period): RevenuePoint[] => {
+  const rows = json.data.revenue;
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  if (period === "monthly") {
+    return (rows as MonthlyRow[]).map((r) => ({
+      label: r.month,
+      value: r.revenue ?? 0,
+    }));
+  }
+
+  // weekly
+  return (rows as WeeklyRow[]).map((r) => ({
+    label: r.day,
+    value: r.revenue ?? 0,
+  }));
 };
 
 // ─────────────────────────────────────────────
@@ -77,7 +112,8 @@ const niceMax = (raw: number): number => {
 // ─────────────────────────────────────────────
 const RevenueOverviewChart = () => {
   const [period, setPeriod] = useState<Period>("monthly");
-  const [chartData, setChartData] = useState<RevenuePoint[]>(FALLBACK_DATA);
+  const [chartData, setChartData] = useState<RevenuePoint[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -86,22 +122,19 @@ const RevenueOverviewChart = () => {
     let cancelled = false;
 
     (async () => {
+      setLoading(true);
       try {
         const res = await fetch(`${API_URL}?period=${period}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: ApiResponse = await res.json();
 
         if (!cancelled && json.success) {
-          const points: RevenuePoint[] = (json.data.subscriptions ?? []).map(
-            (s) => ({
-              month: s.planName ?? "Others",
-              value: s.count ?? 0,
-            })
-          );
-          setChartData(points.length > 0 ? points : FALLBACK_DATA);
+          setChartData(normalizeData(json, period));
         }
       } catch {
-        if (!cancelled) setChartData(FALLBACK_DATA);
+        if (!cancelled) setChartData([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
 
@@ -124,27 +157,29 @@ const RevenueOverviewChart = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Axis max ──
-  const maxValue = useMemo(() => {
-    const raw = Math.max(...chartData.map((d) => d.value), 1);
-    return niceMax(raw);
+  // ── ✅ Dynamic Y max = 2 × highest value ──
+  const yMax = useMemo(() => {
+    const highest = Math.max(...chartData.map((d) => d.value), 0);
+    return computeYMax(highest);
   }, [chartData]);
 
-  // ── Y-axis ticks ──
+  // 5 evenly spaced ticks: 0, ¼, ½, ¾, max
   const yTicks = useMemo(() => {
-    const t1 = maxValue;
-    const t2 = Math.round(maxValue * 0.75);
-    const t3 = Math.round(maxValue * 0.5);
-    const t4 = Math.round(maxValue * 0.25);
-    return [t1, t2, t3, t4, 0];
-  }, [maxValue]);
+    return [0, 1, 2, 3, 4].map((i) => Math.round((yMax * i) / 4));
+  }, [yMax]);
+
+  const plotHeight = BASELINE_TOP - FIRST_GRID_TOP;
+
+  // Adaptive gap: tighter for 12 monthly bars
+  const barCount = chartData.length || 1;
+  const barGap = barCount > 8 ? 6 : 10;
 
   return (
     <div
-      className="w-full rounded-[20px] bg-white px-[29px] pt-[22px] pb-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col dark:bg-[#343434] dark:shadow-none dark:border dark:border-[#454545]"
+      className="w-full rounded-[20px] bg-white px-[24px] pt-[22px] pb-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col dark:bg-[#343434] dark:shadow-none dark:border dark:border-[#454545]"
       style={{ height: CARD_HEIGHT }}
     >
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <div className="flex items-center justify-between shrink-0">
         <h2 className="text-[16px] font-semibold leading-[24px] tracking-[-0.5px] text-[#18181B] dark:text-white">
           Revenue Overview
@@ -201,21 +236,21 @@ const RevenueOverviewChart = () => {
         </div>
       </div>
 
-      {/* ================= CHART ================= */}
+      {/* CHART */}
       <div className="flex-1 min-h-0 mt-[14px] mb-[14px] flex flex-col justify-center">
         <div className="flex">
-          {/* Y AXIS */}
+          {/* Y AXIS — reversed so max is on top, 0 at bottom */}
           <div
             className="relative w-[58px] shrink-0"
             style={{ height: CHART_HEIGHT }}
           >
-            {yTicks.map((tick, i) => (
+            {[...yTicks].reverse().map((tick, i) => (
               <span
                 key={i}
                 className="absolute left-0 text-[12px] font-normal text-[#454545] dark:text-gray-400"
                 style={{ top: `${FIRST_GRID_TOP + i * GRID_STEP - 7}px` }}
               >
-                ${tick}
+                {formatYLabel(tick)}
               </span>
             ))}
           </div>
@@ -236,45 +271,49 @@ const RevenueOverviewChart = () => {
               ))}
             </div>
 
-            {/* Bars */}
+            {/* Bars — anchored to bottom, grow upward */}
             <div
-              className="absolute inset-x-[16px] flex items-end justify-between gap-[10px]"
+              className="absolute inset-x-[10px] flex items-end justify-between"
               style={{
                 top: FIRST_GRID_TOP,
-                height: BASELINE_TOP - FIRST_GRID_TOP,
+                height: plotHeight,
+                gap: `${barGap}px`,
               }}
             >
-              {chartData.map((item, i) => {
-                const plotHeight = BASELINE_TOP - FIRST_GRID_TOP;
-                const ratio = maxValue > 0 ? item.value / maxValue : 0;
-                const height = Math.max(ratio * plotHeight, 2);
+              {!loading &&
+                chartData.map((item, i) => {
+                  const ratio = yMax > 0 ? item.value / yMax : 0;
+                  const height = Math.max(ratio * plotHeight, 2);
 
-                return (
-                  <div
-                    key={`${item.month}-${i}`}
-                    className="flex h-full flex-1 items-end justify-center"
-                  >
+                  return (
                     <div
-                      className="w-full max-w-[42px] rounded-t-[4px] bg-gradient-to-b from-[#C9B9F1] via-[#9D85E0] to-[#8060D9]"
-                      style={{ height: `${height}px` }}
-                    />
-                  </div>
-                );
-              })}
+                      key={`${item.label}-${i}`}
+                      className="flex h-full min-w-0 flex-1 items-end justify-center"
+                    >
+                      <div
+                        className="w-full max-w-[36px] rounded-t-[4px] bg-gradient-to-b from-[#C9B9F1] via-[#9D85E0] to-[#8060D9]"
+                        style={{ height: `${height}px` }}
+                      />
+                    </div>
+                  );
+                })}
             </div>
 
             {/* X labels */}
             <div
-              className="absolute inset-x-[16px] flex justify-between gap-[10px]"
-              style={{ top: BASELINE_TOP + 6 }}
+              className="absolute inset-x-[10px] flex justify-between"
+              style={{
+                top: BASELINE_TOP + 6,
+                gap: `${barGap}px`,
+              }}
             >
               {chartData.map((item, i) => (
                 <div
-                  key={`${item.month}-label-${i}`}
-                  className="flex-1 text-center"
+                  key={`${item.label}-label-${i}`}
+                  className="min-w-0 flex-1 overflow-hidden text-center"
                 >
-                  <span className="text-[11px] font-normal text-[#737373] dark:text-gray-400">
-                    {item.month}
+                  <span className="block truncate text-[11px] font-normal text-[#737373] dark:text-gray-400">
+                    {item.label}
                   </span>
                 </div>
               ))}
@@ -283,7 +322,7 @@ const RevenueOverviewChart = () => {
         </div>
       </div>
 
-      {/* ================= LEGEND ================= */}
+      {/* LEGEND */}
       <div className="shrink-0 flex justify-end">
         <div className="flex items-center gap-[10px]">
           <span className="h-[3px] w-[24px] rounded-full bg-[#8865DF]" />

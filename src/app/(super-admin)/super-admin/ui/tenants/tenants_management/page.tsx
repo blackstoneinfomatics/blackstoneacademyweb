@@ -23,6 +23,7 @@ import ActivityTable from "../../../components/TeanantActivityTable";
 import QuickInsights from "../../../components/TenantQuickInsights";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import OrganizationHeader, { OrganizationTab } from "../../../components/OrganizationHeader";
 
 interface TenantDetails {
   tenantCode: string;
@@ -75,10 +76,10 @@ const formatSubscriptionDate = (value?: string) => {
   return Number.isNaN(date.getTime())
     ? value
     : date.toLocaleDateString("en-US", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
 };
 
 const tabs = [
@@ -95,7 +96,8 @@ const Page = () => {
   const searchParams = useSearchParams();
   const tenantCode = searchParams.get("tenantCode");
   const [activeTab, setActiveTab] = useState("Overview");
-   const [tenant, setTenant] =
+  const [tab, setTab] = useState<OrganizationTab>("All");
+  const [tenant, setTenant] =
     useState<TenantDetails | null>(null);
 
   const [loading, setLoading] =
@@ -167,8 +169,8 @@ const Page = () => {
         ].join(" - "),
       nextBilling: formatSubscriptionDate(
         tenant.activeLicense?.nextBilling ||
-          tenant.activeLicense?.renewalDate ||
-          tenant.activeLicense?.expiryDate,
+        tenant.activeLicense?.renewalDate ||
+        tenant.activeLicense?.expiryDate,
       ),
     },
     modules: [
@@ -188,19 +190,26 @@ const Page = () => {
   return (
     <BaseSuperLayout>
       <SuperAdminHeader currentSection="Tenant Management" />
+      <div>
+        <OrganizationHeader
+
+          showTabs
+          activeTab={tab}
+          onTabChange={setTab} currentSection={""} />
+
+      </div>
       <div className="min-h-screen bg-[#F9FAFB] dark:bg-[#1F1F1F] p-6 text-slate-900 dark:text-white transition-colors">
-        
+
         {/* Tabs */}
         <div className="flex flex-wrap gap-6 border-b border-gray-200 dark:border-gray-700 mb-6 transition-colors">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-3 font-medium transition-colors ${
-                activeTab === tab
-                  ? "text-[#576CBC] dark:text-[#8296E6] border-b-2 border-[#576CBC] dark:border-[#8296E6]"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              }`}
+              className={`pb-3 font-medium transition-colors ${activeTab === tab
+                ? "text-[#576CBC] dark:text-[#8296E6] border-b-2 border-[#576CBC] dark:border-[#8296E6]"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                }`}
             >
               {tab}
             </button>
@@ -390,11 +399,10 @@ const Page = () => {
                       </span>
 
                       <span
-                        className={`inline-flex items-center justify-center h-6 rounded-md text-[11px] font-medium transition-colors ${
-                          item.status === "Enabled"
-                            ? "bg-[#DCFCE7] dark:bg-green-900/30 text-[#16A34A] dark:text-green-400"
-                            : "bg-[#FEE2E2] dark:bg-red-900/30 text-[#EF4444] dark:text-red-400"
-                        }`}
+                        className={`inline-flex items-center justify-center h-6 rounded-md text-[11px] font-medium transition-colors ${item.status === "Enabled"
+                          ? "bg-[#DCFCE7] dark:bg-green-900/30 text-[#16A34A] dark:text-green-400"
+                          : "bg-[#FEE2E2] dark:bg-red-900/30 text-[#EF4444] dark:text-red-400"
+                          }`}
                       >
                         {item.status}
                       </span>

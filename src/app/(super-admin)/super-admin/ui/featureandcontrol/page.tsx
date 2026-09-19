@@ -21,6 +21,7 @@ import {
   type ChildModule,
   type Status,
 } from "../../portalModule/index";
+import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
 
 /* ================= TYPES ================= */
 interface PortalListItem {
@@ -52,7 +53,7 @@ interface FormData {
 
 const Page = () => {
   const [activeTab, setActiveTab] = useState<"feature" | "tenants">("feature");
-
+  const [tab, setTab] = useState<OrganizationTab>("All");
   /* ====== MODAL STATES ====== */
   const [showAddFeatureModal, setShowAddFeatureModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -301,9 +302,9 @@ const Page = () => {
       console.error("Error creating feature:", error);
       setCreatedFeatureName(
         formData.featureName ||
-          formData.childNavigationName ||
-          formData.parentNavigationName ||
-          "Feature",
+        formData.childNavigationName ||
+        formData.parentNavigationName ||
+        "Feature",
       );
       setShowFailure(true);
       setShowAddFeatureModal(false);
@@ -317,7 +318,14 @@ const Page = () => {
     <BaseSuperLayout>
       <div className="flex flex-col gap-4">
         <SuperAdminHeader currentSection="Feature & Control" />
+        <div>
+          <OrganizationHeader
 
+            showTabs
+            activeTab={tab}
+            onTabChange={setTab} currentSection={""} />
+
+        </div>
         <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
           <div className="flex items-center justify-between mt-2 px-3 py-2">
             <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
@@ -351,11 +359,10 @@ const Page = () => {
           <div className="flex items-center gap-6 px-5 mt-1">
             <button
               onClick={() => setActiveTab("feature")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${
-                activeTab === "feature"
-                  ? "text-[#5872C5]"
-                  : "text-[#24324B] dark:text-gray-300"
-              }`}
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "feature"
+                ? "text-[#5872C5]"
+                : "text-[#24324B] dark:text-gray-300"
+                }`}
             >
               Feature
               {activeTab === "feature" && (
@@ -365,11 +372,10 @@ const Page = () => {
 
             <button
               onClick={() => setActiveTab("tenants")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${
-                activeTab === "tenants"
-                  ? "text-[#5872C5]"
-                  : "text-[#24324B] dark:text-gray-300"
-              }`}
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "tenants"
+                ? "text-[#5872C5]"
+                : "text-[#24324B] dark:text-gray-300"
+                }`}
             >
               Tenants
               {activeTab === "tenants" && (
@@ -503,11 +509,10 @@ const Page = () => {
                 <div className="flex items-center gap-8 mb-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <span
-                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${
-                        formData.moduleType === "parent"
-                          ? "border-[#4F5BD5]"
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}
+                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${formData.moduleType === "parent"
+                        ? "border-[#4F5BD5]"
+                        : "border-gray-300 dark:border-gray-600"
+                        }`}
                     >
                       {formData.moduleType === "parent" && (
                         <span className="w-[9px] h-[9px] rounded-full bg-[#4F5BD5]" />
@@ -528,11 +533,10 @@ const Page = () => {
 
                   <label className="flex items-center gap-2 cursor-pointer">
                     <span
-                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${
-                        formData.moduleType === "child"
-                          ? "border-[#4F5BD5]"
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}
+                      className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition ${formData.moduleType === "child"
+                        ? "border-[#4F5BD5]"
+                        : "border-gray-300 dark:border-gray-600"
+                        }`}
                     >
                       {formData.moduleType === "child" && (
                         <span className="w-[9px] h-[9px] rounded-full bg-[#4F5BD5]" />

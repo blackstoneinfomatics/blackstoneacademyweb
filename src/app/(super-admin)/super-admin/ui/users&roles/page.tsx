@@ -9,6 +9,7 @@ import { BsX } from "react-icons/bs";
 import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
+import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
 
 interface FormData {
   portalRoles: string;
@@ -27,6 +28,7 @@ const Page = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showFailure, setShowFailure] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [tab, setTab] = useState<OrganizationTab>("All");
   const [formData, setFormData] = useState<FormData>({
     portalRoles: "",
     description: "",
@@ -136,6 +138,14 @@ const Page = () => {
     <BaseSuperLayout>
       <div className="flex flex-col gap-4">
         <SuperAdminHeader currentSection="Users & Roles" />
+        <div>
+          <OrganizationHeader
+
+            showTabs
+            activeTab={tab}
+            onTabChange={setTab} currentSection={""} />
+
+        </div>
 
         <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
 

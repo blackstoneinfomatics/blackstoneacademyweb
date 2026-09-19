@@ -180,11 +180,11 @@ const SubscriptionChart = () => {
                     className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-[3px] flex-shrink-0"
                     style={{ backgroundColor: seg.color }}
                   />
-                  <span className="text-xs sm:text-sm font-semibold text-[#111827] dark:text-white truncate">
+                  <span className="text-[10px] sm:text-xs font-semibold text-[#010e30] dark:text-white truncate">
                     {seg.label}
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 ml-4 sm:ml-5">
+                <p className="text-[9px] text-[#919191] dark:text-gray-400 ml-4 sm:ml-5">
                   {seg.count} ({seg.value}%)
                 </p>
               </div>

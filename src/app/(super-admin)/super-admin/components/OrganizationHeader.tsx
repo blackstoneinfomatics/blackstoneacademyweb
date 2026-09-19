@@ -240,7 +240,7 @@ export default function OrganizationHeader({
                         <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 type="button"
-                                className="px-4 py-1.5 text-sm rounded-md  bg-white text-black font-medium cursor-default dark:bg-[#252525] dark:text-[#a9b6f5] dark:border-[#576CBC]"
+                                className="px-4 py-1.5 text-xs rounded-sm  bg-white text-black font-medium cursor-default dark:bg-[#252525] dark:text-[#a9b6f5] dark:border-[#576CBC]"
                             >
                                 Organization
                             </button>
@@ -253,7 +253,7 @@ export default function OrganizationHeader({
                                         key={tab}
                                         onClick={() => handleTabClick(tab)}
                                         title={isComingSoon ? "Coming soon" : undefined}
-                                        className={`px-4 py-1.5 text-sm rounded-md border transition-all duration-200 font-medium
+                                        className={`px-4 py-[5px] text-xs rounded-sm border transition-all duration-200 font-medium
                       ${isActive
                                                 ? "bg-[#576cbc] text-white border-[#576cbc] shadow-sm"
                                                 : "bg-[#d7dbef]  text-[#576cbc] border-[#576cbc] hover:bg-[#d7dbef] dark:bg-[#252525] dark:text-[#a9b6f5] dark:border-[#576CBC] dark:hover:bg-[#343434]"
@@ -274,7 +274,7 @@ export default function OrganizationHeader({
                     {showDateTimePicker && (
                         <button
                             onClick={onDateTimeClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#252525] border border-gray-200 dark:border-[#3a3a3a] rounded-lg text-[14px] font-medium text-[#000836] dark:text-white hover:bg-[#F0F2F9] dark:hover:bg-[#343434] transition"
+                            className="flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-[#252525] border border-gray-200 dark:border-[#3a3a3a] rounded-md text-xs font-medium text-[#000836] dark:text-white hover:bg-[#F0F2F9] dark:hover:bg-[#343434] transition"
                         >
                             <span>{formattedDateTime}</span>
 

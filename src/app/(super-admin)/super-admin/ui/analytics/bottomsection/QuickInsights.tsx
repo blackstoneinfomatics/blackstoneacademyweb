@@ -38,7 +38,7 @@ const QuickInsights = () => {
 
   return (
     <div className="w-full h-[350px] rounded-2xl bg-white p-4 shadow-sm sm:p-5 dark:bg-[#343434] dark:shadow-none dark:border dark:border-[#454545]">
-      <h2 className="mb-4 text-base font-semibold text-[#101B41] sm:mb-5 sm:text-lg dark:text-white">
+      <h2 className="mb-4 text-sm font-semibold text-[#101B41] sm:mb-5 sm:text-base dark:text-white">
         Quick Insights
       </h2>
 
@@ -52,27 +52,27 @@ const QuickInsights = () => {
               className="flex items-center justify-between gap-3"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-[#454545]">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-[#454545]">
                   {imgSrc && (
                     <img
                       src={imgSrc}
                       alt={item.title}
-                      className="h-10 w-10 object-contain"
+                      className="h-9 w-9 object-contain"
                     />
                   )}
                 </div>
 
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-[#101B41] sm:text-base dark:text-white">
+                <div className="min-w-0 space-y-0.5">
+                  <p className="truncate text-xs font-medium text-[#101B41] sm:text-sm dark:text-white">
                     {item.title}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
                     {item.period}
                   </p>
                 </div>
               </div>
 
-              <span className="flex-shrink-0 text-sm font-semibold text-[#101B41] sm:text-base dark:text-white">
+              <span className="flex-shrink-0 text-sm font-medium text-[#101B41] sm:text-sm dark:text-white">
                 {item.value}
               </span>
             </div>

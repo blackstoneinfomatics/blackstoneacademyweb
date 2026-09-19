@@ -140,9 +140,9 @@ const RecentActivityTable = () => {
   return (
     <div className="rounded-2xl bg-white shadow-sm dark:bg-[#343434] dark:shadow-none dark:border dark:border-[#454545]">
       {/* Header */}
-      <div className="border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4 dark:border-[#454545]">
-        <h2 className="text-base font-semibold text-[#101B41] sm:text-lg dark:text-white">
-          Recent Activities
+      <div className="border-b border-gray-100 px-4 py-3 sm:px-4 sm:py-4 dark:border-[#454545]">
+        <h2 className="text-sm font-semibold text-[#101B41] sm:text-base dark:text-white">
+          Report
         </h2>
       </div>
 
@@ -164,7 +164,7 @@ const RecentActivityTable = () => {
             </tr>
           </thead>
 
-          <tbody className="text-sm text-gray-700 dark:text-gray-200">
+          <tbody className="text-[11px] text-gray-700 dark:text-gray-200">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <tr
@@ -227,9 +227,9 @@ const RecentActivityTable = () => {
                     </td>
 
                     {/* Status */}
-                    <td className="whitespace-nowrap px-4 py-3 align-middle">
+                    <td className="px-4 py-3 align-middle text-center whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${statusVariant === "paid"
+                        className={`inline-flex w-full items-center justify-center rounded-md px-3 py-1 text-[10px] font-medium ${statusVariant === "paid"
                           ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300"
                           : statusVariant === "failed"
                             ? "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
