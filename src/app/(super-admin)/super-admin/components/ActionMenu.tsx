@@ -120,7 +120,7 @@ export default function ActionDropdown<T>({
                   item.onClick(row);
                   setOpen(false);
                 }}
-                className={`block w-full border-b-2 border-[#D4D4D4] px-3 py-2 text-center text-xs font-medium last:border-b-0 hover:bg-gray-50 dark:border-[#343434] dark:hover:bg-[#343434] ${
+                className={`block w-full border-b-2 border-[#D4D4D4] px-2 py-2 text-center text-[10px] font-medium last:border-b-0 hover:bg-gray-50 dark:border-[#343434] dark:hover:bg-[#343434] ${
                   item.className ?? ""
                 }`}
               >

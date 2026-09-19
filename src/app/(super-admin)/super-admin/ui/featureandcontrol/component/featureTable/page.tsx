@@ -16,6 +16,9 @@ import { MdTune, MdCheckCircle, MdCancel } from "react-icons/md";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import FilterDrawer, {
+  FilterField,
+} from "@/app/(super-admin)/super-admin/components/FilterDrawer";
 
 interface FeatureCardData {
   totalFeatures: FeatureMetric;
@@ -89,6 +92,7 @@ interface FeatureTableItem {
   status: string;
   isEnabled: boolean;
   addOnDate: string;
+  addOnDateValue: string;
 }
 
 const MENU_WIDTH = 112; // w-28
@@ -118,6 +122,9 @@ const Table = () => {
     useState<FeatureCardData | null>(null);
   const [featureItems, setFeatureItems] = useState<FeatureTableItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
   const [totalFeatureItems, setTotalFeatureItems] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -203,6 +210,7 @@ const Table = () => {
               status: feature.status,
               isEnabled: feature.isEnabled,
               addOnDate: formatAddOnDate(feature.createdAt),
+              addOnDateValue: feature.createdAt,
             })),
             ...parentModule.children.flatMap((childModule) =>
               childModule.features.length > 0
@@ -218,6 +226,7 @@ const Table = () => {
                     status: feature.status,
                     isEnabled: feature.isEnabled,
                     addOnDate: formatAddOnDate(feature.createdAt),
+                    addOnDateValue: feature.createdAt,
                   }))
                 : [
                     {
@@ -232,6 +241,7 @@ const Table = () => {
                       status: childModule.status,
                       isEnabled: childModule.isEnabled,
                       addOnDate: formatAddOnDate(childModule.createdAt),
+                      addOnDateValue: childModule.createdAt,
                     },
                   ],
             ),
@@ -250,18 +260,93 @@ const Table = () => {
   const filteredFeatureItems = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    if (!term) return featureItems;
+    const matchesText = (value: string, filterKey: string) =>
+      !appliedFilters[filterKey] ||
+      value.toLowerCase().includes(appliedFilters[filterKey].toLowerCase());
 
-    return featureItems.filter((item) =>
-      [
-        item.featureName,
-        item.portal,
-        item.parentModule,
-        item.childModule,
-        item.description,
-      ].some((field) => field?.toLowerCase().includes(term)),
-    );
-  }, [featureItems, searchTerm]);
+    const fromDate = appliedFilters.addOnDateFrom
+      ? new Date(appliedFilters.addOnDateFrom)
+      : null;
+    const toDate = appliedFilters.addOnDateTo
+      ? new Date(appliedFilters.addOnDateTo)
+      : null;
+
+    if (fromDate) fromDate.setHours(0, 0, 0, 0);
+    if (toDate) toDate.setHours(23, 59, 59, 999);
+
+    return featureItems.filter((item) => {
+      const itemDate = new Date(item.addOnDateValue);
+      const matchesSearch =
+        !term ||
+        [
+          item.featureName,
+          item.portal,
+          item.parentModule,
+          item.childModule,
+          item.description,
+        ].some((field) => field?.toLowerCase().includes(term));
+      const matchesDate =
+        (!fromDate || itemDate >= fromDate) && (!toDate || itemDate <= toDate);
+
+      return (
+        matchesSearch &&
+        matchesText(item.portal, "portal") &&
+        matchesText(item.parentModule, "parentModule") &&
+        matchesText(item.childModule, "childModule") &&
+        matchesText(item.featureName, "featureName") &&
+        (!appliedFilters.status || item.status === appliedFilters.status) &&
+        matchesDate
+      );
+    });
+  }, [appliedFilters, featureItems, searchTerm]);
+
+  const filterFields: FilterField[] = [
+    {
+      key: "portal",
+      label: "Portal",
+      type: "text",
+      placeholder: "All portals",
+    },
+    {
+      key: "parentModule",
+      label: "Parent Module",
+      type: "text",
+      placeholder: "All parent modules",
+    },
+    {
+      key: "childModule",
+      label: "Child Module",
+      type: "text",
+      placeholder: "All child modules",
+    },
+    {
+      key: "featureName",
+      label: "Feature Name",
+      type: "text",
+      placeholder: "All feature names",
+    },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      placeholder: "All statuses",
+      options: [
+        { label: "Active", value: "Active" },
+        { label: "Inactive", value: "Inactive" },
+      ],
+    },
+    {
+      key: "addOnDate",
+      label: "Add On Date",
+      type: "dateRange",
+    },
+  ];
+
+  const resetFilters = () => {
+    setFilterValues({});
+    setAppliedFilters({});
+    setCurrentPage(1);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -269,7 +354,9 @@ const Table = () => {
 
   useEffect(() => {
     setTotalFeatureItems(filteredFeatureItems.length);
-    setTotalPages(Math.max(1, Math.ceil(filteredFeatureItems.length / PAGE_LIMIT)));
+    setTotalPages(
+      Math.max(1, Math.ceil(filteredFeatureItems.length / PAGE_LIMIT)),
+    );
   }, [filteredFeatureItems]);
 
   const pagedFeatureItems = useMemo(
@@ -363,7 +450,9 @@ const Table = () => {
             : feature,
         ),
       );
-      toast.success(`Feature ${isEnabled ? "enabled" : "disabled"} successfully!`);
+      toast.success(
+        `Feature ${isEnabled ? "enabled" : "disabled"} successfully!`,
+      );
     } catch (error: any) {
       console.error("Failed to update feature access:", error);
       toast.error(
@@ -449,7 +538,7 @@ const Table = () => {
 
             <div className="flex justify-end items-center gap-2 mt-1">
               {renderTrend(featureCardData?.totalFeatures)}
-              <span className="text-[12px] text-gray-500">
+              <span className="text-[12px] text-gray-500 dark:text-gray-300">
                 All Features in the system
               </span>
             </div>
@@ -496,7 +585,7 @@ const Table = () => {
 
             <div className="flex justify-end items-center gap-2 mt-1">
               {renderTrend(featureCardData?.addedFeatures)}
-              <span className="text-[12px] text-gray-500">
+              <span className="text-[12px] text-gray-500 dark:text-gray-300">
                 New Features added
               </span>
             </div>
@@ -543,7 +632,7 @@ const Table = () => {
 
             <div className="flex justify-end items-center gap-2 mt-1">
               {renderTrend(featureCardData?.inactiveFeatures)}
-              <span className="text-[12px] text-gray-500">
+              <span className="text-[12px] text-gray-500 dark:text-gray-300">
                 Currently Inactive
               </span>
             </div>
@@ -573,8 +662,6 @@ const Table = () => {
               grid
               grid-cols-1
               md:grid-cols-3
-              border-y
-              border-[#E7EAF3]
               bg-[#FAFAFB]
               dark:bg-[#2E2E2E]
             "
@@ -588,6 +675,8 @@ const Table = () => {
                 h-10
                 border-r
                 border-[#E7EAF3]
+                dark:border-r
+                dark:border-[#494b52]
               "
             >
               <FiSearch className="text-gray-400 mr-2 text-[15px]" />
@@ -618,8 +707,11 @@ const Table = () => {
                 h-10
                 border-r
                 border-[#E7EAF3]
+                dark:border-r
+                dark:border-[#494b52]
                 cursor-pointer
               "
+              onClick={() => setShowFilter(true)}
             >
               <div className="flex items-center">
                 <MdTune className="text-gray-400 mr-2 text-[16px]" />
@@ -637,6 +729,22 @@ const Table = () => {
               </span>
             </div>
           </div>
+
+          <FilterDrawer
+            open={showFilter}
+            title="Filter Features"
+            fields={filterFields}
+            values={filterValues}
+            resultCount={filteredFeatureItems.length}
+            onClose={() => setShowFilter(false)}
+            onApply={(values) => {
+              setFilterValues(values);
+              setAppliedFilters(values);
+              setCurrentPage(1);
+              setShowFilter(false);
+            }}
+            onReset={resetFilters}
+          />
 
           {/* TABLE */}
 
@@ -696,7 +804,6 @@ const Table = () => {
                       "
                     >
                       {/* Portal Name */}
-                      
                       {/* Portal Type */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                         {item.portal}
@@ -782,14 +889,17 @@ const Table = () => {
                                 className="
                                   w-full
                                   text-center
-                                  px-3
+                                  px-2 border-b
                                   py-2
                                   text-[10px]
                                   hover:bg-gray-100
                                   dark:hover:bg-gray-700
                                 "
                                 onClick={() =>
-                                  handleToggleFeatureAccess(item, !item.isEnabled)
+                                  handleToggleFeatureAccess(
+                                    item,
+                                    !item.isEnabled,
+                                  )
                                 }
                               >
                                 {item.isEnabled ? "Disable" : "Enable"}
@@ -799,9 +909,10 @@ const Table = () => {
                                 className="
                                   w-full
                                   text-center
-                                  px-3
-                                  py-2
+                                  px-2
+                                  py-2 rounded-b-lg
                                   text-[10px]
+                                  text-red-800
                                   hover:bg-gray-100
                                   dark:hover:bg-gray-700
                                 "
@@ -855,7 +966,9 @@ const Table = () => {
 
             {/* Next */}
             <button
-              onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+              onClick={() =>
+                setCurrentPage((page) => Math.min(page + 1, totalPages))
+              }
               disabled={currentPage === totalPages}
               className="
                 w-7

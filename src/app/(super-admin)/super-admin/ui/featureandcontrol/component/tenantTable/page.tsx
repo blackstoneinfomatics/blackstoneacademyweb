@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune, MdCancel, MdCheckCircle } from "react-icons/md";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import ActionDropdown from "@/app/(super-admin)/super-admin/components/ActionMenu";
+import FilterDrawer, {
+  FilterField,
+} from "@/app/(super-admin)/super-admin/components/FilterDrawer";
 
 interface TenantConfigRow {
   tenantId: string;
@@ -19,6 +22,8 @@ interface TenantConfigRow {
   plan: string;
   renewalDate: string;
   status: string;
+  startDateValue: string;
+  renewalDateValue: string;
 }
 
 interface TenantAnalyticsMetric {
@@ -60,7 +65,8 @@ const formatDate = (value?: string) =>
 const renderTrend = (metric?: TenantAnalyticsMetric) => {
   if (!metric) return null;
 
-  const arrow = metric.trend === "up" ? "↑" : metric.trend === "down" ? "↓" : "–";
+  const arrow =
+    metric.trend === "up" ? "↑" : metric.trend === "down" ? "↓" : "–";
   const color =
     metric.trend === "up"
       ? "text-[#377E36]"
@@ -79,6 +85,10 @@ const Usertable = () => {
   const [userItems, setUserItems] = useState<TenantConfigRow[]>([]);
   const [analyticsCards, setAnalyticsCards] =
     useState<TenantAnalyticsCards | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -126,6 +136,8 @@ const Usertable = () => {
               plan: subscriptionDetails.planName ?? "-",
               renewalDate: formatDate(subscriptionDetails.nextRenewalDate),
               status: tenantDetails.status ?? "-",
+              startDateValue: subscriptionDetails.startDate ?? "",
+              renewalDateValue: subscriptionDetails.nextRenewalDate ?? "",
             };
             return row;
           } catch (error) {
@@ -141,13 +153,82 @@ const Usertable = () => {
     loadTenantConfigs();
   }, []);
 
+  const filteredUserItems = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    const matchesText = (value: string, filterKey: string) =>
+      !appliedFilters[filterKey] ||
+      value.toLowerCase().includes(appliedFilters[filterKey].toLowerCase());
+    const matchesDate = (value: string, filterKey: string) =>
+      !appliedFilters[filterKey] ||
+      value.slice(0, 10) === appliedFilters[filterKey];
+
+    return userItems.filter((item) => {
+      const matchesSearch =
+        !search ||
+        [
+          item.tenantName,
+          item.domain,
+          item.startDate,
+          item.plan,
+          item.renewalDate,
+          item.status,
+        ].some((value) => value.toLowerCase().includes(search));
+
+      return (
+        matchesSearch &&
+        matchesText(item.tenantName, "tenantName") &&
+        matchesText(item.domain, "domain") &&
+        matchesText(item.plan, "plan") &&
+        (!appliedFilters.status || item.status === appliedFilters.status) &&
+        matchesDate(item.startDateValue, "startDate") &&
+        matchesDate(item.renewalDateValue, "renewalDate")
+      );
+    });
+  }, [appliedFilters, searchTerm, userItems]);
+
+  const filterFields: FilterField[] = [
+    {
+      key: "tenantName",
+      label: "Tenant Name",
+      type: "text",
+      placeholder: "All tenant names",
+    },
+    {
+      key: "domain",
+      label: "Domain",
+      type: "text",
+      placeholder: "All domains",
+    },
+    {
+      key: "plan",
+      label: "Plan",
+      type: "select",
+      placeholder: "All plans",
+      options: Array.from(new Set(userItems.map((item) => item.plan)))
+        .filter((plan) => plan !== "-")
+        .map((plan) => ({ label: plan, value: plan })),
+    },
+    {
+      key: "status",
+      label: "Tenant Status",
+      type: "select",
+      placeholder: "All statuses",
+      options: Array.from(new Set(userItems.map((item) => item.status)))
+        .filter((status) => status !== "-")
+        .map((status) => ({ label: status, value: status })),
+    },
+  ];
+
+  const resetFilters = () => {
+    setFilterValues({});
+    setAppliedFilters({});
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
       {/* Main Container */}
       <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-2 mt-3">
-
           {/* Total Portal */}
           <div
             className="
@@ -161,7 +242,6 @@ const Usertable = () => {
             "
           >
             <div className="flex items-start gap-3">
-
               <div
                 className="
                   w-11
@@ -195,7 +275,7 @@ const Usertable = () => {
             <div className="flex justify-end items-center gap-2 mt-1">
               {renderTrend(analyticsCards?.totalTenants)}
 
-              <span className="text-[12px] text-gray-500">
+              <span className="text-[12px] text-gray-500 dark:text-gray-300">
                 vs last Month
               </span>
             </div>
@@ -214,7 +294,6 @@ const Usertable = () => {
             "
           >
             <div className="flex items-start gap-3">
-
               <div
                 className="
                   w-11
@@ -244,7 +323,7 @@ const Usertable = () => {
             <div className="flex justify-end items-center gap-2 mt-1">
               {renderTrend(analyticsCards?.activeTenants)}
 
-              <span className="text-[12px] text-gray-500">
+              <span className="text-[12px] text-gray-500 dark:text-gray-300">
                 vs last Month
               </span>
             </div>
@@ -263,7 +342,6 @@ const Usertable = () => {
             "
           >
             <div className="flex items-start gap-3">
-
               <div
                 className="
                   w-11
@@ -293,7 +371,7 @@ const Usertable = () => {
             <div className="flex justify-end items-center gap-2 mt-1">
               {renderTrend(analyticsCards?.inactiveTenants)}
 
-              <span className="text-[12px] text-gray-500">
+              <span className="text-[12px] text-gray-500 dark:text-gray-300">
                 vs last Month
               </span>
             </div>
@@ -311,7 +389,6 @@ const Usertable = () => {
             mx-2
           "
         >
-
           {/* Section Title */}
           <div className="px-3 pt-3 pb-2">
             <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
@@ -324,13 +401,10 @@ const Usertable = () => {
               grid
               grid-cols-1
               md:grid-cols-3
-              border-y
-              border-[#E7EAF3]
               bg-[#FAFAFB]
               dark:bg-[#2E2E2E]
             "
           >
-
             {/* Search */}
             <div
               className="
@@ -340,12 +414,16 @@ const Usertable = () => {
                 h-10
                 border-r
                 border-[#E7EAF3]
+                dark:border-r
+                dark:border-[#494b52]
               "
             >
               <FiSearch className="text-gray-400 mr-2 text-[15px]" />
 
               <input
                 placeholder="Search by keyword"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
                 className="
                   w-full
                   outline-none
@@ -368,15 +446,16 @@ const Usertable = () => {
                 h-10
                 border-r
                 border-[#E7EAF3]
+                dark:border-r
+                dark:border-[#494b52]
                 cursor-pointer
               "
+              onClick={() => setShowFilter(true)}
             >
               <div className="flex items-center">
                 <MdTune className="text-gray-400 mr-2 text-[16px]" />
 
-                <span className="text-[11px] text-gray-400">
-                  Filter
-                </span>
+                <span className="text-[11px] text-gray-400">Filter</span>
               </div>
 
               <FiChevronDown className="text-gray-400 text-[14px]" />
@@ -385,17 +464,30 @@ const Usertable = () => {
             {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing 10 Of 50
+                Showing {filteredUserItems.length} Of {userItems.length}
               </span>
             </div>
           </div>
 
+          <FilterDrawer
+            open={showFilter}
+            title="Filter Tenants"
+            fields={filterFields}
+            values={filterValues}
+            resultCount={filteredUserItems.length}
+            onClose={() => setShowFilter(false)}
+            onApply={(values) => {
+              setFilterValues(values);
+              setAppliedFilters(values);
+              setShowFilter(false);
+            }}
+            onReset={resetFilters}
+          />
+
           {/* TABLE */}
 
           <div className="overflow-x-auto">
-
             <table className="w-full min-w-[750px] text-xs border-collapse">
-
               {/* Table Header */}
               <thead
                 className="
@@ -413,7 +505,6 @@ const Usertable = () => {
                     "Email",
                     "start Date",
                     "Plan",
-                    "User",
                     "Renewal Date",
                     "Tenant Status",
                     "Action",
@@ -439,9 +530,8 @@ const Usertable = () => {
 
               {/* Table Body */}
               <tbody>
-
-                {userItems.length > 0 ? (
-                  userItems.map((item, index) => (
+                {filteredUserItems.length > 0 ? (
+                  filteredUserItems.map((item, index) => (
                     <tr
                       key={index}
                       className="
@@ -452,7 +542,6 @@ const Usertable = () => {
                         dark:even:bg-[#303030]
                       "
                     >
-
                       {/* user Name */}
                       <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
                         {item.tenantName}
@@ -487,18 +576,15 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${item.plan === "Standard"
-                              ? "bg-[#2668EF24] text-[#2668EF]"
-                              : "bg-[#585BDC24] text-[#585BDC]"
+                            ${
+                              item.plan === "Standard"
+                                ? "bg-[#2668EF24] text-[#2668EF]"
+                                : "bg-[#585BDC24] text-[#585BDC]"
                             }
                           `}
                         >
                           {item.plan}
                         </span>
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
-                        -
                       </td>
 
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
@@ -515,9 +601,10 @@ const Usertable = () => {
                             rounded-md
                             text-[9px]
                             font-medium
-                            ${item.status === "Active"
-                              ? "bg-[#ECFDF3] text-[#377E36]"
-                              : "bg-[#FDECEC] text-[#D34645]"
+                            ${
+                              item.status === "Active"
+                                ? "bg-[#ECFDF3] dark:bg-[#4b514e] text-[#377E36] dark:text-[#8ebf8d]"
+                                : "bg-[#FDECEC] text-[#D34645]"
                             }
                           `}
                         >
@@ -526,7 +613,7 @@ const Usertable = () => {
                       </td>
 
                       {/* Action */}
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-3 px-2 text-center text-[10px]">
                         <ActionDropdown
                           row={item}
                           items={[
@@ -541,10 +628,6 @@ const Usertable = () => {
                                   )}`,
                                 ),
                             },
-                            {
-                              label: "Edit",
-                              onClick: () => {},
-                            },
                           ]}
                         />
                       </td>
@@ -552,21 +635,16 @@ const Usertable = () => {
                   ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="p-5 text-center text-gray-500"
-                    >
+                    <td colSpan={9} className="p-5 text-center text-gray-500">
                       No data available
                     </td>
                   </tr>
                 )}
-
               </tbody>
             </table>
           </div>
 
           <div className="flex justify-end items-center gap-1 px-3 py-4">
-
             {/* Previous */}
             <button
               className="

@@ -235,7 +235,9 @@ const Usercards = () => {
   const [createdFeatureName, setCreatedFeatureName] = useState<string>("");
   const [portalOptions, setPortalOptions] = useState<TenantPortalOption[]>([]);
   const [tenantModules, setTenantModules] = useState<TenantModule[]>([]);
-  const [tenantDetails, setTenantDetails] = useState<TenantDetails | null>(null);
+  const [tenantDetails, setTenantDetails] = useState<TenantDetails | null>(
+    null,
+  );
   const [subscriptionDetails, setSubscriptionDetails] =
     useState<SubscriptionDetails | null>(null);
   const [configCreatedAt, setConfigCreatedAt] = useState<string | null>(null);
@@ -499,7 +501,9 @@ const Usercards = () => {
     );
   };
 
-  const buildTenantAccessPayload = (isEnabled: boolean): TenantAccessPayload => ({
+  const buildTenantAccessPayload = (
+    isEnabled: boolean,
+  ): TenantAccessPayload => ({
     tenantId,
     portalId: formData.portal,
     isEnabled,
@@ -758,9 +762,7 @@ const Usercards = () => {
             childModuleStatus: status,
             createdBy: "SUPER_ADMIN",
           });
-          setCreatedFeatureName(
-            formData.childNavigationName || "Child Module",
-          );
+          setCreatedFeatureName(formData.childNavigationName || "Child Module");
         }
       } else {
         const parent = tenantModules.find(
@@ -819,7 +821,7 @@ const Usercards = () => {
   /* ================= FILTERS ================= */
   const moduleRows = buildModuleRows(tenantModules);
   const featureRows = buildFeatureRows(tenantModules);
-  const totalFeaturesCount = featureRows.length;
+  const featureListCount = featureRows.length;
 
   const filteredModules = moduleRows.filter(
     (item) =>
@@ -849,7 +851,6 @@ const Usercards = () => {
     setCurrentPage(Math.min(Math.max(page, 1), totalPages));
   };
 
-  
   /* ================= HELPERS ================= */
   const getStatusBadge = (status: string) => (
     <span
@@ -930,9 +931,9 @@ const Usercards = () => {
             }}
             className="bg-white dark:bg-[#2C2C2C] rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50"
           >
-            
-            <button className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700"
-            onClick={closeMenu}
+            <button
+              className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={closeMenu}
             >
               Cancel
             </button>
@@ -987,7 +988,9 @@ const Usercards = () => {
               <div className="flex items-center gap-4">
                 <div className="w-[52px] h-[52px] rounded-full bg-[#EEEEEE] flex items-center justify-center overflow-hidden shrink-0">
                   <img
-                    src={tenantDetails?.tenantLogo || "/assets/images/bsicon.png"}
+                    src={
+                      tenantDetails?.tenantLogo || "/assets/images/bsicon.png"
+                    }
                     alt="Tenant Logo"
                     className="w-[48px] h-[48px] object-contain"
                   />
@@ -999,7 +1002,9 @@ const Usercards = () => {
                       {tenantDetails?.tenantName || "Tenant"}
                     </h2>
                     <span className="inline-flex items-center px-2 py-[3px] rounded-[4px] bg-[#E9F1FF] text-[#4F7DF3] text-[10px] font-medium">
-                      {subscriptionDetails?.planName || tenantDetails?.plan || "-"}
+                      {subscriptionDetails?.planName ||
+                        tenantDetails?.plan ||
+                        "-"}
                     </span>
                   </div>
 
@@ -1118,7 +1123,7 @@ const Usercards = () => {
                       Features
                     </p>
                     <p className="text-[15px] font-semibold text-[#22A34A] dark:text-green-400 mt-[1px]">
-                      {totalFeaturesCount}
+                      {featureListCount}
                     </p>
                   </div>
                 </div>
