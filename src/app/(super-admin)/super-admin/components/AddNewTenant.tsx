@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   ChevronLeft,
@@ -92,6 +92,35 @@ const getCitiesForState = (countryName: string, stateName: string): ICity[] => {
   );
 
   return state ? City.getCitiesOfState(country.isoCode, state.isoCode) : [];
+};
+
+/* ------------------------------------------------------------------ */
+/* Subscription plans (GET /plans)                                    */
+/* ------------------------------------------------------------------ */
+
+type AvailablePlan = {
+  planId: string;
+  planName: string;
+};
+
+const fetchAvailablePlans = async (): Promise<AvailablePlan[]> => {
+  const response = await axios.get(
+    `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`,
+  );
+  const responseData = response.data?.data ?? response.data;
+  const plans = Array.isArray(responseData)
+    ? responseData
+    : (responseData?.items ?? responseData?.plans ?? []);
+
+  return plans
+    .filter(
+      (plan: { status?: string }) => (plan.status ?? "Active") === "Active",
+    )
+    .map((plan: { _id?: string; planName?: string; name?: string }) => ({
+      planId: plan._id ?? "",
+      planName: plan.planName ?? plan.name ?? "Unnamed plan",
+    }))
+    .filter((plan: AvailablePlan) => plan.planId);
 };
 
 /* ------------------------------------------------------------------ */
@@ -333,6 +362,23 @@ export default function AddNewTenant({ onClose }: Props) {
   const [failedMessage, setFailedMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState<AvailablePlan[]>([]);
+  const [isPlansLoading, setIsPlansLoading] = useState(false);
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        setIsPlansLoading(true);
+        setAvailablePlans(await fetchAvailablePlans());
+      } catch (error) {
+        console.error("Failed to fetch plans:", error);
+      } finally {
+        setIsPlansLoading(false);
+      }
+    };
+
+    loadPlans();
+  }, []);
 
   const [formData, setFormData] = useState<TenantFormData>({
     companyName: "",
@@ -702,8 +748,9 @@ export default function AddNewTenant({ onClose }: Props) {
                     name="plan"
                     value={formData.plan}
                     onChange={handleInput}
-                    placeholder="Select plan"
-                    options={["Basic", "Standard", "Premium", "Enterprise"]}
+                    placeholder={isPlansLoading ? "Loading plans..." : "Select plan"}
+                    options={availablePlans.map((p) => p.planName)}
+                    disabled={isPlansLoading}
                   />
                 )}
 

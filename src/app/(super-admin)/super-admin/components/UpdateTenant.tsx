@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import {
@@ -110,6 +110,26 @@ type FileField =
 type AvailablePlan = {
   planId: string;
   planName: string;
+};
+
+const fetchAvailablePlans = async (): Promise<AvailablePlan[]> => {
+  const response = await axios.get(
+    `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`,
+  );
+  const responseData = response.data?.data ?? response.data;
+  const plans = Array.isArray(responseData)
+    ? responseData
+    : (responseData?.items ?? responseData?.plans ?? []);
+
+  return plans
+    .filter(
+      (plan: { status?: string }) => (plan.status ?? "Active") === "Active",
+    )
+    .map((plan: { _id?: string; planName?: string; name?: string }) => ({
+      planId: plan._id ?? "",
+      planName: plan.planName ?? plan.name ?? "Unnamed plan",
+    }))
+    .filter((plan: AvailablePlan) => plan.planId);
 };
 
 const getObjectId = (value: unknown): string => {
@@ -414,41 +434,47 @@ export default function UpdateTenant({
   ];
   const totalSteps = steps.length;
 
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        setIsPlanLoading(true);
+        setAvailablePlans(await fetchAvailablePlans());
+      } catch {
+        setPlanError("Unable to load plans. Please try again.");
+      } finally {
+        setIsPlanLoading(false);
+      }
+    };
+
+    loadPlans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openPlanEditor = async () => {
     setShowPlanEditor(true);
     setPlanError("");
 
-    if (availablePlans.length > 0) return;
+    let plans = availablePlans;
 
-    try {
-      setIsPlanLoading(true);
-      const response = await axios.get(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`,
-      );
-      const responseData = response.data?.data ?? response.data;
-      const plans = Array.isArray(responseData)
-        ? responseData
-        : (responseData?.plans ?? responseData?.items ?? []);
-
-      const normalizedPlans = plans
-        .map((plan: { _id?: string; planName?: string; name?: string }) => ({
-          planId: plan._id ?? "",
-          planName: plan.planName ?? plan.name ?? "Unnamed plan",
-        }))
-        .filter((plan: AvailablePlan) => plan.planId);
-
-      setAvailablePlans(normalizedPlans);
-      const currentPlan = normalizedPlans.find(
-        (plan: AvailablePlan) =>
-          plan.planName.trim().toLowerCase() ===
-          formData.plan.trim().toLowerCase(),
-      );
-      if (currentPlan) setSelectedPlanId(currentPlan.planId);
-    } catch {
-      setPlanError("Unable to load plans. Please try again.");
-    } finally {
-      setIsPlanLoading(false);
+    if (plans.length === 0) {
+      try {
+        setIsPlanLoading(true);
+        plans = await fetchAvailablePlans();
+        setAvailablePlans(plans);
+      } catch {
+        setPlanError("Unable to load plans. Please try again.");
+        return;
+      } finally {
+        setIsPlanLoading(false);
+      }
     }
+
+    const currentPlan = plans.find(
+      (plan) =>
+        plan.planName.trim().toLowerCase() ===
+        formData.plan.trim().toLowerCase(),
+    );
+    if (currentPlan) setSelectedPlanId(currentPlan.planId);
   };
 
   const handlePlanUpdate = async () => {
@@ -723,8 +749,11 @@ export default function UpdateTenant({
                       name="plan"
                       value={formData.plan}
                       onChange={handleInput}
-                      placeholder="Select plan"
-                      options={["Basic", "Standard", "Premium", "Enterprise"]}
+                      placeholder={
+                        isPlanLoading ? "Loading plans..." : "Select plan"
+                      }
+                      options={availablePlans.map((p) => p.planName)}
+                      disabled={isPlanLoading}
                     />
                   )}
 
