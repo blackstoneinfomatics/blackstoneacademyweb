@@ -8,7 +8,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 type Period = "weekly" | "monthly";
 
 interface RevenuePoint {
-  label: string;
+  label: string;      // short label for X-axis
+  fullLabel: string;  // full name for tooltip
   value: number;
 }
 
@@ -54,25 +55,25 @@ const CARD_HEIGHT = 350;
 const GRID_LINES = 5;
 const FIRST_GRID_TOP = 4;
 const GRID_STEP = 44;
-const BASELINE_TOP = FIRST_GRID_TOP + (GRID_LINES - 1) * GRID_STEP; // 180
-const CHART_HEIGHT = BASELINE_TOP + 6; // 186
+const BASELINE_TOP = FIRST_GRID_TOP + (GRID_LINES - 1) * GRID_STEP;
+const CHART_HEIGHT = BASELINE_TOP + 6;
 
 // ─────────────────────────────────────────────
-// ✅ Compute Y-axis max = 2 × highest value, rounded to a nice number
+// Compute Y-axis max = 2 × highest value
 // ─────────────────────────────────────────────
 const computeYMax = (maxValue: number): number => {
   if (maxValue <= 0) return 1000;
-
   const target = maxValue * 2;
-  // Pick the smallest "nice" step that is >= target
   const niceSteps = [
     1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000, 100000, 200000, 250000,
     500000, 1000000,
   ];
-  return niceSteps.find((s) => s >= target) ?? Math.ceil(target / 100000) * 100000;
+  return (
+    niceSteps.find((s) => s >= target) ??
+    Math.ceil(target / 100000) * 100000
+  );
 };
 
-/** Format value for Y-axis label */
 const formatYLabel = (value: number): string => {
   if (value === 0) return "0";
   if (value >= 100000) {
@@ -86,6 +87,14 @@ const formatYLabel = (value: number): string => {
   return `${value}`;
 };
 
+/** Format ₹ values for tooltips */
+const formatCurrency = (value: number): string => {
+  return `₹${value.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
 // ─────────────────────────────────────────────
 // Normalize API → chart points
 // ─────────────────────────────────────────────
@@ -95,14 +104,16 @@ const normalizeData = (json: ApiResponse, period: Period): RevenuePoint[] => {
 
   if (period === "monthly") {
     return (rows as MonthlyRow[]).map((r) => ({
-      label: r.month,
+      label: r.month.charAt(0).toUpperCase(), // ✅ first letter only (J, F, M, A, ...)
+      fullLabel: r.month,
       value: r.revenue ?? 0,
     }));
   }
 
-  // weekly
+  // weekly — keep 3-letter day
   return (rows as WeeklyRow[]).map((r) => ({
     label: r.day,
+    fullLabel: r.day,
     value: r.revenue ?? 0,
   }));
 };
@@ -115,6 +126,7 @@ const RevenueOverviewChart = () => {
   const [chartData, setChartData] = useState<RevenuePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ── Fetch when period changes ──
@@ -157,20 +169,17 @@ const RevenueOverviewChart = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── ✅ Dynamic Y max = 2 × highest value ──
+  // ── Y-axis ──
   const yMax = useMemo(() => {
     const highest = Math.max(...chartData.map((d) => d.value), 0);
     return computeYMax(highest);
   }, [chartData]);
 
-  // 5 evenly spaced ticks: 0, ¼, ½, ¾, max
   const yTicks = useMemo(() => {
     return [0, 1, 2, 3, 4].map((i) => Math.round((yMax * i) / 4));
   }, [yMax]);
 
   const plotHeight = BASELINE_TOP - FIRST_GRID_TOP;
-
-  // Adaptive gap: tighter for 12 monthly bars
   const barCount = chartData.length || 1;
   const barGap = barCount > 8 ? 6 : 10;
 
@@ -239,7 +248,7 @@ const RevenueOverviewChart = () => {
       {/* CHART */}
       <div className="flex-1 min-h-0 mt-[14px] mb-[14px] flex flex-col justify-center">
         <div className="flex">
-          {/* Y AXIS — reversed so max is on top, 0 at bottom */}
+          {/* Y AXIS */}
           <div
             className="relative w-[58px] shrink-0"
             style={{ height: CHART_HEIGHT }}
@@ -284,14 +293,30 @@ const RevenueOverviewChart = () => {
                 chartData.map((item, i) => {
                   const ratio = yMax > 0 ? item.value / yMax : 0;
                   const height = Math.max(ratio * plotHeight, 2);
+                  const isHovered = hoveredIndex === i;
 
                   return (
                     <div
                       key={`${item.label}-${i}`}
-                      className="flex h-full min-w-0 flex-1 items-end justify-center"
+                      className="relative flex h-full min-w-0 flex-1 items-end justify-center"
+                      onMouseEnter={() => setHoveredIndex(i)}
+                      onMouseLeave={() => setHoveredIndex(null)}
                     >
+                      {/* ✅ Tooltip above bar */}
+                      {isHovered && (
+                        <div
+                          className="pointer-events-none absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#ffffff] px-2 py-1 text-[10px] font-semibold text-[#8465da] shadow-md dark:bg-[#0F0F0F]"
+                          style={{ bottom: `${height + 6}px` }}
+                        >
+                          {formatCurrency(item.value)}
+                          {/* small arrow */}
+                          <span className="absolute left-1/2 top-full -translate-x-1/2 border-[4px] border-transparent border-t-[#8465da] dark:border-t-[#8465da]" />
+                        </div>
+                      )}
+
                       <div
-                        className="w-full max-w-[36px] rounded-t-[4px] bg-gradient-to-b from-[#C9B9F1] via-[#9D85E0] to-[#8060D9]"
+                        className={`w-full max-w-[36px] rounded-t-[4px] bg-gradient-to-b from-[#C9B9F1] via-[#9D85E0] to-[#8060D9] transition-opacity ${isHovered ? "opacity-90" : "opacity-100"
+                          }`}
                         style={{ height: `${height}px` }}
                       />
                     </div>
