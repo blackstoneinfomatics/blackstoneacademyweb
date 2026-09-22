@@ -3,10 +3,6 @@ import React, { useEffect, useState } from 'react'
 import BaseLayout3 from '../../components/BaseSuperLayout'
 import SuperAdminHeader from '../../components/SuperAdminHeader'
 import {
-  Megaphone,
-  CheckCircle2,
-  Clock3,
-  FileEdit,
   X,
   ChevronDown,
   Search,
@@ -17,7 +13,39 @@ import {
 import { BsThreeDotsVertical } from 'react-icons/bs';
 import UpdateFeatureForm from './components/UpdateFeatureForm';
 import UpdateDetails from './components/UpdateDetails';
+import CreateUpdateForm, { UpdateFormData } from './components/CreateUpdateForm';
 import type { ProductUpdate, UpdateFeaturePayload, UpdatePriority, UpdateStatus } from './types';
+
+// ─────────────────────────────────────────────
+// Dashboard cards API
+// ─────────────────────────────────────────────
+const DASHBOARD_CARDS_API = "http://localhost:5001/api/updates/dashboard/cards";
+
+interface CardMetric {
+  count: number;
+  percentage: number;
+  direction: "up" | "down";
+}
+
+interface DashboardCardsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    totalUpdates: CardMetric;
+    publishedUpdates: CardMetric;
+    scheduledUpdates: CardMetric;
+  };
+}
+
+// ─────────────────────────────────────────────
+// Card icons (images)                          
+// ─────────────────────────────────────────────
+const CARD_ICONS = {
+  totalUpdates: "/assets/images/superadmin-updates-totalupdates.svg",
+  publishedUpdates: "/assets/images/superadmin-updates-publishedupdates.svg",
+  scheduledUpdates: "/assets/images/superadmin-updates-scheduledupdates.svg",
+  totalViews: "/assets/images/superadmin-updates-totalviews.svg",
+};
 
 const initialUpdates: ProductUpdate[] = [
   {
@@ -124,44 +152,65 @@ const initialUpdates: ProductUpdate[] = [
   },
 ];
 
-const buildCards = (updates: ProductUpdate[]) => [
-  {
-    title: "Total Updates",
-    value: updates.length.toString(),
-    icon: Megaphone,
-    iconBg: "bg-[#E5DFFD]",
-    iconColor: "text-[#5225FC]",
-    titleColor: "text-[#5225FC]",
-    trend: "All product updates",
-  },
-  {
-    title: "Published Updates",
-    value: updates.filter((u) => u.status === "Published").length.toString(),
-    icon: CheckCircle2,
-    iconBg: "bg-[#E3F4E7]",
-    iconColor: "text-[#40BD5F]",
-    titleColor: "text-[#40BD5F]",
-    trend: "Live for tenants",
-  },
-  {
-    title: "Scheduled Updates",
-    value: updates.filter((u) => u.status === "Scheduled").length.toString(),
-    icon: Clock3,
-    iconBg: "bg-[#FCF0DC]",
-    iconColor: "text-[#F59E0B]",
-    titleColor: "text-[#F59E0B]",
-    trend: "Awaiting release date",
-  },
-  {
-    title: "Total Views",
-    value: updates.filter((u) => u.status === "Draft").length.toString(),
-    icon: FileEdit,
-    iconBg: "bg-[#E6EAF2]",
-    iconColor: "text-[#576CBC]",
-    titleColor: "text-[#576CBC]",
-    trend: "Not yet released",
-  },
-];
+// ─────────────────────────────────────────────
+// Build card data from API (with fallback)
+// ─────────────────────────────────────────────
+const buildCardsFromApi = (
+  apiData: DashboardCardsResponse["data"] | null,
+  fallbackUpdates: ProductUpdate[],
+) => {
+  const total = apiData?.totalUpdates?.count ?? fallbackUpdates.length;
+  const published =
+    apiData?.publishedUpdates?.count ??
+    fallbackUpdates.filter((u) => u.status === "Published").length;
+  const scheduled =
+    apiData?.scheduledUpdates?.count ??
+    fallbackUpdates.filter((u) => u.status === "Scheduled").length;
+
+  return [
+    {
+      title: "Total Updates",
+      value: total.toString(),
+      percentage: apiData?.totalUpdates?.percentage ?? 14,
+      direction: apiData?.totalUpdates?.direction ?? "up",
+      image: CARD_ICONS.totalUpdates,
+      iconBg: "bg-[#E5DFFD]",
+      titleColor: "text-[#5225FC]",
+      trend: "vs last Month",
+    },
+    {
+      title: "Published Updates",
+      value: published.toString(),
+      percentage: apiData?.publishedUpdates?.percentage ?? 14,
+      direction: apiData?.publishedUpdates?.direction ?? "up",
+      image: CARD_ICONS.publishedUpdates,
+      iconBg: "bg-[#E3F4E7]",
+      titleColor: "text-[#40BD5F]",
+      trend: "vs last Month",
+    },
+    {
+      title: "Scheduled Updates",
+      value: scheduled.toString(),
+      percentage: apiData?.scheduledUpdates?.percentage ?? 14,
+      direction: apiData?.scheduledUpdates?.direction ?? "up",
+      image: CARD_ICONS.scheduledUpdates,
+      iconBg: "bg-[#FCF0DC]",
+      titleColor: "text-[#F59E0B]",
+      trend: "vs last Month",
+    },
+    {
+
+      title: "Total Views",
+      value: "-",
+      percentage: undefined,
+      direction: undefined,
+      image: CARD_ICONS.totalViews,
+      iconBg: "bg-[#E6EAF2]",
+      titleColor: "text-[#576CBC]",
+      trend: "- vs last Month",
+    },
+  ];
+};
 
 type FilterState = {
   title: string;
@@ -272,10 +321,33 @@ const page = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [viewUpdateModal, setViewUpdateModal] = useState<ProductUpdate | null>(null);
   const [editUpdate, setEditUpdate] = useState<ProductUpdate | null>(null);
+  const [activeTab, setActiveTab] = useState<"feature" | "tenants">("feature");
+
+  /* ====== DASHBOARD CARDS API STATE ====== */
+  const [cardsData, setCardsData] = useState<DashboardCardsResponse["data"] | null>(null);
+  const [cardsLoading, setCardsLoading] = useState(true);
+  const [cardsError, setCardsError] = useState<string | null>(null);
+
+  /* ====== CREATE UPDATE STATE ====== */
+  const [showCreateUpdate, setShowCreateUpdate] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const [updateFormData, setUpdateFormData] = useState<UpdateFormData>({
+    updateTitle: "",
+    category: "Feature Release",
+    audience: "allTenants",
+    selectedTenants: "",
+    description: "",
+    publishDate: "",
+    priority: "Medium",
+    attachments: null,
+    sendEmail: false,
+    sendInAppNotification: false,
+  });
 
   const itemsPerPage = 5;
 
-  const cards = buildCards(updateList);
+  const cards = buildCardsFromApi(cardsData, updateList);
 
   const categoryOptions = Array.from(new Set(updateList.map((u) => u.category)));
   const priorityOptions = Array.from(new Set(updateList.map((u) => u.priority)));
@@ -285,24 +357,131 @@ const page = () => {
   const filteredItems = applyFilters(updateList, search, appliedFilters);
   const previewFilteredItems = applyFilters(updateList, search, draftFilters);
 
+  /* ====== FETCH DASHBOARD CARDS ====== */
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setCardsLoading(true);
+      setCardsError(null);
+      try {
+        const res = await fetch(DASHBOARD_CARDS_API);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: DashboardCardsResponse = await res.json();
+
+        if (!cancelled && json.success) {
+          setCardsData(json.data);
+        }
+      } catch (e: any) {
+        if (!cancelled) setCardsError(e.message ?? "Failed to load cards");
+      } finally {
+        if (!cancelled) setCardsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleUpdateFeatureSubmit = (payload: UpdateFeaturePayload) => {
-    // TODO: wire to API, e.g. PATCH /super-admin/updates/:id
     setUpdateList((prev) =>
       prev.map((u) =>
         u.updateId === payload.updateId
           ? {
-              ...u,
-              title: payload.title,
-              category: payload.category,
-              description: payload.description,
-              releaseDate: payload.publishDate,
-              priority: payload.priority,
-              audience: payload.audience,
-            }
+            ...u,
+            title: payload.title,
+            category: payload.category,
+            description: payload.description,
+            releaseDate: payload.publishDate,
+            priority: payload.priority,
+            audience: payload.audience,
+          }
           : u,
       ),
     );
     setEditUpdate(null);
+  };
+
+  /* ====== CREATE UPDATE HANDLERS ====== */
+  const handleUpdateInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setUpdateFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAudienceChange = (audience: "allTenants" | "selectTenants") => {
+    setUpdateFormData((prev) => ({ ...prev, audience }));
+  };
+
+  const handleSendEmailChange = (checked: boolean) =>
+    setUpdateFormData((prev) => ({ ...prev, sendEmail: checked }));
+
+  const handleSendInAppChange = (checked: boolean) =>
+    setUpdateFormData((prev) => ({ ...prev, sendInAppNotification: checked }));
+
+  const handleUpdateFileChange = (file: File | null) =>
+    setUpdateFormData((prev) => ({ ...prev, attachments: file }));
+
+  const resetUpdateForm = () => {
+    setUpdateFormData({
+      updateTitle: "",
+      category: "Feature Release",
+      audience: "allTenants",
+      selectedTenants: "",
+      description: "",
+      publishDate: "",
+      priority: "Medium",
+      attachments: null,
+      sendEmail: false,
+      sendInAppNotification: false,
+    });
+  };
+
+  const closeCreateUpdateModal = () => {
+    setShowCreateUpdate(false);
+    resetUpdateForm();
+  };
+
+  const handleCreateUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!updateFormData.updateTitle.trim()) {
+      alert("Enter update title");
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      console.log("Update payload:", updateFormData);
+
+      setUpdateList((prev) => [
+        {
+          updateId: `UPD-${1000 + prev.length + 1}`,
+          title: updateFormData.updateTitle,
+          description: updateFormData.description,
+          category: updateFormData.category,
+          priority: updateFormData.priority as UpdatePriority,
+          audience:
+            updateFormData.audience === "allTenants"
+              ? "All Tenants"
+              : "Select Tenants",
+          releaseDate:
+            updateFormData.publishDate ||
+            new Date().toISOString().slice(0, 10),
+          status: "Draft",
+        },
+        ...prev,
+      ]);
+
+      closeCreateUpdateModal();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   const activeFilterCount = Object.entries(appliedFilters).filter(
@@ -337,44 +516,78 @@ const page = () => {
       <SuperAdminHeader currentSection='Updates' />
 
       <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] px-4">
+        {/* ================= HEADER WITH CREATE UPDATE ================= */}
         <div className="flex items-center justify-between mt-2 py-2">
           <h2 className="text-[19px] font-semibold text-[#000] dark:text-[#fff] mb-0 px-2 py-3">
             Institute Updates
           </h2>
+
+          <button
+            onClick={() => setShowCreateUpdate(true)}
+            className="bg-[#5872C5] hover:bg-[#4D66B3] text-white text-[12px] font-medium px-4 py-3 rounded-lg transition"
+          >
+            Create Update
+          </button>
         </div>
 
+        {/* ================= CARDS ================= */}
         <div className="grid grid-cols-4 gap-4">
-          {cards.map((card, index) => {
-            const Icon = card.icon;
+          {cards.map((card, index) => (
+            <div
+              key={index}
+              className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className={`w-14 h-14 rounded-full mt-2 flex items-center justify-center ${card.iconBg}`}
+                >
+                  {cardsLoading ? (
+                    <div className="h-6 w-6 animate-pulse rounded-full bg-gray-300 dark:bg-[#454545]" />
+                  ) : (
+                    <img
+                      src={card.image}
+                      alt={card.title}
+                      className="w-14 h-14 object-contain"
+                    />
+                  )}
+                </div>
 
-            return (
-              <div
-                key={index}
-                className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    className={`w-14 h-14 rounded-full mt-2 flex items-center justify-center ${card.iconBg}`}
-                  >
-                    <Icon className={`w-6 h-6 ${card.iconColor}`} />
-                  </div>
+                <div className="space-y-2">
+                  <p className={`text-md mt-[4px] font-medium ${card.titleColor}`}>
+                    {card.title}
+                  </p>
 
-                  <div className="space-y-2">
-                    <p className={`text-md mt-[4px] font-medium ${card.titleColor}`}>
-                      {card.title}
-                    </p>
+                  {cardsLoading ? (
+                    <div className="h-7 w-12 animate-pulse rounded bg-gray-200 dark:bg-[#454545]" />
+                  ) : (
                     <h2 className="text-[25px] font-semibold text-gray-800 dark:text-white mt-1">
                       {card.value}
                     </h2>
-                  </div>
+                  )}
                 </div>
-
-                <p className='text-sm mt-3 ml-[70px] flex flex-row gap-1'>
-                  <span className="flex flex-row gap-x-1 text-[#646464]">{card.trend}</span>
-                </p>
               </div>
-            );
-          })}
+
+              {/*  Trend row — arrow + % + "vs last Month" */}
+              <p className="text-sm mt-3 ml-[100px] flex flex-row items-center gap-2">
+                {card.percentage !== undefined && card.percentage !== null ? (
+                  <span
+                    className={`flex flex-row items-center gap-x-1 font-medium ${card.direction === "down"
+                      ? "text-[#E53E3E] dark:text-[#FC8181]"
+                      : "text-[#40BD5F] dark:text-[#68D391]"
+                      }`}
+                  >
+                    {card.direction === "down" ? "↓" : "↑"} {card.percentage}%
+                  </span>
+                ) : null}
+
+                {card.trend ? (
+                  <span className="text-[#646464] dark:text-gray-400">
+                    {card.trend}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+          ))}
         </div>
 
         <div className="">
@@ -543,11 +756,10 @@ const page = () => {
               <button
                 key={p}
                 onClick={() => setCurrentPage(p)}
-                className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${
-                  currentPageSafe === p
-                    ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
-                    : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
-                }`}
+                className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${currentPageSafe === p
+                  ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
+                  : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
+                  }`}
               >
                 {p}
               </button>
@@ -562,6 +774,7 @@ const page = () => {
             </button>
           </div>
 
+          {/* ================= FILTER PANEL ================= */}
           {showFilterPanel && (
             <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
               <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c] p-5 shadow-2xl">
@@ -771,6 +984,7 @@ const page = () => {
             </div>
           )}
 
+          {/* ================= VIEW DETAILS MODAL ================= */}
           {viewUpdateModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3">
               <div className="max-h-[95vh] w-full max-w-[420px] overflow-y-auto scrollbar-none">
@@ -782,6 +996,7 @@ const page = () => {
             </div>
           )}
 
+          {/* ================= EDIT UPDATE MODAL ================= */}
           {editUpdate && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3">
               <div className="max-h-[95vh] w-full max-w-[660px] overflow-y-auto scrollbar-none">
@@ -792,6 +1007,24 @@ const page = () => {
                 />
               </div>
             </div>
+          )}
+
+          {/* ================= CREATE UPDATE MODAL ================= */}
+          {showCreateUpdate && (
+            <CreateUpdateForm
+              formData={updateFormData}
+              isLoading={isPublishing}
+              totalTenants={288}
+              tenantOptions={[]}
+              onClose={closeCreateUpdateModal}
+              onReset={resetUpdateForm}
+              onSubmit={handleCreateUpdateSubmit}
+              onInputChange={handleUpdateInputChange}
+              onAudienceChange={handleAudienceChange}
+              onSendEmailChange={handleSendEmailChange}
+              onSendInAppChange={handleSendInAppChange}
+              onFileChange={handleUpdateFileChange}
+            />
           )}
         </div>
       </div>
