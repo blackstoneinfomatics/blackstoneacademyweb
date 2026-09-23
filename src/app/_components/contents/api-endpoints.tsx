@@ -327,6 +327,7 @@ export const AppApiEndpoints = {
     GET_ANALYTICS_CARDS: "/tenants/analytics/cards",
   },
   PORTAL: {
+    GET_ALL: "/portal",
     GET_BY_TENANT: "/portal/tenant/{tenantId}",
     CREATE_BY_TENANT: "/portal/tenant",
     UPDATE_STATUS: "/portal/tenant/{tenantPortalId}/status",

@@ -227,8 +227,15 @@ const Page = () => {
     try {
       if (formData.category === "Module") {
         if (formData.navigationType === "parent") {
+          const selectedPortal = portals.find(
+            (portal) => portal.portalName === formData.portal,
+          );
+          if (!selectedPortal) {
+            throw new Error("Select a valid portal first");
+          }
           await createParentModule({
             portal: formData.portal,
+            portalId: selectedPortal._id,
             parentModuleName: formData.parentNavigationName,
             description: formData.description,
             status,
