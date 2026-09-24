@@ -12,6 +12,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown, FiLayers } from "react-icons/fi";
 import { MdTune, MdCheckCircle, MdCancel } from "react-icons/md";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import PortalListFilterForm, {
   PortalListFilterValues,
 } from "./PortalListFilterForm";
@@ -76,7 +77,7 @@ const Table = forwardRef<TableHandle, TableProps>(
     const fetchDashboardStats = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:5001/portal/dashboard/count",
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_DASHBOARD_COUNT}`,
         );
 
         if (response.data.success) {
@@ -107,7 +108,7 @@ const Table = forwardRef<TableHandle, TableProps>(
         if (status.trim()) params.set("status", status.trim().toUpperCase());
 
         const response = await axios.get(
-          `http://localhost:5001/portal?${params.toString()}`,
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}?${params.toString()}`,
         );
 
         if (response.data.success) {

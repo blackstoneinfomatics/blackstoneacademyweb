@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { IndianRupee } from "lucide-react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ─────────────────────────────────────────────
 // Types
@@ -44,13 +45,11 @@ interface DashboardCardsData {
 let cache: DashboardCardsData | null = null;
 let inflight: Promise<DashboardCardsData> | null = null;
 
-const API_URL = "http://localhost:5001/dashboard/cards";
-
 async function fetchCards(): Promise<DashboardCardsData> {
     if (cache) return cache;
     if (inflight) return inflight;
 
-    inflight = fetch(API_URL)
+    inflight = fetch(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.DASHBOARD.GET_CARDS}`)
         .then((res) => {
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return res.json();

@@ -149,7 +149,7 @@ const Table = () => {
     const fetchFeatureCardData = async () => {
       try {
         const response = await axios.get<FeatureCardResponse>(
-          "http://localhost:5001/features/card",
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FEATURE_CONTROL.GET_CARD_SUMMARY}`,
         );
 
         if (response.data.success) {

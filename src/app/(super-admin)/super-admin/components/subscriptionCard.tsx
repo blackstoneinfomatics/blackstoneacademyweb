@@ -37,18 +37,6 @@ interface TenantSubscription {
   features?: TenantFeatures;
 }
 
-const defaultFeatures: string[] = [
-  "Unlimited students",
-  "Unlimited teachers",
-  "Unlimited admins",
-  "Unlimited storage",
-  "Fully customized system based on client requirements",
-  "Priority support",
-  "Custom branding",
-  "Advanced analytics",
-  "API integration",
-];
-
 export default function SubscriptionCard({ tenantId }: Props) {
   const [tenant, setTenant] = useState<TenantSubscription | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,13 +63,7 @@ export default function SubscriptionCard({ tenantId }: Props) {
     getTenant();
   }, [tenantId]);
 
-  
-
   const tenantFeatures = tenant?.features;
-
-  const featuresList: string[] = tenantFeatures
-    ? Array.from(new Set((Object.values(tenantFeatures).flat() as string[])))
-    : defaultFeatures;
 
   const roleOrder = ["ADMIN", "TEACHER", "STUDENT"];
 
@@ -91,7 +73,9 @@ export default function SubscriptionCard({ tenantId }: Props) {
   if (tenantFeatures) {
     // Ensure roles in roleOrder appear first
     roleOrder.forEach((r) => {
-      featuresByRole[r] = tenantFeatures[r] ? Array.from(new Set(tenantFeatures[r])) : [];
+      featuresByRole[r] = tenantFeatures[r]
+        ? Array.from(new Set(tenantFeatures[r]))
+        : [];
     });
 
     // Include any other roles returned by API
@@ -100,13 +84,15 @@ export default function SubscriptionCard({ tenantId }: Props) {
         featuresByRole[r] = Array.from(new Set(tenantFeatures[r]));
       }
     });
-  } else {
-    featuresByRole["FEATURES"] = featuresList;
   }
 
-  const extraRoles = Object.keys(featuresByRole).filter((r) => !roleOrder.includes(r));
+  const extraRoles = Object.keys(featuresByRole).filter(
+    (r) => !roleOrder.includes(r),
+  );
   const displayRoles = [
-    ...roleOrder.filter((r) => featuresByRole[r] && featuresByRole[r].length > 0),
+    ...roleOrder.filter(
+      (r) => featuresByRole[r] && featuresByRole[r].length > 0,
+    ),
     ...extraRoles,
   ];
 
@@ -122,15 +108,12 @@ export default function SubscriptionCard({ tenantId }: Props) {
 
   const columns = Math.min(Math.max(displayRoles.length, 1), 4);
   return (
-    <div className="w-full rounded-[24px] bg-white dark:bg-[#343434] p-7 shadow-sm">
+    <div className="w-full rounded-xl bg-white dark:bg-[#343434] p-7 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
       <div className="flex gap-8 flex-wrap xl:flex-nowrap">
-
         {/* LEFT SECTION */}
         <div className="w-[340px] shrink-0">
-
           {/* Icon + Details */}
           <div className="flex gap-5">
-
             {/* Icon */}
             <div className="flex h-[112px] w-[112px] items-center justify-center rounded-[24px] bg-[#ECEBFF] dark:bg-[#3A3A5C]">
               <Image
@@ -143,38 +126,48 @@ export default function SubscriptionCard({ tenantId }: Props) {
             </div>
 
             {/* Details */}
-                <div className="flex flex-col justify-center">
+            <div className="flex flex-col justify-center">
+              <span className="w-fit rounded-full bg-[#E9FAEF] dark:bg-green-900/30 px-4 py-[5px] text-[12px] font-semibold text-[#27AE60] dark:text-green-400">
+                {loading ? "Loading" : tenant?.status || "Active"}
+              </span>
 
-                  <span className="w-fit rounded-full bg-[#E9FAEF] dark:bg-green-900/30 px-4 py-[5px] text-[12px] font-semibold text-[#27AE60] dark:text-green-400">
-                    {loading ? "Loading" : tenant?.status || "Active"}
-                  </span>
+              <h2 className="mt-3 text-[18px] leading-none text-[#16213E] font-semibold dark:text-white">
+                {tenant?.planName || "Enterprise"}
+              </h2>
 
-                  <h2 className="mt-3 text-[18px] leading-none text-[#16213E] font-semibold dark:text-white">
-                    {tenant?.planName  || "Enterprise"}
-                  </h2>
+              <p className="mt-2 text-[12px] font-medium text-[#545454] dark:text-gray-300">
+                {typeof tenant?.billingCycle !== "undefined"
+                  ? tenant.billingCycle === 0
+                    ? "Yearly Subscription"
+                    : "Monthly Subscription"
+                  : "Subscription"}
+              </p>
 
-                  <p className="mt-2 text-[12px] font-medium text-[#545454] dark:text-gray-300">
-                    {typeof tenant?.billingCycle !== "undefined" ? (tenant.billingCycle === 0 ? "Yearly Subscription" : "Monthly Subscription") : "Subscription"}
-                  </p>
+              <div className="mt-4 flex items-end">
+                <span className="text-[28px] font-bold leading-none text-[#111827] dark:text-white">
+                  {tenant?.price != null && tenant.price !== 0
+                    ? `$${tenant.price}`
+                    : tenant?.price === 0
+                      ? "$0"
+                      : "$8,500"}
+                </span>
 
-                  <div className="mt-4 flex items-end">
-                    <span className="text-[28px] font-bold leading-none text-[#111827] dark:text-white">
-                      {tenant?.price != null && tenant.price !== 0 ? `$${tenant.price}` : tenant?.price === 0 ? "$0" : "$8,500"}
-                    </span>
+                <span className="ml-2 mb-[4px] text-[14px] text-[#111827] dark:text-gray-300">
+                  {typeof tenant?.billingCycle !== "undefined"
+                    ? tenant.billingCycle === 0
+                      ? "/ year"
+                      : "/ month"
+                    : "/ year"}
+                </span>
+              </div>
 
-                    <span className="ml-2 mb-[4px] text-[14px] text-[#111827] dark:text-gray-300">
-                      {typeof tenant?.billingCycle !== "undefined" ? (tenant.billingCycle === 0 ? "/ year" : "/ month") : "/ year"}
-                    </span>
-                  </div>
-
-                  <p className="mt-4 text-[14px] text-[#111827] dark:text-gray-300">
-                    Next Billing on{" "}
-                    <span className="font-semibold text-[#5669D8] dark:text-[#8296E6]">
-                      {formatSubscriptionDate(tenant?.nextRenewalDate)}
-                    </span>
-                  </p>
-
-                </div>
+              <p className="mt-4 text-[14px] text-[#111827] dark:text-gray-300">
+                Next Billing on{" "}
+                <span className="font-semibold text-[#5669D8] dark:text-[#8296E6]">
+                  {formatSubscriptionDate(tenant?.nextRenewalDate)}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
 
@@ -193,9 +186,18 @@ export default function SubscriptionCard({ tenantId }: Props) {
 
               <div className="space-y-2">
                 {(featuresByRole[role] || []).map((f, idx) => (
-                  <div key={idx} className="flex items-center gap-3 rounded-md bg-[#EEF9F2] dark:bg-[#2C3A3A] px-3 py-2">
-                    <Check size={16} strokeWidth={3} className="text-[#10B981] dark:text-[#4ADE80]" />
-                    <span className="text-[13px] font-semibold text-[#24324B] dark:text-gray-200">{f}</span>
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 rounded-md bg-[#EEF9F2] dark:bg-[#2C3A3A] px-3 py-2"
+                  >
+                    <Check
+                      size={16}
+                      strokeWidth={3}
+                      className="text-[#10B981] dark:text-[#4ADE80]"
+                    />
+                    <span className="text-[13px] font-semibold text-[#24324B] dark:text-gray-200">
+                      {f}
+                    </span>
                   </div>
                 ))}
               </div>

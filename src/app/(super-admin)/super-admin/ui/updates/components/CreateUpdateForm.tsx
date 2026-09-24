@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { FiChevronDown, FiInfo } from "react-icons/fi";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ─────────────────────────────────────────────
 // Types
@@ -42,11 +43,6 @@ interface CreateUpdateFormProps {
     onSendInAppChange: (checked: boolean) => void;
     onFileChange: (file: File | null) => void;
 }
-
-// ─────────────────────────────────────────────
-// Endpoint
-// ─────────────────────────────────────────────
-const API_URL = "http://localhost:5001/api/updates";
 
 // ─────────────────────────────────────────────
 // Styles
@@ -146,11 +142,14 @@ const CreateUpdateForm = ({
             const payload = buildPayload();
             console.log("📤 POST /api/updates →", JSON.stringify(payload, null, 2));
 
-            const res = await fetch(API_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+            const res = await fetch(
+                `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.CREATE}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                },
+            );
 
             const json = await res.json();
             console.log("📥 Response:", res.status, json);

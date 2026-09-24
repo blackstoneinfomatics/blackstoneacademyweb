@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { FaCircleCheck } from "react-icons/fa6";
 import { BsCurrencyRupee } from "react-icons/bs";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import Image from "next/image";
 import axios from "axios";
 
@@ -28,7 +29,7 @@ const Card = () => {
       try {
         setIsLoading(true);
         const response = await axios.get<ApiResponse>(
-          "http://localhost:5001/tenantsubscription/analytics/card"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET_ANALYTICS_CARD}`,
         );
         
         // 3. Store the nested 'data' object from the API response

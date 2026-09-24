@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Download } from "lucide-react";
-import { downloadPdf } from "../downloadCsv";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import { downloadPdf } from "../downloadCsv";
 
 // Define the API Response
 interface ActivityApiResponse {
@@ -49,7 +50,7 @@ export default function ReportTable() {
       try {
         setIsLoading(true);
         const response = await axios.get<ActivityApiResponse>(
-          "http://localhost:5001/finance/today-activities"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FINANCE.GET_TODAY_ACTIVITIES}`,
         );
 
         if (response.data.success) {

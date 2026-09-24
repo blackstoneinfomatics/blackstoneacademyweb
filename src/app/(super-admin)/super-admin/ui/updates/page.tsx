@@ -15,11 +15,11 @@ import UpdateFeatureForm from './components/UpdateFeatureForm';
 import UpdateDetails from './components/UpdateDetails';
 import CreateUpdateForm, { UpdateFormData } from './components/CreateUpdateForm';
 import type { ProductUpdate, UpdateFeaturePayload, UpdatePriority, UpdateStatus } from './types';
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ─────────────────────────────────────────────
 // Dashboard cards API
 // ─────────────────────────────────────────────
-const DASHBOARD_CARDS_API = "http://localhost:5001/api/updates/dashboard/cards";
 
 interface CardMetric {
   count: number;
@@ -365,7 +365,9 @@ const page = () => {
       setCardsLoading(true);
       setCardsError(null);
       try {
-        const res = await fetch(DASHBOARD_CARDS_API);
+        const res = await fetch(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`,
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: DashboardCardsResponse = await res.json();
 

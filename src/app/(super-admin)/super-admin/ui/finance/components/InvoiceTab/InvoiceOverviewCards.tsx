@@ -10,6 +10,7 @@ import {
 import { TbAlertTriangleFilled } from "react-icons/tb";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { toast } from "react-toastify";
 
 interface StatsData {
@@ -44,7 +45,7 @@ export default function TransactionOverviewCards() {
     try {
       setLoading(true);
       const response = await axios.get<ApiResponse>(
-        "http://localhost:5001/custom-service-invoices/card"
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CUSTOM_SERVICE_INVOICE.GET_DASHBOARD_COUNT}`,
       );
 
       console.log("Stats API Response:", response.data);

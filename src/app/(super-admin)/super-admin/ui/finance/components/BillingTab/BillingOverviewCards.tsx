@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import StatsCard from "../../../../components/StatsCard";
 import { FaCheckCircle } from "react-icons/fa";
 import { BiSolidGrid } from "react-icons/bi";
@@ -48,7 +49,7 @@ function BillingOverviewCards() {
       try {
         setIsLoading(true);
         const response = await axios.get<BillingCardsApiResponse>(
-          "http://localhost:5001/billing/cards"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.BILLING.GET_DASHBOARD_COUNT}`,
         );
 
         if (response.data.success) {

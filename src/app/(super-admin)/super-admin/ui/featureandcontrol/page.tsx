@@ -10,6 +10,7 @@ import { BsX } from "react-icons/bs";
 import { FiChevronDown } from "react-icons/fi";
 import { toast } from "react-toastify";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import {
   createParentModule,
   createChildModule,
@@ -116,7 +117,7 @@ const Page = () => {
   const loadPortals = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5001/portal?limit=100",
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}?limit=100`,
       );
       if (response.data.success) {
         const items: PortalListItem[] = response.data.data.items ?? [];

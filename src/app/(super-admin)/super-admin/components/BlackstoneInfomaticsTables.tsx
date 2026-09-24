@@ -5,14 +5,15 @@ import { MdTune } from "react-icons/md";
 import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Pagination from "@/components/Pagination";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface Subscription {
   id?: string;
   invoiceId: string;
   plan: string;
-  amount: number;
-  planCycle: number;
+  amount: string;
+  planCycle: string;
   paymentMethod: string;
   date: string;
   planStatus: string;
@@ -20,11 +21,19 @@ interface Subscription {
   cardNumber?: string;
 }
 
-const BlackstoneInfomaticsTables = () => {
-  const router = useRouter();
+interface BlackstoneInfomaticsTablesProps {
+  tenantId?: string;
+}
+
+const BlackstoneInfomaticsTables = ({
+  tenantId: propTenantId,
+}: BlackstoneInfomaticsTablesProps) => {
+  const searchParams = useSearchParams();
+  const tenantId = propTenantId ?? searchParams.get("tenantCode") ?? "";
 
   const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
+  const [selectedSubscription, setSelectedSubscription] =
+    useState<Subscription | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,37 +56,66 @@ const BlackstoneInfomaticsTables = () => {
   // Fetch subscriptions from API
   useEffect(() => {
     const fetchSubscriptions = async () => {
+      if (!tenantId) {
+        setSubscriptions([]);
+        setLoading(false);
+        setError("Tenant not selected.");
+        return;
+      }
+
       try {
         setLoading(true);
+        setError(null);
+
         const response = await fetch(
-          "http://localhost:5001/subscription-invoices/tenant/TEN000010"
+          `${AppApiEndpoints.API_END_POINT}/subscription-invoices/tenant/${encodeURIComponent(tenantId)}`,
         );
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
-        if (result.success && result.data) {
-          // Transform API data to match the component's data structure
+
+        if (result.success && Array.isArray(result.data)) {
           const formattedData = result.data.map((item: any, index: number) => ({
             id: item.invoiceId || `sub-${index}`,
-            invoiceId: item.invoiceId,
-            plan: item.plan,
-            amount: `$${item.amount.toLocaleString()}`,
-            planCycle: item.planCycle === 12 ? "Yearly" : item.planCycle === 1 ? "Monthly" : `${item.planCycle} Months`,
-            paymentMethod: item.paymentMethod.charAt(0).toUpperCase() + item.paymentMethod.slice(1),
-            date: new Date(item.paymentDate).toLocaleDateString("en-US", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric"
-            }),
-            planStatus: item.planStatus.charAt(0).toUpperCase() + item.planStatus.slice(1).toLowerCase(),
-            paymentStatus: item.paymentStatus.charAt(0).toUpperCase() + item.paymentStatus.slice(1).toLowerCase(),
-            cardNumber: undefined, // API doesn't provide card number
+            invoiceId: item.invoiceId || "—",
+            plan: item.plan || "—",
+            amount:
+              typeof item.amount === "number"
+                ? `$${item.amount.toLocaleString()}`
+                : item.amount || "$0",
+            planCycle:
+              item.planCycle === 12
+                ? "Yearly"
+                : item.planCycle === 1
+                  ? "Monthly"
+                  : item.planCycle
+                    ? `${item.planCycle} Months`
+                    : "—",
+            paymentMethod: item.paymentMethod
+              ? item.paymentMethod.charAt(0).toUpperCase() +
+                item.paymentMethod.slice(1)
+              : "—",
+            date: item.paymentDate
+              ? new Date(item.paymentDate).toLocaleDateString("en-US", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "—",
+            planStatus: item.planStatus
+              ? item.planStatus.charAt(0).toUpperCase() +
+                item.planStatus.slice(1).toLowerCase()
+              : "—",
+            paymentStatus: item.paymentStatus
+              ? item.paymentStatus.charAt(0).toUpperCase() +
+                item.paymentStatus.slice(1).toLowerCase()
+              : "—",
+            cardNumber: undefined,
           }));
-          
+
           setSubscriptions(formattedData);
         } else {
           throw new Error(result.message || "Failed to fetch subscriptions");
@@ -91,7 +129,7 @@ const BlackstoneInfomaticsTables = () => {
     };
 
     fetchSubscriptions();
-  }, []);
+  }, [tenantId]);
 
   const toggleDropdown = (id: string) => {
     setOpenDropdownId((prev) => (prev === id ? null : id));
@@ -102,21 +140,24 @@ const BlackstoneInfomaticsTables = () => {
       subscription.invoiceId
         .toLowerCase()
         .includes(searchKeyword.toLowerCase()) ||
-      subscription.plan
-        .toLowerCase()
-        .includes(searchKeyword.toLowerCase()) ||
+      subscription.plan.toLowerCase().includes(searchKeyword.toLowerCase()) ||
       subscription.paymentMethod
         .toLowerCase()
         .includes(searchKeyword.toLowerCase());
 
     const planFilter = !filters.plan || subscription.plan === filters.plan;
-    const paymentMethodFilter = !filters.paymentMethod || subscription.paymentMethod === filters.paymentMethod;
-    const statusFilter = !filters.status || subscription.paymentStatus === filters.status;
-    
+    const paymentMethodFilter =
+      !filters.paymentMethod ||
+      subscription.paymentMethod === filters.paymentMethod;
+    const statusFilter =
+      !filters.status || subscription.paymentStatus === filters.status;
+
     // Parse date from the subscription date string (which is in format "DD MMM YYYY")
     const subscriptionDate = new Date(subscription.date);
-    const fromDateFilter = !filters.fromDate || subscriptionDate >= new Date(filters.fromDate);
-    const toDateFilter = !filters.toDate || subscriptionDate <= new Date(filters.toDate);
+    const fromDateFilter =
+      !filters.fromDate || subscriptionDate >= new Date(filters.fromDate);
+    const toDateFilter =
+      !filters.toDate || subscriptionDate <= new Date(filters.toDate);
 
     return (
       search &&
@@ -130,7 +171,7 @@ const BlackstoneInfomaticsTables = () => {
 
   const paginatedSubscriptions = filteredSubscriptions.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const totalPages = Math.ceil(filteredSubscriptions.length / itemsPerPage);
@@ -139,29 +180,29 @@ const BlackstoneInfomaticsTables = () => {
     const key = value.toLowerCase();
 
     if (type === "plan") {
-      if (key === "premium" || key.includes("max")) 
+      if (key === "premium" || key.includes("max"))
         return "bg-[#e1e2f4] text-[#5f62dd] dark:bg-indigo-900/30 dark:text-indigo-400";
-      if (key === "standard") 
+      if (key === "standard")
         return "bg-[#dae4f6] text-[#477ff1] dark:bg-blue-900/30 dark:text-blue-400";
-      if (key === "basic") 
+      if (key === "basic")
         return "bg-[#def5fa] text-[#22bedd] dark:bg-cyan-900/30 dark:text-cyan-400";
       return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
 
     if (type === "planStatus") {
-      if (key === "active") 
+      if (key === "active")
         return "bg-[#DCFCE7] text-[#16A34A] dark:bg-green-900/30 dark:text-green-400";
-      if (key === "expired") 
+      if (key === "expired")
         return "bg-[#FEE2E2] text-[#DC2626] dark:bg-red-900/30 dark:text-red-400";
       return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
 
     if (type === "paymentStatus") {
-      if (key === "success" || key === "paid") 
+      if (key === "success" || key === "paid")
         return "bg-[#DCFCE7] text-[#16A34A] dark:bg-green-900/30 dark:text-green-400";
-      if (key === "pending") 
+      if (key === "pending")
         return "bg-[#FEF9C3] text-[#CA8A04] dark:bg-amber-900/30 dark:text-amber-400";
-      if (key === "failed") 
+      if (key === "failed")
         return "bg-[#FEE2E2] text-[#DC2626] dark:bg-red-900/30 dark:text-red-400";
       return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     }
@@ -172,7 +213,7 @@ const BlackstoneInfomaticsTables = () => {
   // Render payment method as text - exactly as "Card" or "UPI"
   const renderPaymentMethod = (method: string) => {
     const methodLower = method.toLowerCase();
-    
+
     // Map API payment methods to display names
     const paymentMethodMap: Record<string, string> = {
       card: "Card",
@@ -199,7 +240,9 @@ const BlackstoneInfomaticsTables = () => {
       <div className="flex items-center justify-center h-64 dark:text-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#576CBC] mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading subscriptions...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
+            Loading subscriptions...
+          </p>
         </div>
       </div>
     );
@@ -228,14 +271,14 @@ const BlackstoneInfomaticsTables = () => {
 
       <div className="md:p-0 mx-auto w-full">
         <div className="flex flex-col h-full w-full justify-between">
-          <div className="flex flex-col">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
-              <div className="flex flex-wrap gap-4 font-semibold text-xl dark:text-white">
-                Blackstone Academy Subscriptions
-              </div>
+          <div className="flex flex-col bg-white dark:bg-[#343434] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] rounded-xl p-3">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+              <h2 className=" gap-2 text-[#010E30] dark:text-[#fff] font-medium p-3">
+                Smart Institute Subscriptions
+              </h2>
             </div>
 
-            <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg">
               <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
@@ -258,14 +301,17 @@ const BlackstoneInfomaticsTables = () => {
 
                 <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
                   <span className="text-left -ml-60">
-                    Showing {filteredSubscriptions.length} of {subscriptions.length}
+                    Showing {filteredSubscriptions.length} of{" "}
+                    {subscriptions.length}
                   </span>
                 </div>
               </div>
 
               {subscriptions.length === 0 ? (
                 <div className="text-center py-12 dark:text-gray-300">
-                  <p className="text-gray-500 dark:text-gray-400">No subscriptions found</p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No subscriptions found
+                  </p>
                 </div>
               ) : (
                 <table className="table-fixed w-full border-collapse">
@@ -311,7 +357,7 @@ const BlackstoneInfomaticsTables = () => {
                             <span
                               className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
                                 "plan",
-                                subscription.plan
+                                subscription.plan,
                               )}`}
                             >
                               {subscription.plan}
@@ -338,7 +384,7 @@ const BlackstoneInfomaticsTables = () => {
                             <span
                               className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
                                 "planStatus",
-                                subscription.planStatus
+                                subscription.planStatus,
                               )}`}
                             >
                               {subscription.planStatus}
@@ -349,7 +395,7 @@ const BlackstoneInfomaticsTables = () => {
                             <span
                               className={`inline-flex items-center justify-center min-w-[70px] px-2 py-1 rounded-md text-xs font-medium ${getBadgeStyle(
                                 "paymentStatus",
-                                subscription.paymentStatus
+                                subscription.paymentStatus,
                               )}`}
                             >
                               {subscription.paymentStatus}
@@ -358,13 +404,18 @@ const BlackstoneInfomaticsTables = () => {
 
                           <td className="px-3 py-3 text-left relative text-[12px]">
                             <button
-                              onClick={() => toggleDropdown(subscription.id || subscription.invoiceId)}
+                              onClick={() =>
+                                toggleDropdown(
+                                  subscription.id || subscription.invoiceId,
+                                )
+                              }
                               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
                             >
                               <BsThreeDotsVertical />
                             </button>
 
-                            {openDropdownId === (subscription.id || subscription.invoiceId) && (
+                            {openDropdownId ===
+                              (subscription.id || subscription.invoiceId) && (
                               <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
                                 <button
                                   className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
@@ -427,7 +478,9 @@ const BlackstoneInfomaticsTables = () => {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Plan</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Plan
+              </label>
               <select
                 value={filters.plan}
                 onChange={(e) =>
@@ -439,14 +492,20 @@ const BlackstoneInfomaticsTables = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Plan</option>
-                {Array.from(new Set(subscriptions.map(s => s.plan))).map(plan => (
-                  <option key={plan} value={plan}>{plan}</option>
-                ))}
+                {Array.from(new Set(subscriptions.map((s) => s.plan))).map(
+                  (plan) => (
+                    <option key={plan} value={plan}>
+                      {plan}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Payment Method</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Payment Method
+              </label>
               <select
                 value={filters.paymentMethod}
                 onChange={(e) =>
@@ -458,14 +517,20 @@ const BlackstoneInfomaticsTables = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Payment Method</option>
-                {Array.from(new Set(subscriptions.map(s => s.paymentMethod))).map(method => (
-                  <option key={method} value={method}>{method}</option>
+                {Array.from(
+                  new Set(subscriptions.map((s) => s.paymentMethod)),
+                ).map((method) => (
+                  <option key={method} value={method}>
+                    {method}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Date Range</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Date Range
+              </label>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="date"
@@ -493,7 +558,9 @@ const BlackstoneInfomaticsTables = () => {
             </div>
 
             <div className="mb-5">
-              <label className="block text-sm font-medium mb-2 dark:text-gray-200">Payment Status</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Payment Status
+              </label>
               <select
                 value={filters.status}
                 onChange={(e) =>
@@ -505,8 +572,12 @@ const BlackstoneInfomaticsTables = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
               >
                 <option value="">Select Status</option>
-                {Array.from(new Set(subscriptions.map(s => s.paymentStatus))).map(status => (
-                  <option key={status} value={status}>{status}</option>
+                {Array.from(
+                  new Set(subscriptions.map((s) => s.paymentStatus)),
+                ).map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
                 ))}
               </select>
             </div>
@@ -558,7 +629,9 @@ const BlackstoneInfomaticsTables = () => {
 
             <div className="grid grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Invoice ID</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Invoice ID
+                </label>
                 <input
                   readOnly
                   value={selectedSubscription.invoiceId}
@@ -567,7 +640,9 @@ const BlackstoneInfomaticsTables = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Plan</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Plan
+                </label>
                 <input
                   readOnly
                   value={selectedSubscription.plan}
@@ -576,7 +651,9 @@ const BlackstoneInfomaticsTables = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Amount</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Amount
+                </label>
                 <input
                   readOnly
                   value={selectedSubscription.amount}
@@ -585,7 +662,9 @@ const BlackstoneInfomaticsTables = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Plan Cycle</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Plan Cycle
+                </label>
                 <input
                   readOnly
                   value={selectedSubscription.planCycle}
@@ -594,14 +673,18 @@ const BlackstoneInfomaticsTables = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Payment Method</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Payment Method
+                </label>
                 <div className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] flex items-center gap-2">
                   {renderPaymentMethod(selectedSubscription.paymentMethod)}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Date</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Date
+                </label>
                 <input
                   readOnly
                   value={selectedSubscription.date}
@@ -610,7 +693,9 @@ const BlackstoneInfomaticsTables = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Plan Status</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Plan Status
+                </label>
                 <input
                   readOnly
                   value={selectedSubscription.planStatus}
@@ -619,7 +704,9 @@ const BlackstoneInfomaticsTables = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Payment Status</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                  Payment Status
+                </label>
                 <input
                   readOnly
                   value={selectedSubscription.paymentStatus}

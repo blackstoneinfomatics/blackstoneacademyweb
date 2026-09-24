@@ -6,6 +6,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune, MdCancel, MdCheckCircle } from "react-icons/md";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import TenantListFilterForm, {
   TenantFilterValues,
 } from "./TenantListFilterForm";
@@ -116,7 +117,7 @@ const Usertable = () => {
   const fetchTenantAnalytics = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5001/tenants/analytics/cards",
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_ANALYTICS_CARDS}`,
       );
 
       console.log("Analytics API Response:", response.data);
@@ -158,7 +159,7 @@ const Usertable = () => {
       if (filters.status) params.set("status", filters.status);
 
       const response = await axios.get(
-        `http://localhost:5001/tenant?${params.toString()}`,
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}?${params.toString()}`,
       );
 
       console.log("Tenant List API Response:", response.data);

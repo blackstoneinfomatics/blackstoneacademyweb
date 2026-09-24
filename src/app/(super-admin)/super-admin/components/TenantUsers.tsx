@@ -231,12 +231,12 @@ const TenantUserTable = () => {
     <div className="dark:text-white">
       <br />
 
-      <div className="md:p-0 mx-auto w-full">
+      <div className="md:p-0 mx-auto w-full shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
         <div className="flex flex-col h-full w-full justify-between">
-          <div className="flex flex-col bg-white  rounded-lg p-3">
+          <div className="flex flex-col bg-white dark:bg-[#343434]  rounded-xl p-3 ">
             {/* Tabs */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-              <h2 className=" gap-2 text-[#010E30] font-medium p-3">
+              <h2 className=" gap-2 text-[#010E30] dark:text-[#fff] font-medium p-3">
                 Smart Institute Users
               </h2>
             </div>

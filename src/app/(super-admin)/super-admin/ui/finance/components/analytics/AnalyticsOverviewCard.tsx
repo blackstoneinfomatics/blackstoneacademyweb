@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import StatsCard from "../../../../components/StatsCard";
 import { FaClipboardCheck } from "react-icons/fa6";
 import { LuIndianRupee } from "react-icons/lu";
@@ -44,7 +45,7 @@ const AnalyticsOverviewCard = () => {
       try {
         setIsLoading(true);
         const response = await axios.get<FinanceCountApiResponse>(
-          "http://localhost:5001/finance/analytics/count"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FINANCE.GET_ANALYTICS_COUNT}`,
         );
 
         if (response.data.success) {

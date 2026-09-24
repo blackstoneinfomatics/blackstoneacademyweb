@@ -8,6 +8,7 @@ import FilterDrawer, {
 import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolbar";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { Download } from "lucide-react";
 import { downloadPdf } from "../downloadCsv";
 
@@ -124,7 +125,7 @@ export default function BillingTable() {
       try {
         setIsLoading(true);
         const response = await axios.get<BillingListApiResponse>(
-          "http://localhost:5001/billing",
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.BILLING.GET}`,
         );
 
         if (response.data.success) {

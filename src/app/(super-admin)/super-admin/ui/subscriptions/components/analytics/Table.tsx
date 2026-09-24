@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { X } from "lucide-react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // Define the API response structure exactly as Thunder Client showed
 interface ActivityApiResponse {
@@ -46,7 +47,7 @@ const Table = () => {
       try {
         setIsLoading(true);
         const response = await axios.get<ActivityApiResponse>(
-          "http://localhost:5001/tenant-subscription-activities"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_SUBSCRIPTION_ACTIVITIES}`,
         );
 
         if (response.data.success) {

@@ -2,7 +2,7 @@
 
 import { Users } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import TenantAnalytics from "../../../components/TenantAnalytics";
 import TenantUserTable from "../../../components/TenantUsers";
 import SuperAdminHeader from "../../../components/SuperAdminHeader";
@@ -92,6 +92,7 @@ const tabs = [
 ];
 
 const Page = () => {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const tenantCode = searchParams.get("tenantCode");
   const [activeTab, setActiveTab] = useState("Overview");
@@ -197,12 +198,17 @@ const Page = () => {
         />
       </div>
       <div className="min-h-screen bg-[#F7F8FE] dark:bg-[#1F1F1F] p-6 text-slate-900 dark:text-white transition-colors rounded-lg">
-        <h2 className="pb-5 flex gap-2 text-[#010E30] font-medium">
-          <span className="mt-1">
-            <FaArrowLeft />
-          </span>{" "}
-          Institute Tenant Management
-        </h2>
+        <div className="pb-5 flex items-center gap-3 text-[#010E30] dark:text-[#ffffff] font-medium">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Go back"
+            className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+          >
+            <FaArrowLeft className="text-base" />
+          </button>
+          <h2>Institute Tenant Management</h2>
+        </div>
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-6  mb-6 transition-colors">
@@ -223,8 +229,8 @@ const Page = () => {
 
         {/* Overview */}
         {activeTab === "Overview" && (
-          <div className="space-y-5 dark:bg-[#343434] rounded-2xl p-6transition-colors">
-            <div className="rounded-xl p-5 bg-[#ffffff] dark:bg-[#343434] shadow-lg">
+          <div className="space-y-5 rounded-2xl p-6transition-colors">
+            <div className="rounded-xl p-5 bg-[#ffffff] dark:bg-[#343434] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
               <div className="flex items-start gap-8 flex-wrap md:flex-nowrap">
                 {/* Logo */}
                 <div className="w-[105px] h-[105px] rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center">
@@ -297,9 +303,9 @@ const Page = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 border-t border-gray-100 dark:border-gray-700/50">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Company Information */}
-              <div className="bg-[#ffffff] shadow-lg dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
+              <div className="bg-[#ffffff] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
                 <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
                   Company Information
                 </h3>
@@ -325,7 +331,7 @@ const Page = () => {
               </div>
 
               {/* Subscription */}
-              <div className="bg-[#ffffff] shadow-lg dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
+              <div className="bg-[#ffffff] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
                 <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
                   Subscription
                 </h3>
@@ -378,7 +384,7 @@ const Page = () => {
               </div>
 
               {/* Module Access */}
-              <div className="bg-[#ffffff] shadow-lg dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
+              <div className="bg-[#ffffff] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
                 <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
                   Modules Access
                 </h3>
@@ -422,10 +428,15 @@ const Page = () => {
               </div>
 
               {/* Feature Access */}
-              <div className="bg-[#ffffff] shadow-md dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
-                <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
-                  Features Access
-                </h3>
+              <div className="bg-[#ffffff] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
+                    Features Access
+                  </h3>
+                  <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white pr-4">
+                    ({tenantDetails.features.length})
+                  </h3>
+                </div>
 
                 <div className="space-y-3 h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#dadddb] scrollbar-track-[#fff] pr-2">
                   {tenantDetails.features.map((item) => (
@@ -467,13 +478,13 @@ const Page = () => {
           <div className="rounded-xl space-y-4">
             {/* @ts-ignore: SubscriptionCard prop typing mismatch - passing tenantId for runtime use */}
             <SubscriptionCard tenantId={tenantDetails.tenantId} />
-            <BlackstoneInfomaticsTables />
+            <BlackstoneInfomaticsTables tenantId={tenantDetails.tenantId} />
           </div>
         )}
 
         {activeTab === "Features" && (
           <div className="rounded-xl space-y-4">
-            <FeatureSummaryCards />
+            <FeatureSummaryCards tenantId={tenantDetails.tenantId} />
             <FeaturesTable />
           </div>
         )}

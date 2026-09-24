@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // Types based on your actual API response
 interface DashboardResponse {
@@ -34,20 +35,6 @@ interface DashboardResponse {
   };
 }
 
-// Auto-detect API URL based on environment
-const getApiUrl = () => {
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:5001';
-  }
-  return '';
-};
-
-const API_CONFIG = {
-  baseURL: getApiUrl(),
-  endpoints: {
-    plans: '/plans/dashboard',
-  },
-};
 
 const PopularPlan = () => {
   const [loading, setLoading] = useState(true);
@@ -68,9 +55,7 @@ const PopularPlan = () => {
       setLoading(true);
       setError(null);
 
-      const apiUrl = `${API_CONFIG.baseURL}${API_CONFIG.endpoints.plans}`;
-      
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_CARD_COUNT}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
