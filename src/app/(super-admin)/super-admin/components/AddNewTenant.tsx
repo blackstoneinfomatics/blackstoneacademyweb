@@ -60,7 +60,11 @@ type TenantFormData = {
   adminPhone: string;
 };
 
-type FileField = "logo" | "gstCertificate" | "registrationCertificate" | "addressProof";
+type FileField =
+  | "logo"
+  | "gstCertificate"
+  | "registrationCertificate"
+  | "addressProof";
 
 /* ------------------------------------------------------------------ */
 /* Country -> Time Zone / State -> City data (country-state-city +    */
@@ -128,16 +132,15 @@ const fetchAvailablePlans = async (): Promise<AvailablePlan[]> => {
 /* ------------------------------------------------------------------ */
 
 const fieldBase =
-  "w-full h-11 rounded-lg border px-4 text-sm outline-none transition " +
-  "border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 " +
-  "focus:border-[#5967E8] focus:ring-2 focus:ring-[#5967E8]/25 " +
-  "dark:border-[#4A4A4A] dark:bg-[#2C2C2C] dark:text-gray-100 dark:placeholder:text-gray-500";
+  "w-full h-[35px] rounded-[7px] border border-[#d4d4d4] px-3 text-[13px] outline-none transition " +
+  "border-[#D9DDE8] bg-white text-[#010e30] placeholder:text-[#343e59] " +
+  "focus:border-[#576CBC] dark:border-[#5c5c5c] dark:bg-[#343434] dark:text-[#f3f4f6] dark:placeholder:text-[#8a93a6]";
 
 const labelBase =
-  "mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200";
+  "mb-2 block text-[13px] font-medium text-[#010E30] dark:text-[#dfe3f3]";
 
 const sectionTitle =
-  "text-base font-semibold text-gray-900 dark:text-white";
+  "text-[18px] font-semibold text-[#0f172a] dark:text-[#f4f4f5]";
 
 function formatSize(bytes: number) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -222,7 +225,9 @@ function SelectField({
           onChange={onChange}
           disabled={disabled}
           className={`${fieldBase} appearance-none pr-10 ${
-            value ? "" : "text-gray-400 dark:text-gray-500"
+            value
+              ? ""
+              : "text-[#010e30] dark:text-gray-500 placeholder:text-[#343e59] dark:placeholder:text-[#8a93a6]"
           } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
         >
           <option value="">{placeholder}</option>
@@ -410,7 +415,12 @@ export default function AddNewTenant({ onClose }: Props) {
     adminPhone: "",
   });
 
-  const steps = ["Basic Information", "Upload Documents", "Review", "Invite Admin"];
+  const steps = [
+    "Basic Information",
+    "Upload Documents",
+    "Review",
+    "Invite Admin",
+  ];
   const totalSteps = steps.length;
 
   const handleInput = (
@@ -522,7 +532,8 @@ export default function AddNewTenant({ onClose }: Props) {
       const fd = new FormData();
 
       fd.append("tenantName", formData.companyName);
-      if (formData.logo) fd.append("tenantLogo", formData.logo, formData.logo.name);
+      if (formData.logo)
+        fd.append("tenantLogo", formData.logo, formData.logo.name);
       fd.append("mobileNumber", formData.phone);
       fd.append("organizationName", formData.companyName);
       fd.append("phoneNumber", formData.phone);
@@ -537,14 +548,25 @@ export default function AddNewTenant({ onClose }: Props) {
           formData.registrationCertificate.name,
         );
       if (formData.addressProof)
-        fd.append("addressProof", formData.addressProof, formData.addressProof.name);
+        fd.append(
+          "addressProof",
+          formData.addressProof,
+          formData.addressProof.name,
+        );
       if (formData.gstCertificate)
-        fd.append("gstCertificate", formData.gstCertificate, formData.gstCertificate.name);
+        fd.append(
+          "gstCertificate",
+          formData.gstCertificate,
+          formData.gstCertificate.name,
+        );
       // Plan is hidden/cleared on the form when Status is "Trial" (see
       // handleInput), but the backend's Tenants schema still requires a
       // non-empty plan value - fall back to "Trial" so that submission
       // isn't rejected for a field the user was never shown.
-      fd.append("plan", formData.plan || (formData.status === "Trial" ? "Trial" : ""));
+      fd.append(
+        "plan",
+        formData.plan || (formData.status === "Trial" ? "Trial" : ""),
+      );
       fd.append("timeZone", formData.timeZone || "");
       fd.append("currency", formData.currency || "");
       fd.append("emailId", formData.email || "");
@@ -590,67 +612,59 @@ export default function AddNewTenant({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]">
-      <div className="flex h-[92vh] w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#343434]">
+    <div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center overflow-y-scroll scrollbar-thin bg-black/70 p-3 sm:p-5">
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[760px] flex-col overflow-hidden rounded-md bg-white shadow-[0_20px_50px_rgba(15,23,42,0.22)] dark:bg-[#252525] sm:max-h-[calc(100dvh-2.5rem)]">
         {/* ---------------- Header ---------------- */}
-        <div className="flex shrink-0 items-start justify-between border-b border-gray-200 px-6 py-4 dark:border-[#4A4A4A] sm:px-8 sm:py-5">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
-              Add New Tenant
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Create a new tenant for your platform.
-            </p>
-          </div>
-
+        <div className="relative shrink-0 p-2">
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-[#4A4A4A] dark:hover:text-white"
+            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-black dark:text-[#ccc] dark:hover:bg-[#343434] dark:hover:text-[#ccc]"
           >
-            <X size={22} />
+            <X size={15} />
           </button>
         </div>
 
         {/* ---------------- Body ---------------- */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none p-4 px-4 sm:px-6">
           {/* Stepper */}
-          <div className="mb-7 flex items-center">
-            {steps.map((step, index) => {
-              const stepNumber = index + 1;
-              const isDone = currentStep >= stepNumber;
-              const isLast = index === steps.length - 1;
+          <div className="mb-6 px-0 pb-1 pt-1">
+            <div className="grid grid-cols-4 place-items-center">
+              {steps.map((step, index) => {
+                const stepNumber = index + 1;
+                const isDone = currentStep >= stepNumber;
 
-              return (
+                return (
+                  <div key={step}>
+                    <div
+                      aria-current={
+                        currentStep === stepNumber ? "step" : undefined
+                      }
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base font-semibold transition-colors ${
+                        isDone
+                          ? "bg-[#576CBC] text-white"
+                          : "bg-[#D9D9D9] text-[#666] dark:bg-[#4A4A4A] dark:text-gray-300"
+                      }`}
+                    >
+                      {stepNumber}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-1">
+              {steps.map((step, index) => (
                 <div
                   key={step}
-                  className={`flex items-center ${isLast ? "" : "flex-1"}`}
+                  className="h-[5px] overflow-hidden rounded-full bg-[#D9D9D9] dark:bg-[#343434]"
                 >
                   <div
-                    aria-current={currentStep === stepNumber ? "step" : undefined}
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
-                      isDone
-                        ? "bg-[#5967E8] text-white"
-                        : "bg-[#D9D9D9] text-[#666] dark:bg-[#4A4A4A] dark:text-gray-300"
-                    }`}
-                  >
-                    {stepNumber}
-                  </div>
-
-                  {!isLast && (
-                    <div
-                      className={`mx-2 h-[3px] flex-1 rounded-full transition-colors ${
-                        currentStep > stepNumber
-                          ? "bg-[#5967E8]"
-                          : "bg-gray-200 dark:bg-[#4A4A4A]"
-                      }`}
-                    />
-                  )}
+                    className={`h-full rounded-full bg-[#576CBC] transition-all duration-300 ${currentStep >= index + 1 ? "w-full" : "w-0"}`}
+                  />
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
 
           {/* ================= STEP 1 ================= */}
@@ -658,9 +672,9 @@ export default function AddNewTenant({ onClose }: Props) {
             <div>
               <h3 className={`${sectionTitle} mb-4`}>Basic Information</h3>
 
-              <div className="mb-6 border-b border-gray-200 dark:border-[#4A4A4A]" />
+              <div className="mb-5 border-b border-[#D9DDE8] dark:border-[#5c5c5c]" />
 
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <TextField
                   label="Company Name"
                   name="companyName"
@@ -752,7 +766,9 @@ export default function AddNewTenant({ onClose }: Props) {
                     name="plan"
                     value={formData.plan}
                     onChange={handleInput}
-                    placeholder={isPlansLoading ? "Loading plans..." : "Select plan"}
+                    placeholder={
+                      isPlansLoading ? "Loading plans..." : "Select plan"
+                    }
                     options={availablePlans.map((p) => p.planName)}
                     disabled={isPlansLoading}
                   />
@@ -768,13 +784,13 @@ export default function AddNewTenant({ onClose }: Props) {
                 />
               </div>
 
-              <label className="mt-6 flex w-fit cursor-pointer items-center gap-3">
+              <label className="mt-5 flex w-fit cursor-pointer items-center gap-3">
                 <input
                   type="checkbox"
                   name="tenantBackup"
                   checked={formData.tenantBackup}
                   onChange={handleInput}
-                  className="h-[18px] w-[18px] cursor-pointer rounded accent-[#5967E8]"
+                  className="h-4 w-4 cursor-pointer rounded accent-[#576CBC]"
                 />
 
                 <span className="text-sm text-gray-700 dark:text-gray-200">
@@ -782,9 +798,9 @@ export default function AddNewTenant({ onClose }: Props) {
                 </span>
               </label>
 
-              <h3 className={`${sectionTitle} mb-4 mt-8`}>Address</h3>
+              <h3 className={`${sectionTitle} mb-4 mt-7`}>Address</h3>
 
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <SelectField
                   label="Country"
                   name="country"
@@ -855,9 +871,9 @@ export default function AddNewTenant({ onClose }: Props) {
             <div>
               <h3 className={`${sectionTitle} mb-4`}>Upload Documents</h3>
 
-              <div className="mb-5 border-b border-gray-200 dark:border-[#4A4A4A]" />
+              <div className="mb-5 border-b border-[#D9DDE8] dark:border-[#5c5c5c]" />
 
-              <div className="mb-6 space-y-2 rounded-lg bg-[#EEF2FF] p-4 dark:bg-[#5967E8]/10">
+              <div className="mb-5 space-y-2 rounded-[10px] bg-[#E9EDFF] p-4 dark:bg-[#576CBC]/10">
                 <div className="flex items-center gap-3">
                   <CloudUpload size={16} className="shrink-0 text-[#5967E8]" />
 
@@ -916,16 +932,19 @@ export default function AddNewTenant({ onClose }: Props) {
             <div>
               <h3 className={`${sectionTitle} mb-4`}>Review Details</h3>
 
-              <div className="mb-6 border-b border-gray-200 dark:border-[#4A4A4A]" />
+              <div className="mb-5 border-b border-[#D9DDE8] dark:border-[#5c5c5c]" />
 
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <div>
                   <h4 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
                     Tenant Information
                   </h4>
 
                   <div className="space-y-3">
-                    <ReviewRow label="Company Name" value={formData.companyName} />
+                    <ReviewRow
+                      label="Company Name"
+                      value={formData.companyName}
+                    />
                     <ReviewRow label="Email" value={formData.email} />
                     <ReviewRow label="Phone" value={formData.phone} />
                     <ReviewRow label="Domain" value={formData.domain} />
@@ -966,9 +985,9 @@ export default function AddNewTenant({ onClose }: Props) {
                 Create the primary administrator account for this tenant.
               </p>
 
-              <div className="mb-6 border-b border-gray-200 dark:border-[#4A4A4A]" />
+              <div className="mb-5 border-b border-[#D9DDE8] dark:border-[#5c5c5c]" />
 
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <TextField
                   label="Admin Name"
                   name="adminName"
@@ -1032,11 +1051,11 @@ export default function AddNewTenant({ onClose }: Props) {
         </div>
 
         {/* ---------------- Footer ---------------- */}
-        <div className="flex shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-[#4A4A4A] sm:px-8">
+        <div className="flex shrink-0 flex-wrap justify-end gap-3 border-t border-[#D9DDE8] p-4 dark:border-[#5c5c5c]">
           <button
             type="button"
             onClick={currentStep === 1 ? onClose : previous}
-            className="flex items-center gap-1 rounded-lg border border-[#5967E8] px-6 py-2 text-sm font-medium text-[#5967E8] transition hover:bg-[#5967E8]/5"
+            className="flex h-[40px] items-center gap-1 rounded-[9px] border border-[#D9DDE8] bg-white px-4 text-[12px] font-medium text-[#0f172a] transition hover:bg-[#F6F8FF] dark:border-[#5c5c5c] dark:bg-[#343434] dark:text-[#f3f4f6] dark:hover:bg-[#3d3d3d]"
           >
             {currentStep !== 1 && <ChevronLeft size={16} />}
 
@@ -1047,7 +1066,7 @@ export default function AddNewTenant({ onClose }: Props) {
             type="button"
             onClick={currentStep === totalSteps ? handleSubmit : next}
             disabled={currentStep === totalSteps && isSubmitting}
-            className="flex items-center gap-1 rounded-lg bg-[#5967E8] px-6 py-2 text-sm font-medium text-white transition hover:bg-[#4A57D4] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-[40px] items-center gap-1 rounded-[10px] bg-[#576CBC] px-5 text-[12px] font-medium text-white transition hover:bg-[#4338CA] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {currentStep === totalSteps
               ? isSubmitting
@@ -1060,7 +1079,10 @@ export default function AddNewTenant({ onClose }: Props) {
         </div>
 
         {success && (
-          <SuccessPopup onClose={() => setSuccess(false)} title={successMessage} />
+          <SuccessPopup
+            onClose={() => setSuccess(false)}
+            title={successMessage}
+          />
         )}
 
         {failed && (

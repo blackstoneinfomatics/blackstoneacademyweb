@@ -321,8 +321,10 @@ export const AppApiEndpoints = {
   TENANT: {
     GET_TENANT: "/tenant",
     CREATE_TENANT: "/tenant",
-    UPDATE_TENANT: "/tenant",
+    UPDATE_TENANT: "/tenant/{tenantId}",
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
+    TENANT_DETAILS: "/tenant/{tenantCode}/details",
+    TENANT_PORTAL_DASHBOARD: "/tenant-portal-dashboard/{tenantCode}",
     UPDATE_SUBSCRIPTION_PLAN: "/tenant/subscription-plan/{tenantCode}",
     GET_ANALYTICS_CARDS: "/tenants/analytics/cards",
   },
@@ -341,8 +343,10 @@ export const AppApiEndpoints = {
   MODULE: {
     GET_LIST: "/modules",
     UPDATE_PARENT_ACCESS: "/modules/{parentModuleId}/enable",
-    UPDATE_CHILD_ACCESS: "/modules/{parentModuleId}/children/{childModuleId}/enable",
-    UPDATE_PARENT_FEATURE_ACCESS: "/modules/{parentModuleId}/features/{featureId}/enable",
+    UPDATE_CHILD_ACCESS:
+      "/modules/{parentModuleId}/children/{childModuleId}/enable",
+    UPDATE_PARENT_FEATURE_ACCESS:
+      "/modules/{parentModuleId}/features/{featureId}/enable",
     UPDATE_CHILD_FEATURE_ACCESS:
       "/modules/{parentModuleId}/children/{childModuleId}/features/{featureId}/enable",
   },
