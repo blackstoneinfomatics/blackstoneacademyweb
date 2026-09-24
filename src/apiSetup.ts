@@ -1,12 +1,17 @@
 import axios from "axios";
 
+function isSuperAdminRoute() {
+  return window.location.pathname.startsWith("/super-admin");
+}
+
 function getTenantHeaders() {
+  if (isSuperAdminRoute()) {
+    return { tenantId: null, tenantCode: null };
+  }
+
   const tenantId = localStorage.getItem("tenantId");
   const tenantCode =
     localStorage.getItem("tenantCode");
-
-  console.log("tenantCode:", tenantCode);
-  console.log("tenantId:", tenantId);  
 
   return { tenantId, tenantCode };
 }
@@ -40,8 +45,6 @@ if (typeof window !== "undefined") {
 
     window.fetch = async (input, init = {}) => {
       const { tenantId, tenantCode } = getTenantHeaders();
-      console.log("Fetch Request:", input);
-      console.log("tenantCode:", tenantCode);
       const requestHeaders =
         input instanceof Request ? input.headers : undefined;
       const headers = new Headers(init.headers ?? requestHeaders);

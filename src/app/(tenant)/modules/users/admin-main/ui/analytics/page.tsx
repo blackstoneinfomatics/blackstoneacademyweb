@@ -418,6 +418,11 @@ useEffect(()=>{
         fetchInvoices(token);
       } else {
         toast.error(AppValidationMessages.AUTH.TOKEN_REQUIRED);
+      }
+    }
+  }, []);
+
+  const fetchVisitorData = async (token: string) => {
     try {
       const res = await fetch(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.STUDENT_VISITOR}`, {
         headers: {
@@ -487,6 +492,9 @@ useEffect(()=>{
         fetchRevenueData(selectedYear, token);
       } else {
         toast.error(AppValidationMessages.AUTH.TOKEN_REQUIRED);
+      }
+    }
+  }, [selectedYear]);
 
   return (
     <BaseLayout4>
