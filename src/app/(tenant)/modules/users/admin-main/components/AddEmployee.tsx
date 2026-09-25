@@ -237,7 +237,7 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSuccess }) => {
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setImageError(AppFailureToastMessages.IMAGE_TOO_LARGE);
+      setImageError(AppFailureToastMessages.UPLOAD_FILE_TOO_LARGE);
       return;
     }
   };

@@ -18,7 +18,7 @@ import GenerateInvoice from "./SubscriptionInvoice";
 import CreatePlan from "./CreatePlan";
 import AddNewUser from "./AddNewUser";
 import AddBilling from "./AddBilling";
-import { CreateInvoiceForm } from "@/app/(super-admin)/super-admin/ui/finance/invoices/create/page";
+import CreateInvoiceForm from "../ui/finance/components/CreateInvoice";
 
 type Props = {
   readonly currentSection: string;

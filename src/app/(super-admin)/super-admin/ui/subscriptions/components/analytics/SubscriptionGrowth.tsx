@@ -96,7 +96,7 @@ const normalizeYearly = (points: GrowthPoint[]): ChartPoint[] => {
     }
   });
 
-  const knownYears = [...byYear.keys()];
+const knownYears = Array.from(byYear.keys());
   const currentYear = new Date().getFullYear();
 
   const end = knownYears.length ? Math.max(...knownYears) : currentYear;

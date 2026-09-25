@@ -54,7 +54,7 @@ const generateInvoiceNumber = () => {
   return `SUB-INV-${year}-${randomNumber}`;
 };
 
-export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
+export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const [tenantSubscriptions, setTenantSubscriptions] = useState<
@@ -105,6 +105,11 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
 
     fetchTenantSubscriptions();
   }, []);
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    else router.push("/super-admin/ui/finance?tab=invoice");
+  };
 
   const getBillingCycle = (subscription: TenantSubscription) => {
     if (subscription.billingCycle) {
@@ -230,7 +235,7 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
       }
 
       toast.success("Invoice sent successfully");
-      onClose?.();
+      handleClose();
     } catch (err) {
       console.error("Custom service invoice API error:", err);
       toast.error(
@@ -270,8 +275,8 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
     setIsItemFormOpen(false);
   };
 
-  const content = (
-    <div className="mx-auto w-full max-w-[950px] p-4 bg-[#ffffff]">
+  return (
+     <div className="mx-auto w-full max-w-[950px] p-4 bg-[#ffffff]">
       {/* Header */}
 
       <div className="mb-6 flex items-start gap-3">
@@ -989,11 +994,7 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
       {/* Footer */}
       <div className="mt-2 flex justify-end gap-4  pt-5">
         <button
-          onClick={() =>
-            onClose
-              ? onClose()
-              : router.push("/super-admin/ui/finance?tab=invoice")
-          }
+          onClick={() =>handleClose()}
           type="button"
           className="
       min-w-[140px]
@@ -1036,19 +1037,4 @@ export function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
       </div>
     </div>
   );
-
-  if (onClose) {
-    return content;
-  }
-
-  return (
-    <BaseSuperLayout>
-      <SuperAdminHeader currentSection="Invoices" />
-      {content}
-    </BaseSuperLayout>
-  );
-}
-
-export default function CreateInvoicePage() {
-  return <CreateInvoiceForm />;
 }
