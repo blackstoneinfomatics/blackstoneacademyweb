@@ -101,7 +101,7 @@ export const AppSuccessToastMessages = Object.freeze({
 export const appSuccessToastMessages = Object.freeze({
   SIGNIN: "Welcome back",
   USER_CREATE: "User created successfully",
-
+  ACCESS_UPDATED:"Access Updated",
   APPLICANT_CREATE: "Applicant created successfully",
   EXPENSE_RECORDED: "Expense recorded successfully",
   EMPLOYEE_CREATED: "Employee added successfully",

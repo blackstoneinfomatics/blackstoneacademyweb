@@ -476,7 +476,6 @@ const Page = () => {
 
         {activeTab === "Subscriptions" && (
           <div className="rounded-xl space-y-4">
-            {/* @ts-ignore: SubscriptionCard prop typing mismatch - passing tenantId for runtime use */}
             <SubscriptionCard tenantId={tenantDetails.tenantId} />
             <BlackstoneInfomaticsTables tenantId={tenantDetails.tenantId} />
           </div>
@@ -485,14 +484,14 @@ const Page = () => {
         {activeTab === "Features" && (
           <div className="rounded-xl space-y-4">
             <FeatureSummaryCards tenantId={tenantDetails.tenantId} />
-            <FeaturesTable />
+            <FeaturesTable tenantId={tenantDetails.tenantId}/>
           </div>
         )}
 
         {activeTab === "Active Logs" && (
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#343434] p-4 transition-colors">
-            <ActiveLogsChart />
-            <ActiveLogsTable />
+          <div className="rounded-xl p-2 transition-colors">
+            <ActiveLogsChart tenantCode={tenant.tenantCode} />
+            <ActiveLogsTable tenantCode={tenant.tenantCode} />
           </div>
         )}
 
@@ -506,27 +505,27 @@ const Page = () => {
         {activeTab === "Analytics" && (
           <div className="min-h-screen bg-transparent">
             {/* Top Cards */}
-            <DashboardCards />
+            <DashboardCards tenantId={tenantDetails.tenantId} />
 
             {/* Middle */}
             <div className="grid grid-cols-12 gap-4 mt-5">
               <div className="col-span-12 xl:col-span-5">
-                <GrowthChart />
+                <GrowthChart tenantId={tenantDetails.tenantId} />
               </div>
 
               <div className="col-span-12 xl:col-span-4">
-                <ModuleGrowth />
+                <ModuleGrowth tenantId={tenantDetails.tenantId}/>
               </div>
 
               <div className="col-span-12 xl:col-span-3">
-                <PerformanceCard />
+                <PerformanceCard tenantId={tenantDetails.tenantId} />
               </div>
             </div>
 
             {/* Bottom */}
             <div className="grid grid-cols-12 gap-5 mt-5">
               <div className="col-span-12 lg:col-span-8">
-                <ActivityTable />
+                <ActivityTable tenantId={tenantDetails.tenantId}/>
               </div>
 
               <div className="col-span-12 lg:col-span-4">
