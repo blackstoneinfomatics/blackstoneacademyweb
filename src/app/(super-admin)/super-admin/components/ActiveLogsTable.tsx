@@ -5,74 +5,95 @@ import { MdTune } from "react-icons/md";
 import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Pagination from "@/components/Pagination";
-import { useRouter } from "next/navigation";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+
+interface AuditLogRecord {
+  _id: string;
+  tenantId: string;
+  userId: string;
+  logType: string;
+  action: string;
+  description: string;
+  route: string;
+  ip: string;
+  meta?: {
+    module?: string;
+    feature?: string;
+  };
+  createdDate: string;
+}
 
 interface ActivityLog {
   id: string;
   user: string;
   category: string;
+  feature: string;
+  action: string;
+  route: string;
   date: string;
+  rawDate: string;
   ipAddress: string;
   details: string;
   status: string;
   dateTime: string;
 }
 
-const FeaturesTable = () => {
-  const router = useRouter();
+interface ActiveLogsTableProps {
+  tenantCode: string;
+}
+
+const toTitleCase = (value: string) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : "";
+
+const mapAuditLog = (record: AuditLogRecord): ActivityLog => {
+  const created = new Date(record.createdDate);
+  const isValid = !Number.isNaN(created.getTime());
+
+  return {
+    id: record._id,
+    user: record.userId || "—",
+    category: record.meta?.module || "—",
+    feature: record.meta?.feature || "—",
+    action: record.action || "—",
+    route: record.route || "—",
+    date: isValid
+      ? created.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : "—",
+    rawDate: record.createdDate,
+    ipAddress: record.ip || "—",
+    details: record.description || "—",
+    status: toTitleCase(record.logType),
+    dateTime: isValid
+      ? created.toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "—",
+  };
+};
+
+const ActiveLogsTable = ({ tenantCode }: ActiveLogsTableProps) => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([
-    {
-      id: "1",
-      user: "John Smith",
-      category: "Authentication",
-      date: "12 Sep 2025",
-      ipAddress: "192.168.1.10",
-      details: "User logged into the system",
-      status: "Success",
-      dateTime: "12 Sep 2025, 10:30 AM",
-    },
-    {
-      id: "2",
-      user: "Sarah Ahmed",
-      category: "Course",
-      date: "13 Sep 2025",
-      ipAddress: "192.168.1.18",
-      details: "Updated course details",
-      status: "Pending",
-      dateTime: "13 Sep 2025, 02:15 PM",
-    },
-    {
-      id: "3",
-      user: "Mohammed Ali",
-      category: "Billing",
-      date: "14 Sep 2025",
-      ipAddress: "192.168.1.25",
-      details: "Generated invoice",
-      status: "Failed",
-      dateTime: "14 Sep 2025, 09:00 AM",
-    },
-  ]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-
-  const getPlanStyle = (plan: string) => {
-    switch (plan) {
-      case "High":
-        return "bg-[#D3464524] text-[#D34645] dark:bg-red-900/30 dark:text-red-400";
-      case "Medium":
-        return "bg-[#FCAA2524] text-[#FCAA25] dark:bg-amber-900/30 dark:text-amber-400";
-      case "Low":
-        return "bg-[#ECFDF3] text-[#377E36] dark:bg-green-900/30 dark:text-green-400";
-      default:
-        return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
-    }
-  };
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -96,29 +117,64 @@ const FeaturesTable = () => {
 
   const itemsPerPage = 10;
 
+  useEffect(() => {
+    if (!tenantCode) return;
+
+    const getAuditLogs = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.TENANT_AUDIT_LOGS.replace("{tenantCode}", tenantCode)}`,
+          { params: { page: currentPage, limit: itemsPerPage } },
+        );
+        const data = response.data?.data;
+        const records: AuditLogRecord[] = data?.records ?? [];
+        setActivityLogs(records.map(mapAuditLog));
+        setTotalRecords(data?.pagination?.total ?? records.length);
+        setTotalPages(data?.pagination?.totalPages || 1);
+      } catch (error) {
+        console.error("Failed to fetch audit logs:", error);
+        setActivityLogs([]);
+        setTotalRecords(0);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getAuditLogs();
+  }, [tenantCode, currentPage]);
+
   const toggleDropdown = (id: string) => {
     setOpenDropdownId((prev) => (prev === id ? null : id));
   };
 
   const filteredLogs = activityLogs.filter((log) => {
+    const keyword = searchKeyword.toLowerCase();
     const search =
-      log.user.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      log.category.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      log.ipAddress.toLowerCase().includes(searchKeyword.toLowerCase());
+      log.user.toLowerCase().includes(keyword) ||
+      log.category.toLowerCase().includes(keyword) ||
+      log.feature.toLowerCase().includes(keyword) ||
+      log.action.toLowerCase().includes(keyword) ||
+      log.route.toLowerCase().includes(keyword) ||
+      log.details.toLowerCase().includes(keyword) ||
+      log.ipAddress.toLowerCase().includes(keyword);
+
+    const logDate = new Date(log.rawDate);
 
     const fromDateFilter =
-      !filters.fromDate || new Date(log.date) >= new Date(filters.fromDate);
+      !filters.fromDate || logDate >= new Date(`${filters.fromDate}T00:00:00`);
 
     const toDateFilter =
-      !filters.toDate || new Date(log.date) <= new Date(filters.toDate);
+      !filters.toDate || logDate <= new Date(`${filters.toDate}T23:59:59.999`);
 
     const userFilter =
       !filters.user ||
       log.user.toLowerCase().includes(filters.user.toLowerCase());
 
     const categoryFilter =
-      !filters.category || log.category === filters.category;
+      !filters.category ||
+      log.category.toLowerCase().includes(filters.category.toLowerCase());
 
     const statusFilter = !filters.status || log.status === filters.status;
 
@@ -137,12 +193,6 @@ const FeaturesTable = () => {
     );
   });
 
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
 
   return (
     <div className="dark:text-white">
@@ -182,7 +232,7 @@ const FeaturesTable = () => {
 
                 <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
                   <span className="text-left -ml-60">
-                    Showing {filteredLogs.length} of {activityLogs.length}
+                    Showing {filteredLogs.length} of {totalRecords}
                   </span>
                 </div>
               </div>
@@ -211,7 +261,17 @@ const FeaturesTable = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedLogs.map((log, index) => {
+                  {(loading || filteredLogs.length === 0) && (
+                    <tr className="bg-[#fff] dark:bg-[#2C2C2C]">
+                      <td
+                        colSpan={8}
+                        className="px-3 py-6 text-center text-[12px] text-gray-500 dark:text-gray-400"
+                      >
+                        {loading ? "Loading..." : "No logs found"}
+                      </td>
+                    </tr>
+                  )}
+                  {!loading && filteredLogs.map((log, index) => {
                     const rowBgClass =
                       index % 2 === 0
                         ? "bg-[#fff] dark:bg-[#2C2C2C]"
@@ -222,12 +282,15 @@ const FeaturesTable = () => {
                         key={log.id}
                         className={`text-[10px] ${rowBgClass}`}
                       >
-                        <td className="px-3 py-3 text-[11px] text-left dark:text-white">
+                        <td className="px-3 py-3 text-[11px] text-left dark:text-white break-all">
                           {log.user}
                         </td>
 
                         <td className="px-3 py-3 text-[11px] text-left dark:text-white">
                           {log.category}
+                          <p className="text-[9px] text-gray-500 dark:text-gray-400">
+                            {log.feature}
+                          </p>
                         </td>
                         <td className="px-3 text-[#516a8d] dark:text-sky-300 py-3 text-[11px] text-left">
                           {log.date}
@@ -236,7 +299,7 @@ const FeaturesTable = () => {
                         <td className="px-3 py-3 text-[11px] text-left dark:text-white">
                           {log.ipAddress}
                         </td>
-                        <td className="px-3 py-3 text-[11px] text-left dark:text-white">
+                        <td className="px-3 py-3 text-[11px] text-left dark:text-white break-words">
                           {log.details}
                         </td>
                         <td className="px-3 py-3 text-left">
@@ -248,7 +311,7 @@ const FeaturesTable = () => {
                             {log.status}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-left dark:text-white">
+                        <td className="px-3 py-3 text-[11px] text-left dark:text-white">
                           {log.dateTime}
                         </td>
 
@@ -447,10 +510,37 @@ const FeaturesTable = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Date</label>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Feature</label>
                 <input
                   readOnly
-                  value={selectedLog.date}
+                  value={selectedLog.feature}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Action</label>
+                <input
+                  readOnly
+                  value={selectedLog.action}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Route</label>
+                <input
+                  readOnly
+                  value={selectedLog.route}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 dark:text-gray-200">Date & Time</label>
+                <input
+                  readOnly
+                  value={selectedLog.dateTime}
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
                 />
               </div>
@@ -496,4 +586,4 @@ const FeaturesTable = () => {
   );
 };
 
-export default FeaturesTable;
+export default ActiveLogsTable;
