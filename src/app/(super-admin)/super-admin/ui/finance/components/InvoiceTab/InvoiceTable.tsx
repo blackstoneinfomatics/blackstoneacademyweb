@@ -8,6 +8,7 @@ import ViewDetailsModal from "@/app/(super-admin)/super-admin/components/ViewDet
 import { downloadPdf } from "../downloadCsv";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { toast } from "react-toastify";
 
 interface InvoiceItem {
@@ -137,7 +138,7 @@ export default function TransactionTable() {
     try {
       setLoading(true);
       const response = await axios.get<ApiResponse>(
-        "http://localhost:5001/custom-service-invoices"
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CUSTOM_SERVICE_INVOICE.GET_LIST}`,
       );
 
       if (response.data.success) {

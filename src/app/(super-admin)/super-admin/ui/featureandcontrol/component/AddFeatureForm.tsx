@@ -6,6 +6,7 @@ import { FiChevronDown } from "react-icons/fi";
 
 export interface FeatureFormData {
   portal: string;
+  portalId?: string;
   category: string;
   navigationType: "parent" | "child" | "feature";
   parentNavigation: string;

@@ -21,6 +21,7 @@ import {
   addTenantChildModule,
   addTenantModuleFeature,
   addTenantChildFeature,
+  updateTenantModule,
   updateTenantModuleAccess,
   updateTenantChildModuleAccess,
   updateTenantModuleFeatureAccess,
@@ -220,6 +221,15 @@ const Usercards = () => {
   const [togglingFeatureKey, setTogglingFeatureKey] = useState<string | null>(
     null,
   );
+  /* Order edit (Module List tab, parent rows only) */
+  const [orderDrafts, setOrderDrafts] = useState<Record<string, string>>({});
+  const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
+  const [orderResult, setOrderResult] = useState<{
+    status: "success" | "failure";
+    moduleName: string;
+    orderNo: number;
+    message?: string;
+  } | null>(null);
   const openMenuRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const router = useRouter();
@@ -234,6 +244,10 @@ const Usercards = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [createdFeatureName, setCreatedFeatureName] = useState<string>("");
   const [portalOptions, setPortalOptions] = useState<TenantPortalOption[]>([]);
+  /* Every portal (not tenant-filtered) - only used by the Add Feature form's "Select Portal" */
+  const [allPortalOptions, setAllPortalOptions] = useState<
+    TenantPortalOption[]
+  >([]);
   const [tenantModules, setTenantModules] = useState<TenantModule[]>([]);
   const [tenantDetails, setTenantDetails] = useState<TenantDetails | null>(
     null,
@@ -336,6 +350,30 @@ const Usercards = () => {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  /* ====== LOAD ALL PORTALS (for the Add Feature form's Select Portal) ====== */
+  useEffect(() => {
+    const loadAllPortals = async () => {
+      try {
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}?limit=100`,
+        );
+
+        if (response.data.success) {
+          const items: { _id: string; portalName: string }[] =
+            response.data.data?.items ?? [];
+          setAllPortalOptions(
+            items.map((item) => ({ id: item._id, name: item.portalName })),
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching portal list:", error);
+        toast.error("Failed to load portal list");
+      }
+    };
+
+    loadAllPortals();
+  }, []);
+
   /* ====== LOAD TENANT PORTAL LIST (for Select Portal dropdown) ====== */
   useEffect(() => {
     if (!tenantId) {
@@ -350,19 +388,43 @@ const Usercards = () => {
           encodeURIComponent(tenantId),
         );
         const response = await axios.get(
-          `${AppApiEndpoints.API_END_POINT}${portalEndpoint}`,
+          `${AppApiEndpoints.API_END_POINT}${portalEndpoint}?limit=100`,
         );
 
         if (response.data.success) {
           const items: TenantPortalListItem[] = response.data.data?.items ?? [];
-          const options: TenantPortalOption[] = items.map((item) => ({
-            id: item.portalId,
-            name: item.portalName,
-          }));
+
+          // Only keep the tenant's portals that have modules configured
+          // (a tenantPortalConfig exists for this tenant + portal).
+          const configured = await Promise.all(
+            items.map(async (item) => {
+              try {
+                const params = new URLSearchParams({
+                  tenantId,
+                  portalId: item.portalId,
+                });
+                const configResponse = await axios.get(
+                  `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
+                );
+                return configResponse.data.success;
+              } catch {
+                return false;
+              }
+            }),
+          );
+
+          const options: TenantPortalOption[] = items
+            .filter((_, index) => configured[index])
+            .map((item) => ({
+              id: item.portalId,
+              name: item.portalName,
+            }));
           setPortalOptions(options);
           setFormData((previous) => ({
             ...previous,
-            portal: previous.portal || options[0]?.id || "",
+            portal: options.some((option) => option.id === previous.portal)
+              ? previous.portal
+              : options[0]?.id || "",
           }));
         }
       } catch (error) {
@@ -628,6 +690,68 @@ const Usercards = () => {
       toast.error(error?.message || "Failed to update feature status");
     } finally {
       setTogglingFeatureKey(null);
+    }
+  };
+
+  /* Module List tab - edit a parent module's order (PUT /modules/tenant/{moduleId}) */
+  const handleSubmitOrder = async (item: ModuleListRow) => {
+    if (!canToggleTenantAccess()) return;
+
+    const orderNo = Number(orderDrafts[item.moduleId]);
+    if (!Number.isInteger(orderNo) || orderNo < 1) {
+      toast.error("Order must be a whole number of 1 or more");
+      return;
+    }
+
+    const orderTaken = tenantModules.some(
+      (module) =>
+        !module.deletedAt &&
+        module.moduleId !== item.moduleId &&
+        module.orderNo === orderNo,
+    );
+    if (orderTaken) {
+      setOrderResult({
+        status: "failure",
+        moduleName: item.moduleName,
+        orderNo,
+        message: "Order already exists",
+      });
+      return;
+    }
+
+    setSavingOrderId(item.moduleId);
+
+    try {
+      await updateTenantModule(item.moduleId, {
+        tenantId,
+        portalId: formData.portal,
+        orderNo,
+        updatedBy: "SUPER_ADMIN",
+      });
+
+      setTenantModules((previous) =>
+        previous.map((module) =>
+          module.moduleId === item.moduleId ? { ...module, orderNo } : module,
+        ),
+      );
+      setOrderDrafts((previous) => {
+        const { [item.moduleId]: _saved, ...rest } = previous;
+        return rest;
+      });
+      setOrderResult({
+        status: "success",
+        moduleName: item.moduleName,
+        orderNo,
+      });
+    } catch (error: any) {
+      setOrderResult({
+        status: "failure",
+        moduleName: item.moduleName,
+        orderNo,
+        message: error?.message,
+      });
+    } finally {
+      setSavingOrderId(null);
     }
   };
 
@@ -1154,7 +1278,7 @@ const Usercards = () => {
             <div className="flex flex-col gap-1">
               {portalOptions.length === 0 ? (
                 <span className="px-3 py-2.5 text-[12px] text-gray-400">
-                  {tenantId ? "Loading portals..." : "No tenant selected"}
+                  {tenantId ? "No portals configured" : "No tenant selected"}
                 </span>
               ) : (
                 portalOptions.map((option) => (
@@ -1291,7 +1415,43 @@ const Usercards = () => {
                               {item.childModule}
                             </td>
                             <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200">
-                              {getOrderBox(item.order)}
+                              {isChildRow ? (
+                                getOrderBox(item.order)
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    value={
+                                      orderDrafts[item.moduleId] ??
+                                      String(item.order)
+                                    }
+                                    disabled={savingOrderId === item.moduleId}
+                                    onChange={(e) =>
+                                      setOrderDrafts((previous) => ({
+                                        ...previous,
+                                        [item.moduleId]: e.target.value,
+                                      }))
+                                    }
+                                    className="w-[52px] h-[32px] rounded border border-slate-300 dark:border-gray-600 bg-white dark:bg-[#2C2C2C] text-center text-[12px] font-medium text-[#1E293B] dark:text-gray-200 focus:outline-none focus:border-[#5872C5] disabled:opacity-50"
+                                  />
+                                  {orderDrafts[item.moduleId] !== undefined &&
+                                    orderDrafts[item.moduleId] !==
+                                      String(item.order) && (
+                                      <button
+                                        type="button"
+                                        disabled={savingOrderId === item.moduleId}
+                                        onClick={() => handleSubmitOrder(item)}
+                                        className="h-[32px] px-2.5 rounded bg-[#576CBC] hover:bg-[#4350C0] text-white text-[11px] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        {savingOrderId === item.moduleId
+                                          ? "Saving..."
+                                          : "Submit"}
+                                      </button>
+                                    )}
+                                </div>
+                              )}
                             </td>
                             <td className="py-3.5 px-4 text-[#1E293B] dark:text-gray-200 break-words">
                               {item.description}
@@ -1484,7 +1644,7 @@ const Usercards = () => {
         <AddTenantFeatureForm
           formData={formData}
           isLoading={isLoading}
-          portalOptions={portalOptions}
+          portalOptions={allPortalOptions}
           parentModuleOptions={parentModuleOptions}
           onClose={closeAddFeatureModal}
           onReset={resetForm}
@@ -1793,6 +1953,73 @@ const Usercards = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== ORDER UPDATE RESULT POPUP ==================== */}
+      {orderResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl shadow-2xl w-full max-w-[420px] mx-4 px-8 py-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                  orderResult.status === "success"
+                    ? "bg-green-500"
+                    : "bg-[#EF4444]"
+                }`}
+              >
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {orderResult.status === "success" ? (
+                    <polyline points="20 6 9 17 4 12" />
+                  ) : (
+                    <>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </>
+                  )}
+                </svg>
+              </div>
+            </div>
+
+            <h2 className="text-[20px] font-bold text-[#1E293B] dark:text-white mb-2">
+              {orderResult.status === "success"
+                ? "Order Updated Successfully!"
+                : "Failed to Update Order"}
+            </h2>
+
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-5 leading-relaxed">
+              {orderResult.status === "success"
+                ? `The order of ${orderResult.moduleName} has been changed to ${orderResult.orderNo}.`
+                : orderResult.message ||
+                  `The order of ${orderResult.moduleName} could not be updated. Please try again.`}
+            </p>
+
+            <div className="flex justify-center mb-6">
+              <div
+                className={`w-[100px] h-[3px] rounded-full ${
+                  orderResult.status === "success"
+                    ? "bg-green-500"
+                    : "bg-[#EF4444]"
+                }`}
+              />
+            </div>
+
+            <button
+              onClick={() => setOrderResult(null)}
+              className="w-full py-3 text-[13px] font-semibold text-white bg-[#4F5BD5] hover:bg-[#4350C0] rounded-md transition"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

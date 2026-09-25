@@ -101,7 +101,7 @@ export default function TenantStats() {
         return (
           <div
             key={index}
-            className="bg-white dark:bg-[#343434] rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300"
+            className="bg-white dark:bg-[#343434] rounded-2xl p-5 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] hover:shadow-md transition-all duration-300"
           >
             <div className="flex items-center gap-3">
               {/* Icon Circle */}

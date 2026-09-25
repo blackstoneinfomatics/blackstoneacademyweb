@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { FiChevronDown, FiInfo } from "react-icons/fi";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 export interface UpdateFormData {
   updateTitle: string;

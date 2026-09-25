@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ─────────────────────────────────────────────
 // Types
@@ -33,12 +34,6 @@ interface Segment {
   count: number;
   color: string;
 }
-
-// ─────────────────────────────────────────────
-// Endpoint
-// ─────────────────────────────────────────────
-const API_URL =
-  "http://localhost:5001/analytics/tenant-subscription-activities";
 
 // ─────────────────────────────────────────────
 // Palette
@@ -76,7 +71,9 @@ const SubscriptionChart = () => {
 
     (async () => {
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_SUBSCRIPTION_ACTIVITIES}`,
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: ApiResponse = await res.json();
 

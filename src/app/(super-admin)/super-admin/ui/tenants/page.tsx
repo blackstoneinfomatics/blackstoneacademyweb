@@ -18,6 +18,7 @@ import OrganizationHeader, {
 import AddNewTenant from "../../components/AddNewTenant";
 
 interface TenantType {
+  tenantId: string;
   tenantCode: string;
   tenantName: string;
   domain: string;
@@ -46,6 +47,17 @@ interface TenantType {
 }
 
 const NEW_TENANT_WINDOW_DAYS = 30;
+
+const getObjectId = (value: unknown): string => {
+  if (typeof value === "string") return value;
+
+  if (value && typeof value === "object") {
+    const objectValue = value as { $oid?: unknown };
+    return typeof objectValue.$oid === "string" ? objectValue.$oid : "";
+  }
+
+  return "";
+};
 
 const capitalizeFirst = (value: string) =>
   value ? value.charAt(0).toUpperCase() + value.slice(1) : "Basic";
@@ -110,6 +122,7 @@ const page = () => {
                 NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
             return {
+              tenantId: getObjectId(item._id) || item.tenantId || "",
               tenantCode:
                 item.tenantCode || item.tenantJobCode || `TEN-${index + 1}`,
               tenantName: item.tenantName || item.organizationName || "N/A",
@@ -308,7 +321,7 @@ const page = () => {
               Institute Feature Control
             </h2>
             <button
-            onClick={() => setAddTenant(true)}
+              onClick={() => setAddTenant(true)}
               className="
                   bg-[#5872C5]
                   hover:bg-[#4D66B3]
@@ -405,7 +418,7 @@ const page = () => {
                         ].map((header, tenantCodex) => (
                           <th
                             key={tenantCodex}
-                            className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
+                            className="px-2 py-2 text-left break-words font-medium"
                           >
                             {header}
                           </th>
@@ -763,8 +776,7 @@ const page = () => {
           />
         )}
 
-              {showAddTenant && <AddNewTenant onClose={() => setAddTenant(false)} />}
-        
+        {showAddTenant && <AddNewTenant onClose={() => setAddTenant(false)} />}
       </BaseSuperLayout>
     </div>
   );

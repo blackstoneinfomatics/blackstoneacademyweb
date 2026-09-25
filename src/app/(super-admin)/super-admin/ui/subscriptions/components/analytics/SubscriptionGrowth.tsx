@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -46,10 +47,7 @@ interface ChartPoint {
 /* Config                                                              */
 /* ------------------------------------------------------------------ */
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001";
-
-const GROWTH_ENDPOINT = `${API_BASE}/subscription/analytics/growth`;
+const GROWTH_ENDPOINT = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.SUBSCRIPTION.GROWTH_ANALYTICS}`;
 
 /** Poll interval for live refresh. Set to 0 to disable polling. */
 const REFRESH_MS = 30_000;
@@ -98,7 +96,7 @@ const normalizeYearly = (points: GrowthPoint[]): ChartPoint[] => {
     }
   });
 
-  const knownYears = [...byYear.keys()];
+const knownYears = Array.from(byYear.keys());
   const currentYear = new Date().getFullYear();
 
   const end = knownYears.length ? Math.max(...knownYears) : currentYear;

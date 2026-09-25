@@ -1,17 +1,12 @@
-// Frontend API client for the "api-portal-module" plugin (src/api/portalModule).
-// Two independent hierarchies, both Portal -> Parent Module -> (Features | Children -> Features):
-//   - Global (Default): portalmodules collection - full CRUD, type is Default|Custom.
-//   - Tenant (Custom): tenantPortalConfig collection - the document is seeded with a
-//     Default snapshot of Global when a tenant subscribes; these calls only add/update
-//     a Custom entry inside that SAME document, or enable/disable any existing entry
-//     (Default or Custom). They never create a second tenantPortalConfig document, and
-//     PUT/update calls reject Default entries (edit those via the Global endpoints instead).
+
+
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-let baseUrl = "http://localhost:5001";
+let baseUrl = AppApiEndpoints.API_END_POINT;
 
 export const setPortalModuleApiBaseUrl = (url: string): void => {
   baseUrl = url;
@@ -114,6 +109,7 @@ export interface ParentModule {
 
 export interface CreateParentModulePayload {
   portal: string;
+  portalId: string; // the selected portal's _id
   parentModuleName: string;
   order?: number;
   type?: PortalType; // defaults to DEFAULT
@@ -441,7 +437,7 @@ export const addTenantModule = (payload: AddTenantModulePayload) =>
 export const getTenantModules = (tenantId: string, portalId: string) =>
   request<TenantModule[]>("GET", `/modules/tenant${query({ tenantId, portalId })}`);
 
-// PUT /modules/tenant/{moduleId} - CUSTOM modules only (Default -> MODULE_NOT_CUSTOM error)
+// PUT /modules/tenant/{moduleId} - Default or Custom can change orderNo; other fields are CUSTOM only (Default -> MODULE_NOT_CUSTOM error)
 export const updateTenantModule = (moduleId: string, payload: UpdateTenantModulePayload) =>
   request<TenantPortalConfig>("PUT", `/modules/tenant/${moduleId}`, payload);
 

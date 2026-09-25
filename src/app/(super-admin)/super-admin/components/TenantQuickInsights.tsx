@@ -37,17 +37,17 @@ const insights = [
 
 export default function QuickInsights() {
   return (
-    <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-sm h-full border border-transparent dark:border-gray-700/50 transition-colors">
+    <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] h-full border border-transparent dark:border-gray-700/50 transition-colors">
 
       {/* Header */}
       <div className="px-5 pt-5 pb-2">
-        <h2 className="text-[20px] font-semibold text-[#1E293B] dark:text-white">
+        <h2 className="text-[15px] font-semibold text-[#0B1533] dark:text-white">
           Quick Insights
         </h2>
       </div>
 
       {/* List */}
-      <div className="px-5 pb-5">
+      <div className="px-5 pb-7">
         {insights.map((item) => (
           <div
             key={item.id}

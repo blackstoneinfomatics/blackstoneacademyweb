@@ -8,6 +8,7 @@ import {
   AppFailureToastMessages,
   AppSuccessToastMessages,
 } from "@/app/_components/contents/toast_message";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type Props = {
   readonly onClose: () => void;
@@ -216,7 +217,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
     try {
       setLoadingTenants(true);
       const response = await axios.get(
-        "http://localhost:5001/tenantsubscription"
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET}`,
       );
 
       console.log("API Response:", response.data);

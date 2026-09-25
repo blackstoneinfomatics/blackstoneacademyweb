@@ -97,6 +97,7 @@ export const AppApiEndpoints = {
     GET_SUPERVISOR_COUNTS: "/dashboard/supervisor/counts",
     DASHBOARD_STUDENT_COUNTS: "/dashboard/student/counts",
     GET_TEACHER_FEMALEMALE: "/teacherfemalemale",
+    GET_CARDS: "/dashboard/cards",
   },
 
   CLASSSHEDULE: {
@@ -184,11 +185,14 @@ export const AppApiEndpoints = {
 
   TENANT_SUBSCRIPTION: {
     GET: "/tenantsubscription",
+    GET_ANALYTICS_CARD: "/tenantsubscription/analytics/card",
   },
 
   CUSTOM_SERVICE_INVOICE: {
     CREATE: "/custom-service-invoices",
     GET_BY_ID: "/custom-service-invoices",
+    GET_DASHBOARD_COUNT: "/custom-service-invoices/card",
+    GET_LIST: "/custom-service-invoices",
     PAYMENT: (invoiceId: string) =>
       `/custom-service-invoices/${invoiceId}/payment`,
   },
@@ -196,6 +200,7 @@ export const AppApiEndpoints = {
   BILLING: {
     CREATE: "/billing",
     GET: "/billing",
+    GET_DASHBOARD_COUNT: "/billing/cards",
   },
 
   COURSE: {
@@ -232,6 +237,8 @@ export const AppApiEndpoints = {
     AMOUNT_BY_COURSE: "/amountbycourse",
     STUDENT_REVENUE: "/studentrevenue",
     TENANTS_GROWTH: "/analytics/tenants-growth",
+    REVENUE_OVERVIEW: "/analytics/revenue-overview",
+    TENANT_SUBSCRIPTION_ACTIVITIES: "/analytics/tenant-subscription-activities",
   },
 
   ASSIGNMENT: {
@@ -313,6 +320,9 @@ export const AppApiEndpoints = {
     ADD_BILLING_PERIOD: "/plans/${planId}/billing-period",
     UPDATE_BILLING_PERIOD: "/plans/${planId}/billing-period/${billingPeriodId}",
   },
+  SUBSCRIPTION: {
+    GROWTH_ANALYTICS: "/subscription/analytics/growth",
+  },
   TRIALS: {
     GET_TRIALS: "/subscription-trials",
     GET_TRIALS_DASHBOARD_COUNT: "/subscription-trials/dashboard-count",
@@ -321,12 +331,20 @@ export const AppApiEndpoints = {
   TENANT: {
     GET_TENANT: "/tenant",
     CREATE_TENANT: "/tenant",
-    UPDATE_TENANT: "/tenant",
+    UPDATE_TENANT: "/tenant/{tenantId}",
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
+    TENANT_DETAILS: "/tenant/{tenantCode}/details",
+    TENANT_PORTAL_DASHBOARD: "/tenant-portal-dashboard/{tenantCode}",
     UPDATE_SUBSCRIPTION_PLAN: "/tenant/subscription-plan/{tenantCode}",
     GET_ANALYTICS_CARDS: "/tenants/analytics/cards",
+        GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
+    TENANT_AUDIT_LOGS: "/audit-log/tenant/{tenantCode}",
+    TENANT_ACTIVITY_SUMMARY: "/audit-log/dashboard/activity-summary",
+    TENANT_SUBSCRIPTION_LIST_CARD:"/tenant-subscription"
   },
   PORTAL: {
+    GET_ALL: "/portal",
+    GET_DASHBOARD_COUNT: "/portal/dashboard/count",
     GET_BY_TENANT: "/portal/tenant/{tenantId}",
     CREATE_BY_TENANT: "/portal/tenant",
     UPDATE_STATUS: "/portal/tenant/{tenantPortalId}/status",
@@ -336,17 +354,26 @@ export const AppApiEndpoints = {
   },
   FEATURE_CONTROL: {
     GET_ALL: "/feature-control/all",
+    GET_FEATURE_SUMMARY_BY_TENANT: "/features/card/tenant/{tenantId}",
+    GET_CARD_SUMMARY: "/features/card",
+  },
+  UPDATES: {
+    CREATE: "/api/updates",
+    GET_DASHBOARD_CARDS: "/api/updates/dashboard/cards",
   },
   MODULE: {
     GET_LIST: "/modules",
     UPDATE_PARENT_ACCESS: "/modules/{parentModuleId}/enable",
-    UPDATE_CHILD_ACCESS: "/modules/{parentModuleId}/children/{childModuleId}/enable",
-    UPDATE_PARENT_FEATURE_ACCESS: "/modules/{parentModuleId}/features/{featureId}/enable",
+    UPDATE_CHILD_ACCESS:
+      "/modules/{parentModuleId}/children/{childModuleId}/enable",
+    UPDATE_PARENT_FEATURE_ACCESS:
+      "/modules/{parentModuleId}/features/{featureId}/enable",
     UPDATE_CHILD_FEATURE_ACCESS:
       "/modules/{parentModuleId}/children/{childModuleId}/features/{featureId}/enable",
   },
   FINANCE: {
     GET_ANALYTICS_COUNT: "/finance/analytics/count",
     GET_GRAPH_DATA: "/finance/dashboard/graph",
+    GET_TODAY_ACTIVITIES: "/finance/today-activities",
   },
 };

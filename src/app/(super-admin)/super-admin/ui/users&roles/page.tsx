@@ -9,7 +9,10 @@ import { BsX } from "react-icons/bs";
 import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
-import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import OrganizationHeader, {
+  OrganizationTab,
+} from "../../components/OrganizationHeader";
 
 interface FormData {
   portalRoles: string;
@@ -39,7 +42,11 @@ const Page = () => {
 
   const tableRef = React.useRef<{ refreshData: () => void }>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -52,7 +59,6 @@ const Page = () => {
     setIsLoading(true);
 
     try {
-
       const payload = {
         portalName: formData.portalRoles,
         description: formData.description,
@@ -63,18 +69,18 @@ const Page = () => {
 
       console.log("Sending payload:", payload);
 
-
-      const response = await axios.post("http://localhost:5001/portal", payload);
+      const response = await axios.post(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}`,
+        payload,
+      );
 
       console.log("API Response:", response.data);
 
       if (response.data.success) {
-
         setCreatedPortalName(formData.portalRoles);
         setShowSuccess(true);
         setShowAddPortalModal(false);
         toast.success(response.data.message || "Portal created successfully!");
-
 
         setFormData({
           portalRoles: "",
@@ -83,12 +89,10 @@ const Page = () => {
           status: "Active",
         });
 
-
         if (tableRef.current) {
           tableRef.current.refreshData();
         }
       } else {
-
         setCreatedPortalName(formData.portalRoles);
         setShowFailure(true);
         setShowAddPortalModal(false);
@@ -97,11 +101,10 @@ const Page = () => {
     } catch (error: any) {
       console.error("Error creating portal:", error);
 
-
       setCreatedPortalName(formData.portalRoles);
 
-
-      const errorMessage = error.response?.data?.message ||
+      const errorMessage =
+        error.response?.data?.message ||
         error.response?.data?.error ||
         "Failed to create portal. Please try again.";
 
@@ -130,9 +133,7 @@ const Page = () => {
     });
   };
 
-  const refreshPortalList = () => {
-
-  };
+  const refreshPortalList = () => {};
 
   return (
     <BaseSuperLayout>
@@ -140,15 +141,14 @@ const Page = () => {
         <SuperAdminHeader currentSection="Users & Roles" />
         <div>
           <OrganizationHeader
-
             showTabs
             activeTab={tab}
-            onTabChange={setTab} currentSection={""} />
-
+            onTabChange={setTab}
+            currentSection={""}
+          />
         </div>
 
         <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
-
           <div className="flex items-center justify-between mt-2 px-3 py-2">
             <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
               Institute Portal & Roles
@@ -177,10 +177,11 @@ const Page = () => {
           <div className="flex items-center gap-6 px-5 mt-1">
             <button
               onClick={() => setActiveTab("portal")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "portal"
-                ? "text-[#5872C5]"
-                : "text-[#24324B] dark:text-gray-300"
-                }`}
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${
+                activeTab === "portal"
+                  ? "text-[#5872C5]"
+                  : "text-[#24324B] dark:text-gray-300"
+              }`}
             >
               Portal
               {activeTab === "portal" && (
@@ -190,10 +191,11 @@ const Page = () => {
 
             <button
               onClick={() => setActiveTab("tenants")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "tenants"
-                ? "text-[#5872C5]"
-                : "text-[#24324B] dark:text-gray-300"
-                }`}
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${
+                activeTab === "tenants"
+                  ? "text-[#5872C5]"
+                  : "text-[#24324B] dark:text-gray-300"
+              }`}
             >
               Tenants
               {activeTab === "tenants" && (
@@ -204,13 +206,9 @@ const Page = () => {
 
           {/* Tab Content */}
           {activeTab === "portal" && (
-            <Table
-              ref={tableRef}
-              onPortalCreated={refreshPortalList}
-            />
+            <Table ref={tableRef} onPortalCreated={refreshPortalList} />
           )}
           {activeTab === "tenants" && <TenantTable />}
-
         </div>
       </div>
 
@@ -338,7 +336,8 @@ const Page = () => {
             </p>
             <div className="bg-gray-50 dark:bg-[#1F1F1F] rounded-lg p-3 mb-6">
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                <span className="font-medium">Portal Name :</span> {createdPortalName || formData.portalRoles || ""}
+                <span className="font-medium">Portal Name :</span>{" "}
+                {createdPortalName || formData.portalRoles || ""}
               </p>
             </div>
             <button
@@ -368,7 +367,8 @@ const Page = () => {
             </p>
             <div className="bg-gray-50 dark:bg-[#1F1F1F] rounded-lg p-3 mb-6">
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                <span className="font-medium">Portal Name :</span> {createdPortalName || formData.portalRoles || ""}
+                <span className="font-medium">Portal Name :</span>{" "}
+                {createdPortalName || formData.portalRoles || ""}
               </p>
             </div>
             <div className="flex gap-3">

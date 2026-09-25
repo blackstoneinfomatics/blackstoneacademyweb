@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ─────────────────────────────────────────────
 // Types
@@ -41,8 +42,6 @@ interface ApiResponse {
 // ─────────────────────────────────────────────
 // Endpoint
 // ─────────────────────────────────────────────
-const API_URL = "http://localhost:5001/analytics/revenue-overview";
-
 const PERIOD_LABELS: Record<Period, string> = {
   weekly: "Weekly",
   monthly: "Monthly",
@@ -136,7 +135,9 @@ const RevenueOverviewChart = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_URL}?period=${period}`);
+        const res = await fetch(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.REVENUE_OVERVIEW}?period=${period}`,
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: ApiResponse = await res.json();
 
