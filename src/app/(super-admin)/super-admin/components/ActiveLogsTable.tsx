@@ -200,16 +200,16 @@ const ActiveLogsTable = ({ tenantCode }: ActiveLogsTableProps) => {
 
       <div className="md:p-0 mx-auto w-full">
         <div className="flex flex-col h-full w-full justify-between">
-          <div className="flex flex-col">
+          <div className="flex flex-col shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] bg-white dark:bg-[#343434] rounded-xl p-4">
             {/* Tabs */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
-              <div className="flex flex-wrap gap-4 font-semibold text-xl dark:text-white">
+              <h2 className="flex flex-wrap gap-4 font-semibold text-[15px] dark:text-white">
                 Blackstone Academy Active Logs
-              </div>
+              </h2>
             </div>
 
             {/* Search + Filter */}
-            <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg">
               <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
@@ -253,7 +253,7 @@ const ActiveLogsTable = ({ tenantCode }: ActiveLogsTableProps) => {
                     ].map((header, idx) => (
                       <th
                         key={idx}
-                        className="px-2 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
+                        className="px-2 py-1 font-medium border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
                       >
                         {header}
                       </th>

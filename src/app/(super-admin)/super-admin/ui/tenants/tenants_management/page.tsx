@@ -489,7 +489,7 @@ const Page = () => {
         )}
 
         {activeTab === "Active Logs" && (
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#343434] p-4 transition-colors">
+          <div className="rounded-xl p-2 transition-colors">
             <ActiveLogsChart tenantCode={tenant.tenantCode} />
             <ActiveLogsTable tenantCode={tenant.tenantCode} />
           </div>

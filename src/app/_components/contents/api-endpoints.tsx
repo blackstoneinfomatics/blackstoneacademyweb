@@ -340,6 +340,7 @@ export const AppApiEndpoints = {
         GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
     TENANT_AUDIT_LOGS: "/audit-log/tenant/{tenantCode}",
     TENANT_ACTIVITY_SUMMARY: "/audit-log/dashboard/activity-summary",
+    TENANT_SUBSCRIPTION_LIST_CARD:"/tenant-subscription"
   },
   PORTAL: {
     GET_ALL: "/portal",

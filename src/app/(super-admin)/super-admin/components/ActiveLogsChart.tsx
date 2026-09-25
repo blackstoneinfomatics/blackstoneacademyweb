@@ -117,7 +117,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
   return (
     <div className="grid grid-cols-12 gap-4 items-stretch auto-rows-fr">
       {/* Left: Donut Chart */}
-      <div className="col-span-12 lg:col-span-5 xl:col-span-5 bg-white dark:bg-[#343434] rounded-2xl p-6 shadow-sm flex items-center justify-center">
+      <div className="col-span-12 lg:col-span-5 xl:col-span-5 bg-white dark:bg-[#343434] rounded-2xl p-6 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex items-center justify-center">
         <div className="flex items-center gap-6 w-full">
           {/* Donut Chart */}
           <div
@@ -137,14 +137,14 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
           {/* Right Side Legend */}
           <div className="flex-1">
             {activityDistribution.map((activity) => (
-              <div key={activity.name} className="py-5">
+              <div key={activity.name} className="py-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: activity.color }}
                     />
-                    <span className="text-[16px] font-medium text-[#1E293B] dark:text-white">
+                    <span className="text-[16px] font-medium text-[#010e30] dark:text-white">
                       {activity.name}
                     </span>
                   </div>
@@ -163,16 +163,16 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 h-full">
           
           {/* Successful */}
-          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
             <div className="flex items-start gap-3 w-full">
               <div className="w-12 h-12 bg-[#e3f4e7] dark:bg-[#2A3A3A] rounded-full flex items-center justify-center shrink-0">
                 <IoMdCheckmarkCircle size={22} className="text-[#3CBF61] dark:text-[#4ADE80]" />
               </div>
-              <div className="flex flex-col">
-                <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white leading-tight">
+              <div className="flex flex-col ">
+                <h4 className="text-[15px] font-semibold  text-[#010e30] dark:text-white leading-tight">
                   Successful
                 </h4>
-                <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
+                <p className="text-2xl font-semibold leading-none mt-1 dark:text-white">
                   {stats.successful}
                 </p>
                 <div className="flex items-center gap-1 mt-2">
@@ -188,7 +188,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
           </div>
 
           {/* Warning */}
-          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
             <div className="flex items-start gap-3 w-full">
               <div className="w-12 h-12 bg-[#FFF7E7] dark:bg-[#3A3520] rounded-full flex items-center justify-center shrink-0">
                 <AlertTriangle size={22} className="text-[#FDB022] dark:text-[#FBBF24]" />
@@ -197,7 +197,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
                 <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white leading-tight">
                   Warning
                 </h4>
-                <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
+                <p className="text-2xl font-semibold leading-none mt-1 dark:text-white">
                   {stats.warning}
                 </p>
                 <div className="flex items-center gap-1 mt-2">
@@ -213,7 +213,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
           </div>
 
           {/* Failed */}
-          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
             <div className="flex items-start gap-3 w-full">
               <div className="w-12 h-12 bg-[#FDECEC] dark:bg-[#3A2A2A] rounded-full flex items-center justify-center shrink-0">
                 <MdCancel size={22} className="text-[#E5484D] dark:text-[#F87171]" />
@@ -222,7 +222,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
                 <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white leading-tight">
                   Failed
                 </h4>
-                <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
+                <p className="text-2xl font-semibold leading-none mt-1 dark:text-white">
                   {stats.failed}
                 </p>
                 <div className="flex items-center gap-1 mt-2">
@@ -238,7 +238,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
           </div>
 
           {/* Total Activities */}
-          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
             <div className="flex items-start gap-3 w-full">
               <div className="w-12 h-12  dark:bg-[#3A3A5C] rounded-full flex items-center justify-center shrink-0">
                 <img 
@@ -255,7 +255,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
                 <h4 className="text-[15px] font-semibold dark:text-white leading-tight">
                   Total Activities
                 </h4>
-                <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
+                <p className="text-2xl font-semibold leading-none mt-1 dark:text-white">
                   {stats.totalActivities}
                 </p>
                 <p className="text-[12px] text-[#7B8495] dark:text-gray-400 mt-2">
@@ -266,7 +266,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
           </div>
 
           {/* Unique Users */}
-          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
             <div className="flex items-start gap-3 w-full">
               <div className="w-12 h-12 bg-[#F2EDFF] dark:bg-[#3A375C] rounded-full flex items-center justify-center shrink-0">
                 <FaUsers size={22} className="text-[#6A5AF9] dark:text-[#8B7DFF]" />
@@ -275,7 +275,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
                 <h4 className="text-[15px] font-semibold dark:text-white leading-tight">
                   Unique Users
                 </h4>
-                <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
+                <p className="text-2xl font-semibold leading-none mt-1 dark:text-white">
                   {stats.uniqueUsers}
                 </p>
                 <p className="text-[12px] text-[#7B8495] dark:text-gray-400 mt-2 whitespace-nowrap">
@@ -286,7 +286,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
           </div>
 
           {/* Today Activities */}
-          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start">
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-4 py-4 h-[108px] flex items-start shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
             <div className="flex items-start gap-3 w-full">
               <div className="w-12 h-12  dark:bg-[#2A3A5C] rounded-full flex items-center justify-center shrink-0">
                 <img 
@@ -303,7 +303,7 @@ const ActiveLogsChart = ({ tenantCode }: ActiveLogsChartProps) => {
                 <h4 className="text-[15px] font-semibold dark:text-white leading-tight">
                   Today Activities
                 </h4>
-                <p className="text-[28px] font-bold leading-none mt-1 dark:text-white">
+                <p className="text-2xl font-semibold leading-none mt-1 dark:text-white">
                   {stats.todayActivities}
                 </p>
                 <p className="text-[12px] text-[#7B8495] dark:text-gray-400 mt-2">

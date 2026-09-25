@@ -79,13 +79,13 @@ export default function TicketAnalyticsCards() {
             <div>
 
               <p
-                className="text-[14px] font-semibold"
+                className="text-[15px] font-semibold"
                 style={{ color: item.titleColor }}
               >
                 {item.title}
               </p>
 
-              <h3 className="text-[30px] font-bold leading-none mt-2 text-[#1F2937] dark:text-white">
+              <h3 className="text-lg font-semibold leading-none mt-2 text-[#1F2937] dark:text-white">
                 {item.count}
               </h3>
 

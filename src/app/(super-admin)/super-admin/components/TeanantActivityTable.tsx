@@ -162,7 +162,7 @@ export default function ActivityTable({
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl">
-        <div className="overflow-x-auto scrollbar-none">
+        <div className="overflow-x-auto scrollbar-none h-[400px] overflow-y-auto">
           <table className="w-full">
             <thead className="bg-[#486A99]">
               <tr>

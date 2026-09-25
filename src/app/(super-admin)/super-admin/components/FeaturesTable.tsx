@@ -356,7 +356,7 @@ const FeaturesTable = ({tenantId} : FeaturesTableProps) => {
                         "Features",
                         "Category",
                         "Description",
-                        "Plan",
+                        // "Plan",
                         "Status",
                         "Features Status",
                         "Action",
@@ -424,7 +424,7 @@ const FeaturesTable = ({tenantId} : FeaturesTableProps) => {
                               {feature.description}
                             </td>
 
-                            {/* Plan */}
+{/*                             
                             <td className="px-3 py-3 text-left">
                               <span
                                 className={`inline-flex items-center justify-center w-[80px] h-6 rounded-md text-xs font-medium ${getPlanStyle(
@@ -433,7 +433,7 @@ const FeaturesTable = ({tenantId} : FeaturesTableProps) => {
                               >
                                 {feature.plan}
                               </span>
-                            </td>
+                            </td> */}
 
                             {/* Status */}
                             <td className="px-3 py-3 text-left">
