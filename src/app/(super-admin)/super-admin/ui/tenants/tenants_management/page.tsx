@@ -386,7 +386,7 @@ const Page = () => {
               {/* Module Access */}
               <div className="bg-[#ffffff] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#2C2C2C] rounded-xl p-5 transition-colors">
                 <h3 className="text-[15px] font-semibold text-[#0B1533] dark:text-white mb-5">
-                  Modules Access
+                  Portal Access
                 </h3>
 
                 <div className="space-y-3 h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#dadddb] scrollbar-track-[#fff] pr-2">

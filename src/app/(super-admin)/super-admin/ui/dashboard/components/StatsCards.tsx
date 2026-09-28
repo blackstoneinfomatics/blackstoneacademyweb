@@ -2,7 +2,6 @@ import React from "react";
 import { Users, UserPlus, Clock3 } from "lucide-react";
 import { HiArrowTrendingUp } from "react-icons/hi2";
 import { HiOutlineCurrencyDollar } from "react-icons/hi2";
-import { FaUsers } from "react-icons/fa";
 
 const cards = [
   {
@@ -56,7 +55,7 @@ const StatsCards = () => {
         return (
           <div
             key={index}
-            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#2c2c2c] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
+            className="bg-[#ffffff] dark:bg-[#252525] rounded-2xl px-4 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]"
           >
             <div className="flex items-start gap-4">
               <div

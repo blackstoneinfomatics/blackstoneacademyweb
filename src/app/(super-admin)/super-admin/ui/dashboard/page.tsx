@@ -4,13 +4,13 @@ import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSupe
 import StatsCards from "./components/StatsCards";
 import RevenueOverview from "./components/RevenueOverview";
 import SubscriptionChart from "./components/SubscriptionChart";
-import CalendarCard from "./components/CalendarCard";
 import RecentActivities from "./components/RecentActivities";
 import TenantsTable from "./components/TenantsTable";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
+import ExperingTenants from "./components/ExperingTenants";
 
-const page = () => {
+const Page = () => {
   const [tab, setTab] = useState<OrganizationTab>("All");
   return (
     <BaseSuperLayout>
@@ -23,7 +23,7 @@ const page = () => {
           onTabChange={setTab} currentSection={""} />
 
       </div>
-      <div className="pt-2 min-h-screen">
+      <div className="min-h-screen bg-[#F7F8FE] dark:bg-[#343434] p-4 rounded-xl">
         <div className="grid grid-cols-12 gap-4 h-full">
           {/* LEFT */}
           <div className="col-span-9 flex flex-col gap-4">
@@ -42,7 +42,7 @@ const page = () => {
           {/* RIGHT */}
           <div className="col-span-3 flex flex-col gap-4">
             <div className="">
-              <CalendarCard />
+              <ExperingTenants />
             </div>
 
             <div className="flex-1">
@@ -55,4 +55,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default Page;
