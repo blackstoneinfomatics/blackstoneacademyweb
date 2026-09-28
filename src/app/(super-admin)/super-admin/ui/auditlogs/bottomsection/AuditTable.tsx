@@ -1,9 +1,16 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MdTune } from "react-icons/md";
-import { Search, ChevronLeft, ChevronRight, ChevronDown, Calendar } from "lucide-react";
+import {
+    Search,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    Calendar,
+    Loader2,
+} from "lucide-react";
 
 // ─────────────────────────────────────────────
 // Types
@@ -18,6 +25,17 @@ interface Log {
     description: string;
     dateTime: string;
     status: LogStatus;
+    // raw extras for View Details
+    ip?: string;
+    route?: string;
+    method?: string;
+    statusCode?: number;
+    durationMs?: number;
+    payload?: string;
+    query?: string;
+    response?: string;
+    logType?: string;
+    action?: string;
 }
 
 interface Filters {
@@ -28,21 +46,64 @@ interface Filters {
 }
 
 // ─────────────────────────────────────────────
-// Mock data
+// API config
 // ─────────────────────────────────────────────
-const MOCK_LOGS: Log[] = [
-    { id: "1", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Success" },
-    { id: "2", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Warning" },
-    { id: "3", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Failed" },
-    { id: "4", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Warning" },
-    { id: "5", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Success" },
-    { id: "6", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Warning" },
-    { id: "7", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Success" },
-    { id: "8", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Warning" },
-    { id: "9", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Failed" },
-    { id: "10", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Warning" },
-    { id: "11", logId: "LOG-0001", tenant: "Blackstone Academy", user: "Admin", description: "Change setting", dateTime: "Sep, 12 2023", status: "Success" },
-];
+const API_URL = "http://localhost:5001/audit-log";
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+const mapLogTypeToStatus = (logType?: string): LogStatus => {
+    switch ((logType || "").toUpperCase()) {
+        case "SUCCESS":
+            return "Success";
+        case "ERROR":
+        case "FAILURE":
+        case "FAILED":
+            return "Failed";
+        case "WARNING":
+        case "WARN":
+            return "Warning";
+        default:
+            return "Warning";
+    }
+};
+
+const formatDateTime = (iso?: string) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
+
+const normalizeRecord = (rec: any, index: number): Log => {
+    const meta = rec?.meta || {};
+    return {
+        id: rec?._id || `row-${index}`,
+        logId: rec?.logId || "—",
+        tenant: rec?.tenantId || "—",
+        user: rec?.userId || "—",
+        description: rec?.readableDescription || rec?.description || "—",
+        dateTime: formatDateTime(rec?.createdDate),
+        status: mapLogTypeToStatus(rec?.logType),
+        ip: rec?.ip,
+        route: rec?.route,
+        method: meta?.method?.toUpperCase?.(),
+        statusCode: meta?.statusCode,
+        durationMs: meta?.durationMs,
+        payload: meta?.payload,
+        query: meta?.query,
+        response: meta?.response,
+        logType: rec?.logType,
+        action: rec?.action,
+    };
+};
 
 // ─────────────────────────────────────────────
 // Status pill styles
@@ -61,9 +122,28 @@ const getStatusStyle = (status: LogStatus) => {
 };
 
 // ─────────────────────────────────────────────
+// Empty check for conditional fields
+// ─────────────────────────────────────────────
+const isEmptyValue = (val?: string) => {
+    if (val === undefined || val === null) return true;
+    const trimmed = String(val).trim();
+    if (trimmed === "") return true;
+    if (trimmed === "—") return true;
+    if (trimmed === "null") return true;
+    if (trimmed === "undefined") return true;
+    if (trimmed === "{}") return true;
+    if (trimmed === "[]") return true;
+    return false;
+};
+
+// ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
 const AuditTable = () => {
+    const [logs, setLogs] = useState<Log[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
     const [searchKeyword, setSearchKeyword] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilter, setShowFilter] = useState(false);
@@ -79,13 +159,41 @@ const AuditTable = () => {
 
     const itemsPerPage = 10;
 
+    // ── Fetch real data ──
+    const fetchLogs = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(API_URL, {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+            });
+            if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+            const json = await res.json();
+            const records = json?.data?.records ?? [];
+            setLogs(records.map(normalizeRecord));
+        } catch (err: any) {
+            console.error("Failed to fetch audit logs:", err);
+            setError(err?.message || "Failed to load audit logs");
+            setLogs([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
+
     // ── Filtered data ──
     const filteredLogs = useMemo(() => {
-        return MOCK_LOGS.filter((log) => {
+        return logs.filter((log) => {
+            const kw = searchKeyword.toLowerCase();
             const matchesSearch =
-                log.tenant.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-                log.logId.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-                log.description.toLowerCase().includes(searchKeyword.toLowerCase());
+                log.tenant.toLowerCase().includes(kw) ||
+                log.logId.toLowerCase().includes(kw) ||
+                log.description.toLowerCase().includes(kw);
 
             const tenantFilter =
                 !filters.tenantName ||
@@ -95,7 +203,7 @@ const AuditTable = () => {
 
             return matchesSearch && tenantFilter && statusFilter;
         });
-    }, [searchKeyword, filters]);
+    }, [logs, searchKeyword, filters]);
 
     // ── Pagination ──
     const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
@@ -111,14 +219,14 @@ const AuditTable = () => {
 
     // ── Live count for filter modal ──
     const liveFilteredCount = useMemo(() => {
-        return MOCK_LOGS.filter((log) => {
+        return logs.filter((log) => {
             const tenantFilter =
                 !filters.tenantName ||
                 log.tenant.toLowerCase().includes(filters.tenantName.toLowerCase());
             const statusFilter = !filters.status || log.status === filters.status;
             return tenantFilter && statusFilter;
         }).length;
-    }, [filters]);
+    }, [logs, filters]);
 
     const handleReset = () => {
         setFilters({ tenantName: "", status: "", fromDate: "", toDate: "" });
@@ -131,7 +239,7 @@ const AuditTable = () => {
     };
 
     // ── Currently viewed log ──
-    const viewedLog = MOCK_LOGS.find((l) => l.id === viewDetailsId) || null;
+    const viewedLog = logs.find((l) => l.id === viewDetailsId) || null;
 
     return (
         <>
@@ -188,79 +296,101 @@ const AuditTable = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedLogs.map((item, index) => {
-                                const rowBgClass =
-                                    index % 2 === 0
-                                        ? "bg-[#fff] dark:bg-[#2C2C2C]"
-                                        : "bg-[#F8F8F8] dark:bg-[#383838]";
-
-                                return (
-                                    <tr
-                                        key={item.id}
-                                        className={`text-[10px] ${rowBgClass}`}
+                            {isLoading && (
+                                <tr>
+                                    <td
+                                        colSpan={7}
+                                        className="px-6 py-10 text-center text-[14px] text-gray-500 dark:text-gray-400"
                                     >
-                                        <td className="px-4 py-3 break-words text-[11px] font-medium text-left dark:text-white">
-                                            {item.logId}
-                                        </td>
+                                        <Loader2 className="w-5 h-5 animate-spin inline-block mr-2 align-middle" />
+                                        Loading audit logs…
+                                    </td>
+                                </tr>
+                            )}
 
-                                        <td className="px-4 py-3 break-words text-[11px] font-medium text-left text-[#101B41] dark:text-white">
-                                            {item.tenant}
-                                        </td>
+                            {!isLoading && error && (
+                                <tr>
+                                    <td
+                                        colSpan={7}
+                                        className="px-6 py-10 text-center text-[14px] text-red-500"
+                                    >
+                                        {error}{" "}
+                                        <button
+                                            onClick={fetchLogs}
+                                            className="underline ml-1 text-[#576CBC]"
+                                        >
+                                            Retry
+                                        </button>
+                                    </td>
+                                </tr>
+                            )}
 
-                                        <td className="px-4 py-3 break-words text-[11px] text-left text-[#101B41] dark:text-white">
-                                            {item.user}
-                                        </td>
+                            {!isLoading &&
+                                !error &&
+                                paginatedLogs.map((item, index) => {
+                                    const rowBgClass =
+                                        index % 2 === 0
+                                            ? "bg-[#fff] dark:bg-[#2C2C2C]"
+                                            : "bg-[#F8F8F8] dark:bg-[#383838]";
 
-                                        <td className="px-4 py-3 break-words text-[11px] text-left text-[#101B41] dark:text-white">
-                                            {item.description}
-                                        </td>
+                                    return (
+                                        <tr key={item.id} className={`text-[10px] ${rowBgClass}`}>
+                                            <td className="px-4 py-3 break-words text-[11px] font-medium text-left dark:text-white">
+                                                {item.logId}
+                                            </td>
+                                            <td className="px-4 py-3 break-words text-[11px] font-medium text-left text-[#101B41] dark:text-white">
+                                                {item.tenant}
+                                            </td>
+                                            <td className="px-4 py-3 break-words text-[11px] text-left text-[#101B41] dark:text-white">
+                                                {item.user}
+                                            </td>
+                                            <td className="px-4 py-3 break-words text-[11px] text-left text-[#101B41] dark:text-white">
+                                                {item.description}
+                                            </td>
+                                            <td className="px-4 py-3 break-words text-[11px] text-left text-[#3D8FDE] dark:text-sky-300">
+                                                {item.dateTime}
+                                            </td>
+                                            <td className="px-4 py-3 text-left">
+                                                <span
+                                                    className={`inline-flex items-center justify-center w-[80px] h-7 rounded-md text-[11px] font-medium ${getStatusStyle(
+                                                        item.status
+                                                    )}`}
+                                                >
+                                                    {item.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-left relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setOpenDropdownId((prev) =>
+                                                            prev === item.id ? null : item.id
+                                                        )
+                                                    }
+                                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+                                                >
+                                                    <BsThreeDotsVertical className="w-4 h-4" />
+                                                </button>
 
-                                        <td className="px-4 py-3 break-words text-[11px] text-left text-[#3D8FDE] dark:text-sky-300">
-                                            {item.dateTime}
-                                        </td>
+                                                {openDropdownId === item.id && (
+                                                    <div className="absolute right-24 top-8 w-24 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+                                                        <button
+                                                            className="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                                            onClick={() => {
+                                                                setViewDetailsId(item.id);
+                                                                setOpenDropdownId(null);
+                                                            }}
+                                                        >
+                                                            View Details
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
 
-                                        <td className="px-4 py-3 text-left">
-                                            <span
-                                                className={`inline-flex items-center justify-center w-[80px] h-7 rounded-md text-[11px] font-medium ${getStatusStyle(
-                                                    item.status
-                                                )}`}
-                                            >
-                                                {item.status}
-                                            </span>
-                                        </td>
-
-                                        <td className="px-4 py-3 text-left relative">
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setOpenDropdownId((prev) =>
-                                                        prev === item.id ? null : item.id
-                                                    )
-                                                }
-                                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
-                                            >
-                                                <BsThreeDotsVertical className="w-4 h-4" />
-                                            </button>
-
-                                            {openDropdownId === item.id && (
-                                                <div className="absolute right-24 top-8 w-24 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
-                                                    <button
-                                                        className="block w-full text-left px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
-                                                        onClick={() => {
-                                                            setViewDetailsId(item.id);
-                                                            setOpenDropdownId(null);
-                                                        }}
-                                                    >
-                                                        View Details
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-
-                            {paginatedLogs.length === 0 && (
+                            {!isLoading && !error && paginatedLogs.length === 0 && (
                                 <tr>
                                     <td
                                         colSpan={7}
@@ -328,7 +458,7 @@ const AuditTable = () => {
             </div>
 
             {/* ═══════════════════════════════════════════ */}
-            {/* Filter Modal — matches reference image */}
+            {/* Filter Modal */}
             {/* ═══════════════════════════════════════════ */}
             {showFilter && (
                 <div
@@ -340,7 +470,6 @@ const AuditTable = () => {
                         onSubmit={handleShowResults}
                         className="w-full max-w-[400px] rounded-[14px] bg-white dark:bg-[#2C2C2C] p-5 shadow-2xl"
                     >
-                        {/* Header */}
                         <div className="mb-4 flex items-start justify-between">
                             <h2 className="text-[14px] font-bold text-[#101B41] dark:text-white">
                                 Filter by
@@ -349,7 +478,6 @@ const AuditTable = () => {
                                 type="button"
                                 onClick={() => setShowFilter(false)}
                                 className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-                                aria-label="Close filter"
                             >
                                 <svg
                                     width="14"
@@ -367,7 +495,6 @@ const AuditTable = () => {
                             </button>
                         </div>
 
-                        {/* Tenant Name */}
                         <div className="mb-3">
                             <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
                                 Tenant Name
@@ -376,17 +503,13 @@ const AuditTable = () => {
                                 type="text"
                                 value={filters.tenantName}
                                 onChange={(e) =>
-                                    setFilters((f) => ({
-                                        ...f,
-                                        tenantName: e.target.value,
-                                    }))
+                                    setFilters((f) => ({ ...f, tenantName: e.target.value }))
                                 }
                                 placeholder="Blackstone Academy"
                                 className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] text-[#101B41] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#8296E6]"
                             />
                         </div>
 
-                        {/* Status */}
                         <div className="mb-3">
                             <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
                                 Status
@@ -395,10 +518,7 @@ const AuditTable = () => {
                                 <select
                                     value={filters.status}
                                     onChange={(e) =>
-                                        setFilters((f) => ({
-                                            ...f,
-                                            status: e.target.value,
-                                        }))
+                                        setFilters((f) => ({ ...f, status: e.target.value }))
                                     }
                                     className="w-full appearance-none rounded-md border border-[#D5D9E2] bg-white px-3 py-2 pr-9 text-[12px] text-[#101B41] focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:focus:border-[#8296E6]"
                                 >
@@ -411,39 +531,29 @@ const AuditTable = () => {
                             </div>
                         </div>
 
-                        {/* Date */}
                         <div className="mb-5">
                             <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
                                 Date
                             </label>
                             <div className="flex gap-2">
-                                {/* From date */}
                                 <div className="relative flex-1">
                                     <input
                                         type="text"
                                         value={filters.fromDate}
                                         onChange={(e) =>
-                                            setFilters((f) => ({
-                                                ...f,
-                                                fromDate: e.target.value,
-                                            }))
+                                            setFilters((f) => ({ ...f, fromDate: e.target.value }))
                                         }
                                         placeholder="Jan 20, 2020"
                                         className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 pr-8 text-[12px] text-[#101B41] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#8296E6]"
                                     />
                                     <Calendar className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                                 </div>
-
-                                {/* To date */}
                                 <div className="relative flex-1">
                                     <input
                                         type="text"
                                         value={filters.toDate}
                                         onChange={(e) =>
-                                            setFilters((f) => ({
-                                                ...f,
-                                                toDate: e.target.value,
-                                            }))
+                                            setFilters((f) => ({ ...f, toDate: e.target.value }))
                                         }
                                         placeholder="Jan 24, 2020"
                                         className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 pr-8 text-[12px] text-[#101B41] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#8296E6]"
@@ -453,7 +563,6 @@ const AuditTable = () => {
                             </div>
                         </div>
 
-                        {/* Actions */}
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
@@ -474,7 +583,7 @@ const AuditTable = () => {
             )}
 
             {/* ═══════════════════════════════════════════ */}
-            {/* View Details Modal — matches reference image */}
+            {/* View Details Modal — only populated fields */}
             {/* ═══════════════════════════════════════════ */}
             {viewedLog && (
                 <div
@@ -483,7 +592,7 @@ const AuditTable = () => {
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-[540px] rounded-[14px] bg-white dark:bg-[#2C2C2C] p-5 shadow-2xl"
+                        className="w-full max-w-[640px] max-h-[85vh] overflow-y-auto rounded-[14px] bg-white dark:bg-[#2C2C2C] p-5 shadow-2xl"
                     >
                         {/* Header */}
                         <div className="mb-4 flex items-start justify-between">
@@ -494,7 +603,6 @@ const AuditTable = () => {
                                 type="button"
                                 onClick={() => setViewDetailsId(null)}
                                 className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-                                aria-label="Close details"
                             >
                                 <svg
                                     width="14"
@@ -512,79 +620,95 @@ const AuditTable = () => {
                             </button>
                         </div>
 
-                        {/* Details grid — 2 columns like reference */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                            {/* Log ID */}
-                            <div>
-                                <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                                    Log ID
-                                </label>
-                                <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedLog.logId}
-                                </div>
-                            </div>
+                            {/* Always-present core fields */}
+                            <Field label="Log ID" value={viewedLog.logId} />
+                            <Field label="Tenant" value={viewedLog.tenant} />
+                            <Field label="User" value={viewedLog.user} />
+                            <Field label="Date & Time" value={viewedLog.dateTime} />
 
-                            {/* Tenant Name */}
-                            <div>
-                                <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                                    Tenant Name
-                                </label>
-                                <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedLog.tenant}
-                                </div>
-                            </div>
+                            <Field
+                                label="Description"
+                                value={viewedLog.description}
+                                fullWidth
+                            />
 
-                            {/* User */}
-                            <div>
-                                <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                                    User
-                                </label>
-                                <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedLog.user}
-                                </div>
-                            </div>
-
-                            {/* Date & Time */}
-                            <div>
-                                <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                                    Date &amp; Time
-                                </label>
-                                <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedLog.dateTime}
-                                </div>
-                            </div>
-
-                            {/* Description — full width */}
-                            <div className="sm:col-span-2">
-                                <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                                    Description
-                                </label>
-                                <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedLog.description}
-                                </div>
-                            </div>
-
-                            {/* Status */}
-                            <div className="sm:col-span-1">
-                                <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                                    Status
-                                </label>
-                                <div
-                                    className={`w-full rounded-md border border-[#D5D9E2] dark:border-[#555] bg-white dark:bg-[#3A3A3A] px-3 py-2 text-[12px] font-medium ${viewedLog.status === "Success"
+                            <Field
+                                label="Status"
+                                value={viewedLog.status}
+                                valueClass={
+                                    viewedLog.status === "Success"
                                         ? "text-green-600 dark:text-green-400"
                                         : viewedLog.status === "Warning"
                                             ? "text-yellow-600 dark:text-yellow-400"
                                             : "text-red-600 dark:text-red-400"
-                                        }`}
-                                >
-                                    {viewedLog.status}
-                                </div>
-                            </div>
+                                }
+                            />
+
                         </div>
                     </div>
                 </div>
             )}
         </>
+    );
+};
+
+// ─────────────────────────────────────────────
+// Reusable readonly field
+// ─────────────────────────────────────────────
+const Field = ({
+    label,
+    value,
+    fullWidth,
+    pre,
+    valueClass,
+}: {
+    label: string;
+    value: string;
+    fullWidth?: boolean;
+    pre?: boolean;
+    valueClass?: string;
+}) => (
+    <div className={fullWidth ? "sm:col-span-2" : ""}>
+        <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
+            {label}
+        </label>
+        <div
+            className={`w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white ${pre
+                ? "whitespace-pre-wrap break-words max-h-40 overflow-y-auto font-mono"
+                : ""
+                } ${valueClass || ""}`}
+        >
+            {value}
+        </div>
+    </div>
+);
+
+// ─────────────────────────────────────────────
+// Only renders if the value is meaningful
+// ─────────────────────────────────────────────
+const ConditionalField = ({
+    label,
+    value,
+    fullWidth,
+    pre,
+    valueClass,
+}: {
+    label: string;
+    value?: string;
+    fullWidth?: boolean;
+    pre?: boolean;
+    valueClass?: string;
+}) => {
+    if (isEmptyValue(value)) return null;
+    return (
+        <Field
+            label={label}
+            value={value as string}
+            fullWidth={fullWidth}
+            pre={pre}
+            valueClass={valueClass}
+        />
     );
 };
 

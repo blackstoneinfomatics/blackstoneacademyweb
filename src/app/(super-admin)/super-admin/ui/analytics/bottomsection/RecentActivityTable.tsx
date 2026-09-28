@@ -29,6 +29,7 @@ interface ApiResponse {
 }
 
 const MAX_RECORDS = 5;
+const API_URL = "http://localhost:5001/analytics/tenant-subscription-activities";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -66,16 +67,16 @@ const getPlanName = (a: Activity): string => {
 };
 
 const getStatusLabel = (a: Activity): string => {
-  return a.activity || a.status || "—";
+  return a.status || a.activity || "—";
 };
 
 const getStatusVariant = (
   raw: string
 ): "paid" | "pending" | "failed" | "neutral" => {
   const s = raw.toUpperCase();
-  if (s.includes("SUCCESS") || s.includes("PAID") || s === "ACTIVE")
+  if (s.includes("SUCCESS") || s.includes("PAID") || s === "ACTIVE" || s === "COMPLETED")
     return "paid";
-  if (s.includes("PENDING")) return "pending";
+  if (s.includes("PENDING") || s.includes("TRIAL")) return "pending";
   if (s.includes("FAIL") || s.includes("CANCEL")) return "failed";
   return "neutral";
 };
@@ -85,7 +86,7 @@ const getStatusVariant = (
 // ─────────────────────────────────────────────
 const COLUMNS = [
   { key: "date", label: "Date & Time", minWidth: "170px" },
-  { key: "paymentType", label: "Payment Type", minWidth: "140px" },
+  { key: "planType", label: "Plan Type", minWidth: "140px" },
   { key: "activity", label: "Activity", minWidth: "160px" },
   { key: "tenant", label: "Tenant", minWidth: "150px" },
   { key: "status", label: "Status", minWidth: "110px" },
@@ -107,9 +108,7 @@ const RecentActivityTable = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_SUBSCRIPTION_ACTIVITIES}`,
-        );
+        const res = await fetch(API_URL, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: ApiResponse = await res.json();
 
@@ -146,7 +145,6 @@ const RecentActivityTable = () => {
       {/* Table wrapper */}
       <div className="w-full overflow-x-auto">
         <table className="w-full min-w-[730px] border-collapse">
-          {/* Header row — keep indigo, slightly deeper in dark */}
           <thead className="bg-[#3F5E95] text-white dark:bg-[#2A3F66]">
             <tr>
               {COLUMNS.map((col) => (
@@ -203,27 +201,22 @@ const RecentActivityTable = () => {
                     key={index}
                     className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-[#3F3F3F] dark:hover:bg-[#3A3A3A]"
                   >
-                    {/* Date & Time */}
                     <td className="whitespace-nowrap px-4 py-3 align-middle">
                       {formatDateTime(item.date)}
                     </td>
 
-                    {/* Payment Type → plan name */}
                     <td className="whitespace-nowrap px-4 py-3 align-middle font-medium text-[#101B41] dark:text-white">
                       {getPlanName(item)}
                     </td>
 
-                    {/* Activity */}
                     <td className="whitespace-nowrap px-4 py-3 align-middle">
                       {buildActivityLabel(item)}
                     </td>
 
-                    {/* Tenant */}
                     <td className="whitespace-nowrap px-4 py-3 align-middle">
                       {item.tenantName || "—"}
                     </td>
 
-                    {/* Status */}
                     <td className="px-4 py-3 align-middle text-center whitespace-nowrap">
                       <span
                         className={`inline-flex w-full items-center justify-center rounded-md px-3 py-1 text-[10px] font-medium ${statusVariant === "paid"

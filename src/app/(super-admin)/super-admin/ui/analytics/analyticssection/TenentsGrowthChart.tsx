@@ -74,6 +74,16 @@ const buildChartPoints = (
     active: point.activeTenants ?? 0,
   }));
 
+// Latest total / active / inactive (inactive = total − active)
+const getLatestCounts = (points: ChartPoint[]) => {
+  if (!points.length) return { total: 0, active: 0, inactive: 0 };
+  const last = points[points.length - 1];
+  const total = last.total ?? 0;
+  const active = last.active ?? 0;
+  const inactive = Math.max(total - active, 0);
+  return { total, active, inactive };
+};
+
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
@@ -122,6 +132,10 @@ const TenentsGrowthChart = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // ── Latest counts for the legend ──
+  const { active: latestActive, inactive: latestInactive } =
+    getLatestCounts(chartData);
 
   return (
     <div className="w-full h-[350px] rounded-[16px] bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.03)] dark:bg-[#343434] dark:shadow-none dark:border dark:border-[#454545]">
@@ -254,7 +268,7 @@ const TenentsGrowthChart = () => {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
+      {/* Legend — with active / inactive counts inline */}
       <div className="mt-[10px] flex items-center justify-center gap-[22px]">
         <div className="flex items-center gap-[9px]">
           <svg width="28" height="8" viewBox="0 0 28 8">
@@ -268,7 +282,7 @@ const TenentsGrowthChart = () => {
             />
           </svg>
           <span className="text-[12px] font-medium leading-[16px] text-[#4B4B5C] dark:text-gray-300">
-            Total Tenants
+            Active Tenants: {latestActive}
           </span>
         </div>
 
@@ -285,7 +299,7 @@ const TenentsGrowthChart = () => {
             />
           </svg>
           <span className="text-[12px] font-medium leading-[16px] text-[#4B4B5C] dark:text-gray-300">
-            Active Tenants
+            Inactive Tenants: {latestInactive}
           </span>
         </div>
       </div>
