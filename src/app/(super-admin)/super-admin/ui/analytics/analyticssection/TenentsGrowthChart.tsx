@@ -13,9 +13,6 @@ import {
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 type Period = "weekly" | "monthly" | "yearly";
 
 interface TenantGrowthPoint {
@@ -74,7 +71,6 @@ const buildChartPoints = (
     active: point.activeTenants ?? 0,
   }));
 
-// Latest total / active / inactive (inactive = total − active)
 const getLatestCounts = (points: ChartPoint[]) => {
   if (!points.length) return { total: 0, active: 0, inactive: 0 };
   const last = points[points.length - 1];
@@ -84,16 +80,12 @@ const getLatestCounts = (points: ChartPoint[]) => {
   return { total, active, inactive };
 };
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
 const TenentsGrowthChart = () => {
   const [period, setPeriod] = useState<Period>("monthly");
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // ── Fetch whenever period changes ──
   useEffect(() => {
     const controller = new AbortController();
 
@@ -119,7 +111,6 @@ const TenentsGrowthChart = () => {
     return () => controller.abort();
   }, [period]);
 
-  // ── Close dropdown on outside click ──
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -133,7 +124,6 @@ const TenentsGrowthChart = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Latest counts for the legend ──
   const { active: latestActive, inactive: latestInactive } =
     getLatestCounts(chartData);
 

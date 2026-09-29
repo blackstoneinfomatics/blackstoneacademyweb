@@ -3,14 +3,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 type Period = "weekly" | "monthly";
 
 interface RevenuePoint {
-  label: string;      // short label for X-axis
-  fullLabel: string;  // full name for tooltip
+  label: string;
+  fullLabel: string;
   value: number;
 }
 
@@ -39,17 +36,11 @@ interface ApiResponse {
   };
 }
 
-// ─────────────────────────────────────────────
-// Endpoint
-// ─────────────────────────────────────────────
 const PERIOD_LABELS: Record<Period, string> = {
   weekly: "Weekly",
   monthly: "Monthly",
 };
 
-// ─────────────────────────────────────────────
-// Layout constants
-// ─────────────────────────────────────────────
 const CARD_HEIGHT = 350;
 const GRID_LINES = 5;
 const FIRST_GRID_TOP = 4;
@@ -57,9 +48,6 @@ const GRID_STEP = 44;
 const BASELINE_TOP = FIRST_GRID_TOP + (GRID_LINES - 1) * GRID_STEP;
 const CHART_HEIGHT = BASELINE_TOP + 6;
 
-// ─────────────────────────────────────────────
-// Compute Y-axis max = 2 × highest value
-// ─────────────────────────────────────────────
 const computeYMax = (maxValue: number): number => {
   if (maxValue <= 0) return 1000;
   const target = maxValue * 2;
@@ -86,7 +74,6 @@ const formatYLabel = (value: number): string => {
   return `${value}`;
 };
 
-/** Format ₹ values for tooltips */
 const formatCurrency = (value: number): string => {
   return `₹${value.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
@@ -94,22 +81,18 @@ const formatCurrency = (value: number): string => {
   })}`;
 };
 
-// ─────────────────────────────────────────────
-// Normalize API → chart points
-// ─────────────────────────────────────────────
 const normalizeData = (json: ApiResponse, period: Period): RevenuePoint[] => {
   const rows = json.data.revenue;
   if (!Array.isArray(rows) || rows.length === 0) return [];
 
   if (period === "monthly") {
     return (rows as MonthlyRow[]).map((r) => ({
-      label: r.month.charAt(0).toUpperCase(), // ✅ first letter only (J, F, M, A, ...)
+      label: r.month.charAt(0).toUpperCase(), 
       fullLabel: r.month,
       value: r.revenue ?? 0,
     }));
   }
 
-  // weekly — keep 3-letter day
   return (rows as WeeklyRow[]).map((r) => ({
     label: r.day,
     fullLabel: r.day,
@@ -117,9 +100,6 @@ const normalizeData = (json: ApiResponse, period: Period): RevenuePoint[] => {
   }));
 };
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
 const RevenueOverviewChart = () => {
   const [period, setPeriod] = useState<Period>("monthly");
   const [chartData, setChartData] = useState<RevenuePoint[]>([]);
@@ -128,7 +108,6 @@ const RevenueOverviewChart = () => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // ── Fetch when period changes ──
   useEffect(() => {
     let cancelled = false;
 
@@ -156,7 +135,6 @@ const RevenueOverviewChart = () => {
     };
   }, [period]);
 
-  // ── Close dropdown on outside click ──
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -170,7 +148,6 @@ const RevenueOverviewChart = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Y-axis ──
   const yMax = useMemo(() => {
     const highest = Math.max(...chartData.map((d) => d.value), 0);
     return computeYMax(highest);

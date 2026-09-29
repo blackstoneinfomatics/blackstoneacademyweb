@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 
-// Local icons
 const ICONS: Record<string, string> = {
   logins: '/assets/images/superadmin-analytics-quickinsights-best-revenue-month.svg',
   sessions: '/assets/images/superadmin-analytics-quickinsights-top-payning-tenant.svg',

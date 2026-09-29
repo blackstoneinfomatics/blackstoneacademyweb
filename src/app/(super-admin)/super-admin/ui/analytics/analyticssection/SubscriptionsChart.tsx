@@ -2,9 +2,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 interface Activity {
   date: string;
   type: string;
@@ -35,22 +32,17 @@ interface Segment {
   color: string;
 }
 
-// ─────────────────────────────────────────────
-// Palette
-// ─────────────────────────────────────────────
+
 const PALETTE = [
-  "#4F46E5", // indigo
-  "#F5A623", // orange
-  "#22C55E", // green
-  "#3B82F6", // blue
-  "#8B5CF6", // violet
-  "#EC4899", // pink
-  "#14B8A6", // teal
+  "#4F46E5",
+  "#F5A623",
+  "#22C55E",
+  "#3B82F6",
+  "#8B5CF6",
+  "#EC4899",
+  "#14B8A6",
 ];
 
-// ─────────────────────────────────────────────
-// Fallback
-// ─────────────────────────────────────────────
 const FALLBACK_SEGMENTS: Segment[] = [
   { label: "Premium", value: 40, count: 200, color: "#4F46E5" },
   { label: "Standard", value: 24, count: 200, color: "#F5A623" },
@@ -58,14 +50,10 @@ const FALLBACK_SEGMENTS: Segment[] = [
   { label: "Trial", value: 6, count: 200, color: "#3B82F6" },
 ];
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
 const SubscriptionChart = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [total, setTotal] = useState(0);
 
-  // ── Fetch ──
   useEffect(() => {
     let cancelled = false;
 
@@ -91,7 +79,6 @@ const SubscriptionChart = () => {
     };
   }, []);
 
-  // ── Build segments ──
   const segments = useMemo<Segment[]>(() => {
     if (activities.length === 0) return FALLBACK_SEGMENTS;
 
@@ -118,7 +105,7 @@ const SubscriptionChart = () => {
     }));
   }, [activities]);
 
-  // ── Conic gradient ──
+
   const gradientStops = useMemo(() => {
     let cumulative = 0;
     return segments
@@ -130,7 +117,6 @@ const SubscriptionChart = () => {
       .join(", ");
   }, [segments]);
 
-  // ── Label positions ──
   const labels = useMemo(() => {
     const LABEL_RADIUS_PCT = 36.5;
     return segments.map((seg, i) => {
@@ -157,7 +143,7 @@ const SubscriptionChart = () => {
       </h2>
 
       <div className="flex flex-col-reverse items-center gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-        {/* ── Legend — fixed height, scrolls silently if >4 ── */}
+    
         <div
           className="
             w-full lg:w-auto

@@ -2,9 +2,6 @@
 import React, { useEffect, useState } from "react";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 interface Activity {
   date: string;
   type: string;
@@ -31,9 +28,6 @@ interface ApiResponse {
 const MAX_RECORDS = 5;
 const API_URL = "http://localhost:5001/analytics/tenant-subscription-activities";
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const formatDateTime = (iso: string): string => {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -81,9 +75,6 @@ const getStatusVariant = (
   return "neutral";
 };
 
-// ─────────────────────────────────────────────
-// Column config
-// ─────────────────────────────────────────────
 const COLUMNS = [
   { key: "date", label: "Date & Time", minWidth: "170px" },
   { key: "planType", label: "Plan Type", minWidth: "140px" },
@@ -92,15 +83,10 @@ const COLUMNS = [
   { key: "status", label: "Status", minWidth: "110px" },
 ] as const;
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
 const RecentActivityTable = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // ── Fetch ──
   useEffect(() => {
     let cancelled = false;
 
@@ -242,4 +228,4 @@ const RecentActivityTable = () => {
   );
 };
 
-export default RecentActivityTable;
+export default RecentActivityTable; 

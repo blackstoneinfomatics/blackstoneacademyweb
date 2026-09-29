@@ -9,10 +9,8 @@ import { IoChevronDown } from "react-icons/io5";
 
 import BaseLayout3 from "../../components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
+import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 interface IMessage {
   _id: string;
   messages: string;
@@ -25,6 +23,13 @@ interface IMessage {
   notificationStatus: "Unseen" | "Seen";
   isRead: boolean;
   status: "Active" | "Inactive";
+  deliveredAt?: string;
+  seenAt?: string;
+  replyTo?: {
+    _id: string;
+    messages: string;
+    senderName: string;
+  };
 }
 
 interface IUser {
@@ -47,9 +52,6 @@ interface IMessageData {
   messages: IMessage[];
 }
 
-// ─────────────────────────────────────────────
-// Plan colors
-// ─────────────────────────────────────────────
 const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   Premium: {
     bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]",
@@ -75,9 +77,249 @@ const getPlanColor = (plan?: string) =>
     dot: "#9CA3AF",
   };
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
+const ReceiptDots = ({
+  delivered,
+  seen,
+}: {
+  delivered: boolean;
+  seen: boolean;
+}) => (
+  <span className="ml-1 inline-flex items-center gap-[3px]">
+    <span
+      className={`inline-block h-[6px] w-[6px] rounded-full ${delivered ? "bg-[#9CA3AF]" : "bg-white/40"
+        }`}
+    />
+    <span
+      className={`inline-block h-[6px] w-[6px] rounded-full ${seen ? "bg-[#22C55E]" : "bg-white/40"
+        }`}
+    />
+  </span>
+);
+
+const MessageMenu = ({
+  onInfo,
+  onReply,
+}: {
+  onInfo: () => void;
+  onReply: () => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-5 w-5 items-center justify-center rounded-full bg-white/80 text-gray-600 shadow-sm hover:bg-white dark:bg-[#2C2C2C]/80 dark:text-gray-300"
+        aria-label="Message options"
+      >
+        {/* Down arrow */}
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-6 z-30 w-24 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-[#454545] dark:bg-[#2C2C2C]">
+          <button
+            type="button"
+            onClick={() => {
+              onInfo();
+              setOpen(false);
+            }}
+            className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+          >
+            Info
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onReply();
+              setOpen(false);
+            }}
+            className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+          >
+            Reply
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MessageInfoModal = ({
+  message,
+  onClose,
+}: {
+  message: IMessage;
+  onClose: () => void;
+}) => {
+  const readers =
+    (message as any).readBy ??
+    (message.seenAt
+      ? [
+        {
+          _id: "u-1",
+          name: "Blackstone Academy",
+          plan: "Premium",
+          time: message.seenAt,
+        },
+        {
+          _id: "u-2",
+          name: "Alfurqan Academy",
+          plan: "Standard",
+          time: message.seenAt,
+        },
+        {
+          _id: "u-3",
+          name: "Jeevi Academy",
+          plan: "Basic",
+          time: message.seenAt,
+        },
+        {
+          _id: "u-4",
+          name: "sri_Academy",
+          plan: "Premium",
+          time: message.seenAt,
+        },
+        {
+          _id: "u-5",
+          name: "sabarish v r",
+          plan: "Standard",
+          time: message.seenAt,
+        },
+      ]
+      : []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[380px] rounded-xl bg-white dark:bg-[#2C2C2C] p-5 shadow-2xl"
+      >
+        {/* Header */}
+        <div className="mb-3 flex items-start justify-between">
+          <h3 className="text-[14px] font-bold text-[#101B41] dark:text-white">
+            Message Info
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-3 text-[12px]">
+          {/* Message preview */}
+          <div className="rounded-md bg-gray-50 px-3 py-2 dark:bg-[#3A3A3A]">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              Message
+            </p>
+            <p className="mt-1 text-[#101B41] dark:text-white break-words">
+              {message.messages}
+            </p>
+          </div>
+
+          {/* Sent */}
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500 dark:text-gray-400">Sent</span>
+            <span className="text-[#101B41] dark:text-white">
+              {message.time}
+            </span>
+          </div>
+
+          {/* Read summary */}
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500 dark:text-gray-400">Read</span>
+            <span
+              className={
+                message.seenAt
+                  ? "text-[#101B41] dark:text-white"
+                  : "text-gray-400"
+              }
+            >
+              {message.seenAt ?? "Not seen yet"}
+            </span>
+          </div>
+
+          {/* Read by members list */}
+          <div className="pt-1">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Read by
+              </p>
+              <span className="rounded-full bg-[#E6EAF2] px-2 py-[2px] text-[10px] font-semibold text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
+                {readers.length}
+              </span>
+            </div>
+
+            <div className="max-h-[180px] overflow-y-auto rounded-md border border-gray-100 dark:border-[#3A3A3A] bg-white dark:bg-[#343434]">
+              {readers.length === 0 ? (
+                <p className="px-3 py-4 text-center text-[11px] text-gray-400">
+                  No one has read this message yet
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-100 dark:divide-[#3A3A3A]">
+                  {readers.map((r: any) => (
+                    <li
+                      key={r._id}
+                      className="flex items-center gap-2 px-3 py-2"
+                    >
+                      {/* Avatar */}
+                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-[#E7E8EC] dark:bg-[#3A3A3A]">
+                        <span className="text-[11px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
+                          {r.name?.charAt(0)?.toUpperCase() ?? "?"}
+                        </span>
+                      </div>
+
+                      {/* Name */}
+                      <span className="flex-1 truncate text-[12px] text-[#101B41] dark:text-white">
+                        {r.name}
+                      </span>
+
+                      {/* Time */}
+                      <span className="flex-shrink-0 text-[10px] text-gray-400 dark:text-gray-500">
+                        {r.time}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Message = () => {
   const currentUser = {
     userId: "admin-001",
@@ -85,9 +327,6 @@ const Message = () => {
     role: "Super admin",
   };
 
-  // ─────────────────────────────────────────────
-  // Users
-  // ─────────────────────────────────────────────
   const [users, setUsers] = useState<IUser[]>([
     {
       _id: "academy-001",
@@ -100,7 +339,7 @@ const Message = () => {
     },
     {
       _id: "academy-002",
-      userName: "Blackstone Academy",
+      userName: "Alfurqan Academy",
       email: "academy2@example.com",
       role: ["Parent"],
       status: "online",
@@ -109,7 +348,7 @@ const Message = () => {
     },
     {
       _id: "academy-003",
-      userName: "Blackstone Academy",
+      userName: "Jeevi Academy",
       email: "academy3@example.com",
       role: ["Admin"],
       status: "online",
@@ -118,7 +357,7 @@ const Message = () => {
     },
     {
       _id: "academy-004",
-      userName: "Blackstone Academy",
+      userName: "Ebsa Academy",
       email: "academy4@example.com",
       role: ["Teacher"],
       status: "online",
@@ -127,7 +366,7 @@ const Message = () => {
     },
     {
       _id: "academy-005",
-      userName: "Blackstone Academy",
+      userName: "whitefield Academy",
       email: "academy5@example.com",
       role: ["Student"],
       status: "online",
@@ -136,7 +375,7 @@ const Message = () => {
     },
     {
       _id: "academy-006",
-      userName: "Blackstone Academy",
+      userName: "tuticorn Academy",
       email: "academy6@example.com",
       role: ["Parent"],
       status: "offline",
@@ -145,7 +384,7 @@ const Message = () => {
     },
     {
       _id: "group-001",
-      userName: "Academic Coaches",
+      userName: "Ac Coaches",
       email: "group@example.com",
       role: ["Group"],
       status: "online",
@@ -160,9 +399,6 @@ const Message = () => {
     },
   ]);
 
-  // ─────────────────────────────────────────────
-  // Messages
-  // ─────────────────────────────────────────────
   const [allMessages, setAllMessages] = useState<IMessageData[]>([
     {
       _id: "academy-001",
@@ -179,6 +415,8 @@ const Message = () => {
           notificationStatus: "Seen",
           isRead: true,
           status: "Active",
+          deliveredAt: "10:00 AM",
+          seenAt: "10:01 AM",
         },
         {
           _id: "msg-004",
@@ -192,21 +430,22 @@ const Message = () => {
           notificationStatus: "Seen",
           isRead: true,
           status: "Active",
+          deliveredAt: "10:00 AM",
+          seenAt: "10:02 AM",
         },
       ],
     },
   ]);
 
-  // ─────────────────────────────────────────────
-  // State
-  // ─────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"all" | "unread" | "groups">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "unread" | "groups">(
+    "all"
+  );
   const [selectedUser, setSelectedUser] = useState<IUser | null>(users[0]);
   const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<OrganizationTab>("All");
 
-  // Broadcast
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [broadcastData, setBroadcastData] = useState({
     messageTitle: "Today Updates day",
@@ -215,10 +454,9 @@ const Message = () => {
     attachment: null as File | null,
   });
 
-  // 3-dot menu
+
   const [showGroupMenu, setShowGroupMenu] = useState(false);
 
-  // Add Group
   const [showAddGroup, setShowAddGroup] = useState(false);
   const [addGroupData, setAddGroupData] = useState({
     groupName: "Basic Plan",
@@ -231,14 +469,15 @@ const Message = () => {
   const [showPeopleDropdown, setShowPeopleDropdown] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState("");
 
-  // Group Details
   const [showGroupDetails, setShowGroupDetails] = useState(false);
-  const [editGroupImagePreview, setEditGroupImagePreview] = useState<string | null>(null);
+  const [editGroupImagePreview, setEditGroupImagePreview] = useState<
+    string | null
+  >(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // ─────────────────────────────────────────────
-  // Plan tenants (fallback)
-  // ─────────────────────────────────────────────
+  const [replyTo, setReplyTo] = useState<IMessage | null>(null);
+  const [infoMessage, setInfoMessage] = useState<IMessage | null>(null);
+
   const PLAN_TENANTS: Record<string, { name: string; plan: string }[]> = {
     Basic: [
       { name: "Blackstone Academy", plan: "Basic" },
@@ -255,9 +494,6 @@ const Message = () => {
     ],
   };
 
-  // ─────────────────────────────────────────────
-  // People options
-  // ─────────────────────────────────────────────
   const peopleOptions = useMemo(
     () => users.filter((u) => !u.role.includes("Group")),
     [users]
@@ -285,29 +521,31 @@ const Message = () => {
     });
   };
 
-  // ─────────────────────────────────────────────
-  // Filtered users
-  // ─────────────────────────────────────────────
   const filteredUsers = useMemo(() => {
-    let result = users;
+    let result = [...users];
 
-    if (activeTab === "unread") {
+    if (activeTab === "all") {
+      // All → only individual chats (exclude groups)
+      result = result.filter((u) => !u.role.includes("Group"));
+    } else if (activeTab === "unread") {
+      // Unread → both groups and individuals with unread messages
       result = result.filter((user) => {
         const msgs = allMessages.find((g) => g._id === user._id)?.messages;
         return msgs?.some((m) => !m.isRead);
       });
-    }
-
-    if (activeTab === "groups") {
+    } else if (activeTab === "groups") {
+      // Groups → only group chats
       result = result.filter((u) => u.role.includes("Group"));
     }
 
+    // ── Search filter ──
     if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
       result = result.filter(
         (u) =>
-          u.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.role.some((r) => r.toLowerCase().includes(searchQuery.toLowerCase()))
+          u.userName.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.role.some((r) => r.toLowerCase().includes(q))
       );
     }
 
@@ -325,11 +563,51 @@ const Message = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedMessages]);
 
-  // ─────────────────────────────────────────────
-  // Send message
-  // ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedUser) return;
+
+    const pending = (
+      allMessages.find((g) => g._id === selectedUser._id)?.messages ?? []
+    ).filter((m) => m.senderId === currentUser.userId && !m.seenAt);
+
+    const timers = pending.map((m) =>
+      setTimeout(() => {
+        setAllMessages((prev) =>
+          prev.map((g) =>
+            g._id !== selectedUser._id
+              ? g
+              : {
+                ...g,
+                messages: g.messages.map((x) =>
+                  x._id === m._id
+                    ? {
+                      ...x,
+                      seenAt: new Date().toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }),
+                      isRead: true,
+                      notificationStatus: "Seen",
+                    }
+                    : x
+                ),
+              }
+          )
+        );
+      }, 3000)
+    );
+
+    return () => timers.forEach(clearTimeout);
+  }, [allMessages, selectedUser]);
+
   const handleSendMessage = () => {
     if (!selectedUser || !messageText.trim()) return;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
     const newMessage: IMessage = {
       _id: `msg-${Date.now()}`,
@@ -338,14 +616,20 @@ const Message = () => {
       senderName: currentUser.userName,
       receiverId: selectedUser._id,
       receiverName: selectedUser.userName,
-      createdDate: new Date().toISOString(),
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      notificationStatus: "Seen",
-      isRead: true,
+      createdDate: now.toISOString(),
+      time: timeStr,
+      notificationStatus: "Unseen",
+      isRead: false,
       status: "Active",
+      deliveredAt: timeStr,
+      seenAt: undefined,
+      replyTo: replyTo
+        ? {
+          _id: replyTo._id,
+          messages: replyTo.messages,
+          senderName: replyTo.senderName,
+        }
+        : undefined,
     };
 
     setAllMessages((prev) => {
@@ -361,11 +645,9 @@ const Message = () => {
     });
 
     setMessageText("");
+    setReplyTo(null);
   };
 
-  // ─────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "online":
@@ -391,9 +673,6 @@ const Message = () => {
     return acc;
   }, {} as Record<string, IMessage[]>);
 
-  // ─────────────────────────────────────────────
-  // 3-dot menu
-  // ─────────────────────────────────────────────
   const handleOpenGroupDetails = () => {
     setShowGroupMenu(false);
     setEditGroupImagePreview(selectedUser?.profileImage ?? null);
@@ -405,8 +684,6 @@ const Message = () => {
     const deletedId = selectedUser._id;
 
     try {
-      // await deleteGroupApi(deletedId);
-
       setUsers((prev) => prev.filter((u) => u._id !== deletedId));
       setAllMessages((prev) => prev.filter((g) => g._id !== deletedId));
       setSelectedUser((prev) =>
@@ -421,14 +698,15 @@ const Message = () => {
       setEditGroupImagePreview(null);
     } catch (err) {
       console.error("Failed to delete group:", err);
-      // optionally show a toast/error
     }
   };
 
   const handleClearChat = () => {
     if (!selectedUser) return;
     setAllMessages((prev) =>
-      prev.map((g) => (g._id === selectedUser._id ? { ...g, messages: [] } : g))
+      prev.map((g) =>
+        g._id === selectedUser._id ? { ...g, messages: [] } : g
+      )
     );
     setShowGroupMenu(false);
   };
@@ -440,9 +718,6 @@ const Message = () => {
     setSelectedUser(null);
   };
 
-  // ─────────────────────────────────────────────
-  // Create Group
-  // ─────────────────────────────────────────────
   const handleCreateGroup = () => {
     const manualMembers = peopleOptions
       .filter((p) => addGroupData.selectedPeople.includes(p._id))
@@ -493,19 +768,27 @@ const Message = () => {
 
     setSelectedUser((prev) =>
       prev
-        ? { ...prev, profileImage: editGroupImagePreview ?? prev.profileImage }
+        ? {
+          ...prev,
+          profileImage: editGroupImagePreview ?? prev.profileImage,
+        }
         : prev
     );
 
     setShowGroupDetails(false);
   };
 
-  // ─────────────────────────────────────────────
-  // UI
-  // ─────────────────────────────────────────────
   return (
     <BaseLayout3>
       <SuperAdminHeader currentSection="Chats" />
+      <div>
+        <OrganizationHeader
+
+          showTabs
+          activeTab={tab}
+          onTabChange={setTab} currentSection={""} />
+
+      </div>
       <div className="min-h-screen rounded-2xl bg-[#F5F7FC] dark:bg-[#1F1F1F] p-4 md:p-6">
         {/* PAGE HEADER */}
         <div className="flex items-center justify-between mb-4">
@@ -573,9 +856,6 @@ const Message = () => {
                     className="w-full h-8 pl-9 pr-3 border border-[#DDDFE6] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md text-[12px] text-[#252B3A] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
                   />
                 </div>
-                <button className="w-8 h-8 border border-[#DDDFE6] dark:border-[#4A4A4A] rounded-md flex items-center justify-center text-[#777D89] dark:text-[#B5B5B5] hover:bg-[#F5F6FA] dark:hover:bg-[#2F2F2F]">
-                  <FiFilter size={13} />
-                </button>
               </div>
             </div>
 
@@ -701,9 +981,20 @@ const Message = () => {
                       <h3 className="text-[13px] font-semibold text-[#252B3A] dark:text-white truncate">
                         {selectedUser.userName}
                       </h3>
-                      <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] truncate">
-                        {selectedUser.role[0]}
-                      </p>
+
+                      {/* Group → show members, Individual → show role */}
+                      {selectedUser.role.includes("Group") ? (
+                        <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] flex items-center gap-1">
+                          Members
+                          <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
+                            {selectedUser.members?.length ?? 0}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] truncate">
+                          {selectedUser.role[0]}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -754,25 +1045,57 @@ const Message = () => {
                         return (
                           <div
                             key={msg._id}
-                            className={`flex mb-3 ${isMine ? "justify-end" : "justify-start"
+                            className={`group flex mb-3 ${isMine ? "justify-end" : "justify-start"
                               }`}
                           >
-                            <div
-                              className={`max-w-[240px] px-3 py-2 rounded-lg ${isMine
-                                ? "bg-[#576CBC] text-white rounded-br-sm"
-                                : "bg-[#F0F1F3] dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] rounded-bl-sm"
-                                }`}
-                            >
-                              <p className="text-[11px] leading-4 break-words">
-                                {msg.messages}
-                              </p>
+                            <div className="relative max-w-[240px]">
                               <div
-                                className={`text-[7px] mt-1 text-right ${isMine
-                                  ? "text-white/70"
-                                  : "text-[#9B9FA8] dark:text-[#8a8a8a]"
+                                className={`px-3 py-2 rounded-lg ${isMine
+                                  ? "bg-[#576CBC] text-white rounded-br-sm"
+                                  : "bg-[#F0F1F3] dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] rounded-bl-sm"
                                   }`}
                               >
-                                {msg.time}
+                                {/* Reply quote */}
+                                {msg.replyTo && (
+                                  <div
+                                    className={`mb-1 rounded border-l-2 px-2 py-1 text-[10px] ${isMine
+                                      ? "border-white/60 bg-white/10 text-white/90"
+                                      : "border-[#576CBC] bg-white/60 text-[#576CBC] dark:bg-[#2A2A2A] dark:text-[#A8B7E8]"
+                                      }`}
+                                  >
+                                    <p className="font-semibold">
+                                      {msg.replyTo.senderName}
+                                    </p>
+                                    <p className="truncate">
+                                      {msg.replyTo.messages}
+                                    </p>
+                                  </div>
+                                )}
+
+                                <p className="text-[11px] leading-4 break-words">
+                                  {msg.messages}
+                                </p>
+
+                                {/* Time + receipt dots — always aligned right */}
+                                <div
+                                  className={`mt-1 flex items-center justify-end text-[7px] ${isMine
+                                    ? "text-white/70"
+                                    : "text-[#9B9FA8] dark:text-[#8a8a8a]"
+                                    }`}
+                                >
+                                  <span>{msg.time}</span>
+                                  {isMine && (
+                                    <ReceiptDots
+                                      delivered={!!msg.deliveredAt}
+                                      seen={!!msg.seenAt}
+                                    />
+                                  )}
+                                </div>
+
+                                <MessageMenu
+                                  onInfo={() => setInfoMessage(msg)}
+                                  onReply={() => setReplyTo(msg)}
+                                />
                               </div>
                             </div>
                           </div>
@@ -784,6 +1107,27 @@ const Message = () => {
                 </div>
 
                 <div className="p-3 border-t border-[#EEEEEE] dark:border-[#3F3F3F]">
+                  {/* Reply preview */}
+                  {replyTo && (
+                    <div className="mb-2 flex items-start justify-between rounded-md border-l-4 border-[#576CBC] bg-[#F0F1F3] dark:bg-[#2c2c2c] px-3 py-2 text-[11px]">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[#576CBC] dark:text-[#A8B7E8]">
+                          Replying to {replyTo.senderName}
+                        </p>
+                        <p className="truncate text-[#252B3A] dark:text-[#E2E2E2]">
+                          {replyTo.messages}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setReplyTo(null)}
+                        className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        aria-label="Cancel reply"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
                   <div className="h-10 bg-[#F6F7F9] dark:bg-[#2c2c2c] rounded-md flex items-center px-2">
                     <button className="p-2 text-[#8E939D] dark:text-[#B5B5B5]">
                       <GrAttachment size={13} />
@@ -951,18 +1295,15 @@ const Message = () => {
                 onClick={(e) => e.stopPropagation()}
                 className="w-full sm:max-w-[460px] max-h-[92vh] sm:max-h-[90vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
               >
-                {/* HEADER */}
                 <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
                   <h2 className="text-[16px] sm:text-[17px] font-semibold text-[#101B41] dark:text-white">
                     Add Group
                   </h2>
                 </div>
 
-                {/* BODY */}
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
                   {/* Group Name + Profile Photo */}
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                    {/* ✅ Photo with + badge */}
                     <div className="relative self-start">
                       <label className="cursor-pointer block">
                         <div className="w-[60px] h-[60px] rounded-2xl bg-[#E7E8EC] dark:bg-[#3A3A3A] flex items-center justify-center overflow-hidden">
@@ -979,7 +1320,6 @@ const Message = () => {
                           )}
                         </div>
 
-                        {/* Plus badge — top right */}
                         <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#576CBC] border-2 border-white dark:border-[#2c2c2c] flex items-center justify-center shadow-sm">
                           <svg
                             width="10"
@@ -1013,7 +1353,6 @@ const Message = () => {
                       </label>
                     </div>
 
-                    {/* Group name */}
                     <div className="flex-1 min-w-0">
                       <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
                         Group Name
@@ -1102,7 +1441,9 @@ const Message = () => {
                         <span className="flex-1 truncate text-[#8C919C] dark:text-[#8a8a8a]">
                           {addGroupData.selectedPeople.length === 0
                             ? "Select users..."
-                            : `${addGroupData.selectedPeople.length} user${addGroupData.selectedPeople.length > 1 ? "s" : ""
+                            : `${addGroupData.selectedPeople.length} user${addGroupData.selectedPeople.length > 1
+                              ? "s"
+                              : ""
                             } selected`}
                         </span>
                         <IoChevronDown
@@ -1118,7 +1459,9 @@ const Message = () => {
                               type="text"
                               placeholder="Search users..."
                               value={peopleSearch}
-                              onChange={(e) => setPeopleSearch(e.target.value)}
+                              onChange={(e) =>
+                                setPeopleSearch(e.target.value)
+                              }
                               className="w-full h-8 rounded-md border border-[#D5D9E2] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] px-2 text-[11px] text-[#101B41] dark:text-white outline-none focus:border-[#576CBC]"
                             />
                           </div>
@@ -1167,11 +1510,12 @@ const Message = () => {
                       )}
                     </div>
 
-                    {/* Selected chips */}
                     {addGroupData.selectedPeople.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5 rounded-md border border-[#E6EAF2] dark:border-[#4A4A4A] bg-[#F8F9FC] dark:bg-[#2c2c2c] p-2 max-h-[80px] overflow-y-auto">
                         {addGroupData.selectedPeople.map((id) => {
-                          const person = peopleOptions.find((p) => p._id === id);
+                          const person = peopleOptions.find(
+                            (p) => p._id === id
+                          );
                           if (!person) return null;
                           return (
                             <button
@@ -1241,7 +1585,6 @@ const Message = () => {
                   </div>
                 </div>
 
-                {/* FOOTER */}
                 <div className="flex-shrink-0 flex justify-end gap-2 sm:gap-3 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c]">
                   <button
                     onClick={() => setShowAddGroup(false)}
@@ -1278,35 +1621,36 @@ const Message = () => {
                 onClick={(e) => e.stopPropagation()}
                 className="w-full sm:max-w-[460px] max-h-[92vh] sm:max-h-[90vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
               >
-                {/* HEADER */}
                 <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
                   <h2 className="text-[16px] sm:text-[17px] font-semibold text-[#101B41] dark:text-white">
                     Group Details
                   </h2>
                 </div>
 
-                {/* BODY */}
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                  {/* Group Name + Photo */}
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                    {/* ✅ Photo with edit image badge */}
                     <div className="relative self-start">
                       <label className="cursor-pointer block">
                         <div className="w-[66px] h-[66px] rounded-2xl bg-[#E7E8EC] dark:bg-[#3A3A3A] flex items-center justify-center overflow-hidden">
                           {editGroupImagePreview || selectedUser.profileImage ? (
                             <img
-                              src={editGroupImagePreview || selectedUser.profileImage || ""}
+                              src={
+                                editGroupImagePreview ||
+                                selectedUser.profileImage ||
+                                ""
+                              }
                               alt={selectedUser.userName}
                               className="w-full h-full object-cover"
                             />
                           ) : (
                             <span className="text-[28px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
-                              {selectedUser.userName?.charAt(0)?.toUpperCase() ?? "G"}
+                              {selectedUser.userName
+                                ?.charAt(0)
+                                ?.toUpperCase() ?? "G"}
                             </span>
                           )}
                         </div>
 
-                        {/* ✅ Edit badge — image field */}
                         <img
                           src="/assets/images/superadmin-chatandsupport-editgroupicon.svg"
                           alt="Edit"
@@ -1319,13 +1663,14 @@ const Message = () => {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0] ?? null;
-                            setEditGroupImagePreview(file ? URL.createObjectURL(file) : null);
+                            setEditGroupImagePreview(
+                              file ? URL.createObjectURL(file) : null
+                            );
                           }}
                         />
                       </label>
                     </div>
 
-                    {/* Group name */}
                     <div className="flex-1 min-w-0">
                       <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
                         Group Name
@@ -1342,14 +1687,16 @@ const Message = () => {
                     </div>
                   </div>
 
-                  {/* Members */}
                   <div className="rounded-md border border-[#E6EAF2] dark:border-[#4A4A4A] overflow-hidden">
                     <div className="flex items-center justify-between border-b border-[#E6EAF2] dark:border-[#4A4A4A] bg-[#F8F9FC] dark:bg-[#2c2c2c] px-3 py-2">
                       <span className="text-[13px] font-medium text-[#101B41] dark:text-white">
                         Group Members
                       </span>
                       <span className="rounded-md bg-[#E6F0EC] text-[#2F7A5C] px-2 py-0.5 text-[11px] font-semibold">
-                        {String(selectedUser.members?.length ?? 0).padStart(2, "0")}
+                        {String(selectedUser.members?.length ?? 0).padStart(
+                          2,
+                          "0"
+                        )}
                       </span>
                     </div>
 
@@ -1369,7 +1716,9 @@ const Message = () => {
                             <span className="flex-1 text-[12px] text-[#101B41] dark:text-white truncate">
                               {member.name}
                             </span>
-                            <span className={`text-[11px] flex-shrink-0 ${c.text}`}>
+                            <span
+                              className={`text-[11px] flex-shrink-0 ${c.text}`}
+                            >
                               {member.plan}
                             </span>
                           </div>
@@ -1378,7 +1727,6 @@ const Message = () => {
                     </div>
                   </div>
 
-                  {/* Group Settings */}
                   <div className="rounded-md border border-[#E6EAF2] dark:border-[#4A4A4A] p-3">
                     <p className="mb-2 text-[13px] font-medium text-[#101B41] dark:text-white">
                       Group Settings
@@ -1413,13 +1761,13 @@ const Message = () => {
                     </div>
                   </div>
 
-                  {/* ✅ DELETE GROUP SECTION */}
                   <div className="rounded-md border border-[#F5D0D0] dark:border-[#5A2A2A] bg-[#FFF8F8] dark:bg-[#3A2525] p-3">
                     <p className="mb-1 text-[13px] font-medium text-[#D14343] dark:text-[#F87171]">
                       Delete Group
                     </p>
                     <p className="mb-3 text-[11px] text-[#8C919C] dark:text-[#B5B5B5]">
-                      Once deleted, this group and all its messages will be permanently removed.
+                      Once deleted, this group and all its messages will be
+                      permanently removed.
                     </p>
 
                     {!showDeleteConfirm ? (
@@ -1428,7 +1776,6 @@ const Message = () => {
                         onClick={() => setShowDeleteConfirm(true)}
                         className="inline-flex items-center gap-2 h-9 rounded-md border border-[#D14343] text-[#D14343] px-4 text-[12px] font-semibold hover:bg-[#FDECEC] dark:hover:bg-[#4A2A2A] transition-colors"
                       >
-                        {/* Trash icon */}
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
@@ -1473,7 +1820,6 @@ const Message = () => {
                   </div>
                 </div>
 
-                {/* FOOTER */}
                 <div className="flex-shrink-0 flex justify-end gap-2 sm:gap-3 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c]">
                   <button
                     onClick={() => setShowGroupDetails(false)}
@@ -1492,6 +1838,14 @@ const Message = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ═══════════ MESSAGE INFO MODAL ═══════════ */}
+        {infoMessage && (
+          <MessageInfoModal
+            message={infoMessage}
+            onClose={() => setInfoMessage(null)}
+          />
+        )}
       </div>
     </BaseLayout3>
   );

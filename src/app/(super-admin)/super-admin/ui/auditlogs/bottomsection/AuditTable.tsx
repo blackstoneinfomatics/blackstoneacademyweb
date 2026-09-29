@@ -12,9 +12,6 @@ import {
     Loader2,
 } from "lucide-react";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 type LogStatus = "Success" | "Warning" | "Failed";
 
 interface Log {
@@ -25,7 +22,6 @@ interface Log {
     description: string;
     dateTime: string;
     status: LogStatus;
-    // raw extras for View Details
     ip?: string;
     route?: string;
     method?: string;
@@ -45,14 +41,8 @@ interface Filters {
     toDate: string;
 }
 
-// ─────────────────────────────────────────────
-// API config
-// ─────────────────────────────────────────────
 const API_URL = "http://localhost:5001/audit-log";
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const mapLogTypeToStatus = (logType?: string): LogStatus => {
     switch ((logType || "").toUpperCase()) {
         case "SUCCESS":
@@ -105,9 +95,6 @@ const normalizeRecord = (rec: any, index: number): Log => {
     };
 };
 
-// ─────────────────────────────────────────────
-// Status pill styles
-// ─────────────────────────────────────────────
 const getStatusStyle = (status: LogStatus) => {
     switch (status) {
         case "Success":
@@ -121,9 +108,6 @@ const getStatusStyle = (status: LogStatus) => {
     }
 };
 
-// ─────────────────────────────────────────────
-// Empty check for conditional fields
-// ─────────────────────────────────────────────
 const isEmptyValue = (val?: string) => {
     if (val === undefined || val === null) return true;
     const trimmed = String(val).trim();
@@ -136,9 +120,6 @@ const isEmptyValue = (val?: string) => {
     return false;
 };
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
 const AuditTable = () => {
     const [logs, setLogs] = useState<Log[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -159,7 +140,6 @@ const AuditTable = () => {
 
     const itemsPerPage = 10;
 
-    // ── Fetch real data ──
     const fetchLogs = useCallback(async () => {
         setIsLoading(true);
         setError(null);
@@ -186,7 +166,6 @@ const AuditTable = () => {
         fetchLogs();
     }, [fetchLogs]);
 
-    // ── Filtered data ──
     const filteredLogs = useMemo(() => {
         return logs.filter((log) => {
             const kw = searchKeyword.toLowerCase();
@@ -205,7 +184,6 @@ const AuditTable = () => {
         });
     }, [logs, searchKeyword, filters]);
 
-    // ── Pagination ──
     const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedLogs = filteredLogs.slice(
@@ -217,7 +195,6 @@ const AuditTable = () => {
     const showingTo = Math.min(startIndex + itemsPerPage, filteredLogs.length);
     const totalCount = filteredLogs.length;
 
-    // ── Live count for filter modal ──
     const liveFilteredCount = useMemo(() => {
         return logs.filter((log) => {
             const tenantFilter =
@@ -238,7 +215,6 @@ const AuditTable = () => {
         setCurrentPage(1);
     };
 
-    // ── Currently viewed log ──
     const viewedLog = logs.find((l) => l.id === viewDetailsId) || null;
 
     return (
@@ -457,9 +433,6 @@ const AuditTable = () => {
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════ */}
-            {/* Filter Modal */}
-            {/* ═══════════════════════════════════════════ */}
             {showFilter && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
@@ -582,9 +555,6 @@ const AuditTable = () => {
                 </div>
             )}
 
-            {/* ═══════════════════════════════════════════ */}
-            {/* View Details Modal — only populated fields */}
-            {/* ═══════════════════════════════════════════ */}
             {viewedLog && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
@@ -653,9 +623,6 @@ const AuditTable = () => {
     );
 };
 
-// ─────────────────────────────────────────────
-// Reusable readonly field
-// ─────────────────────────────────────────────
 const Field = ({
     label,
     value,
@@ -684,9 +651,6 @@ const Field = ({
     </div>
 );
 
-// ─────────────────────────────────────────────
-// Only renders if the value is meaningful
-// ─────────────────────────────────────────────
 const ConditionalField = ({
     label,
     value,

@@ -1,9 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 type CardType = "totalLogs" | "UsersActivities" | "FailedActions";
 
 interface AuditCardProps {
@@ -33,9 +30,6 @@ interface AuditCardsApiResponse {
     };
 }
 
-// ─────────────────────────────────────────────
-// API + cache
-// ─────────────────────────────────────────────
 const API_URL = "http://localhost:5001/audit-log/cards";
 const CACHE_TTL = 30_000;
 const POLL_INTERVAL = 30_000;
@@ -94,9 +88,6 @@ async function fetchCards(force = false): Promise<AuditCardsData> {
     return inflight;
 }
 
-// ─────────────────────────────────────────────
-// Static config
-// ─────────────────────────────────────────────
 const cardConfig = {
     totalLogs: {
         image: "/assets/images/superadmin-auditlogs-totallogs.svg",
@@ -118,15 +109,11 @@ const cardConfig = {
     },
 };
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const formatFull = (num: number): string => {
     if (num == null || isNaN(num)) return "0";
     return num.toLocaleString("en-IN");
 };
 
-// 0 – 99,999 plain | 100K – 999K → K | 1M+ → M | 1B+ → B
 const formatCompact = (num: number): string => {
     if (num == null || isNaN(num)) return "0";
     const abs = Math.abs(num);
@@ -145,9 +132,6 @@ const getTrendInfo = (trend: "up" | "down", percentage: number) => ({
             : "text-[#38A169] dark:text-[#68D391]",
 });
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
 const AuditCards = ({ type }: AuditCardProps) => {
     const config = cardConfig[type] ?? cardConfig.totalLogs;
 
@@ -176,7 +160,6 @@ const AuditCards = ({ type }: AuditCardProps) => {
                 const nextCount = extractCount(d);
                 const prev = cache?.totalLogs ? extractCount(cache) : null;
 
-                // detect increase against previous snapshot
                 setData((old) => {
                     const oldCount = old ? extractCount(old) : null;
                     if (oldCount != null && nextCount > oldCount) {
@@ -205,7 +188,6 @@ const AuditCards = ({ type }: AuditCardProps) => {
         };
     }, [type, reloadKey]);
 
-    // resolve values
     let currentCount = 0;
     let trend = { label: "—", color: "text-gray-400" };
 
