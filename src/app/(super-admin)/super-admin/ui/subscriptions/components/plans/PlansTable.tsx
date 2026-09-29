@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -46,7 +46,6 @@ const ToggleSwitch = ({
   );
 };
 
-// Backend stores features/allowedRoles keyed by these uppercase role codes.
 const roleCodeMap: Record<string, string> = {
   Admin: "ADMIN",
   Teacher: "TEACHER",
@@ -109,18 +108,33 @@ const PlansTable = () => {
   ) => {
     const term = searchText.toLowerCase().trim();
 
+    const flatten = (val: any): string => {
+      if (val === null || val === undefined) return "";
+      if (Array.isArray(val)) return val.map(flatten).join(" ");
+      if (typeof val === "object") {
+        return Object.values(val).map(flatten).join(" ");
+      }
+      return String(val);
+    };
+
     return items.filter((item) => {
       const planName = item.planName || "";
       const billingCycle = item.billingCycle || "";
       const status = item.status || "";
       const createdDate = item.createdDate ? new Date(item.createdDate) : null;
 
-      const matchesSearch =
-        !term ||
-        [planName, billingCycle, status, item.monthlyPrice, item.yearlyPrice]
-          .join(" ")
-          .toLowerCase()
-          .includes(term);
+      const createdDateStr = createdDate
+        ? createdDate.toISOString().slice(0, 10) +
+          " " +
+          createdDate.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "";
+
+      const searchableBlob = `${flatten(item)} ${createdDateStr}`.toLowerCase();
+      const matchesSearch = !term || searchableBlob.includes(term);
 
       const matchesPlanName =
         !filters.planName ||
@@ -248,7 +262,9 @@ const PlansTable = () => {
     try {
       setLoading(true);
 
-      const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`);
+      const response = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`,
+      );
 
       const responseData = response.data?.data ?? response.data;
 
@@ -273,7 +289,12 @@ const PlansTable = () => {
 
   const handleViewPlan = async (planId: string) => {
     try {
-      const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
+      const res = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace(
+          "${planId}",
+          planId,
+        ),
+      );
 
       setSelectedPlan(res.data.data);
       setShowModal(true);
@@ -282,9 +303,13 @@ const PlansTable = () => {
     }
   };
 
-  const modules = selectedPlan
-    ? Object.values(selectedPlan.features as Record<string, string[]>).flat()
-    : [];
+  const modules = useMemo(() => {
+    const features = selectedPlan?.features;
+    if (!features || typeof features !== "object") return [];
+    return Object.values(features as Record<string, string[]>)
+      .filter(Array.isArray)
+      .flat();
+  }, [selectedPlan]);
 
   const [formData, setFormData] = useState({
     planName: "",
@@ -322,7 +347,8 @@ const PlansTable = () => {
     formData.features || {},
   ).flat();
   const roleTabs = ["Admin", "Teacher", "Student"] as const;
-  const [activeRoleTab, setActiveRoleTab] = useState<(typeof roleTabs)[number]>("Admin");
+  const [activeRoleTab, setActiveRoleTab] =
+    useState<(typeof roleTabs)[number]>("Admin");
 
   const activeRoleModules =
     formData.features && Array.isArray(formData.features[activeRoleTab])
@@ -349,17 +375,19 @@ const PlansTable = () => {
 
   const getPlanById = async (planId: string) => {
     try {
-      const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
+      const res = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace(
+          "${planId}",
+          planId,
+        ),
+      );
 
       const plan = res.data.data;
 
-      // Backend's `planStatus` field is actually the display tag (MOST_POPULAR/
-      // NEW/FEATURED) and `status` is Active/Inactive — map them to the local
-      // fields the "Plan Tag" and "Status" dropdowns actually read from.
       const normalizedFeatures: Record<string, string[]> = Object.fromEntries(
-        Object.entries(plan.features || {}).map(([role, modules]) => [
+        Object.entries(plan.features || {}).map(([role, mods]) => [
           roleLabelMap[role] || role,
-          modules as string[],
+          Array.isArray(mods) ? mods : [],
         ]),
       );
 
@@ -395,16 +423,16 @@ const PlansTable = () => {
         setPricingRows(
           pricingSource
             .map((row: any) => {
-              // Some responses nest the record under its own `billingPeriod` key
-              // instead of returning it flat — unwrap that case if present.
               const record =
-                row?.billingPeriod &&
-                typeof row.billingPeriod === "object"
+                row?.billingPeriod && typeof row.billingPeriod === "object"
                   ? row.billingPeriod
                   : row;
 
               const months = Number(
-                record.durationInMonths ?? record.months ?? record.durationMonths ?? 0,
+                record.durationInMonths ??
+                  record.months ??
+                  record.durationMonths ??
+                  0,
               );
               const rawDuration = record.duration ?? record.durationLabel;
               let duration = months;
@@ -428,8 +456,12 @@ const PlansTable = () => {
                   record.billingPeriodId ?? record.id ?? record._id,
                 period: String(periodLabel),
                 duration,
-                price: Number(record.price ?? record.amount ?? record.monthlyPrice ?? 0),
-                discount: Number(record.discount ?? record.discountPercent ?? 0),
+                price: Number(
+                  record.price ?? record.amount ?? record.monthlyPrice ?? 0,
+                ),
+                discount: Number(
+                  record.discount ?? record.discountPercent ?? 0,
+                ),
                 gstRate: Number(record.gstRate ?? plan.gstAndTax ?? 0),
                 taxAmount: Number(record.taxAmount ?? 0),
                 totalAmount: Number(record.totalAmount ?? 0),
@@ -474,7 +506,8 @@ const PlansTable = () => {
         }
 
         const nextPrice = field === "price" ? numericValue : row.price;
-        const nextDiscount = field === "discount" ? numericValue : row.discount;
+        const nextDiscount =
+          field === "discount" ? numericValue : row.discount;
         const gstRate = Number(formData.gstAndTax) || row.gstRate || 0;
 
         const discounted = nextPrice - (nextPrice * nextDiscount) / 100;
@@ -529,7 +562,8 @@ const PlansTable = () => {
     }
   };
 
-  const [showAddBillingPeriodModal, setShowAddBillingPeriodModal] = useState(false);
+  const [showAddBillingPeriodModal, setShowAddBillingPeriodModal] =
+    useState(false);
   const [isSavingBillingPeriod, setIsSavingBillingPeriod] = useState(false);
   const [billingPeriodForm, setBillingPeriodForm] = useState({
     billingPeriod: "",
@@ -566,7 +600,9 @@ const PlansTable = () => {
   };
 
   const handleAddBillingPeriod = async () => {
-    const billingPeriod = normalizeBillingPeriodLabel(billingPeriodForm.billingPeriod);
+    const billingPeriod = normalizeBillingPeriodLabel(
+      billingPeriodForm.billingPeriod,
+    );
     const duration = normalizeDuration(billingPeriodForm.duration);
     const errors: { billingPeriod?: string; duration?: string } = {};
 
@@ -601,14 +637,15 @@ const PlansTable = () => {
 
       const saved = response.data?.data ?? response.data;
 
-      // The API sometimes wraps the created record under a `billingPeriod` key
-      // instead of returning it flat — unwrap that case, same as CreatePlan.
       const record =
-        saved && typeof saved.billingPeriod === "object" && saved.billingPeriod !== null
+        saved &&
+        typeof saved.billingPeriod === "object" &&
+        saved.billingPeriod !== null
           ? saved.billingPeriod
           : saved;
 
-      const billingPeriodId = record?.billingPeriodId ?? record?.id ?? record?._id;
+      const billingPeriodId =
+        record?.billingPeriodId ?? record?.id ?? record?._id;
 
       if (!billingPeriodId) {
         toast.error(AppFailureToastMessages.ADD_BILLING_PERIOD_FAILED);
@@ -659,13 +696,13 @@ const PlansTable = () => {
 
     const featuresForPayload = Object.fromEntries(
       Object.entries(formData.features || {})
-        .filter(([, modules]) => (modules || []).length > 0)
-        .map(([role, modules]) => [roleCodeMap[role] || role.toUpperCase(), modules]),
+        .filter(([, mods]) => (mods || []).length > 0)
+        .map(([role, mods]) => [
+          roleCodeMap[role] || role.toUpperCase(),
+          mods,
+        ]),
     );
 
-    // Pricing is already saved per-row via handlePricingRowBlur — only resend the
-    // billingPeriods array here if every row has a real id, so a still-loading /
-    // placeholder row can't trip the backend's required billingPeriodId check.
     const billingPeriodsForPayload =
       pricingRows.length > 0 && pricingRows.every((row) => row.billingPeriodId)
         ? pricingRows.map((row) => ({
@@ -685,8 +722,6 @@ const PlansTable = () => {
       studentLimit: Number(formData.studentLimit),
       billingCycle: formData.billingCycle,
       planDescription: formData.planDescription,
-      // The "Plan Tag" field (Most Popular / Recommended / Best Value) is the
-      // backend's `planStatus`; the "Status" field (Active/Inactive) is `status`.
       planStatus: formData.planTag,
       status: formData.planStatus,
 
@@ -725,7 +760,8 @@ const PlansTable = () => {
       fetchPlans();
     } catch (err: any) {
       const message =
-        err.response?.data?.message || AppFailureToastMessages.UPDATE_PLAN_FAILED;
+        err.response?.data?.message ||
+        AppFailureToastMessages.UPDATE_PLAN_FAILED;
 
       toast.error(message);
     } finally {
@@ -800,7 +836,6 @@ const PlansTable = () => {
         </div>
 
         {/* Table */}
-
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
@@ -831,7 +866,9 @@ const PlansTable = () => {
                 </tr>
               ) : (
                 paginatedPlans.map((item, index) => {
-                  const billingPeriods: any[] = Array.isArray(item.billingPeriods)
+                  const billingPeriods: any[] = Array.isArray(
+                    item.billingPeriods,
+                  )
                     ? item.billingPeriods
                     : [];
                   const rowKey = item.planId ?? String(index);
@@ -846,121 +883,125 @@ const PlansTable = () => {
                   );
 
                   return (
-                  <tr
-                    key={index}
-                    className={`text-[12px] ${
-                      index % 2 === 0
-                        ? "bg-[#fff] dark:bg-[#2C2C2C] "
-                        : "bg-[#F8F8F8] dark:bg-[#303030]"
-                    }`}
-                  >
-                    <td className="px-4 py-5">
-                      <span
-                        className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
-                          item.planName,
-                        )}`}
-                      >
-                        {item.planName}
-                      </span>
-                    </td>
-
-                    <td className="px-4">
-                      {billingPeriods.length > 0 ? (
-                        <select
-                          value={selectedBillingPeriodId ?? ""}
-                          onChange={(e) =>
-                            setSelectedBillingPeriodByPlan((prev) => ({
-                              ...prev,
-                              [rowKey]: e.target.value,
-                            }))
-                          }
-                          className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC]"
+                    <tr
+                      key={index}
+                      className={`text-[12px] ${
+                        index % 2 === 0
+                          ? "bg-[#fff] dark:bg-[#2C2C2C] "
+                          : "bg-[#F8F8F8] dark:bg-[#303030]"
+                      }`}
+                    >
+                      <td className="px-4 py-5">
+                        <span
+                          className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
+                            item.planName,
+                          )}`}
                         >
-                          {billingPeriods.map((bp: any, bpIndex: number) => (
-                            <option
-                              key={bp.billingPeriodId ?? bpIndex}
-                              value={bp.billingPeriodId ?? bp.billingPeriod}
-                            >
-                              {bp.billingPeriod} - {Number(bp.duration) > 0
-                                ? `${Number(bp.duration)} Month`
-                                : "-"}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        item.billingCycle || "-"
-                      )}
-                    </td>
+                          {item.planName}
+                        </span>
+                      </td>
 
-                    <td className="px-4">
-                      ₹
-                      {selectedBillingPeriod
-                        ? (selectedBillingPeriod.totalAmount ??
-                          selectedBillingPeriod.price ??
-                          0)
-                        : item.monthlyPrice ?? 0}
-                    </td>
-
-                    <td className="px-4 text-[#4D74AE]">
-                      {formatTableDate(item.createdDate)}
-                    </td>
-
-                    <td className="px-4">
-                      {Object.values(item.features || {}).flat().length}
-                    </td>
-
-                    <td className="px-4">{item.subscribedTenants || 0}</td>
-
-                    <td className="px-4">
-                      <span
-                        className={`rounded-md px-3 py-1 text-xs font-medium ${getStatusBadgeStyle(
-                          item.status,
-                        )}`}
-                      >
-                        {formatStatusLabel(item.status)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 relative">
-                      <div className="flex justify-center">
-                        <button
-                          className="rounded-md p-1 hover:bg-gray-100"
-                          onClick={() =>
-                            setOpenMenu(openMenu === index ? null : index)
-                          }
-                        >
-                          <MoreVertical size={18} className="text-[#6B7280]" />
-                        </button>
-
-                        {openMenu === index && (
-                          <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
-                            <button
-                              className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
-                              onClick={() => {
-                                handleViewPlan(item.planId);
-                                setSelectedPlan(item);
-                                setShowModal(true);
-                                setOpenMenu(null);
-                              }}
-                            >
-                              View Details
-                            </button>
-
-                            <button
-                              className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
-                              onClick={() => {
-                                setSelectedPlan(item);
-                                setShowUpdateModal(true);
-                                setOpenMenu(null);
-                              }}
-                            >
-                              Update
-                            </button>
-                          </div>
+                      <td className="px-4">
+                        {billingPeriods.length > 0 ? (
+                          <select
+                            value={selectedBillingPeriodId ?? ""}
+                            onChange={(e) =>
+                              setSelectedBillingPeriodByPlan((prev) => ({
+                                ...prev,
+                                [rowKey]: e.target.value,
+                              }))
+                            }
+                            className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC]"
+                          >
+                            {billingPeriods.map((bp: any, bpIndex: number) => (
+                              <option
+                                key={bp.billingPeriodId ?? bpIndex}
+                                value={bp.billingPeriodId ?? bp.billingPeriod}
+                              >
+                                {bp.billingPeriod} -{" "}
+                                {Number(bp.duration) > 0
+                                  ? `${Number(bp.duration)} Month`
+                                  : "-"}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          item.billingCycle || "-"
                         )}
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+
+                      <td className="px-4">
+                        ₹
+                        {selectedBillingPeriod
+                          ? selectedBillingPeriod.totalAmount ??
+                            selectedBillingPeriod.price ??
+                            0
+                          : item.monthlyPrice ?? 0}
+                      </td>
+
+                      <td className="px-4 text-[#4D74AE]">
+                        {formatTableDate(item.createdDate)}
+                      </td>
+
+                      <td className="px-4">
+                        {Object.values(item.features || {}).flat().length}
+                      </td>
+
+                      <td className="px-4">{item.subscribedTenants || 0}</td>
+
+                      <td className="px-4">
+                        <span
+                          className={`rounded-md px-3 py-1 text-xs font-medium ${getStatusBadgeStyle(
+                            item.status,
+                          )}`}
+                        >
+                          {formatStatusLabel(item.status)}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-4 relative">
+                        <div className="flex justify-center">
+                          <button
+                            className="rounded-md p-1 hover:bg-gray-100"
+                            onClick={() =>
+                              setOpenMenu(openMenu === index ? null : index)
+                            }
+                          >
+                            <MoreVertical
+                              size={18}
+                              className="text-[#6B7280]"
+                            />
+                          </button>
+
+                          {openMenu === index && (
+                            <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
+                              <button
+                                className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
+                                onClick={() => {
+                                  handleViewPlan(item.planId);
+                                  setSelectedPlan(item);
+                                  setShowModal(true);
+                                  setOpenMenu(null);
+                                }}
+                              >
+                                View Details
+                              </button>
+
+                              <button
+                                className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
+                                onClick={() => {
+                                  setSelectedPlan(item);
+                                  setShowUpdateModal(true);
+                                  setOpenMenu(null);
+                                }}
+                              >
+                                Update
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -968,6 +1009,7 @@ const PlansTable = () => {
           </table>
         </div>
       </div>
+
       {showFilterPanel && (
         <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4">
           <div className="w-full max-w-[360px] overflow-hidden rounded-xl bg-white shadow-2xl">
@@ -1119,6 +1161,7 @@ const PlansTable = () => {
           </div>
         </div>
       )}
+
       <div className="flex items-center justify-end gap-2 px-4 py-3">
         <button
           type="button"
@@ -1148,9 +1191,7 @@ const PlansTable = () => {
       {/* Modal */}
       {showModal && selectedPlan && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-5">
-          {/* Modal */}
           <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden">
-            {/* Header */}
             <div className="flex items-start justify-between px-5 py-4 border-b">
               <div>
                 <h2 className="text-[15px] font-semibold text-[#1F2937]">
@@ -1220,7 +1261,6 @@ ${
               </div>
 
               {/* Info Cards */}
-
               <div className="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 gap-4 mb-5">
                 {[
                   ["Plan Name", selectedPlan.planName],
@@ -1229,31 +1269,35 @@ ${
 
                   [
                     "Created Date",
-                    new Date(selectedPlan.createdDate).toLocaleDateString(
-                      "en-US",
-                      {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      },
-                    ),
+                    selectedPlan.createdDate
+                      ? new Date(selectedPlan.createdDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )
+                      : "-",
                   ],
 
                   [
                     "Last Updated",
-                    new Date(selectedPlan.updatedDate).toLocaleDateString(
-                      "en-US",
-                      {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      },
-                    ),
+                    selectedPlan.updatedDate
+                      ? new Date(selectedPlan.updatedDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )
+                      : "-",
                   ],
 
-                  ["Created By", selectedPlan.createdBy],
+                  ["Created By", selectedPlan.createdBy ?? "-"],
                 ].map(([title, value]) => (
-                  <div key={title} className="bg-[#EEF1FF] rounded-md p-3">
+                  <div key={title as string} className="bg-[#EEF1FF] rounded-md p-3">
                     <p className="text-xs text-[#010E30]">{title}</p>
 
                     <p className="font-medium text-[#010e30a5] mt-1 text-[11px]">
@@ -1264,10 +1308,7 @@ ${
               </div>
 
               {/* Pricing & Statistics */}
-
               <div className="grid lg:grid-cols-2 gap-5 mb-5">
-                {/* Pricing */}
-
                 <div className="rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-400 to-blue-500 text-white p-4">
                   <h4 className="font-medium text-base mb-6">Pricing</h4>
 
@@ -1276,7 +1317,8 @@ ${
                       <p className="text-sm opacity-90">Monthly Price</p>
 
                       <h2 className="text-lg font-medium mt-3">
-                        ₹{selectedPlan.monthlyPrice} <span>/ Month</span>
+                        ₹{selectedPlan.monthlyPrice ?? 0}{" "}
+                        <span>/ Month</span>
                       </h2>
                     </div>
 
@@ -1284,7 +1326,7 @@ ${
                       <p className="text-sm opacity-90">Yearly Price</p>
 
                       <h2 className="text-lg font-medium mt-3">
-                        ₹{selectedPlan.yearlyPrice} <span>/ Year</span>
+                        ₹{selectedPlan.yearlyPrice ?? 0} <span>/ Year</span>
                       </h2>
 
                       <span className="inline-block mt-2 bg-[#D6FED5] text-green-800 px-3 py-1 rounded text-xs">
@@ -1294,21 +1336,16 @@ ${
                   </div>
                 </div>
 
-                {/* Statistics */}
-
                 <div className="border rounded-xl p-3">
                   <h4 className="font-medium text-base mb-2">
                     Plan Statistics
                   </h4>
 
                   {[
-                    ["Student Limit", selectedPlan.studentLimit],
-
-                    ["Trial Days", selectedPlan.trialDays],
-
-                    ["Setup Fee", `₹${selectedPlan.setupFee}`],
-
-                    ["GST / Tax", `${selectedPlan.gstAndTax}%`],
+                    ["Student Limit", selectedPlan.studentLimit ?? 0],
+                    ["Trial Days", selectedPlan.trialDays ?? 0],
+                    ["Setup Fee", `₹${selectedPlan.setupFee ?? 0}`],
+                    ["GST / Tax", `${selectedPlan.gstAndTax ?? 0}%`],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-[5px]">
                       <span className="text-[#010e30] text-[14px] font-normal">
@@ -1324,13 +1361,12 @@ ${
               </div>
 
               {/* Limits + Modules */}
-
               <div className="grid lg:grid-cols-2 gap-5 mb-5">
                 <div className="border rounded-xl p-3">
                   <h4 className="font-medium text-base mb-2">Plan Limits</h4>
                   <div className="max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2">
                     {[
-                      ["Maximum Students", selectedPlan.studentLimit],
+                      ["Maximum Students", selectedPlan.studentLimit ?? 0],
 
                       [
                         "Custom Domain",
@@ -1346,7 +1382,7 @@ ${
 
                       ["Domain", selectedPlan.domain || "-"],
                     ].map(([k, v]) => (
-                      <div key={k} className="flex justify-between py-2">
+                      <div key={k as string} className="flex justify-between py-2">
                         <span className="text-[#010e30] text-[14px] font-normal">
                           {k}
                         </span>
@@ -1364,46 +1400,55 @@ ${
                   </h4>
 
                   <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2 text-[#010e30] text-[14px] font-normal">
-                    {modules.map((item: string) => (
-                      <div key={item}>{item}</div>
-                    ))}
+                    {modules.length === 0 ? (
+                      <p className="text-[12px] text-gray-400 col-span-2">
+                        No modules configured
+                      </p>
+                    ) : (
+                      modules.map((item: string) => (
+                        <div key={item}>{item}</div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Timeline */}
-
               <div className="border rounded-xl p-3">
                 <h4 className="font-medium text-base mb-3">Timeline</h4>
 
                 {[
                   [
                     "Plan Created",
-                    new Date(selectedPlan.createdDate).toLocaleDateString(
-                      "en-US",
-                      {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      },
-                    ),
+                    selectedPlan.createdDate
+                      ? new Date(selectedPlan.createdDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )
+                      : "-",
                   ],
 
                   [
                     "Last Updated",
-                    new Date(selectedPlan.updatedDate).toLocaleDateString(
-                      "en-US",
-                      {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      },
-                    ),
+                    selectedPlan.updatedDate
+                      ? new Date(selectedPlan.updatedDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )
+                      : "-",
                   ],
 
                   ["Last Updated By", selectedPlan.lastUpdatedBy || "-"],
                 ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between py-2">
+                  <div key={k as string} className="flex justify-between py-2">
                     <span className="text-[#010e30] text-[14px] font-normal">
                       {k}
                     </span>
@@ -1423,7 +1468,9 @@ ${
         <div className="fixed inset-0 z-[9999] rounded-lg flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-lg border-2 border-[#3B82F6] bg-[#FBFDFF] shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-3">
-              <h2 className="text-lg font-semibold text-[#1F2A44]">Update Plan</h2>
+              <h2 className="text-lg font-semibold text-[#1F2A44]">
+                Update Plan
+              </h2>
 
               <button
                 onClick={() => setShowUpdateModal(false)}
@@ -1590,20 +1637,32 @@ ${
                   <table className="min-w-full text-[11px]">
                     <thead className="bg-[#576CBC] text-white">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">Billing Period</th>
-                        <th className="px-3 py-2 text-left font-medium">Duration</th>
-                        <th className="px-3 py-2 text-left font-medium">Price (₹)</th>
-                        <th className="px-3 py-2 text-left font-medium">Discount (%)</th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Billing Period
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Duration
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Price (₹)
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Discount (%)
+                        </th>
                         <th className="px-3 py-2 text-left font-medium">
                           GST ({Number(formData.gstAndTax) || 0}%)
                         </th>
-                        <th className="px-3 py-2 text-left font-medium">Total (₹)</th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Total (₹)
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {pricingRowsForTable.map((row) => {
-                        const discounted = row.price - (row.price * row.discount) / 100;
-                        const gst = (discounted * Number(formData.gstAndTax || 0)) / 100;
+                        const discounted =
+                          row.price - (row.price * row.discount) / 100;
+                        const gst =
+                          (discounted * Number(formData.gstAndTax || 0)) / 100;
                         const total = discounted + gst;
 
                         return (
@@ -1614,7 +1673,9 @@ ${
                             <td className="px-3 py-2">{String(row.period)}</td>
                             <td className="px-3 py-2">
                               {row.duration > 0
-                                ? `${row.duration} Month${row.duration > 1 ? "s" : ""}`
+                                ? `${row.duration} Month${
+                                    row.duration > 1 ? "s" : ""
+                                  }`
                                 : "-"}
                             </td>
                             <td className="px-3 py-2">
@@ -1630,7 +1691,9 @@ ${
                                     e.target.value,
                                   )
                                 }
-                                onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
+                                onBlur={() =>
+                                  handlePricingRowBlur(row.billingPeriodId)
+                                }
                                 className="h-7 w-[88px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 disabled:bg-[#F1F3F7]"
                               />
                             </td>
@@ -1648,7 +1711,9 @@ ${
                                     e.target.value,
                                   )
                                 }
-                                onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
+                                onBlur={() =>
+                                  handlePricingRowBlur(row.billingPeriodId)
+                                }
                                 className="h-7 w-[72px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2"
                               />
                             </td>
@@ -1729,21 +1794,24 @@ ${
                       <input
                         type="checkbox"
                         className="h-3.5 w-3.5 accent-[#576CBC]"
-                        checked={activeRoleModules.includes(item) || selectedModules.includes(item)}
+                        checked={
+                          activeRoleModules.includes(item) ||
+                          selectedModules.includes(item)
+                        }
                         onChange={(e) => {
-                          let modules = [...activeRoleModules];
+                          let mods = [...activeRoleModules];
 
                           if (e.target.checked) {
-                            modules.push(item);
+                            mods.push(item);
                           } else {
-                            modules = modules.filter((m) => m !== item);
+                            mods = mods.filter((m) => m !== item);
                           }
 
                           setFormData((prev) => ({
                             ...prev,
                             features: {
                               ...prev.features,
-                              [activeRoleTab]: modules,
+                              [activeRoleTab]: mods,
                             },
                           }));
                         }}
@@ -1755,9 +1823,13 @@ ${
               </div>
 
               <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">Status</h3>
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
+                  Status
+                </h3>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-[140px_1fr] md:items-center">
-                  <label className="text-xs font-medium text-[#344054]">Plan Status</label>
+                  <label className="text-xs font-medium text-[#344054]">
+                    Plan Status
+                  </label>
                   <select
                     value={formData.planStatus}
                     onChange={(e) =>
@@ -1852,11 +1924,16 @@ ${
                 <input
                   type="number"
                   min={1}
-                  value={billingPeriodForm.duration === 0 ? "" : billingPeriodForm.duration}
+                  value={
+                    billingPeriodForm.duration === 0
+                      ? ""
+                      : billingPeriodForm.duration
+                  }
                   onChange={(e) =>
                     setBillingPeriodForm((prev) => ({
                       ...prev,
-                      duration: e.target.value === "" ? 0 : Number(e.target.value),
+                      duration:
+                        e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
                   placeholder="1"
