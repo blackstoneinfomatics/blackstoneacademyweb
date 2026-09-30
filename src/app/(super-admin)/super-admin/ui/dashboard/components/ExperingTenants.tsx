@@ -1,28 +1,82 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { TbCalendarTime } from "react-icons/tb";
 
-
-interface ExpiringTenant {
-  id: number;
-  name: string;
+// API Response Interfaces
+interface Tenant {
+  tenantId: string;
+  tenantName: string;
+  nextRenewalDate: string;
   daysLeft: number;
 }
 
-const expiringTenants: ExpiringTenant[] = [
-  { id: 1, name: "Sri Ram Institute", daysLeft: 3 },
-  { id: 2, name: "Alpha Training Institute", daysLeft: 1 },
-  { id: 3, name: "Greenfield Learning Institute", daysLeft: 2 },
-  { id: 4, name: "Ram Institute", daysLeft: 1 },
-  { id: 5, name: "Greenfield Learning Institute", daysLeft: 2 },
-  { id: 6, name: "Alpha Training Institute", daysLeft: 3 },
-  { id: 7, name: "Sri Ram Institute", daysLeft: 3 },
-  { id: 8, name: "Greenfield Learning Institute", daysLeft: 3 },
-  { id: 9, name: "Sri Ram Institute", daysLeft: 3 },
-];
+interface UpcomingRenewalsData {
+  totalExpiryIn5Days: number;
+  tenants: Tenant[];
+}
 
-const ExpiringTenants = () => {
+interface ApiResponse {
+  success: boolean;
+  message: string;
+  data: UpcomingRenewalsData;
+}
+
+const ExpiringTenants: React.FC = () => {
+  const [data, setData] = useState<UpcomingRenewalsData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUpcomingRenewals = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5001/api/tenants/upcoming-renewals"
+        );
+        const result: ApiResponse = await response.json();
+
+        if (result.success) {
+          setData(result.data);
+        } else {
+          setError(result.message || "Failed to fetch expiring tenants");
+        }
+      } catch (err) {
+        setError("Network error: Unable to connect to server");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUpcomingRenewals();
+  }, []);
+
+  // Dynamically calculate minimum days left among all tenants
+  const minDaysLeft =
+    data?.tenants && data.tenants.length > 0
+      ? Math.min(...data.tenants.map((t) => t.daysLeft))
+      : null;
+
+  // Header dynamic tag label
+  const headerTagLabel =
+    minDaysLeft !== null
+      ? minDaysLeft === 0
+        ? "Expiring Today"
+        : `In ${minDaysLeft} ${minDaysLeft === 1 ? "Day" : "Days"}`
+      : "In 5 Days";
+
+  // Header dynamic subtext
+  const headerSubtext =
+    minDaysLeft !== null
+      ? minDaysLeft === 0
+        ? "Tenant expires today"
+        : `Next expiration in ${minDaysLeft} ${minDaysLeft === 1 ? "day" : "days"}`
+      : "Will expire in next 5 days";
+
+  // Format total count to always display 2 digits (e.g., "01", "00", "12")
+  const totalCountFormatted = String(
+    data?.totalExpiryIn5Days ?? 0
+  ).padStart(2, "0");
+
   return (
     <div
       className="
@@ -36,79 +90,80 @@ const ExpiringTenants = () => {
         dark:bg-[#343434]
       "
     >
-<div
-  className="
-    flex
-    h-[82px]
-    w-full
-    items-center
-    gap-2
-    rounded-[14px]
-    bg-white
-    px-2.5
-    shadow-[4px_4px_10px_0px_rgba(0,0,0,0.08)]
-    dark:bg-[#3b3b3b]
-  "
->
-  {/* Calendar Icon */}
-  <div
-    className="
-      flex
-      h-[38px]
-      w-[38px]
-      shrink-0
-      items-center
-      justify-center
-      rounded-full
-      bg-[#FFF0E1]
-    "
-  >
-    <TbCalendarTime
-      size={17}
-      strokeWidth={2}
-      className="text-[#FF922E]"
-    />
-  </div>
+      {/* ================= HEADER CARD ================= */}
+      <div
+        className="
+          flex
+          h-[82px]
+          w-full
+          items-center
+          gap-2
+          rounded-[14px]
+          bg-white
+          px-2.5
+          shadow-[4px_4px_10px_0px_rgba(0,0,0,0.08)]
+          dark:bg-[#3b3b3b]
+        "
+      >
+        {/* Calendar Icon */}
+        <div
+          className="
+            flex
+            h-[38px]
+            w-[38px]
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            bg-[#FFF0E1]
+          "
+        >
+          <TbCalendarTime
+            size={17}
+            strokeWidth={2}
+            className="text-[#FF922E]"
+          />
+        </div>
 
-  {/* Text */}
-  <div className="min-w-0 flex-1 space-y-2">
-    <p className="whitespace-nowrap text-[13px] font-medium leading-[15px] text-[#FF922E]">
-      In 3 Days
-    </p>
+        {/* Dynamic Text Section */}
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="whitespace-nowrap text-[13px] font-medium leading-[15px] text-[#FF922E]">
+            {loading ? "Loading..." : headerTagLabel}
+          </p>
 
-    <h3 className="mt-0.5 whitespace-nowrap text-[16px] font-medium leading-[18px] text-[#010e30] dark:text-white">
-      Expiring Tenants
-    </h3>
+          <h3 className="whitespace-nowrap text-[16px] font-medium leading-[18px] text-[#010e30] dark:text-white">
+            Expiring Tenants
+          </h3>
 
-    <p className="mt-0.5 whitespace-nowrap text-[9px] font-normal leading-[13px] text-[#848484]">
-      Will expire in next 3 days
-    </p>
-  </div>
+          <p className="whitespace-nowrap text-[9px] font-normal leading-[13px] text-[#848484]">
+            {loading ? "Fetching renewal data..." : headerSubtext}
+          </p>
+        </div>
 
-{/* Number */}
-<div
-  className="
-    flex
-    h-[52px]
-    w-[52px]
-    shrink-0
-    items-center
-    justify-center
-    rounded-[10px]
-    bg-gradient-to-br
-    from-[#FAA031]
-    via-[#F48218]
-    to-[#E26901]
-    shadow-[inset_1px_1.5px_2px_rgba(255,255,255,0.45),inset_-1.5px_-2px_4px_rgba(0,0,0,0.22),4px_4px_10px_rgba(0,0,0,0.18)]
-  "
->
-  <span className="text-[28px] font-medium leading-none text-white tracking-tight -translate-x-[0.5px]">
-    07
-  </span>
-</div>
-</div>
+        {/* Dynamic Number Badge */}
+        <div
+          className="
+            flex
+            h-[52px]
+            w-[52px]
+            shrink-0
+            items-center
+            justify-center
+            rounded-[10px]
+            bg-gradient-to-br
+            from-[#FAA031]
+            via-[#F48218]
+            to-[#E26901]
+            shadow-[inset_1px_1.5px_2px_rgba(255,255,255,0.45),inset_-1.5px_-2px_4px_rgba(0,0,0,0.22),4px_4px_10px_rgba(0,0,0,0.18)]
+          "
+        >
+          <span className="text-[28px] font-medium leading-none text-white tracking-tight -translate-x-[0.5px]">
+            {loading ? "--" : totalCountFormatted}
+          </span>
+        </div>
+      </div>
 
-      {/* ================= HEADER ================= */}
+      {/* ================= TITLE ================= */}
       <div className="mt-5 flex items-center justify-between px-2">
         <h2
           className="
@@ -123,7 +178,7 @@ const ExpiringTenants = () => {
         </h2>
       </div>
 
-      {/* ================= TENANTS ================= */}
+      {/* ================= TENANTS LIST ================= */}
       <div
         className="
           mt-2
@@ -133,60 +188,83 @@ const ExpiringTenants = () => {
           scrollbar-none
         "
       >
-        <div className="flex flex-col">
-          {expiringTenants.map((tenant) => (
-            <div
-              key={tenant.id}
-              className="
-                flex
-                min-h-[46px]
-                w-full
-                items-center
-                justify-between
-                gap-5 pb-2
-              "
-            >
-              {/* Name */}
-              <p
-                className="
-                  min-w-0
-                  flex-1
-                  
-                  text-[13px]
-                  font-medium
-                  leading-[24px]
-                  text-[#292929]
-                  dark:text-[#F1F1F1]
-                "
-                title={tenant.name}
-              >
-                {tenant.name}
-              </p>  
-
-              {/* Badge */}
-              <span
+        {loading ? (
+          /* Loading Skeleton */
+          <div className="flex flex-col gap-3 pt-1">
+            {[...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className="h-[38px] w-full animate-pulse rounded-lg bg-gray-100 dark:bg-[#3b3b3b]"
+              />
+            ))}
+          </div>
+        ) : error ? (
+          /* Error State */
+          <div className="flex h-full items-center justify-center p-4 text-center text-xs text-red-500">
+            {error}
+          </div>
+        ) : !data?.tenants || data.tenants.length === 0 ? (
+          /* Empty State */
+          <div className="flex h-full items-center justify-center text-xs font-medium text-gray-400 dark:text-gray-500">
+            No upcoming tenant expiring
+          </div>
+        ) : (
+          /* Dynamic List Rendering */
+          <div className="flex flex-col">
+            {data.tenants.map((tenant) => (
+              <div
+                key={tenant.tenantId}
                 className="
                   flex
-                  h-[25px]
-                  shrink-0
+                  min-h-[46px]
+                  w-full
                   items-center
-                  justify-center
-                  rounded-[6px]
-                  bg-[#FFF4E5]
-                  px-2
-                  text-[9px]
-                  font-medium
-                  leading-none
-                  text-[#FF922E]
-                  dark:bg-[#4A3A2D]
-                  dark:text-[#FFA85C]
+                  justify-between
+                  gap-5 pb-2
                 "
               >
-                {tenant.daysLeft} Days left
-              </span>
-            </div>
-          ))}
-        </div>
+                {/* Tenant Name */}
+                <p
+                  className="
+                    min-w-0
+                    flex-1
+                    truncate
+                    text-[13px]
+                    font-medium
+                    leading-[24px]
+                    text-[#292929]
+                    dark:text-[#F1F1F1]
+                  "
+                  title={tenant.tenantName}
+                >
+                  {tenant.tenantName}
+                </p>
+
+                {/* Days Left Badge */}
+                <span
+                  className="
+                    flex
+                    h-[25px]
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-[6px]
+                    bg-[#FFF4E5]
+                    px-2
+                    text-[9px]
+                    font-medium
+                    leading-none
+                    text-[#FF922E]
+                    dark:bg-[#4A3A2D]
+                    dark:text-[#FFA85C]
+                  "
+                >
+                  {tenant.daysLeft} {tenant.daysLeft === 1 ? "Day left" : "Days left"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

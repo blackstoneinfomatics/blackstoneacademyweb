@@ -1,19 +1,11 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
-import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-interface Activity {
-  date: string;
-  type: string;
-  activity: string;
-  tenantId: string;
-  tenantName: string;
-  plan: string;
-  status: string;
-  createdDate: string;
-  planName?: string;
-  refundStatus?: string;
-  refundMethod?: string;
+import React, { useEffect, useState } from "react";
+
+interface Subscription {
+  planName: string;
+  count: number;
+  percentage: number;
 }
 
 interface ApiResponse {
@@ -21,198 +13,186 @@ interface ApiResponse {
   message: string;
   data: {
     total: number;
-    activities: Activity[];
+    subscriptions: Subscription[];
   };
 }
 
-interface Segment {
-  label: string;
-  value: number;
-  count: number;
-  color: string;
-}
-
-
-const PALETTE = [
+const chartColors = [
   "#4F46E5",
   "#F5A623",
   "#22C55E",
-  "#3B82F6",
-  "#8B5CF6",
   "#EC4899",
-  "#14B8A6",
+  "#06B6D4",
+  "#8B5CF6",
 ];
 
-const FALLBACK_SEGMENTS: Segment[] = [
-  { label: "Premium", value: 40, count: 200, color: "#4F46E5" },
-  { label: "Standard", value: 24, count: 200, color: "#F5A623" },
-  { label: "Basic", value: 30, count: 200, color: "#22C55E" },
-  { label: "Trial", value: 6, count: 200, color: "#3B82F6" },
-];
-
-const SubscriptionChart = () => {
-  const [activities, setActivities] = useState<Activity[]>([]);
+const SubscriptionsChart = () => {
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
+    const fetchSubscriptionChart = async () => {
       try {
-        const res = await fetch(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_SUBSCRIPTION_ACTIVITIES}`,
+        const response = await fetch(
+          "http://localhost:5001/analytics/chartcount"
         );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json: ApiResponse = await res.json();
 
-        if (!cancelled && json.success) {
-          setActivities(json.data.activities ?? []);
-          setTotal(json.data.total ?? 0);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      } catch {
-        if (!cancelled) setActivities([]);
-      }
-    })();
 
-    return () => {
-      cancelled = true;
+        const result: ApiResponse = await response.json();
+
+        if (result.success && result.data) {
+          setSubscriptions(result.data.subscriptions);
+          setTotal(result.data.total);
+        }
+      } catch (error) {
+        console.error("Failed to fetch subscription chart:", error);
+      } finally {
+        setLoading(false);
+      }
     };
+
+    fetchSubscriptionChart();
   }, []);
 
-  const segments = useMemo<Segment[]>(() => {
-    if (activities.length === 0) return FALLBACK_SEGMENTS;
+  /*
+   * Build donut gradient
+   */
+  let currentPercentage = 0;
 
-    const planMap = new Map<string, Set<string>>();
-    activities.forEach((a) => {
-      const plan = a.plan || a.planName || "Unknown";
-      if (!planMap.has(plan)) planMap.set(plan, new Set());
-      planMap.get(plan)!.add(a.tenantId);
-    });
+  const gradientParts = subscriptions.map((item, index) => {
+    const start = currentPercentage;
+    const end = currentPercentage + item.percentage;
 
-    const counts = Array.from(planMap.entries()).map(([label, set]) => ({
-      label,
-      count: set.size,
-    }));
+    currentPercentage = end;
 
-    const sum = counts.reduce((s, c) => s + c.count, 0);
-    if (sum === 0) return FALLBACK_SEGMENTS;
+    return `${chartColors[index % chartColors.length]} ${start}% ${end}%`;
+  });
 
-    return counts.map((c, i) => ({
-      label: c.label,
-      count: c.count,
-      value: Math.round((c.count / sum) * 100),
-      color: PALETTE[i % PALETTE.length],
-    }));
-  }, [activities]);
+  const donutGradient =
+    gradientParts.length > 0
+      ? `conic-gradient(${gradientParts.join(", ")})`
+      : "#E5E7EB";
 
 
-  const gradientStops = useMemo(() => {
-    let cumulative = 0;
-    return segments
-      .map((seg) => {
-        const start = cumulative;
-        cumulative += seg.value;
-        return `${seg.color} ${start}% ${cumulative}%`;
-      })
-      .join(", ");
-  }, [segments]);
+  let accumulatedPercentage = 0;
 
-  const labels = useMemo(() => {
-    const LABEL_RADIUS_PCT = 36.5;
-    return segments.map((seg, i) => {
-      const startValue = segments
-        .slice(0, i)
-        .reduce((sum, s) => sum + s.value, 0);
-      const midValue = startValue + seg.value / 2;
+  const percentageLabels = subscriptions.map((item) => {
+    const startPercentage = accumulatedPercentage;
 
-      const angleDeg = midValue * 3.6 - 90;
-      const angleRad = (angleDeg * Math.PI) / 180;
+    const middlePercentage =
+      startPercentage + item.percentage / 2;
 
-      return {
-        ...seg,
-        xPct: 50 + LABEL_RADIUS_PCT * Math.cos(angleRad),
-        yPct: 50 + LABEL_RADIUS_PCT * Math.sin(angleRad),
-      };
-    });
-  }, [segments]);
+    accumulatedPercentage += item.percentage;
+
+    // Convert percentage to degrees.
+    const angle = middlePercentage * 3.6;
+
+    // Radius from center where percentage text should appear.
+    const radius = 72;
+
+    // Convert angle to radians.
+    const radians = ((angle - 90) * Math.PI) / 180;
+
+    const x = Math.cos(radians) * radius;
+    const y = Math.sin(radians) * radius;
+
+    return {
+      ...item,
+      x,
+      y,
+    };
+  });
 
   return (
-    <div className="bg-white dark:bg-[#343434] rounded-[18px] p-4 sm:p-5 md:p-6 w-full dark:border dark:border-[#454545]">
-      <h2 className="text-sm sm:text-base font-semibold text-[#111827] dark:text-white mb-4 sm:mb-6">
+    <div className="bg-white dark:bg-[#343434] rounded-[18px] p-6 w-full max-w-full shadow-[0_6px_19px_rgba(153,153,153,0.15)]">
+      <h2 className="text-[16px] font-semibold text-[#111827] dark:text-white mb-6">
         Subscriptions
       </h2>
 
-      <div className="flex flex-col-reverse items-center gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-    
-        <div
-          className="
-            w-full lg:w-auto
-            lg:h-[215px]
-            overflow-y-auto
-            [scrollbar-width:none]
-            [-ms-overflow-style:none]
-            [&::-webkit-scrollbar]:hidden
-            pr-1
-          "
-        >
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 lg:flex lg:flex-col lg:space-y-4 lg:gap-0">
-            {segments.map((seg) => (
-              <div key={seg.label}>
+      {loading ? (
+        <div className="h-[190px] flex items-center justify-center">
+          <p className="text-sm text-gray-400">
+            Loading...
+          </p>
+        </div>
+      ) : subscriptions.length === 0 ? (
+        <div className="h-[190px] flex items-center justify-center">
+          <p className="text-sm text-gray-400">
+            No subscription data available
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between pr-9 pb-3 h-[190px]">
+
+          {/* Left Labels */}
+          <div className="space-y-3 h-30 overflow-y-auto scrollbar-none">
+            {subscriptions.map((item, index) => (
+              <div key={item.planName} className="">
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-[3px] flex-shrink-0"
-                    style={{ backgroundColor: seg.color }}
+                    className="w-3 h-3 rounded-[3px]"
+                    style={{
+                      backgroundColor:
+                        chartColors[index % chartColors.length],
+                    }}
                   />
-                  <span className="text-[10px] sm:text-xs font-semibold text-[#010e30] dark:text-white truncate">
-                    {seg.label}
+
+                  <span className="text-[13px] font-semibold text-[#111827] dark:text-white">
+                    {item.planName}
                   </span>
                 </div>
-                <p className="text-[9px] text-[#919191] dark:text-gray-400 ml-4 sm:ml-5">
-                  {seg.count} ({seg.value}%)
+
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 ml-7">
+                  {item.count} ({item.percentage}%)
                 </p>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* ── Donut ── */}
-        <div className="relative w-full max-w-[215px] aspect-square flex-shrink-0 mx-auto lg:mx-0">
-          <div
-            className="w-full h-full rounded-full"
-            style={{ background: `conic-gradient(${gradientStops})` }}
-          />
+          {/* Donut */}
+          <div className="relative w-[220px] h-[220px] mt-6">
 
-          {/* Inner hole — matches card bg in both modes */}
-          <div
-            className="absolute rounded-full bg-white dark:bg-[#343434] flex flex-col items-center justify-center"
-            style={{ inset: "23%" }}
-          >
-            <span className="text-lg sm:text-xl md:text-2xl font-bold text-[#2F3A56] dark:text-white leading-none">
-              100%
-            </span>
-            <span className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
-              Total
-            </span>
-          </div>
-
-          {labels.map((l) => (
-            <span
-              key={l.label}
-              className="absolute text-white text-[10px] sm:text-[11px] font-bold pointer-events-none select-none"
+            <div
+              className="w-full h-full rounded-full relative"
               style={{
-                left: `${l.xPct}%`,
-                top: `${l.yPct}%`,
-                transform: "translate(-50%, -50%)",
-                lineHeight: 1,
+                background: donutGradient,
               }}
             >
-              {l.value}%
-            </span>
-          ))}
+
+              {/* Inner Hole */}
+              <div className="absolute inset-[55px] bg-[#F5F7FF] dark:bg-[#343434] rounded-full flex items-center justify-center">
+                <span className="text-[24px] font-bold text-[#2F3A56] dark:text-white">
+                  {total}
+                </span>
+              </div>
+
+              {/* Dynamic Percentage Labels */}
+              {percentageLabels.map((item) => (
+                <span
+                  key={`${item.planName}-percentage`}
+                  className="absolute left-1/2 top-1/2 text-white text-sm font-semibold pointer-events-none"
+                  style={{
+                    transform: `
+                      translate(
+                        calc(-50% + ${item.x}px),
+                        calc(-50% + ${item.y}px)
+                      )
+                    `,
+                  }}
+                >
+                  {item.percentage}%
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
-export default SubscriptionChart;
+export default SubscriptionsChart;

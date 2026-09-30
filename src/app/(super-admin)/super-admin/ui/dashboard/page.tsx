@@ -11,7 +11,7 @@ import OrganizationHeader, { OrganizationTab } from "../../components/Organizati
 import ExperingTenants from "./components/ExperingTenants";
 
 const Page = () => {
-  const [tab, setTab] = useState<OrganizationTab>("All");
+  const [tab, setTab] = useState<OrganizationTab>("Institute");
   return (
     <BaseSuperLayout>
       <SuperAdminHeader currentSection="Dashboard" />
