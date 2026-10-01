@@ -22,13 +22,98 @@ const API_TENANTS_BY_PLAN = (planId: string) =>
   `${API_BASE}/api/tenant-subscriptions/tenantsbyplan/${planId}`;
 const API_CREATE_CHAT_ROOM = `${API_BASE}/chat-room`;
 const API_LIST_CHAT_ROOMS = `${API_BASE}/chat-room`;
+
 const API_SEND_CHAT_MESSAGE = `${API_BASE}/chat/message`;
 const ROOM_MESSAGES_PAGE_LIMIT = 20;
 const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
   `${API_BASE}/chat/${encodeURIComponent(roomId)}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
 
+const API_UPDATE_CHAT_ROOM = (roomId: string) =>
+  `${API_BASE}/chat-room/${roomId}`;
+
+
 const ROOMS_PAGE_LIMIT = 100;
 const DEFAULT_CREATOR_ID = "6aba4e3ee619505595695943";
+
+// ─────────────────────────────────────────────
+// localStorage helpers
+// ─────────────────────────────────────────────
+const LS_KEY_REMOVED = "chatRoom.removedTenants.";
+const LS_KEY_ROOM_MEMBERS = "chatRoom.allMembers.";
+
+const getRemovedTenants = (roomId: string): string[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_REMOVED + roomId);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const setRemovedTenants = (roomId: string, ids: string[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_KEY_REMOVED + roomId, JSON.stringify(ids));
+  } catch { }
+};
+
+const addRemovedTenant = (roomId: string, tenantId: string) => {
+  const current = getRemovedTenants(roomId);
+  if (!current.includes(tenantId)) {
+    setRemovedTenants(roomId, [...current, tenantId]);
+  }
+};
+
+const removeFromRemovedTenant = (roomId: string, tenantId: string) => {
+  const current = getRemovedTenants(roomId);
+  setRemovedTenants(
+    roomId,
+    current.filter((id) => id !== tenantId)
+  );
+};
+
+// 🔑 Per-room full member snapshot
+interface StoredMember {
+  tenantId: string;
+  tenantName: string;
+}
+
+const getRoomMembersCache = (roomId: string): StoredMember[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_ROOM_MEMBERS + roomId);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const setRoomMembersCache = (roomId: string, members: StoredMember[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      LS_KEY_ROOM_MEMBERS + roomId,
+      JSON.stringify(members)
+    );
+  } catch { }
+};
+
+// Merge new members into the stored snapshot (never lose existing entries)
+const mergeIntoRoomMembersCache = (
+  roomId: string,
+  newMembers: StoredMember[]
+) => {
+  const current = getRoomMembersCache(roomId);
+  const map = new Map(current.map((m) => [m.tenantId, m]));
+  newMembers.forEach((m) => {
+    if (!map.has(m.tenantId)) {
+      map.set(m.tenantId, m);
+    }
+  });
+  // ✅ Array.from for TS compatibility
+  setRoomMembersCache(roomId, Array.from(map.values()));
+};
 
 // ─────────────────────────────────────────────
 // Types
@@ -85,19 +170,31 @@ interface IRoomMessagesResponse {
 }
 
 interface IUser {
+  profileImage: string | null;
   _id: string;
-  userName: string;
+  userName: any;
   email: string;
   role: string[];
   status: string;
-  lastSeen?: string;
-  isGroup?: boolean;
-  roomType?: RoomType;
-  plan?: string;
-  profileImage?: string;
-  members?: { name: string; plan: string }[];
-  groupSettings?: "everyone" | "admins";
-  lastMessage?: { text: string; time: string; senderName: string };
+  lastSeen: string;
+  isGroup: boolean;
+  roomType: RoomType;
+  plan: any;
+  members: {
+    name: string;
+    plan: any;
+    tenantId?: string;
+    isSelected?: boolean;
+  }[];
+  groupSettings: "everyone" | "admins";
+  lastMessage?: { text: string; time: string; senderName?: string };
+
+  roomId?: string;
+  roomCode?: string;
+  description?: string;
+  planName?: string;
+  planId?: string;
+  sendAccess?: "EVERYONE" | "ADMIN_ONLY";
 }
 
 interface IMessageData {
@@ -206,7 +303,6 @@ const extractRoomId = (r: any): string => {
   return raw ? String(raw) : "";
 };
 
-// Normalize any backend `type` into one of our three enums
 const normalizeRoomType = (raw: any): RoomType => {
   const t = String(raw ?? "").toUpperCase();
   if (t === "SEGMENT") return "SEGMENT";
@@ -214,18 +310,12 @@ const normalizeRoomType = (raw: any): RoomType => {
   return "TENANT";
 };
 
-// ─────────────────────────────────────────────
-// File size formatter
-// ─────────────────────────────────────────────
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-// ─────────────────────────────────────────────
-// Message time formatter
-// ─────────────────────────────────────────────
 const formatMessageTime = (iso?: string) => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -247,7 +337,7 @@ const formatMessageTime = (iso?: string) => {
 };
 
 // ─────────────────────────────────────────────
-// Sub: Receipt dots
+// Sub-components
 // ─────────────────────────────────────────────
 const ReceiptDots = ({
   delivered,
@@ -268,9 +358,6 @@ const ReceiptDots = ({
   </span>
 );
 
-// ─────────────────────────────────────────────
-// Sub: Message menu
-// ─────────────────────────────────────────────
 const MessageMenu = ({
   onInfo,
   onReply,
@@ -344,9 +431,6 @@ const MessageMenu = ({
   );
 };
 
-// ─────────────────────────────────────────────
-// Sub: Message Info modal
-// ─────────────────────────────────────────────
 const MessageInfoModal = ({
   message,
   onClose,
@@ -354,12 +438,6 @@ const MessageInfoModal = ({
   message: IMessage;
   onClose: () => void;
 }) => {
-  const readers =
-    (message as any).readBy ??
-    (message.seenAt
-      ? [{ _id: "u-1", name: "Reader", plan: "", time: message.seenAt }]
-      : []);
-
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
@@ -417,7 +495,7 @@ const MessageInfoModal = ({
 };
 
 // ─────────────────────────────────────────────
-// Component
+// Main Component
 // ─────────────────────────────────────────────
 const Message = () => {
   const currentUser = {
@@ -426,19 +504,13 @@ const Message = () => {
     role: "Super admin",
   };
 
-  // ─────────────────────────────────────────────
-  // Room stores (one per tab)
-  // ─────────────────────────────────────────────
-  const [allRooms, setAllRooms] = useState<IUser[]>([]);       // TENANT only
-  const [unreadRooms, setUnreadRooms] = useState<IUser[]>([]); // backend unread
-  const [groupRooms, setGroupRooms] = useState<IUser[]>([]);   // SEGMENT + GLOBAL
+  const [allRooms, setAllRooms] = useState<IUser[]>([]);
+  const [unreadRooms, setUnreadRooms] = useState<IUser[]>([]);
+  const [groupRooms, setGroupRooms] = useState<IUser[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
 
   const [allMessages, setAllMessages] = useState<IMessageData[]>([]);
 
-  // ─────────────────────────────────────────────
-  // UI state
-  // ─────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "groups">(
     "all"
   );
@@ -485,9 +557,7 @@ const Message = () => {
 
   // ─────────────────────────────────────────────
   // Map raw room → IUser
-  //   TENANT  → individual chat  → All tab
-  //   SEGMENT → tenant group     → Groups tab
-  //   GLOBAL  → system broadcast → Groups tab
+  // ✅ Merges API tenantIds + cached snapshot
   // ─────────────────────────────────────────────
   const mapRoomToUser = (r: any): IUser => {
     const id = extractRoomId(r);
@@ -498,10 +568,43 @@ const Message = () => {
       ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
       : [];
 
-    const members = rawTenantIds.map((tid) => ({
-      name: tid,
-      plan: r?.planName ?? "",
-    }));
+    const removedIds = getRemovedTenants(id);
+    const cachedMembers = getRoomMembersCache(id);
+    const cacheLookup = new Map(
+      cachedMembers.map((m) => [m.tenantId, m.tenantName])
+    );
+
+    const rawMembers = Array.isArray(r?.members) ? r.members : [];
+
+    const activeMembers = rawTenantIds.map((tid) => {
+      const found = rawMembers.find(
+        (m: any) => (m.tenantId || m._id || m.id) === tid
+      );
+      return {
+        name:
+          found?.tenantName ||
+          found?.name ||
+          cacheLookup.get(tid) ||
+          r?.memberNames?.[tid] ||
+          tid,
+        plan: r?.planName ?? "",
+        tenantId: tid,
+        isSelected: !removedIds.includes(tid),
+      };
+    });
+
+    // ✅ Merge cached members NOT in API response
+    const activeIds = new Set(activeMembers.map((m) => m.tenantId));
+    const cachedOnlyMembers = cachedMembers
+      .filter((cm) => !activeIds.has(cm.tenantId))
+      .map((cm) => ({
+        name: cm.tenantName,
+        plan: r?.planName ?? "",
+        tenantId: cm.tenantId,
+        isSelected: false,
+      }));
+
+    const members = [...activeMembers, ...cachedOnlyMembers];
 
     return {
       _id: id || `room-${Math.random().toString(36).slice(2)}`,
@@ -526,13 +629,22 @@ const Message = () => {
           senderName: r.lastMessage.senderName ?? "",
         }
         : undefined,
+      profileImage: null,
+      roomId: id,
+      roomCode: r?.roomCode ?? "",
+      description: r?.description ?? "",
+      planName: r?.planName ?? "",
+      planId: r?.planId ?? "",
+      sendAccess:
+        r?.sendAccess === "ADMIN_ONLY" || r?.sendAccess === "ADMINS"
+          ? "ADMIN_ONLY"
+          : "EVERYONE",
     };
   };
 
   // ─────────────────────────────────────────────
   // Fetch rooms
-  //   Master list = data.all.rooms
-  //   Split by roomType into the three tabs
+  // ✅ Saves full member snapshot per room
   // ─────────────────────────────────────────────
   const fetchRooms = async () => {
     setRoomsLoading(true);
@@ -559,23 +671,36 @@ const Message = () => {
         ? d.unread.rooms
         : [];
 
+      // 🔑 Save member snapshot for every room with tenantIds
+      allRaw.forEach((r: any) => {
+        const roomId = extractRoomId(r);
+        if (!roomId) return;
+        const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
+          ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
+          : [];
+        if (rawTenantIds.length === 0) return;
+
+        const rawMembers = Array.isArray(r?.members) ? r.members : [];
+        const snapshot: StoredMember[] = rawTenantIds.map((tid) => {
+          const found = rawMembers.find(
+            (m: any) => (m.tenantId || m._id || m.id) === tid
+          );
+          return {
+            tenantId: tid,
+            tenantName: found?.tenantName || found?.name || tid,
+          };
+        });
+
+        mergeIntoRoomMembersCache(roomId, snapshot);
+      });
+
       const mappedAll = allRaw.map(mapRoomToUser).filter((r) => r._id);
       const mappedUnread = unreadRaw.map(mapRoomToUser).filter((r) => r._id);
 
-      // ── Strict split ──
-      // Groups tab → SEGMENT and GLOBAL
       const groupList = mappedAll.filter(
         (r) => r.roomType === "SEGMENT" || r.roomType === "GLOBAL"
       );
-
-      // All tab → ONLY TENANT (individuals)
       const individualList = mappedAll.filter((r) => r.roomType === "TENANT");
-
-      console.log("✅ rooms loaded:", {
-        all: individualList.length,
-        unread: mappedUnread.length,
-        groups: groupList.length,
-      });
 
       setAllRooms(individualList);
       setUnreadRooms(mappedUnread);
@@ -595,9 +720,6 @@ const Message = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─────────────────────────────────────────────
-  // Tab counts
-  // ─────────────────────────────────────────────
   const tabCounts = useMemo(
     () => ({
       all: allRooms.length,
@@ -607,9 +729,6 @@ const Message = () => {
     [allRooms, unreadRooms, groupRooms]
   );
 
-  // ─────────────────────────────────────────────
-  // Visible rooms per tab
-  // ─────────────────────────────────────────────
   const visibleRooms = useMemo(() => {
     const source: IUser[] =
       activeTab === "all"
@@ -633,14 +752,6 @@ const Message = () => {
     return result;
   }, [activeTab, allRooms, unreadRooms, groupRooms, searchQuery]);
 
-  // ─────────────────────────────────────────────
-  // People options
-  // ─────────────────────────────────────────────
-  const peopleOptions = useMemo(
-    () => [...allRooms, ...groupRooms].filter((u) => !u.role.includes("Group")),
-    [allRooms, groupRooms]
-  );
-
   const toggleSelectedPerson = (id: string) => {
     if (!id || typeof id !== "string") return;
     setAddGroupData((prev) => {
@@ -654,9 +765,7 @@ const Message = () => {
     });
   };
 
-  // ─────────────────────────────────────────────
-  // Fetch plans when Add Group modal opens
-  // ─────────────────────────────────────────────
+  // Fetch plans when AddGroup opens
   useEffect(() => {
     if (!showAddGroup) return;
     let cancelled = false;
@@ -700,9 +809,7 @@ const Message = () => {
     };
   }, [showAddGroup]);
 
-  // ─────────────────────────────────────────────
-  // Fetch tenants per plan
-  // ─────────────────────────────────────────────
+  // Fetch tenants when AddGroup opens
   useEffect(() => {
     if (!showAddGroup) return;
     if (!addGroupData.planId) {
@@ -726,30 +833,15 @@ const Message = () => {
             ? json.data.tenants
             : Array.isArray(json?.tenants)
               ? json.tenants
-              : Array.isArray(json?.data?.records)
-                ? json.data.records
-                : [];
+              : [];
 
         const normalized: IPlanTenant[] = rawList
-          .map((t: any) => {
-            const id = extractTenantId(t);
-            return {
-              _id: id,
-              tenantName:
-                t?.tenantName ??
-                t?.name ??
-                t?.tenant?.tenantName ??
-                t?.tenant?.name ??
-                "Unnamed Tenant",
-              plan:
-                t?.plan ??
-                t?.planName ??
-                t?.tenant?.plan ??
-                t?.tenant?.planName ??
-                addGroupData.planName,
-              planName: t?.planName ?? t?.plan,
-            } as IPlanTenant;
-          })
+          .map((t: any) => ({
+            _id: extractTenantId(t),
+            tenantName: t?.tenantName ?? t?.name ?? "Unnamed Tenant",
+            plan: t?.plan ?? t?.planName ?? addGroupData.planName,
+            planName: t?.planName ?? t?.plan,
+          }))
           .filter((t) => t._id && t._id.trim().length > 0);
 
         if (!cancelled) {
@@ -761,10 +853,6 @@ const Message = () => {
         }
       } catch (err) {
         console.error("Failed to fetch plan tenants:", err);
-        if (!cancelled) {
-          setPlanTenants([]);
-          setAddGroupData((prev) => ({ ...prev, selectedPeople: [] }));
-        }
       } finally {
         if (!cancelled) setPlanTenantsLoading(false);
       }
@@ -774,6 +862,86 @@ const Message = () => {
       cancelled = true;
     };
   }, [showAddGroup, addGroupData.planId]);
+
+  // ✅ Fetch tenants when Group Details opens AND save snapshot
+  useEffect(() => {
+    if (!showGroupDetails || !selectedUser) return;
+
+    const planId = selectedUser.planId;
+    if (!planId) {
+      console.warn("No planId on selectedUser — cannot fetch tenants");
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(API_TENANTS_BY_PLAN(planId), {
+          cache: "no-store",
+        });
+        const json = await res.json();
+
+        const rawList: any[] = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.data?.tenants)
+            ? json.data.tenants
+            : Array.isArray(json?.tenants)
+              ? json.tenants
+              : [];
+
+        const normalized: IPlanTenant[] = rawList
+          .map((t: any) => ({
+            _id: extractTenantId(t),
+            tenantName: t?.tenantName ?? t?.name ?? "Unnamed Tenant",
+            plan: t?.plan ?? t?.planName ?? "",
+            planName: t?.planName ?? t?.plan,
+          }))
+          .filter((t) => t._id && t._id.trim().length > 0);
+
+        if (cancelled) return;
+
+        setPlanTenants(normalized);
+
+        // 🔑 Save plan tenants snapshot for this room
+        const roomId = selectedUser.roomId || selectedUser._id;
+        mergeIntoRoomMembersCache(
+          roomId,
+          normalized.map((t) => ({
+            tenantId: t._id,
+            tenantName: t.tenantName || t.name || "Unnamed Tenant",
+          }))
+        );
+
+        // Merge missing members into selectedUser
+        setSelectedUser((prev) => {
+          if (!prev) return prev;
+          const existingIds = new Set(
+            (prev.members ?? []).map((m: any) => m.tenantId)
+          );
+          const missingFromPlan = normalized
+            .filter((t) => !existingIds.has(t._id))
+            .map((t) => ({
+              name: t.tenantName || t.name || "Unnamed Tenant",
+              plan: prev.planName ?? "",
+              tenantId: t._id,
+              isSelected: false,
+            }));
+          if (missingFromPlan.length === 0) return prev;
+          return {
+            ...prev,
+            members: [...(prev.members ?? []), ...missingFromPlan],
+          };
+        });
+      } catch (err) {
+        console.error("Failed to fetch plan tenants for modal:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showGroupDetails, selectedUser]);
 
   const memberOptions = useMemo(
     () =>
@@ -886,19 +1054,18 @@ const Message = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedMessages]);
 
-  // ─────────────────────────────────────────────
-  // Send message
-  // ─────────────────────────────────────────────
+
+  
   const handleSendMessage = async (
     text: string,
     pendingAttachment: File | null,
     pendingName: string
   ): Promise<string | null> => {
-    if (!selectedUser) return "Select a tenant or group before sending.";
-    if (!text.trim()) return "Enter a message before sending.";
+    if (!selectedUser) return Promise.resolve("Select a tenant or group before sending.");
+    if (!text.trim()) return Promise.resolve("Enter a message before sending.");
 
     const token = localStorage.getItem("SuperAdminAuthToken");
-    const senderId = localStorage.getItem("SuperAdminUserId");
+    const senderId = localStorage.getItem("SuperAdminUserId") ?? "";
     const senderName =
       localStorage.getItem("SuperAdminPortalName") || currentUser.userName;
 
@@ -991,8 +1158,7 @@ const Message = () => {
       const existing = prev.find((g) => g._id === selectedUser._id);
       if (existing) {
         return prev.map((g) =>
-          g._id === selectedUser._id
-            ? { ...g, messages: [...g.messages, newMessage] }
+          g._id === selectedUser._id ? { ...g, messages: [...g.messages, newMessage] }
             : g
         );
       }
@@ -1038,6 +1204,11 @@ const Message = () => {
   const handleDeleteGroup = async () => {
     if (!selectedUser) return;
     const deletedId = selectedUser._id;
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(LS_KEY_REMOVED + deletedId);
+      window.localStorage.removeItem(LS_KEY_ROOM_MEMBERS + deletedId);
+    }
 
     setAllRooms((prev) => prev.filter((u) => u._id !== deletedId));
     setGroupRooms((prev) => prev.filter((u) => u._id !== deletedId));
@@ -1194,9 +1365,6 @@ const Message = () => {
     setShowGroupDetails(false);
   };
 
-  // ─────────────────────────────────────────────
-  // UI
-  // ─────────────────────────────────────────────
   return (
     <BaseLayout3>
       <SuperAdminHeader currentSection="Chats" />
@@ -1252,7 +1420,6 @@ const Message = () => {
               onQueryChange={setSearchQuery}
             />
 
-            {/* TABS */}
             <div className="flex items-center px-3 mt-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F] gap-2">
               {(
                 [
@@ -1282,7 +1449,6 @@ const Message = () => {
               ))}
             </div>
 
-            {/* ROOM LIST */}
             <div className="flex-1 overflow-y-auto max-h-[400px] md:max-h-none">
               {roomsLoading ? (
                 <p className="py-6 text-center text-[11px] text-gray-400">
@@ -1399,7 +1565,9 @@ const Message = () => {
                         <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] flex items-center gap-1">
                           Members
                           <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
-                            {selectedUser.members?.length ?? 0}
+                            {selectedUser.members?.filter(
+                              (m: any) => m.isSelected !== false
+                            ).length ?? 0}
                           </span>
                         </p>
                       ) : (
@@ -1603,25 +1771,158 @@ const Message = () => {
           {showGroupDetails && selectedUser && (
             <GroupDetailsModal
               key="group-details-modal"
-              user={selectedUser}
+              data={{
+                roomId: selectedUser.roomId || selectedUser._id,
+                roomCode: selectedUser.roomCode || "",
+                groupName: selectedUser.userName || "",
+                role: Array.isArray(selectedUser.role)
+                  ? selectedUser.role[0] || "SUPERADMIN"
+                  : selectedUser.role,
+                description: selectedUser.description || "",
+                planName:
+                  selectedUser.planName ||
+                  (typeof selectedUser.plan === "string"
+                    ? selectedUser.plan
+                    : selectedUser.plan?.name) ||
+                  "Basic Plan",
+                sendAccess:
+                  (selectedUser.sendAccess as "EVERYONE" | "ADMIN_ONLY") ||
+                  (selectedUser.groupSettings === "admins"
+                    ? "ADMIN_ONLY"
+                    : "EVERYONE"),
+                members: (selectedUser.members || []).map(
+                  (m: any, idx: number) => ({
+                    tenantId: m.tenantId || `temp-${idx}`,
+                    tenantName: m.name || m.tenantName || "Unknown",
+                    isSelected:
+                      m.isSelected !== undefined ? m.isSelected : true,
+                  })
+                ),
+                memberCount: (selectedUser.members || []).filter(
+                  (m: any) => m.isSelected !== false
+                ).length,
+              }}
               imagePreview={editGroupImagePreview}
               showDeleteConfirm={showDeleteConfirm}
-              getPlanColor={getPlanColor}
+              availableTenants={planTenants.map((t) => ({
+                tenantId: t._id,
+                tenantName: t.tenantName || t.name || "Unnamed Tenant",
+              }))}
               onImageChange={(file) =>
-                setEditGroupImagePreview(file ? URL.createObjectURL(file) : null)
-              }
-              onRemoveMember={(memberIndex) =>
-                setSelectedUser((previous) =>
-                  previous
-                    ? {
-                        ...previous,
-                        members: (previous.members ?? []).filter(
-                          (_, index) => index !== memberIndex
-                        ),
-                      }
-                    : previous
+                setEditGroupImagePreview(
+                  file ? URL.createObjectURL(file) : null
                 )
               }
+              onUpdateMembers={(payload) => {
+                const roomId = selectedUser.roomId || selectedUser._id;
+
+                if (payload.removeTenantIds) {
+                  payload.removeTenantIds.forEach((id) =>
+                    addRemovedTenant(roomId, id)
+                  );
+                }
+                if (payload.addTenantIds) {
+                  payload.addTenantIds.forEach((id) =>
+                    removeFromRemovedTenant(roomId, id)
+                  );
+                }
+
+                fetch(API_UPDATE_CHAT_ROOM(roomId), {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                }).catch((err) =>
+                  console.error("Update members API failed:", err)
+                );
+
+                setSelectedUser((prev) => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    members: (prev.members ?? []).map((m: any) => {
+                      if (payload.removeTenantIds?.includes(m.tenantId)) {
+                        return { ...m, isSelected: false };
+                      }
+                      if (payload.addTenantIds?.includes(m.tenantId)) {
+                        return { ...m, isSelected: true };
+                      }
+                      return m;
+                    }),
+                  };
+                });
+
+                const updateRoomInList = (list: IUser[]) =>
+                  list.map((r) =>
+                    r._id === roomId
+                      ? {
+                        ...r,
+                        members: (r.members ?? []).map((m: any) => {
+                          if (
+                            payload.removeTenantIds?.includes(m.tenantId)
+                          ) {
+                            return { ...m, isSelected: false };
+                          }
+                          if (
+                            payload.addTenantIds?.includes(m.tenantId)
+                          ) {
+                            return { ...m, isSelected: true };
+                          }
+                          return m;
+                        }),
+                      }
+                      : r
+                  );
+
+                setAllRooms(updateRoomInList);
+                setGroupRooms(updateRoomInList);
+                setUnreadRooms(updateRoomInList);
+              }}
+              onAddMembers={(newMembers) => {
+                const roomId = selectedUser.roomId || selectedUser._id;
+
+                newMembers.forEach((nm) =>
+                  removeFromRemovedTenant(roomId, nm.tenantId)
+                );
+
+                // 🔑 Save new members to snapshot too
+                mergeIntoRoomMembersCache(roomId, newMembers);
+
+                setSelectedUser((prev) => {
+                  if (!prev) return prev;
+                  const existingIds = new Set(
+                    (prev.members ?? []).map((m: any) => m.tenantId)
+                  );
+                  const toAdd = newMembers
+                    .filter((nm) => !existingIds.has(nm.tenantId))
+                    .map((nm) => ({
+                      name: nm.tenantName,
+                      plan: prev.planName ?? "",
+                      tenantId: nm.tenantId,
+                      isSelected: true,
+                    }));
+                  return {
+                    ...prev,
+                    members: [...(prev.members ?? []), ...toAdd],
+                  };
+                });
+              }}
+              onUpdateAccess={(newAccess) => {
+                const roomId = selectedUser.roomId || selectedUser._id;
+                fetch(API_UPDATE_CHAT_ROOM(roomId), {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    sendAccess: newAccess,
+                    updatedBy: "SUPERADMIN",
+                  }),
+                }).catch((err) =>
+                  console.error("Update access API failed:", err)
+                );
+
+                setSelectedUser((prev) =>
+                  prev ? { ...prev, sendAccess: newAccess } : prev
+                );
+              }}
               onToggleDeleteConfirm={setShowDeleteConfirm}
               onDelete={handleDeleteGroup}
               onClose={() => setShowGroupDetails(false)}
