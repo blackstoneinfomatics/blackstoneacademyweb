@@ -1,10 +1,12 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
 
-export const PermissionsContext = createContext<any>(null);
+export type PermissionState = Record<string, { read?: boolean; [key: string]: unknown }>;
+
+export const PermissionsContext = createContext<PermissionState | null>(null);
 
 export const PermissionsProvider = ({ children }: { children: React.ReactNode }) => {
-  const [permissions, setPermissions] = useState<any>(null);
+  const [permissions, setPermissions] = useState<PermissionState | null>(null);
 
   useEffect(() => {
     const userId = localStorage.getItem("localacademicid");

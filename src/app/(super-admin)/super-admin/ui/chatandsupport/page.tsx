@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { GrAttachment } from "react-icons/gr";
-import { FaTelegramPlane } from "react-icons/fa";
-import { FiMoreVertical, FiSearch } from "react-icons/fi";
+import { FiMoreVertical } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import { IoChevronDown } from "react-icons/io5";
 
 import BaseLayout3 from "../../components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
+import { ChatMessageComposer } from "./ChatMessageComposer";
+import { ChatRoomSearch } from "./ChatRoomSearch";
+import { AddGroupModal, type GroupFormData } from "./AddGroupModal";
+import { BroadcastModal, type BroadcastData } from "./BroadcastModal";
+import { GroupDetailsModal } from "./GroupDetailsModal";
 
 // ─────────────────────────────────────────────
 // API Endpoints
@@ -410,30 +412,8 @@ const Message = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
-  const [pendingName, setPendingName] = useState<string>("");
-  const [editingName, setEditingName] = useState(false);
-  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
-
-  const docInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const attachmentMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        attachmentMenuRef.current &&
-        !attachmentMenuRef.current.contains(e.target as Node)
-      ) {
-        setAttachmentMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
   const [showBroadcast, setShowBroadcast] = useState(false);
-  const [broadcastData, setBroadcastData] = useState({
+  const [broadcastData, setBroadcastData] = useState<BroadcastData>({
     messageTitle: "Today Updates day",
     message: "",
     attachment: null as File | null,
@@ -442,7 +422,7 @@ const Message = () => {
   const [showGroupMenu, setShowGroupMenu] = useState(false);
 
   const [showAddGroup, setShowAddGroup] = useState(false);
-  const [addGroupData, setAddGroupData] = useState({
+  const [addGroupData, setAddGroupData] = useState<GroupFormData>({
     groupName: "New Group",
     description: "",
     planId: "",
@@ -451,8 +431,6 @@ const Message = () => {
     profilePreview: null as string | null,
     selectedPeople: [] as string[],
   });
-  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
-
   const [plans, setPlans] = useState<IPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [planTenants, setPlanTenants] = useState<IPlanTenant[]>([]);
@@ -771,14 +749,6 @@ const Message = () => {
     [planTenants, addGroupData.planName]
   );
 
-  const selectedMembers = useMemo(
-    () =>
-      memberOptions.filter((m) =>
-        addGroupData.selectedPeople.includes(m.id)
-      ),
-    [memberOptions, addGroupData.selectedPeople]
-  );
-
   const selectedMessages = useMemo(() => {
     if (!selectedUser) return [];
     return allMessages.find((g) => g._id === selectedUser._id)?.messages || [];
@@ -788,19 +758,16 @@ const Message = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedMessages]);
 
-  useEffect(() => {
-    setPendingAttachment(null);
-    setPendingName("");
-    setEditingName(false);
-    setAttachmentMenuOpen(false);
-  }, [selectedUser?._id]);
-
   // ─────────────────────────────────────────────
   // Send message
   // ─────────────────────────────────────────────
-  const handleSendMessage = () => {
+  const handleSendMessage = (
+    text: string,
+    pendingAttachment: File | null,
+    pendingName: string
+  ) => {
     if (!selectedUser) return;
-    if (!messageText.trim() && !pendingAttachment) return;
+    if (!text.trim() && !pendingAttachment) return;
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], {
@@ -810,7 +777,7 @@ const Message = () => {
 
     const newMessage: IMessage = {
       _id: `msg-${Date.now()}`,
-      messages: messageText.trim(),
+      messages: text.trim(),
       senderId: currentUser.userId,
       senderName: currentUser.userName,
       receiverId: selectedUser._id,
@@ -852,9 +819,6 @@ const Message = () => {
 
     setMessageText("");
     setReplyTo(null);
-    setPendingAttachment(null);
-    setPendingName("");
-    setEditingName(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -1100,21 +1064,10 @@ const Message = () => {
               </div>
             </div>
 
-            <div className="px-3 pt-3">
-              <div className="relative flex-1">
-                <FiSearch
-                  size={13}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE] dark:text-[#8a8a8a]"
-                />
-                <input
-                  type="text"
-                  placeholder="Search by keyword"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-8 pl-9 pr-3 border border-[#DDDFE6] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md text-[12px] text-[#252B3A] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
-                />
-              </div>
-            </div>
+            <ChatRoomSearch
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+            />
 
             {/* TABS */}
             <div className="flex items-center px-3 mt-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F] gap-2">
@@ -1403,160 +1356,15 @@ const Message = () => {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-3 border-t border-[#EEEEEE] dark:border-[#3F3F3F]">
-                  {replyTo && (
-                    <div className="mb-2 flex items-start justify-between rounded-md border-l-4 border-[#576CBC] bg-[#F0F1F3] dark:bg-[#2c2c2c] px-3 py-2 text-[11px]">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-[#576CBC] dark:text-[#A8B7E8]">
-                          Replying to {replyTo.senderName}
-                        </p>
-                        <p className="truncate text-[#252B3A] dark:text-[#E2E2E2]">
-                          {replyTo.messages || "📎 Attachment"}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setReplyTo(null)}
-                        className="ml-2 text-gray-400"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-
-                  {pendingAttachment && (
-                    <div className="mb-2 flex items-center gap-2 rounded-md border border-[#E6EAF2] bg-[#F8F9FC] px-2 py-1.5 dark:border-[#4A4A4A] dark:bg-[#2c2c2c]">
-                      <div className="min-w-0 flex-1">
-                        {editingName ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            value={pendingName}
-                            onChange={(e) => setPendingName(e.target.value)}
-                            onBlur={() => setEditingName(false)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") setEditingName(false);
-                              if (e.key === "Escape") {
-                                setPendingName(pendingAttachment.name);
-                                setEditingName(false);
-                              }
-                            }}
-                            className="w-full rounded border border-[#576CBC] bg-white px-1 py-[1px] text-[11px] dark:bg-[#343434] dark:text-white"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingName(true)}
-                            className="block max-w-full truncate text-left text-[11px] font-medium text-[#252B3A] hover:text-[#576CBC] dark:text-white"
-                          >
-                            {pendingName || pendingAttachment.name}
-                          </button>
-                        )}
-                        <p className="text-[10px] text-[#8C919C]">
-                          {formatFileSize(pendingAttachment.size)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPendingAttachment(null);
-                          setPendingName("");
-                          setEditingName(false);
-                        }}
-                        className="ml-1 text-gray-400"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="h-10 bg-[#F6F7F9] dark:bg-[#2c2c2c] rounded-md flex items-center px-2">
-                    <div className="relative" ref={attachmentMenuRef}>
-                      <button
-                        type="button"
-                        onClick={() => setAttachmentMenuOpen((o) => !o)}
-                        className="p-2 text-[#8E939D] dark:text-[#B5B5B5] hover:text-[#576CBC]"
-                      >
-                        <GrAttachment size={13} />
-                      </button>
-                      {attachmentMenuOpen && (
-                        <div className="absolute bottom-10 left-0 z-40 w-32 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-[#454545] dark:bg-[#2C2C2C]">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAttachmentMenuOpen(false);
-                              docInputRef.current?.click();
-                            }}
-                            className="block w-full px-3 py-2 text-left text-[12px] text-gray-700 hover:bg-gray-100 dark:text-gray-200"
-                          >
-                            Document
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAttachmentMenuOpen(false);
-                              fileInputRef.current?.click();
-                            }}
-                            className="block w-full px-3 py-2 text-left text-[12px] text-gray-700 hover:bg-gray-100 dark:text-gray-200"
-                          >
-                            Files
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <input
-                      ref={docInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] ?? null;
-                        if (file) {
-                          setPendingAttachment(file);
-                          setPendingName(file.name);
-                        }
-                        e.target.value = "";
-                      }}
-                    />
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] ?? null;
-                        if (file) {
-                          setPendingAttachment(file);
-                          setPendingName(file.name);
-                        }
-                        e.target.value = "";
-                      }}
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="Type a message"
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (
-                          e.key === "Enter" &&
-                          (messageText.trim() || pendingAttachment)
-                        ) {
-                          handleSendMessage();
-                        }
-                      }}
-                      className="flex-1 bg-transparent outline-none text-[11px] text-[#252B3A] dark:text-[#E2E2E2] placeholder:text-[#A5A9B2] dark:placeholder:text-[#7A7A7A]"
-                    />
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleSendMessage}
-                      className="p-2 text-[#576CBC]"
-                    >
-                      <FaTelegramPlane size={13} />
-                    </motion.button>
-                  </div>
-                </div>
+                <ChatMessageComposer
+                  roomId={selectedUser._id}
+                  messageText={messageText}
+                  replyTo={replyTo}
+                  onMessageTextChange={setMessageText}
+                  onClearReply={() => setReplyTo(null)}
+                  onSendMessage={handleSendMessage}
+                  formatFileSize={formatFileSize}
+                />
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center">
@@ -1568,483 +1376,66 @@ const Message = () => {
           </div>
         </div>
 
-        {/* Broadcast modal */}
         <AnimatePresence>
           {showBroadcast && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
-              onClick={() => setShowBroadcast(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.95 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.95 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-[420px] bg-white dark:bg-[#343434] rounded-md shadow-xl"
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b">
-                  <h2 className="text-[16px] font-semibold text-[#010E30] dark:text-white">
-                    Broadcast Chat
-                  </h2>
-                  <button
-                    onClick={() => setShowBroadcast(false)}
-                    className="text-[#777D89] text-xl"
-                  >
-                    ×
-                  </button>
-                </div>
-                <div className="p-4 space-y-3">
-                  <input
-                    type="text"
-                    value={broadcastData.messageTitle}
-                    onChange={(e) =>
-                      setBroadcastData({
-                        ...broadcastData,
-                        messageTitle: e.target.value,
-                      })
-                    }
-                    placeholder="Message Title"
-                    className="w-full h-9 border border-[#D9DBE2] rounded-md px-3 text-[12px] dark:bg-[#2c2c2c] dark:text-white dark:border-[#4A4A4A]"
-                  />
-                  <textarea
-                    value={broadcastData.message}
-                    onChange={(e) =>
-                      setBroadcastData({
-                        ...broadcastData,
-                        message: e.target.value,
-                      })
-                    }
-                    placeholder="Type your message..."
-                    className="w-full h-[100px] border border-[#D9DBE2] rounded-md p-2 text-[12px] dark:bg-[#2c2c2c] dark:text-white dark:border-[#4A4A4A]"
-                  />
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      onClick={() => setShowBroadcast(false)}
-                      className="h-9 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => setShowBroadcast(false)}
-                      className="h-9 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold"
-                    >
-                      Send All Tenant
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
+            <BroadcastModal
+              key="broadcast-modal"
+              data={broadcastData}
+              onChange={(field, value) =>
+                setBroadcastData((previous) => ({ ...previous, [field]: value }))
+              }
+              onClose={() => setShowBroadcast(false)}
+              onSend={() => setShowBroadcast(false)}
+            />
           )}
-        </AnimatePresence>
 
-        {/* Add Group modal */}
-        <AnimatePresence>
           {showAddGroup && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-4"
-              onClick={() => setShowAddGroup(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-[460px] max-h-[92vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-              >
-                <div className="px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
-                  <h2 className="text-[16px] font-semibold text-[#101B41] dark:text-white">
-                    Add Group
-                  </h2>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                    <div className="relative self-start">
-                      <label className="cursor-pointer block">
-                        <div className="w-[60px] h-[60px] rounded-2xl bg-[#E7E8EC] dark:bg-[#3A3A3A] flex items-center justify-center overflow-hidden">
-                          {addGroupData.profilePreview ? (
-                            <img
-                              src={addGroupData.profilePreview}
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-[28px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
-                              G
-                            </span>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] ?? null;
-                            setAddGroupData({
-                              ...addGroupData,
-                              profileImage: file,
-                              profilePreview: file
-                                ? URL.createObjectURL(file)
-                                : null,
-                            });
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
-                        Group Name
-                      </label>
-                      <input
-                        type="text"
-                        value={addGroupData.groupName}
-                        onChange={(e) =>
-                          setAddGroupData({
-                            ...addGroupData,
-                            groupName: e.target.value,
-                          })
-                        }
-                        className="w-full h-10 sm:h-9 rounded-md border border-[#D5D9E2] bg-white px-3 text-[12px] dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
-                      Select Plan
-                    </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        disabled={plansLoading || plans.length === 0}
-                        onClick={() => setShowPlanDropdown((o) => !o)}
-                        className="w-full h-10 sm:h-9 rounded-md border border-[#D5D9E2] bg-white px-3 text-[12px] text-left flex items-center justify-between disabled:opacity-60 dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
-                      >
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{
-                              backgroundColor: getPlanColor(
-                                addGroupData.planName
-                              ).dot,
-                            }}
-                          />
-                          {plansLoading
-                            ? "Loading plans…"
-                            : addGroupData.planName || "Select Plan"}
-                        </span>
-                        <IoChevronDown className="text-[#777D89]" />
-                      </button>
-
-                      {showPlanDropdown && plans.length > 0 && (
-                        <div className="absolute left-0 right-0 top-11 z-20 max-h-[220px] overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:bg-[#3A3A3A] dark:border-gray-700">
-                          {plans.map((plan) => {
-                            const c = getPlanColor(plan.planName);
-                            return (
-                              <button
-                                key={plan._id}
-                                onClick={() => {
-                                  setAddGroupData((prev) => ({
-                                    ...prev,
-                                    planId: plan._id,
-                                    planName: plan.planName,
-                                    selectedPeople: [],
-                                  }));
-                                  setShowPlanDropdown(false);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-[12px] hover:bg-gray-100 dark:text-gray-200"
-                              >
-                                <span
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: c.dot }}
-                                />
-                                {plan.planName}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
-                      Description
-                    </label>
-                    <textarea
-                      value={addGroupData.description}
-                      onChange={(e) =>
-                        setAddGroupData((prev) => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
-                      }
-                      placeholder="Short description..."
-                      rows={2}
-                      className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] resize-none dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 flex items-center justify-between rounded-t-md border border-b-0 border-[#E6EAF2] bg-[#F8F9FC] px-3 py-2 dark:bg-[#2c2c2c] dark:border-[#4A4A4A]">
-                      <span className="text-[12px] font-medium text-[#101B41] dark:text-white">
-                        Select Members
-                      </span>
-                      <span className="rounded-md bg-[#E6F0EC] text-[#2F7A5C] px-2 py-0.5 text-[11px] font-semibold">
-                        {String(selectedMembers.length).padStart(2, "0")} selected
-                      </span>
-                    </div>
-                    <div className="max-h-[240px] overflow-y-auto rounded-b-md border border-[#E6EAF2] bg-white p-2 space-y-1 dark:bg-[#343434] dark:border-[#4A4A4A]">
-                      {planTenantsLoading ? (
-                        <p className="py-4 text-center text-[11px] text-gray-400">
-                          Loading members…
-                        </p>
-                      ) : memberOptions.length === 0 ? (
-                        <p className="py-4 text-center text-[11px] text-gray-400">
-                          No members found for this plan
-                        </p>
-                      ) : (
-                        memberOptions.map((member) => {
-                          const c = getPlanColor(member.plan);
-                          const isChecked =
-                            addGroupData.selectedPeople.includes(member.id);
-                          return (
-                            <label
-                              key={member.id}
-                              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-[#F8F9FC] dark:hover:bg-[#3A3A3A]"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() =>
-                                  toggleSelectedPerson(member.id)
-                                }
-                                className="h-3.5 w-3.5 accent-[#576CBC]"
-                              />
-                              <span className="flex-1 truncate text-[#101B41] dark:text-white">
-                                {member.name}
-                              </span>
-                              <span
-                                className={`text-[10px] px-1.5 py-[1px] rounded ${c.bg} ${c.text}`}
-                              >
-                                {member.plan}
-                              </span>
-                            </label>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
-                  {createGroupError ? (
-                    <span className="text-[11px] text-red-500">
-                      {createGroupError}
-                    </span>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowAddGroup(false)}
-                      className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleCreateGroup}
-                      disabled={isCreatingGroup}
-                      className="h-10 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold disabled:opacity-60"
-                    >
-                      {isCreatingGroup ? "Creating…" : "Done"}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
+            <AddGroupModal
+              key="add-group-modal"
+              data={addGroupData}
+              plans={plans}
+              plansLoading={plansLoading}
+              members={memberOptions}
+              membersLoading={planTenantsLoading}
+              error={createGroupError}
+              isCreating={isCreatingGroup}
+              getPlanColor={getPlanColor}
+              onChange={(updates) =>
+                setAddGroupData((previous) => ({ ...previous, ...updates }))
+              }
+              onToggleMember={toggleSelectedPerson}
+              onClose={() => setShowAddGroup(false)}
+              onCreate={handleCreateGroup}
+            />
           )}
-        </AnimatePresence>
 
-        {/* Group Details modal */}
-        <AnimatePresence>
           {showGroupDetails && selectedUser && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-4"
-              onClick={() => setShowGroupDetails(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-[460px] max-h-[92vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-              >
-                <div className="px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
-                  <h2 className="text-[16px] font-semibold text-[#101B41] dark:text-white">
-                    Group Details
-                  </h2>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                  <div className="flex gap-4">
-                    <label className="cursor-pointer block relative">
-                      <div className="w-[66px] h-[66px] rounded-2xl bg-[#E7E8EC] dark:bg-[#3A3A3A] flex items-center justify-center overflow-hidden">
-                        {editGroupImagePreview ||
-                          selectedUser.profileImage ? (
-                          <img
-                            src={
-                              editGroupImagePreview ||
-                              selectedUser.profileImage ||
-                              ""
-                            }
-                            alt={selectedUser.userName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-[28px] font-medium text-[#9297A2]">
-                            {selectedUser.userName
-                              ?.charAt(0)
-                              ?.toUpperCase() ?? "G"}
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          setEditGroupImagePreview(
-                            file ? URL.createObjectURL(file) : null
-                          );
-                        }}
-                      />
-                    </label>
-                    <div className="flex-1">
-                      <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
-                        Group Name
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedUser.userName || ""}
-                        readOnly
-                        className="w-full h-10 rounded-md border border-[#D5D9E2] bg-white px-3 text-[12px] dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-[#E6EAF2] dark:border-[#4A4A4A] overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-[#E6EAF2] bg-[#F8F9FC] px-3 py-2 dark:bg-[#2c2c2c] dark:border-[#4A4A4A]">
-                      <span className="text-[13px] font-medium text-[#101B41] dark:text-white">
-                        Group Members
-                      </span>
-                      <span className="rounded-md bg-[#E6F0EC] text-[#2F7A5C] px-2 py-0.5 text-[11px] font-semibold">
-                        {String(selectedUser.members?.length ?? 0).padStart(
-                          2,
-                          "0"
-                        )}
-                      </span>
-                    </div>
-                    <div className="max-h-[200px] overflow-y-auto bg-white p-2 space-y-1 dark:bg-[#343434]">
-                      {(selectedUser.members ?? []).map((member, i) => {
-                        const memberIndex = i;
-                        const c = getPlanColor(member.plan);
-                        return (
-                          <div
-                            key={`${member.name}-${i}`}
-                            className="flex items-center gap-2 rounded px-2 py-1.5"
-                          >
-                            <span className="flex-1 text-[12px] text-[#101B41] dark:text-white truncate">
-                              {member.name}
-                            </span>
-                            <span className={`text-[11px] ${c.text}`}>
-                              {member.plan}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedUser((prev) =>
-                                  prev
-                                    ? {
-                                      ...prev,
-                                      members: (prev.members ?? []).filter(
-                                        (_, idx) => idx !== memberIndex
-                                      ),
-                                    }
-                                    : prev
-                                );
-                              }}
-                              className="flex h-6 w-6 items-center justify-center rounded-md text-[#9EA3AE] hover:text-[#D14343]"
-                            >
-                              🗑
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-[#F5D0D0] bg-[#FFF8F8] p-3 dark:bg-[#3A2525] dark:border-[#5A2A2A]">
-                    <p className="mb-1 text-[13px] font-medium text-[#D14343]">
-                      Delete Group
-                    </p>
-                    <p className="mb-3 text-[11px] text-[#8C919C]">
-                      Once deleted, this group and all messages will be
-                      permanently removed.
-                    </p>
-                    {!showDeleteConfirm ? (
-                      <button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="h-9 rounded-md border border-[#D14343] text-[#D14343] px-4 text-[12px] font-semibold"
-                      >
-                        Delete Group
-                      </button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowDeleteConfirm(false)}
-                          className="flex-1 h-9 rounded-md border border-[#D5D9E2] px-3 text-[12px] font-semibold"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleDeleteGroup}
-                          className="flex-1 h-9 rounded-md bg-[#D14343] text-white px-3 text-[12px] font-semibold"
-                        >
-                          Yes, Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
-                  <button
-                    onClick={() => setShowGroupDetails(false)}
-                    className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveGroupDetails}
-                    className="h-10 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold"
-                  >
-                    Done
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
+            <GroupDetailsModal
+              key="group-details-modal"
+              user={selectedUser}
+              imagePreview={editGroupImagePreview}
+              showDeleteConfirm={showDeleteConfirm}
+              getPlanColor={getPlanColor}
+              onImageChange={(file) =>
+                setEditGroupImagePreview(file ? URL.createObjectURL(file) : null)
+              }
+              onRemoveMember={(memberIndex) =>
+                setSelectedUser((previous) =>
+                  previous
+                    ? {
+                        ...previous,
+                        members: (previous.members ?? []).filter(
+                          (_, index) => index !== memberIndex
+                        ),
+                      }
+                    : previous
+                )
+              }
+              onToggleDeleteConfirm={setShowDeleteConfirm}
+              onDelete={handleDeleteGroup}
+              onClose={() => setShowGroupDetails(false)}
+              onSave={handleSaveGroupDetails}
+            />
           )}
         </AnimatePresence>
 

@@ -28,19 +28,27 @@ interface YearlyRow {
   revenue: number;
 }
 
+interface RevenueApiData {
+  period: Period;
+  year?: number;
+  startYear?: number;
+  endYear?: number;
+  startDate?: string;
+  endDate?: string;
+  totalRevenue: number;
+  revenue: MonthlyRow[] | WeeklyRow[] | YearlyRow[];
+}
+
 interface ApiResponse {
   success: boolean;
   message: string;
-  data: {
-    period: Period;
-    year?: number;
-    startYear?: number;
-    endYear?: number;
-    startDate?: string;
-    endDate?: string;
-    totalRevenue: number;
-    revenue: MonthlyRow[] | WeeklyRow[] | YearlyRow[];
-  };
+  data: RevenueApiData;
+}
+
+interface RevenueResponseShape {
+  success?: boolean;
+  message?: string;
+  data?: Partial<RevenueApiData>;
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
@@ -135,7 +143,33 @@ const normalizeData = (
   }
 
   // YEARLY
-  return (rows as YearlyRow[]).map((r) => ({
+  const yearlyRows = rows as YearlyRow[];
+  const startYear = typeof json.data.startYear === "number" ? json.data.startYear : undefined;
+  const endYear = typeof json.data.endYear === "number" ? json.data.endYear : undefined;
+
+  if (typeof startYear === "number" && typeof endYear === "number" && endYear >= startYear) {
+    const yearlyMap = new Map<number, number>();
+
+    yearlyRows.forEach((row) => {
+      if (typeof row.year === "number") {
+        yearlyMap.set(row.year, row.revenue ?? 0);
+      }
+    });
+
+    const paddedData: RevenuePoint[] = [];
+
+    for (let year = startYear; year <= endYear; year += 1) {
+      paddedData.push({
+        label: String(year),
+        fullLabel: String(year),
+        value: yearlyMap.get(year) ?? 0,
+      });
+    }
+
+    return paddedData;
+  }
+
+  return yearlyRows.map((r) => ({
     label: String(r.year),
     fullLabel: String(r.year),
     value: r.revenue ?? 0,
@@ -158,6 +192,7 @@ const RevenueOverviewChart = () => {
       setLoading(true);
 
       try {
+
         const res = await fetch(
           `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.REVENUE_OVERVIEW}?period=${period}`
         );
@@ -166,10 +201,28 @@ const RevenueOverviewChart = () => {
           throw new Error(`HTTP ${res.status}`);
         }
 
-        const json: ApiResponse = await res.json();
+        const json = (await res.json()) as RevenueResponseShape;
+        const hasValidRevenueData =
+          !!json &&
+          typeof json === "object" &&
+          typeof json.data === "object" &&
+          Array.isArray(json.data?.revenue);
 
-        if (!cancelled && json.success) {
-          setChartData(normalizeData(json, period));
+        if (!cancelled && hasValidRevenueData && json.success) {
+          const typedJson: ApiResponse = {
+            success: true,
+            message: json.message ?? "Revenue overview fetched successfully",
+            data: {
+              period: period,
+              totalRevenue: 0,
+              revenue: json.data?.revenue ?? [],
+              ...(json.data ?? {}),
+            },
+          };
+
+          setChartData(normalizeData(typedJson, period));
+        } else if (!cancelled) {
+          setChartData([]);
         }
       } catch (error) {
         console.error("Failed to fetch revenue overview:", error);
@@ -375,9 +428,12 @@ const RevenueOverviewChart = () => {
                       ? item.value / yMax
                       : 0;
 
+                  const minVisibleHeight =
+                    item.value > 0 ? 8 : 2;
+
                   const height = Math.max(
                     ratio * plotHeight,
-                    2
+                    minVisibleHeight
                   );
 
                   const isHovered =
