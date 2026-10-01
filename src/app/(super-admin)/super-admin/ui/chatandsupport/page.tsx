@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { GrAttachment } from "react-icons/gr";
 import { FaTelegramPlane } from "react-icons/fa";
-import { FiFilter, FiSearch, FiMoreVertical } from "react-icons/fi";
+import { FiMoreVertical, FiSearch } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { IoChevronDown } from "react-icons/io5";
 
@@ -11,8 +11,24 @@ import BaseLayout3 from "../../components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 
 // ─────────────────────────────────────────────
+// API Endpoints
+// ─────────────────────────────────────────────
+const API_BASE = "http://localhost:5001";
+
+const API_ACTIVE_PLANS = `${API_BASE}/api/plans/active`;
+const API_TENANTS_BY_PLAN = (planId: string) =>
+  `${API_BASE}/api/tenant-subscriptions/tenantsbyplan/${planId}`;
+const API_CREATE_CHAT_ROOM = `${API_BASE}/chat-room`;
+const API_LIST_CHAT_ROOMS = `${API_BASE}/chat-room`;
+
+const ROOMS_PAGE_LIMIT = 100;
+const DEFAULT_CREATOR_ID = "6aba4e3ee619505595695943";
+
+// ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
+type RoomType = "TENANT" | "SEGMENT" | "GLOBAL";
+
 interface IMessage {
   _id: string;
   messages: string;
@@ -27,17 +43,8 @@ interface IMessage {
   status: "Active" | "Inactive";
   deliveredAt?: string;
   seenAt?: string;
-  replyTo?: {
-    _id: string;
-    messages: string;
-    senderName: string;
-  };
-  attachment?: {
-    name: string;
-    size: number;
-    type: string;
-    url?: string;
-  };
+  replyTo?: { _id: string; messages: string; senderName: string };
+  attachment?: { name: string; size: number; type: string; url?: string };
 }
 
 interface IUser {
@@ -46,18 +53,33 @@ interface IUser {
   email: string;
   role: string[];
   status: string;
-  lastLoginDate?: string;
   lastSeen?: string;
   isGroup?: boolean;
+  roomType?: RoomType;
   plan?: string;
   profileImage?: string;
   members?: { name: string; plan: string }[];
   groupSettings?: "everyone" | "admins";
+  lastMessage?: { text: string; time: string; senderName: string };
 }
 
 interface IMessageData {
   _id: string;
   messages: IMessage[];
+}
+
+interface IPlan {
+  _id: string;
+  planName: string;
+  status: string;
+}
+
+interface IPlanTenant {
+  _id: string;
+  tenantName?: string;
+  name?: string;
+  plan?: string;
+  planName?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -81,12 +103,79 @@ const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   },
 };
 
-const getPlanColor = (plan?: string) =>
-  PLAN_COLORS[plan ?? ""] ?? {
-    bg: "bg-gray-100 dark:bg-[#3A3A3A]",
-    text: "text-gray-600 dark:text-gray-300",
-    dot: "#9CA3AF",
-  };
+const FALLBACK_COLORS = [
+  { bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]", text: "text-[#22C55E] dark:text-[#68D391]", dot: "#22C55E" },
+  { bg: "bg-[#E0F2FE] dark:bg-[#22375A]", text: "text-[#3B82F6] dark:text-[#7EB0FF]", dot: "#3B82F6" },
+  { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
+  { bg: "bg-[#FFF7E8] dark:bg-[#4A3B22]", text: "text-[#F4A429] dark:text-[#FCD68B]", dot: "#F4A429" },
+  { bg: "bg-[#FDEAEA] dark:bg-[#4A2A2A]", text: "text-[#E35D5D] dark:text-[#F89B9B]", dot: "#E35D5D" },
+  { bg: "bg-[#EAF8EC] dark:bg-[#1F3A2B]", text: "text-[#34A853] dark:text-[#7FD495]", dot: "#34A853" },
+];
+
+const hashString = (str: string): number => {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (h << 5) - h + str.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+};
+
+const getPlanColor = (plan?: string) => {
+  if (!plan) {
+    return {
+      bg: "bg-gray-100 dark:bg-[#3A3A3A]",
+      text: "text-gray-600 dark:text-gray-300",
+      dot: "#9CA3AF",
+    };
+  }
+  if (PLAN_COLORS[plan]) return PLAN_COLORS[plan];
+  const lower = plan.toLowerCase();
+  if (lower.includes("premium") || lower.includes("pro") || lower.includes("ultra")) {
+    return PLAN_COLORS.Premium;
+  }
+  if (lower.includes("standard")) return PLAN_COLORS.Standard;
+  if (lower.includes("basic")) return PLAN_COLORS.Basic;
+  return FALLBACK_COLORS[hashString(plan) % FALLBACK_COLORS.length];
+};
+
+// ─────────────────────────────────────────────
+// ID helpers
+// ─────────────────────────────────────────────
+const extractTenantId = (t: any): string => {
+  const raw =
+    t?._id ??
+    t?.tenantId ??
+    t?.id ??
+    t?.tenant?._id ??
+    t?.tenant?.tenantId ??
+    t?.tenant?.id ??
+    t?.subscription?.tenantId ??
+    t?.subscription?.tenant?._id ??
+    "";
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object" && typeof raw.$oid === "string") {
+    return raw.$oid;
+  }
+  return raw ? String(raw) : "";
+};
+
+const extractRoomId = (r: any): string => {
+  const raw = r?._id ?? r?.roomId ?? r?.chatRoomId ?? r?.id ?? "";
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object" && typeof raw.$oid === "string") {
+    return raw.$oid;
+  }
+  return raw ? String(raw) : "";
+};
+
+// Normalize any backend `type` into one of our three enums
+const normalizeRoomType = (raw: any): RoomType => {
+  const t = String(raw ?? "").toUpperCase();
+  if (t === "SEGMENT") return "SEGMENT";
+  if (t === "GLOBAL") return "GLOBAL";
+  return "TENANT";
+};
 
 // ─────────────────────────────────────────────
 // File size formatter
@@ -98,7 +187,30 @@ const formatFileSize = (bytes: number): string => {
 };
 
 // ─────────────────────────────────────────────
-// Sub: Seen / Delivered dots
+// Message time formatter
+// ─────────────────────────────────────────────
+const formatMessageTime = (iso?: string) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) {
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays < 7) {
+    return d.toLocaleDateString("en-US", { weekday: "short" });
+  }
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+// ─────────────────────────────────────────────
+// Sub: Receipt dots
 // ─────────────────────────────────────────────
 const ReceiptDots = ({
   delivered,
@@ -120,7 +232,7 @@ const ReceiptDots = ({
 );
 
 // ─────────────────────────────────────────────
-// Sub: Hover down-arrow menu on a message
+// Sub: Message menu
 // ─────────────────────────────────────────────
 const MessageMenu = ({
   onInfo,
@@ -196,7 +308,7 @@ const MessageMenu = ({
 };
 
 // ─────────────────────────────────────────────
-// Sub: Message Info modal (with Read-By list)
+// Sub: Message Info modal
 // ─────────────────────────────────────────────
 const MessageInfoModal = ({
   message,
@@ -208,38 +320,7 @@ const MessageInfoModal = ({
   const readers =
     (message as any).readBy ??
     (message.seenAt
-      ? [
-        {
-          _id: "u-1",
-          name: "Blackstone Academy",
-          plan: "Premium",
-          time: message.seenAt,
-        },
-        {
-          _id: "u-2",
-          name: "Blackstone Academy",
-          plan: "Standard",
-          time: message.seenAt,
-        },
-        {
-          _id: "u-3",
-          name: "Jeevi Academy",
-          plan: "Basic",
-          time: message.seenAt,
-        },
-        {
-          _id: "u-4",
-          name: "sri_Academy",
-          plan: "Premium",
-          time: message.seenAt,
-        },
-        {
-          _id: "u-5",
-          name: "sabarish v r",
-          plan: "Standard",
-          time: message.seenAt,
-        },
-      ]
+      ? [{ _id: "u-1", name: "Reader", plan: "", time: message.seenAt }]
       : []);
 
   return (
@@ -292,46 +373,6 @@ const MessageInfoModal = ({
               {message.seenAt ?? "Not seen yet"}
             </span>
           </div>
-
-          <div className="pt-1">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Read by
-              </p>
-              <span className="rounded-full bg-[#E6EAF2] px-2 py-[2px] text-[10px] font-semibold text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
-                {readers.length}
-              </span>
-            </div>
-
-            <div className="max-h-[180px] overflow-y-auto rounded-md border border-gray-100 dark:border-[#3A3A3A] bg-white dark:bg-[#343434]">
-              {readers.length === 0 ? (
-                <p className="px-3 py-4 text-center text-[11px] text-gray-400">
-                  No one has read this message yet
-                </p>
-              ) : (
-                <ul className="divide-y divide-gray-100 dark:divide-[#3A3A3A]">
-                  {readers.map((r: any) => (
-                    <li
-                      key={r._id}
-                      className="flex items-center gap-2 px-3 py-2"
-                    >
-                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-[#E7E8EC] dark:bg-[#3A3A3A]">
-                        <span className="text-[11px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
-                          {r.name?.charAt(0)?.toUpperCase() ?? "?"}
-                        </span>
-                      </div>
-                      <span className="flex-1 truncate text-[12px] text-[#101B41] dark:text-white">
-                        {r.name}
-                      </span>
-                      <span className="flex-shrink-0 text-[10px] text-gray-400 dark:text-gray-500">
-                        {r.time}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -343,139 +384,32 @@ const MessageInfoModal = ({
 // ─────────────────────────────────────────────
 const Message = () => {
   const currentUser = {
-    userId: "admin-001",
+    userId: DEFAULT_CREATOR_ID,
     userName: "Will Jonto",
     role: "Super admin",
   };
 
   // ─────────────────────────────────────────────
-  // Users
+  // Room stores (one per tab)
   // ─────────────────────────────────────────────
-  const [users, setUsers] = useState<IUser[]>([
-    {
-      _id: "academy-001",
-      userName: "Blackstone Academy",
-      email: "academy@example.com",
-      role: ["Student"],
-      status: "online",
-      lastSeen: "2m ago",
-      plan: "Standard",
-    },
-    {
-      _id: "academy-002",
-      userName: "Blackstone Academy",
-      email: "academy2@example.com",
-      role: ["Parent"],
-      status: "online",
-      lastSeen: "3m ago",
-      plan: "Premium",
-    },
-    {
-      _id: "academy-003",
-      userName: "Blackstone Academy",
-      email: "academy3@example.com",
-      role: ["Admin"],
-      status: "online",
-      lastSeen: "5m ago",
-      plan: "Basic",
-    },
-    {
-      _id: "academy-004",
-      userName: "Blackstone Academy",
-      email: "academy4@example.com",
-      role: ["Teacher"],
-      status: "online",
-      lastSeen: "8m ago",
-      plan: "Standard",
-    },
-    {
-      _id: "academy-005",
-      userName: "Blackstone Academy",
-      email: "academy5@example.com",
-      role: ["Student"],
-      status: "online",
-      lastSeen: "10m ago",
-      plan: "Standard",
-    },
-    {
-      _id: "academy-006",
-      userName: "Blackstone Academy",
-      email: "academy6@example.com",
-      role: ["Parent"],
-      status: "offline",
-      lastSeen: "20m ago",
-      plan: "Basic",
-    },
-    {
-      _id: "group-001",
-      userName: "Academic Coaches",
-      email: "group@example.com",
-      role: ["Group"],
-      status: "online",
-      lastSeen: "1h ago",
-      isGroup: true,
-      plan: "Basic",
-      members: [
-        { name: "Blackstone Academy", plan: "Premium" },
-        { name: "Blackstone Academy", plan: "Basic" },
-      ],
-      groupSettings: "everyone",
-    },
-  ]);
+  const [allRooms, setAllRooms] = useState<IUser[]>([]);       // TENANT only
+  const [unreadRooms, setUnreadRooms] = useState<IUser[]>([]); // backend unread
+  const [groupRooms, setGroupRooms] = useState<IUser[]>([]);   // SEGMENT + GLOBAL
+  const [roomsLoading, setRoomsLoading] = useState(false);
+
+  const [allMessages, setAllMessages] = useState<IMessageData[]>([]);
 
   // ─────────────────────────────────────────────
-  // Messages
-  // ─────────────────────────────────────────────
-  const [allMessages, setAllMessages] = useState<IMessageData[]>([
-    {
-      _id: "academy-001",
-      messages: [
-        {
-          _id: "msg-001",
-          messages: "Lorem ipsum dolor sit",
-          senderId: "academy-001",
-          senderName: "Blackstone Academy",
-          receiverId: "admin-001",
-          receiverName: "Will Jonto",
-          createdDate: "2025-09-28T10:00:00",
-          time: "10:00 AM",
-          notificationStatus: "Seen",
-          isRead: true,
-          status: "Active",
-          deliveredAt: "10:00 AM",
-          seenAt: "10:01 AM",
-        },
-        {
-          _id: "msg-004",
-          messages: "Lorem ipsum dolor sit amet",
-          senderId: "admin-001",
-          senderName: "Will Jonto",
-          receiverId: "academy-001",
-          receiverName: "Blackstone Academy",
-          createdDate: "2025-09-30T10:00:00",
-          time: "10:00 AM",
-          notificationStatus: "Seen",
-          isRead: true,
-          status: "Active",
-          deliveredAt: "10:00 AM",
-          seenAt: "10:02 AM",
-        },
-      ],
-    },
-  ]);
-
-  // ─────────────────────────────────────────────
-  // State
+  // UI state
   // ─────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "groups">(
     "all"
   );
-  const [selectedUser, setSelectedUser] = useState<IUser | null>(users[0]);
+  const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Attachment
   const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
   const [pendingName, setPendingName] = useState<string>("");
   const [editingName, setEditingName] = useState(false);
@@ -498,80 +432,203 @@ const Message = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Broadcast
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [broadcastData, setBroadcastData] = useState({
     messageTitle: "Today Updates day",
-    messageType: "Select",
     message: "",
     attachment: null as File | null,
   });
 
-  // 3-dot menu
   const [showGroupMenu, setShowGroupMenu] = useState(false);
 
-  // Add Group
   const [showAddGroup, setShowAddGroup] = useState(false);
   const [addGroupData, setAddGroupData] = useState({
-    groupName: "Basic Plan",
-    plan: "Basic",
+    groupName: "New Group",
+    description: "",
+    planId: "",
+    planName: "",
     profileImage: null as File | null,
     profilePreview: null as string | null,
     selectedPeople: [] as string[],
   });
   const [showPlanDropdown, setShowPlanDropdown] = useState(false);
-  const [showPeopleDropdown, setShowPeopleDropdown] = useState(false);
-  const [peopleSearch, setPeopleSearch] = useState("");
 
-  // Group Details
+  const [plans, setPlans] = useState<IPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [planTenants, setPlanTenants] = useState<IPlanTenant[]>([]);
+  const [planTenantsLoading, setPlanTenantsLoading] = useState(false);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [createGroupError, setCreateGroupError] = useState<string | null>(null);
+
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [editGroupImagePreview, setEditGroupImagePreview] = useState<
     string | null
   >(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Message actions
   const [replyTo, setReplyTo] = useState<IMessage | null>(null);
   const [infoMessage, setInfoMessage] = useState<IMessage | null>(null);
 
   // ─────────────────────────────────────────────
-  // Plan tenants pool
+  // Map raw room → IUser
+  //   TENANT  → individual chat  → All tab
+  //   SEGMENT → tenant group     → Groups tab
+  //   GLOBAL  → system broadcast → Groups tab
   // ─────────────────────────────────────────────
-  const PLAN_TENANTS: Record<string, { name: string; plan: string }[]> = {
-    Basic: [
-      { name: "Blackstone Academy", plan: "Basic" },
-      { name: "Blackstone Academy", plan: "Basic" },
-      { name: "Blackstone Academy", plan: "Basic" },
-    ],
-    Standard: [
-      { name: "Blackstone Academy", plan: "Standard" },
-      { name: "Blackstone Academy", plan: "Standard" },
-    ],
-    Premium: [
-      { name: "Blackstone Academy", plan: "Premium" },
-      { name: "Blackstone Academy", plan: "Premium" },
-    ],
+  const mapRoomToUser = (r: any): IUser => {
+    const id = extractRoomId(r);
+    const roomType = normalizeRoomType(r?.type);
+    const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
+
+    const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
+      ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
+      : [];
+
+    const members = rawTenantIds.map((tid) => ({
+      name: tid,
+      plan: r?.planName ?? "",
+    }));
+
+    return {
+      _id: id || `room-${Math.random().toString(36).slice(2)}`,
+      userName: r?.name ?? r?.roomCode ?? "Untitled Room",
+      email: "room@example.com",
+      role: isGroup ? ["Group"] : ["Tenant"],
+      status: r?.isEnabled ? "online" : "offline",
+      lastSeen: r?.lastMessageAt
+        ? formatMessageTime(r.lastMessageAt)
+        : "recently",
+      isGroup,
+      roomType,
+      plan: r?.planName ?? "",
+      members,
+      groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
+      lastMessage: r?.lastMessage
+        ? {
+          text: r.lastMessage.message ?? "",
+          time: formatMessageTime(
+            r.lastMessage.createdAt ?? r.lastMessageAt
+          ),
+          senderName: r.lastMessage.senderName ?? "",
+        }
+        : undefined,
+    };
   };
 
   // ─────────────────────────────────────────────
-  // People options (individual users)
+  // Fetch rooms
+  //   Master list = data.all.rooms
+  //   Split by roomType into the three tabs
   // ─────────────────────────────────────────────
-  const peopleOptions = useMemo(
-    () => users.filter((u) => !u.role.includes("Group")),
-    [users]
+  const fetchRooms = async () => {
+    setRoomsLoading(true);
+    try {
+      const res = await fetch(
+        `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}`,
+        { cache: "no-store" }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`GET /chat-room failed: ${res.status}`, errText);
+        setAllRooms([]);
+        setUnreadRooms([]);
+        setGroupRooms([]);
+        return;
+      }
+
+      const json = await res.json();
+      const d = json?.data ?? {};
+
+      const allRaw: any[] = Array.isArray(d?.all?.rooms) ? d.all.rooms : [];
+      const unreadRaw: any[] = Array.isArray(d?.unread?.rooms)
+        ? d.unread.rooms
+        : [];
+
+      const mappedAll = allRaw.map(mapRoomToUser).filter((r) => r._id);
+      const mappedUnread = unreadRaw.map(mapRoomToUser).filter((r) => r._id);
+
+      // ── Strict split ──
+      // Groups tab → SEGMENT and GLOBAL
+      const groupList = mappedAll.filter(
+        (r) => r.roomType === "SEGMENT" || r.roomType === "GLOBAL"
+      );
+
+      // All tab → ONLY TENANT (individuals)
+      const individualList = mappedAll.filter((r) => r.roomType === "TENANT");
+
+      console.log("✅ rooms loaded:", {
+        all: individualList.length,
+        unread: mappedUnread.length,
+        groups: groupList.length,
+      });
+
+      setAllRooms(individualList);
+      setUnreadRooms(mappedUnread);
+      setGroupRooms(groupList);
+    } catch (err) {
+      console.error("❌ fetchRooms failed:", err);
+      setAllRooms([]);
+      setUnreadRooms([]);
+      setGroupRooms([]);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRooms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─────────────────────────────────────────────
+  // Tab counts
+  // ─────────────────────────────────────────────
+  const tabCounts = useMemo(
+    () => ({
+      all: allRooms.length,
+      unread: unreadRooms.length,
+      groups: groupRooms.length,
+    }),
+    [allRooms, unreadRooms, groupRooms]
   );
 
-  const filteredPeople = useMemo(() => {
-    if (!peopleSearch.trim()) return peopleOptions;
-    const t = peopleSearch.toLowerCase();
-    return peopleOptions.filter(
-      (p) =>
-        p.userName.toLowerCase().includes(t) ||
-        p.email.toLowerCase().includes(t)
-    );
-  }, [peopleOptions, peopleSearch]);
+  // ─────────────────────────────────────────────
+  // Visible rooms per tab
+  // ─────────────────────────────────────────────
+  const visibleRooms = useMemo(() => {
+    const source: IUser[] =
+      activeTab === "all"
+        ? allRooms
+        : activeTab === "unread"
+          ? unreadRooms
+          : groupRooms;
+
+    let result = [...source];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.userName.toLowerCase().includes(q) ||
+          r.plan?.toLowerCase().includes(q) ||
+          r.members?.some((m) => m.name.toLowerCase().includes(q))
+      );
+    }
+
+    return result;
+  }, [activeTab, allRooms, unreadRooms, groupRooms, searchQuery]);
+
+  // ─────────────────────────────────────────────
+  // People options
+  // ─────────────────────────────────────────────
+  const peopleOptions = useMemo(
+    () => [...allRooms, ...groupRooms].filter((u) => !u.role.includes("Group")),
+    [allRooms, groupRooms]
+  );
 
   const toggleSelectedPerson = (id: string) => {
+    if (!id || typeof id !== "string") return;
     setAddGroupData((prev) => {
       const exists = prev.selectedPeople.includes(id);
       return {
@@ -584,36 +641,135 @@ const Message = () => {
   };
 
   // ─────────────────────────────────────────────
-  // All member options (plan tenants + individuals)
+  // Fetch plans when Add Group modal opens
   // ─────────────────────────────────────────────
-  const memberOptions = useMemo(() => {
-    const fromPlans: { id: string; name: string; plan: string }[] = [];
-    Object.entries(PLAN_TENANTS).forEach(([planKey, arr]) => {
-      arr.forEach((m, i) => {
-        fromPlans.push({
-          id: `plan-${planKey}-${i}`,
-          name: m.name,
-          plan: m.plan,
+  useEffect(() => {
+    if (!showAddGroup) return;
+    let cancelled = false;
+
+    (async () => {
+      setPlansLoading(true);
+      try {
+        const res = await fetch(API_ACTIVE_PLANS, { cache: "no-store" });
+        const json = await res.json();
+
+        if (!cancelled && json?.success && Array.isArray(json.data)) {
+          const list: IPlan[] = json.data
+            .map((p: any) => ({
+              _id: p?._id ?? p?.id ?? "",
+              planName: p?.planName ?? p?.name ?? "",
+              status: p?.status ?? "Active",
+            }))
+            .filter((p: IPlan) => p._id && p.planName);
+
+          setPlans(list);
+
+          if (list.length > 0) {
+            const first = list[0];
+            setAddGroupData((prev) => ({
+              ...prev,
+              planId: first._id,
+              planName: first.planName,
+              selectedPeople: [],
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch plans:", err);
+      } finally {
+        if (!cancelled) setPlansLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showAddGroup]);
+
+  // ─────────────────────────────────────────────
+  // Fetch tenants per plan
+  // ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!showAddGroup) return;
+    if (!addGroupData.planId) {
+      setPlanTenants([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setPlanTenantsLoading(true);
+      try {
+        const res = await fetch(API_TENANTS_BY_PLAN(addGroupData.planId), {
+          cache: "no-store",
         });
-      });
-    });
+        const json = await res.json();
 
-    const fromUsers: { id: string; name: string; plan: string }[] =
-      peopleOptions.map((u) => ({
-        id: u._id,
-        name: u.userName,
-        plan: u.plan ?? addGroupData.plan,
-      }));
+        const rawList: any[] = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.data?.tenants)
+            ? json.data.tenants
+            : Array.isArray(json?.tenants)
+              ? json.tenants
+              : Array.isArray(json?.data?.records)
+                ? json.data.records
+                : [];
 
-    const merged = [...fromPlans, ...fromUsers];
-    return merged.filter(
-      (m, i, arr) =>
-        arr.findIndex(
-          (x) => x.name === m.name && x.plan === m.plan
-        ) === i
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [peopleOptions, addGroupData.plan]);
+        const normalized: IPlanTenant[] = rawList
+          .map((t: any) => {
+            const id = extractTenantId(t);
+            return {
+              _id: id,
+              tenantName:
+                t?.tenantName ??
+                t?.name ??
+                t?.tenant?.tenantName ??
+                t?.tenant?.name ??
+                "Unnamed Tenant",
+              plan:
+                t?.plan ??
+                t?.planName ??
+                t?.tenant?.plan ??
+                t?.tenant?.planName ??
+                addGroupData.planName,
+              planName: t?.planName ?? t?.plan,
+            } as IPlanTenant;
+          })
+          .filter((t) => t._id && t._id.trim().length > 0);
+
+        if (!cancelled) {
+          setPlanTenants(normalized);
+          setAddGroupData((prev) => ({
+            ...prev,
+            selectedPeople: normalized.map((t) => t._id),
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch plan tenants:", err);
+        if (!cancelled) {
+          setPlanTenants([]);
+          setAddGroupData((prev) => ({ ...prev, selectedPeople: [] }));
+        }
+      } finally {
+        if (!cancelled) setPlanTenantsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showAddGroup, addGroupData.planId]);
+
+  const memberOptions = useMemo(
+    () =>
+      planTenants.map((t) => ({
+        id: t._id,
+        name: t.tenantName || t.name || "Unnamed Tenant",
+        plan: t.plan || t.planName || addGroupData.planName,
+      })),
+    [planTenants, addGroupData.planName]
+  );
 
   const selectedMembers = useMemo(
     () =>
@@ -622,49 +778,6 @@ const Message = () => {
       ),
     [memberOptions, addGroupData.selectedPeople]
   );
-
-  // Auto-check plan members on plan change
-  useEffect(() => {
-    setAddGroupData((prev) => ({
-      ...prev,
-      selectedPeople: memberOptions
-        .filter((m) => m.plan === prev.plan)
-        .map((m) => m.id),
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addGroupData.plan, memberOptions.length]);
-
-  // ─────────────────────────────────────────────
-  // Filtered users (left chat list)
-  // ─────────────────────────────────────────────
-  const filteredUsers = useMemo(() => {
-    let result = [...users];
-
-    if (activeTab === "all") {
-      result = result.filter((u) => !u.role.includes("Group"));
-    } else if (activeTab === "unread") {
-      result = result.filter((user) => {
-        const msgs = allMessages.find((g) => g._id === user._id)?.messages;
-        return msgs?.some((m) => !m.isRead);
-      });
-    } else if (activeTab === "groups") {
-      result = result.filter((u) => u.role.includes("Group"));
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.userName.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q) ||
-          u.role.some((r) => r.toLowerCase().includes(q))
-      );
-    }
-
-    return result;
-  }, [users, activeTab, searchQuery, allMessages]);
-
-  const handleUserClick = (user: IUser) => setSelectedUser(user);
 
   const selectedMessages = useMemo(() => {
     if (!selectedUser) return [];
@@ -681,44 +794,6 @@ const Message = () => {
     setEditingName(false);
     setAttachmentMenuOpen(false);
   }, [selectedUser?._id]);
-
-  // Simulated read receipts
-  useEffect(() => {
-    if (!selectedUser) return;
-
-    const pending = (
-      allMessages.find((g) => g._id === selectedUser._id)?.messages ?? []
-    ).filter((m) => m.senderId === currentUser.userId && !m.seenAt);
-
-    const timers = pending.map((m) =>
-      setTimeout(() => {
-        setAllMessages((prev) =>
-          prev.map((g) =>
-            g._id !== selectedUser._id
-              ? g
-              : {
-                ...g,
-                messages: g.messages.map((x) =>
-                  x._id === m._id
-                    ? {
-                      ...x,
-                      seenAt: new Date().toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }),
-                      isRead: true,
-                      notificationStatus: "Seen",
-                    }
-                    : x
-                ),
-              }
-          )
-        );
-      }, 3000)
-    );
-
-    return () => timers.forEach(clearTimeout);
-  }, [allMessages, selectedUser]);
 
   // ─────────────────────────────────────────────
   // Send message
@@ -746,7 +821,6 @@ const Message = () => {
       isRead: false,
       status: "Active",
       deliveredAt: timeStr,
-      seenAt: undefined,
       replyTo: replyTo
         ? {
           _id: replyTo._id,
@@ -783,9 +857,6 @@ const Message = () => {
     setEditingName(false);
   };
 
-  // ─────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "online":
@@ -811,9 +882,6 @@ const Message = () => {
     return acc;
   }, {} as Record<string, IMessage[]>);
 
-  // ─────────────────────────────────────────────
-  // Group menu actions
-  // ─────────────────────────────────────────────
   const handleOpenGroupDetails = () => {
     setShowGroupMenu(false);
     setEditGroupImagePreview(selectedUser?.profileImage ?? null);
@@ -824,22 +892,16 @@ const Message = () => {
     if (!selectedUser) return;
     const deletedId = selectedUser._id;
 
-    try {
-      setUsers((prev) => prev.filter((u) => u._id !== deletedId));
-      setAllMessages((prev) => prev.filter((g) => g._id !== deletedId));
-      setSelectedUser((prev) =>
-        prev?._id === deletedId
-          ? users.find((u) => u._id !== deletedId) ?? null
-          : prev
-      );
+    setAllRooms((prev) => prev.filter((u) => u._id !== deletedId));
+    setGroupRooms((prev) => prev.filter((u) => u._id !== deletedId));
+    setUnreadRooms((prev) => prev.filter((u) => u._id !== deletedId));
+    setAllMessages((prev) => prev.filter((g) => g._id !== deletedId));
+    setSelectedUser((prev) => (prev?._id === deletedId ? null : prev));
 
-      setShowDeleteConfirm(false);
-      setShowGroupDetails(false);
-      setShowGroupMenu(false);
-      setEditGroupImagePreview(null);
-    } catch (err) {
-      console.error("Failed to delete group:", err);
-    }
+    setShowDeleteConfirm(false);
+    setShowGroupDetails(false);
+    setShowGroupMenu(false);
+    setEditGroupImagePreview(null);
   };
 
   const handleClearChat = () => {
@@ -859,51 +921,121 @@ const Message = () => {
     setSelectedUser(null);
   };
 
-  // ─────────────────────────────────────────────
-  // Create Group (from combined member list)
-  // ─────────────────────────────────────────────
-  const handleCreateGroup = () => {
-    const members = memberOptions
-      .filter((m) => addGroupData.selectedPeople.includes(m.id))
-      .map((m) => ({ name: m.name, plan: m.plan }));
+  const handleCreateGroup = async () => {
+    if (!addGroupData.groupName.trim()) {
+      setCreateGroupError("Group name is required");
+      return;
+    }
+    if (!addGroupData.planId) {
+      setCreateGroupError("Please select a plan");
+      return;
+    }
 
-    const newGroup: IUser = {
-      _id: `group-${Date.now()}`,
-      userName: addGroupData.groupName,
-      email: "group@example.com",
-      role: ["Group"],
-      status: "online",
-      lastSeen: "just now",
-      isGroup: true,
-      plan: addGroupData.plan,
-      profileImage: addGroupData.profilePreview ?? undefined,
-      members,
-      groupSettings: "everyone",
-    };
+    const participants = (addGroupData.selectedPeople || []).filter(
+      (id): id is string => typeof id === "string" && id.trim().length > 0
+    );
 
-    setUsers((prev) => [newGroup, ...prev]);
-    setSelectedUser(newGroup);
-    setShowAddGroup(false);
-    setAddGroupData({
-      groupName: "Basic Plan",
-      plan: "Basic",
-      profileImage: null,
-      profilePreview: null,
-      selectedPeople: [],
-    });
+    if (participants.length === 0) {
+      setCreateGroupError("No valid members selected.");
+      return;
+    }
+
+    setCreateGroupError(null);
+    setIsCreatingGroup(true);
+
+    try {
+      const safeStr = (v: unknown, fallback = ""): string =>
+        typeof v === "string" && v.trim() ? v : fallback;
+
+      const groupNameSafe = safeStr(addGroupData.groupName, "Untitled Group");
+      const planNameSafe = safeStr(addGroupData.planName, "Default");
+      const descriptionSafe = safeStr(addGroupData.description, " ");
+
+      const payload = {
+        name: groupNameSafe,
+        title: groupNameSafe,
+        roomName: groupNameSafe,
+        groupName: groupNameSafe,
+        description: descriptionSafe,
+        type: "SEGMENT",
+        roomType: "SEGMENT",
+        planId: addGroupData.planId,
+        planName: planNameSafe,
+        participants,
+        tenantIds: participants,
+        memberIds: participants,
+        createdBy: currentUser.userId,
+        creatorId: currentUser.userId,
+        adminId: currentUser.userId,
+        sendAccess: "EVERYONE",
+        settings: "everyone",
+        status: "ACTIVE",
+      };
+
+      const res = await fetch(API_CREATE_CHAT_ROOM, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      console.log("POST /chat-room →", res.status, text);
+
+      let json: any = {};
+      try {
+        json = JSON.parse(text);
+      } catch { }
+
+      if (!res.ok || json?.success === false) {
+        const serverMsg =
+          json?.message ||
+          json?.error ||
+          (json?.errors ? JSON.stringify(json.errors) : "") ||
+          text ||
+          `HTTP ${res.status}`;
+        throw new Error(serverMsg);
+      }
+
+      setShowAddGroup(false);
+      setAddGroupData({
+        groupName: "New Group",
+        description: "",
+        planId: "",
+        planName: "",
+        profileImage: null,
+        profilePreview: null,
+        selectedPeople: [],
+      });
+      setPlanTenants([]);
+      setPlans([]);
+
+      setTimeout(() => {
+        fetchRooms();
+      }, 500);
+    } catch (err: any) {
+      console.error("Create group failed:", err);
+      setCreateGroupError(err?.message || "Failed to create group");
+    } finally {
+      setIsCreatingGroup(false);
+    }
   };
 
   const handleSaveGroupDetails = () => {
     if (!selectedUser) return;
-
-    setUsers((prev) =>
+    setAllRooms((prev) =>
       prev.map((u) =>
         u._id === selectedUser._id
           ? { ...u, profileImage: editGroupImagePreview ?? u.profileImage }
           : u
       )
     );
-
+    setGroupRooms((prev) =>
+      prev.map((u) =>
+        u._id === selectedUser._id
+          ? { ...u, profileImage: editGroupImagePreview ?? u.profileImage }
+          : u
+      )
+    );
     setSelectedUser((prev) =>
       prev
         ? {
@@ -912,7 +1044,6 @@ const Message = () => {
         }
         : prev
     );
-
     setShowGroupDetails(false);
   };
 
@@ -923,7 +1054,6 @@ const Message = () => {
     <BaseLayout3>
       <SuperAdminHeader currentSection="Chats" />
       <div className="min-h-screen rounded-2xl bg-[#F5F7FC] dark:bg-[#1F1F1F] p-4 md:p-6">
-        {/* PAGE HEADER */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-[22px] font-semibold text-[#010E30] dark:text-white">
             Institute Chats
@@ -936,7 +1066,6 @@ const Message = () => {
           </button>
         </div>
 
-        {/* MAIN CONTAINER */}
         <div className="flex flex-col md:flex-row gap-3 md:h-[calc(100vh-105px)]">
           {/* LEFT PANEL */}
           <div className="w-full md:w-[350px] md:flex-shrink-0 bg-white dark:bg-[#343434] rounded-lg shadow-sm border border-[#E8EAF0] dark:border-[#3F3F3F] flex flex-col">
@@ -957,7 +1086,6 @@ const Message = () => {
                     {currentUser.role}
                   </p>
                 </div>
-
                 <button
                   onClick={() => setShowAddGroup(true)}
                   title="Add Group"
@@ -973,112 +1101,130 @@ const Message = () => {
             </div>
 
             <div className="px-3 pt-3">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <FiSearch
-                    size={13}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE] dark:text-[#8a8a8a]"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search by keyword"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-8 pl-9 pr-3 border border-[#DDDFE6] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md text-[12px] text-[#252B3A] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
-                  />
-                </div>
+              <div className="relative flex-1">
+                <FiSearch
+                  size={13}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE] dark:text-[#8a8a8a]"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by keyword"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-8 pl-9 pr-3 border border-[#DDDFE6] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md text-[12px] text-[#252B3A] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
+                />
               </div>
             </div>
 
-            <div className="flex items-center px-3 mt-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F]">
-              {(["all", "unread", "groups"] as const).map((tab) => (
+            {/* TABS */}
+            <div className="flex items-center px-3 mt-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F] gap-2">
+              {(
+                [
+                  { key: "all", label: "All", count: tabCounts.all },
+                  { key: "unread", label: "Unread", count: tabCounts.unread },
+                  { key: "groups", label: "Groups", count: tabCounts.groups },
+                ] as const
+              ).map((tab) => (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`text-[12px] px-3 py-2 capitalize transition ${activeTab === tab
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`text-[12px] px-3 py-2 capitalize transition flex items-center gap-1 ${activeTab === tab.key
                     ? "text-[#576CBC] border-b-2 border-[#576CBC] font-medium"
                     : "text-[#6D7280] dark:text-[#B5B5B5]"
                     }`}
                 >
-                  {tab}
+                  {tab.label}
+                  <span
+                    className={`text-[10px] px-1.5 py-[1px] rounded-full ${activeTab === tab.key
+                      ? "bg-[#E6EAF2] text-[#576CBC]"
+                      : "bg-gray-100 dark:bg-[#2c2c2c] text-gray-500"
+                      }`}
+                  >
+                    {tab.count}
+                  </span>
                 </button>
               ))}
             </div>
 
+            {/* ROOM LIST */}
             <div className="flex-1 overflow-y-auto max-h-[400px] md:max-h-none">
-              <AnimatePresence>
-                {filteredUsers.map((user) => {
-                  const userMessages =
-                    allMessages.find((g) => g._id === user._id)?.messages || [];
-                  const lastMessage = userMessages[userMessages.length - 1];
-                  const unread = userMessages.some((m) => !m.isRead);
-                  const planColor = getPlanColor(user.plan);
+              {roomsLoading ? (
+                <p className="py-6 text-center text-[11px] text-gray-400">
+                  Loading chats…
+                </p>
+              ) : visibleRooms.length === 0 ? (
+                <p className="py-6 text-center text-[11px] text-gray-400">
+                  {activeTab === "groups"
+                    ? "No groups yet — create one"
+                    : activeTab === "unread"
+                      ? "No unread chats"
+                      : "No chats"}
+                </p>
+              ) : (
+                <AnimatePresence>
+                  {visibleRooms.map((room) => {
+                    const planColor = getPlanColor(room.plan);
 
-                  return (
-                    <motion.button
-                      key={user._id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F] ${selectedUser?._id === user._id
-                        ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]"
-                        : ""
-                        }`}
-                      onClick={() => handleUserClick(user)}
-                    >
-                      <div className="relative flex-shrink-0">
-                        <div className="w-8 h-8 rounded-md bg-[#E7E8EC] dark:bg-[#242424] flex items-center justify-center overflow-hidden">
-                          {user.profileImage ? (
-                            <img
-                              src={user.profileImage}
-                              alt={user.userName}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-[12px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
-                              {user.userName?.charAt(0)?.toUpperCase() ?? "B"}
-                            </span>
-                          )}
+                    return (
+                      <motion.button
+                        key={room._id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F] ${selectedUser?._id === room._id
+                          ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]"
+                          : ""
+                          }`}
+                        onClick={() => setSelectedUser(room)}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <div className="w-8 h-8 rounded-md bg-[#E7E8EC] dark:bg-[#242424] flex items-center justify-center overflow-hidden">
+                            {room.profileImage ? (
+                              <img
+                                src={room.profileImage}
+                                alt={room.userName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[12px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
+                                {room.userName?.charAt(0)?.toUpperCase() ?? "B"}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
+                              room.status
+                            )}`}
+                          />
                         </div>
-                        <span
-                          className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
-                            user.status
-                          )}`}
-                        />
-                      </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[12px] font-semibold text-[#252B3A] dark:text-white truncate">
-                            {user.userName}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[12px] font-semibold text-[#252B3A] dark:text-white truncate">
+                              {room.userName}
+                            </span>
+                            {room.plan && (
+                              <span
+                                className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}
+                              >
+                                {room.plan}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-[#989DA8] dark:text-[#8a8a8a] truncate mt-[2px]">
+                            {room.lastMessage?.text || "No messages yet"}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className="text-[10px] text-[#A2A6AF] dark:text-[#8a8a8a]">
+                            {room.lastMessage?.time || room.lastSeen}
                           </span>
-                          {user.plan && (
-                            <span
-                              className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}
-                            >
-                              {user.plan}
-                            </span>
-                          )}
                         </div>
-                        <p className="text-[12px] text-[#989DA8] dark:text-[#8a8a8a] truncate mt-[2px]">
-                          {lastMessage?.messages ||
-                            (lastMessage?.attachment
-                              ? `📎 ${lastMessage.attachment.name}`
-                              : "No messages yet")}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <span className="text-[10px] text-[#A2A6AF] dark:text-[#8a8a8a]">
-                          {lastMessage ? lastMessage.time : user.lastSeen}
-                        </span>
-                        {unread && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#576CBC]" />
-                        )}
-                      </div>
-                    </motion.button>
-                  );
-                })}
-              </AnimatePresence>
+                      </motion.button>
+                    );
+                  })}
+                </AnimatePresence>
+              )}
             </div>
           </div>
 
@@ -1113,7 +1259,6 @@ const Message = () => {
                       <h3 className="text-[13px] font-semibold text-[#252B3A] dark:text-white truncate">
                         {selectedUser.userName}
                       </h3>
-
                       {selectedUser.role.includes("Group") ? (
                         <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] flex items-center gap-1">
                           Members
@@ -1136,7 +1281,6 @@ const Message = () => {
                     >
                       <FiMoreVertical size={15} />
                     </button>
-
                     {showGroupMenu && (
                       <div className="absolute right-0 top-10 z-40 w-[160px] bg-white dark:bg-[#2c2c2c] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
                         <button
@@ -1170,7 +1314,6 @@ const Message = () => {
                           {date}
                         </span>
                       </div>
-
                       {msgs.map((msg) => {
                         const isMine = msg.senderId === currentUser.userId;
                         return (
@@ -1209,27 +1352,6 @@ const Message = () => {
                                       : "bg-white text-[#252B3A] dark:bg-[#2A2A2A] dark:text-white"
                                       }`}
                                   >
-                                    <div
-                                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md ${isMine
-                                        ? "bg-white/20"
-                                        : "bg-[#E6EAF2] dark:bg-[#3A4570]"
-                                        }`}
-                                    >
-                                      <svg
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke={isMine ? "#fff" : "#576CBC"}
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                      >
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                      </svg>
-                                    </div>
-
                                     <div className="min-w-0 flex-1">
                                       <p className="truncate text-[10px] font-medium">
                                         {msg.attachment.name}
@@ -1243,21 +1365,6 @@ const Message = () => {
                                         {formatFileSize(msg.attachment.size)}
                                       </p>
                                     </div>
-
-                                    {msg.attachment.url && (
-                                      <a
-                                        href={msg.attachment.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        download={msg.attachment.name}
-                                        className={`flex-shrink-0 text-[10px] underline ${isMine
-                                          ? "text-white/80"
-                                          : "text-[#576CBC]"
-                                          }`}
-                                      >
-                                        Open
-                                      </a>
-                                    )}
                                   </div>
                                 )}
 
@@ -1309,8 +1416,7 @@ const Message = () => {
                       </div>
                       <button
                         onClick={() => setReplyTo(null)}
-                        className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                        aria-label="Cancel reply"
+                        className="ml-2 text-gray-400"
                       >
                         ✕
                       </button>
@@ -1319,22 +1425,6 @@ const Message = () => {
 
                   {pendingAttachment && (
                     <div className="mb-2 flex items-center gap-2 rounded-md border border-[#E6EAF2] bg-[#F8F9FC] px-2 py-1.5 dark:border-[#4A4A4A] dark:bg-[#2c2c2c]">
-                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-[#E6EAF2] dark:bg-[#3A4570]">
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#576CBC"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
-                        </svg>
-                      </div>
-
                       <div className="min-w-0 flex-1">
                         {editingName ? (
                           <input
@@ -1350,29 +1440,21 @@ const Message = () => {
                                 setEditingName(false);
                               }
                             }}
-                            className="w-full rounded border border-[#576CBC] bg-white px-1 py-[1px] text-[11px] font-medium text-[#252B3A] outline-none dark:bg-[#343434] dark:text-white"
+                            className="w-full rounded border border-[#576CBC] bg-white px-1 py-[1px] text-[11px] dark:bg-[#343434] dark:text-white"
                           />
                         ) : (
                           <button
                             type="button"
                             onClick={() => setEditingName(true)}
-                            title="Click to rename"
-                            className="block max-w-full truncate text-left text-[11px] font-medium text-[#252B3A] hover:text-[#576CBC] dark:text-white dark:hover:text-[#A8B7E8]"
+                            className="block max-w-full truncate text-left text-[11px] font-medium text-[#252B3A] hover:text-[#576CBC] dark:text-white"
                           >
                             {pendingName || pendingAttachment.name}
                           </button>
                         )}
-                        <p className="text-[10px] text-[#8C919C] dark:text-[#8a8a8a]">
+                        <p className="text-[10px] text-[#8C919C]">
                           {formatFileSize(pendingAttachment.size)}
-                          {pendingName &&
-                            pendingName !== pendingAttachment.name && (
-                              <span className="ml-1 text-[#576CBC]">
-                                · renamed
-                              </span>
-                            )}
                         </p>
                       </div>
-
                       <button
                         type="button"
                         onClick={() => {
@@ -1380,8 +1462,7 @@ const Message = () => {
                           setPendingName("");
                           setEditingName(false);
                         }}
-                        className="ml-1 flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                        aria-label="Remove attachment"
+                        className="ml-1 text-gray-400"
                       >
                         ✕
                       </button>
@@ -1394,11 +1475,9 @@ const Message = () => {
                         type="button"
                         onClick={() => setAttachmentMenuOpen((o) => !o)}
                         className="p-2 text-[#8E939D] dark:text-[#B5B5B5] hover:text-[#576CBC]"
-                        aria-label="Attach file"
                       >
                         <GrAttachment size={13} />
                       </button>
-
                       {attachmentMenuOpen && (
                         <div className="absolute bottom-10 left-0 z-40 w-32 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-[#454545] dark:bg-[#2C2C2C]">
                           <button
@@ -1407,7 +1486,7 @@ const Message = () => {
                               setAttachmentMenuOpen(false);
                               docInputRef.current?.click();
                             }}
-                            className="block w-full px-3 py-2 text-left text-[12px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+                            className="block w-full px-3 py-2 text-left text-[12px] text-gray-700 hover:bg-gray-100 dark:text-gray-200"
                           >
                             Document
                           </button>
@@ -1417,7 +1496,7 @@ const Message = () => {
                               setAttachmentMenuOpen(false);
                               fileInputRef.current?.click();
                             }}
-                            className="block w-full px-3 py-2 text-left text-[12px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+                            className="block w-full px-3 py-2 text-left text-[12px] text-gray-700 hover:bg-gray-100 dark:text-gray-200"
                           >
                             Files
                           </button>
@@ -1489,7 +1568,7 @@ const Message = () => {
           </div>
         </div>
 
-        {/* ═══════════ BROADCAST MODAL ═══════════ */}
+        {/* Broadcast modal */}
         <AnimatePresence>
           {showBroadcast && (
             <motion.div
@@ -1506,92 +1585,51 @@ const Message = () => {
                 onClick={(e) => e.stopPropagation()}
                 className="w-full max-w-[420px] bg-white dark:bg-[#343434] rounded-md shadow-xl"
               >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-[#3F3F3F]">
+                <div className="flex items-center justify-between px-4 py-3 border-b">
                   <h2 className="text-[16px] font-semibold text-[#010E30] dark:text-white">
                     Broadcast Chat
                   </h2>
                   <button
                     onClick={() => setShowBroadcast(false)}
-                    className="text-[#777D89] dark:text-[#B5B5B5] hover:text-[#010E30] dark:hover:text-white text-xl leading-none"
+                    className="text-[#777D89] text-xl"
                   >
                     ×
                   </button>
                 </div>
-
                 <div className="p-4 space-y-3">
-                  <div>
-                    <label className="block text-[12px] font-medium text-[#252B3A] dark:text-[#E2E2E2] mb-1">
-                      Message Title
-                    </label>
-                    <input
-                      type="text"
-                      value={broadcastData.messageTitle}
-                      onChange={(e) =>
-                        setBroadcastData({
-                          ...broadcastData,
-                          messageTitle: e.target.value,
-                        })
-                      }
-                      className="w-full h-9 border border-[#D9DBE2] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md px-3 text-[12px] text-[#252B3A] dark:text-[#E2E2E2] outline-none focus:border-[#576CBC]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[12px] font-medium text-[#252B3A] dark:text-[#E2E2E2] mb-1">
-                      Message
-                    </label>
-                    <textarea
-                      placeholder="Type your message..."
-                      value={broadcastData.message}
-                      onChange={(e) =>
-                        setBroadcastData({
-                          ...broadcastData,
-                          message: e.target.value,
-                        })
-                      }
-                      className="w-full h-[100px] border border-[#D9DBE2] dark:border-[#4A4A4A] bg-white dark:bg-[#2c2c2c] rounded-md p-2 text-[12px] text-[#252B3A] dark:text-[#E2E2E2] resize-none outline-none focus:border-[#576CBC]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[12px] font-medium text-[#252B3A] dark:text-[#E2E2E2] mb-1">
-                      Attachments
-                    </label>
-                    <div className="flex items-center border border-[#D9DBE2] dark:border-[#4A4A4A] rounded-md h-9 overflow-hidden">
-                      <span className="flex-1 px-3 text-[12px] text-[#777D89] dark:text-[#B5B5B5] truncate">
-                        {broadcastData.attachment
-                          ? broadcastData.attachment.name
-                          : "No file chosen"}
-                      </span>
-                      <label className="px-3 text-[11px] font-medium text-[#576CBC] cursor-pointer hover:bg-[#F2F4FF] dark:hover:bg-[#2A3550] h-full flex items-center">
-                        Upload
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) =>
-                            setBroadcastData({
-                              ...broadcastData,
-                              attachment: e.target.files?.[0] || null,
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-
+                  <input
+                    type="text"
+                    value={broadcastData.messageTitle}
+                    onChange={(e) =>
+                      setBroadcastData({
+                        ...broadcastData,
+                        messageTitle: e.target.value,
+                      })
+                    }
+                    placeholder="Message Title"
+                    className="w-full h-9 border border-[#D9DBE2] rounded-md px-3 text-[12px] dark:bg-[#2c2c2c] dark:text-white dark:border-[#4A4A4A]"
+                  />
+                  <textarea
+                    value={broadcastData.message}
+                    onChange={(e) =>
+                      setBroadcastData({
+                        ...broadcastData,
+                        message: e.target.value,
+                      })
+                    }
+                    placeholder="Type your message..."
+                    className="w-full h-[100px] border border-[#D9DBE2] rounded-md p-2 text-[12px] dark:bg-[#2c2c2c] dark:text-white dark:border-[#4A4A4A]"
+                  />
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       onClick={() => setShowBroadcast(false)}
-                      className="h-9 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold hover:bg-[#F2F4FF] dark:hover:bg-[#2A3550]"
+                      className="h-9 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        console.log("Broadcast Data:", broadcastData);
-                        setShowBroadcast(false);
-                      }}
-                      className="h-9 rounded-md bg-[#576CBC] hover:bg-[#4C61AA] text-white px-4 text-[12px] font-semibold"
+                      onClick={() => setShowBroadcast(false)}
+                      className="h-9 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold"
                     >
                       Send All Tenant
                     </button>
@@ -1602,7 +1640,7 @@ const Message = () => {
           )}
         </AnimatePresence>
 
-        {/* ═══════════ ADD GROUP MODAL ═══════════ */}
+        {/* Add Group modal */}
         <AnimatePresence>
           {showAddGroup && (
             <motion.div
@@ -1617,10 +1655,10 @@ const Message = () => {
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 20 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-[460px] max-h-[92vh] sm:max-h-[90vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                className="w-full sm:max-w-[460px] max-h-[92vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
               >
-                <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
-                  <h2 className="text-[16px] sm:text-[17px] font-semibold text-[#101B41] dark:text-white">
+                <div className="px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
+                  <h2 className="text-[16px] font-semibold text-[#101B41] dark:text-white">
                     Add Group
                   </h2>
                 </div>
@@ -1642,22 +1680,6 @@ const Message = () => {
                             </span>
                           )}
                         </div>
-
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#576CBC] border-2 border-white dark:border-[#2c2c2c] flex items-center justify-center shadow-sm">
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="white"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                          >
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                          </svg>
-                        </span>
-
                         <input
                           type="file"
                           accept="image/*"
@@ -1689,7 +1711,7 @@ const Message = () => {
                             groupName: e.target.value,
                           })
                         }
-                        className="w-full h-10 sm:h-9 rounded-md border border-[#D5D9E2] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 text-[12px] text-[#101B41] dark:text-white outline-none focus:border-[#576CBC]"
+                        className="w-full h-10 sm:h-9 rounded-md border border-[#D5D9E2] bg-white px-3 text-[12px] dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
                       />
                     </div>
                   </div>
@@ -1701,43 +1723,49 @@ const Message = () => {
                     <div className="relative">
                       <button
                         type="button"
+                        disabled={plansLoading || plans.length === 0}
                         onClick={() => setShowPlanDropdown((o) => !o)}
-                        className="w-full h-10 sm:h-9 rounded-md border border-[#D5D9E2] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 text-[12px] text-[#101B41] dark:text-white text-left flex items-center justify-between"
+                        className="w-full h-10 sm:h-9 rounded-md border border-[#D5D9E2] bg-white px-3 text-[12px] text-left flex items-center justify-between disabled:opacity-60 dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
                       >
                         <span className="flex items-center gap-2">
                           <span
                             className="w-2 h-2 rounded-full"
                             style={{
-                              backgroundColor: getPlanColor(addGroupData.plan)
-                                .dot,
+                              backgroundColor: getPlanColor(
+                                addGroupData.planName
+                              ).dot,
                             }}
                           />
-                          {addGroupData.plan}
+                          {plansLoading
+                            ? "Loading plans…"
+                            : addGroupData.planName || "Select Plan"}
                         </span>
-                        <IoChevronDown className="text-[#777D89] dark:text-[#B5B5B5]" />
+                        <IoChevronDown className="text-[#777D89]" />
                       </button>
 
-                      {showPlanDropdown && (
-                        <div className="absolute left-0 right-0 top-11 sm:top-10 z-20 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#3A3A3A] shadow-lg overflow-hidden">
-                          {["Basic", "Standard", "Premium"].map((plan) => {
-                            const c = getPlanColor(plan);
+                      {showPlanDropdown && plans.length > 0 && (
+                        <div className="absolute left-0 right-0 top-11 z-20 max-h-[220px] overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:bg-[#3A3A3A] dark:border-gray-700">
+                          {plans.map((plan) => {
+                            const c = getPlanColor(plan.planName);
                             return (
                               <button
-                                key={plan}
+                                key={plan._id}
                                 onClick={() => {
                                   setAddGroupData((prev) => ({
                                     ...prev,
-                                    plan,
+                                    planId: plan._id,
+                                    planName: plan.planName,
+                                    selectedPeople: [],
                                   }));
                                   setShowPlanDropdown(false);
                                 }}
-                                className="flex w-full items-center gap-2 px-3 py-2.5 sm:py-2 text-[12px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-[12px] hover:bg-gray-100 dark:text-gray-200"
                               >
                                 <span
                                   className="w-2 h-2 rounded-full"
                                   style={{ backgroundColor: c.dot }}
                                 />
-                                {plan}
+                                {plan.planName}
                               </button>
                             );
                           })}
@@ -1747,19 +1775,40 @@ const Message = () => {
                   </div>
 
                   <div>
-                    <div className="mb-2 flex items-center justify-between rounded-t-md border border-b-0 border-[#E6EAF2] dark:border-[#4A4A4A] bg-[#F8F9FC] dark:bg-[#2c2c2c] px-3 py-2">
-                      <span className="text-[12px] sm:text-[13px] font-medium text-[#101B41] dark:text-white truncate">
+                    <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
+                      Description
+                    </label>
+                    <textarea
+                      value={addGroupData.description}
+                      onChange={(e) =>
+                        setAddGroupData((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      placeholder="Short description..."
+                      rows={2}
+                      className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2 text-[12px] resize-none dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between rounded-t-md border border-b-0 border-[#E6EAF2] bg-[#F8F9FC] px-3 py-2 dark:bg-[#2c2c2c] dark:border-[#4A4A4A]">
+                      <span className="text-[12px] font-medium text-[#101B41] dark:text-white">
                         Select Members
                       </span>
-                      <span className="rounded-md bg-[#E6F0EC] text-[#2F7A5C] px-2 py-0.5 text-[11px] font-semibold flex-shrink-0 ml-2">
+                      <span className="rounded-md bg-[#E6F0EC] text-[#2F7A5C] px-2 py-0.5 text-[11px] font-semibold">
                         {String(selectedMembers.length).padStart(2, "0")} selected
                       </span>
                     </div>
-
-                    <div className="max-h-[240px] sm:max-h-[280px] overflow-y-auto rounded-b-md border border-[#E6EAF2] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] p-2 space-y-1">
-                      {memberOptions.length === 0 ? (
+                    <div className="max-h-[240px] overflow-y-auto rounded-b-md border border-[#E6EAF2] bg-white p-2 space-y-1 dark:bg-[#343434] dark:border-[#4A4A4A]">
+                      {planTenantsLoading ? (
                         <p className="py-4 text-center text-[11px] text-gray-400">
-                          No members available
+                          Loading members…
+                        </p>
+                      ) : memberOptions.length === 0 ? (
+                        <p className="py-4 text-center text-[11px] text-gray-400">
+                          No members found for this plan
                         </p>
                       ) : (
                         memberOptions.map((member) => {
@@ -1777,13 +1826,13 @@ const Message = () => {
                                 onChange={() =>
                                   toggleSelectedPerson(member.id)
                                 }
-                                className="h-3.5 w-3.5 accent-[#576CBC] flex-shrink-0"
+                                className="h-3.5 w-3.5 accent-[#576CBC]"
                               />
                               <span className="flex-1 truncate text-[#101B41] dark:text-white">
                                 {member.name}
                               </span>
                               <span
-                                className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${c.bg} ${c.text}`}
+                                className={`text-[10px] px-1.5 py-[1px] rounded ${c.bg} ${c.text}`}
                               >
                                 {member.plan}
                               </span>
@@ -1795,26 +1844,36 @@ const Message = () => {
                   </div>
                 </div>
 
-                <div className="flex-shrink-0 flex justify-end gap-2 sm:gap-3 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c]">
-                  <button
-                    onClick={() => setShowAddGroup(false)}
-                    className="flex-1 sm:flex-none h-10 sm:h-9 rounded-md border border-[#576CBC] text-[#576CBC] px-4 sm:px-5 text-[12px] font-semibold hover:bg-[#F2F4FF] dark:hover:bg-[#2A3550]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreateGroup}
-                    className="flex-1 sm:flex-none h-10 sm:h-9 rounded-md bg-[#576CBC] hover:bg-[#4C61AA] text-white px-4 sm:px-5 text-[12px] font-semibold"
-                  >
-                    Done
-                  </button>
+                <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
+                  {createGroupError ? (
+                    <span className="text-[11px] text-red-500">
+                      {createGroupError}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowAddGroup(false)}
+                      className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateGroup}
+                      disabled={isCreatingGroup}
+                      className="h-10 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold disabled:opacity-60"
+                    >
+                      {isCreatingGroup ? "Creating…" : "Done"}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ═══════════ GROUP DETAILS MODAL ═══════════ */}
+        {/* Group Details modal */}
         <AnimatePresence>
           {showGroupDetails && selectedUser && (
             <motion.div
@@ -1829,77 +1888,64 @@ const Message = () => {
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 20 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-[460px] max-h-[92vh] sm:max-h-[90vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                className="w-full sm:max-w-[460px] max-h-[92vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
               >
-                <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
-                  <h2 className="text-[16px] sm:text-[17px] font-semibold text-[#101B41] dark:text-white">
+                <div className="px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F]">
+                  <h2 className="text-[16px] font-semibold text-[#101B41] dark:text-white">
                     Group Details
                   </h2>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                    <div className="relative self-start">
-                      <label className="cursor-pointer block">
-                        <div className="w-[66px] h-[66px] rounded-2xl bg-[#E7E8EC] dark:bg-[#3A3A3A] flex items-center justify-center overflow-hidden">
-                          {editGroupImagePreview || selectedUser.profileImage ? (
-                            <img
-                              src={
-                                editGroupImagePreview ||
-                                selectedUser.profileImage ||
-                                ""
-                              }
-                              alt={selectedUser.userName}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-[28px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
-                              {selectedUser.userName
-                                ?.charAt(0)
-                                ?.toUpperCase() ?? "G"}
-                            </span>
-                          )}
-                        </div>
-
-                        <img
-                          src="/assets/images/superadmin-chatandsupport-editgroupicon.svg"
-                          alt="Edit"
-                          className="absolute -top-1 -right-1 w-4 h-4 object-contain"
-                        />
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] ?? null;
-                            setEditGroupImagePreview(
-                              file ? URL.createObjectURL(file) : null
-                            );
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
+                  <div className="flex gap-4">
+                    <label className="cursor-pointer block relative">
+                      <div className="w-[66px] h-[66px] rounded-2xl bg-[#E7E8EC] dark:bg-[#3A3A3A] flex items-center justify-center overflow-hidden">
+                        {editGroupImagePreview ||
+                          selectedUser.profileImage ? (
+                          <img
+                            src={
+                              editGroupImagePreview ||
+                              selectedUser.profileImage ||
+                              ""
+                            }
+                            alt={selectedUser.userName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[28px] font-medium text-[#9297A2]">
+                            {selectedUser.userName
+                              ?.charAt(0)
+                              ?.toUpperCase() ?? "G"}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setEditGroupImagePreview(
+                            file ? URL.createObjectURL(file) : null
+                          );
+                        }}
+                      />
+                    </label>
+                    <div className="flex-1">
                       <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">
                         Group Name
                       </label>
                       <input
                         type="text"
-                        value={selectedUser.userName || "Basic Plan"}
+                        value={selectedUser.userName || ""}
                         readOnly
-                        className="w-full h-10 sm:h-9 rounded-md border border-[#D5D9E2] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 text-[12px] text-[#101B41] dark:text-white outline-none"
+                        className="w-full h-10 rounded-md border border-[#D5D9E2] bg-white px-3 text-[12px] dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A]"
                       />
-                      <p className="mt-1 text-[10px] text-[#8C919C] dark:text-[#8a8a8a]">
-                        Click avatar to change photo
-                      </p>
                     </div>
                   </div>
 
-                  {/* ── Group Members ── */}
                   <div className="rounded-md border border-[#E6EAF2] dark:border-[#4A4A4A] overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-[#E6EAF2] dark:border-[#4A4A4A] bg-[#F8F9FC] dark:bg-[#2c2c2c] px-3 py-2">
+                    <div className="flex items-center justify-between border-b border-[#E6EAF2] bg-[#F8F9FC] px-3 py-2 dark:bg-[#2c2c2c] dark:border-[#4A4A4A]">
                       <span className="text-[13px] font-medium text-[#101B41] dark:text-white">
                         Group Members
                       </span>
@@ -1910,199 +1956,89 @@ const Message = () => {
                         )}
                       </span>
                     </div>
-
-                    <div className="max-h-[200px] overflow-y-auto bg-white dark:bg-[#343434] p-2 space-y-1">
-                      {(selectedUser.members ?? []).length === 0 ? (
-                        <p className="py-4 text-center text-[11px] text-gray-400">
-                          No members in this group
-                        </p>
-                      ) : (
-                        (selectedUser.members ?? []).map((member, i) => {
-                          const groupId = selectedUser._id;
-                          const memberIndex = i;
-                          const c = getPlanColor(member.plan);
-
-                          return (
-                            <div
-                              key={`${member.name}-${i}`}
-                              className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-[#F8F9FC] dark:hover:bg-[#3A3A3A]"
+                    <div className="max-h-[200px] overflow-y-auto bg-white p-2 space-y-1 dark:bg-[#343434]">
+                      {(selectedUser.members ?? []).map((member, i) => {
+                        const memberIndex = i;
+                        const c = getPlanColor(member.plan);
+                        return (
+                          <div
+                            key={`${member.name}-${i}`}
+                            className="flex items-center gap-2 rounded px-2 py-1.5"
+                          >
+                            <span className="flex-1 text-[12px] text-[#101B41] dark:text-white truncate">
+                              {member.name}
+                            </span>
+                            <span className={`text-[11px] ${c.text}`}>
+                              {member.plan}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedUser((prev) =>
+                                  prev
+                                    ? {
+                                      ...prev,
+                                      members: (prev.members ?? []).filter(
+                                        (_, idx) => idx !== memberIndex
+                                      ),
+                                    }
+                                    : prev
+                                );
+                              }}
+                              className="flex h-6 w-6 items-center justify-center rounded-md text-[#9EA3AE] hover:text-[#D14343]"
                             >
-                              <div className="w-6 h-6 rounded-md bg-[#E7E8EC] dark:bg-[#3A3A3A] flex items-center justify-center flex-shrink-0">
-                                <span className="text-[10px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
-                                  {member.name?.charAt(0)?.toUpperCase() ??
-                                    "B"}
-                                </span>
-                              </div>
-                              <span className="flex-1 text-[12px] text-[#101B41] dark:text-white truncate">
-                                {member.name}
-                              </span>
-                              <span
-                                className={`text-[11px] flex-shrink-0 ${c.text}`}
-                              >
-                                {member.plan}
-                              </span>
-
-                              {/* 🗑 Remove member */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setUsers((prev) =>
-                                    prev.map((u) =>
-                                      u._id === groupId
-                                        ? {
-                                          ...u,
-                                          members: (u.members ?? []).filter(
-                                            (_, idx) =>
-                                              idx !== memberIndex
-                                          ),
-                                        }
-                                        : u
-                                    )
-                                  );
-                                  setSelectedUser((prev) =>
-                                    prev
-                                      ? {
-                                        ...prev,
-                                        members: (prev.members ?? []).filter(
-                                          (_, idx) => idx !== memberIndex
-                                        ),
-                                      }
-                                      : prev
-                                  );
-                                }}
-                                className="flex h-6 w-6 items-center justify-center rounded-md text-[#9EA3AE] hover:bg-[#FDECEC] hover:text-[#D14343] dark:hover:bg-[#4A2A2A] flex-shrink-0"
-                                title="Remove member"
-                                aria-label="Remove member"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="w-3.5 h-3.5"
-                                >
-                                  <path d="M3 6h18" />
-                                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                  <path d="M10 11v6" />
-                                  <path d="M14 11v6" />
-                                </svg>
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
+                              🗑
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* ── Group Settings ── */}
-                  <div className="rounded-md border border-[#E6EAF2] dark:border-[#4A4A4A] p-3">
-                    <p className="mb-2 text-[13px] font-medium text-[#101B41] dark:text-white">
-                      Group Settings
-                    </p>
-                    <p className="mb-2 text-[12px] text-[#6D7280] dark:text-[#B5B5B5]">
-                      Who can send messages
-                    </p>
-                    <div className="flex flex-wrap items-center gap-6">
-                      <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200">
-                        <input
-                          type="radio"
-                          name="groupSettings"
-                          checked={
-                            selectedUser.groupSettings === "everyone" ||
-                            !selectedUser.groupSettings
-                          }
-                          onChange={() => { }}
-                          className="h-3.5 w-3.5 accent-[#576CBC]"
-                        />
-                        Everyone
-                      </label>
-                      <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200">
-                        <input
-                          type="radio"
-                          name="groupSettings"
-                          checked={selectedUser.groupSettings === "admins"}
-                          onChange={() => { }}
-                          className="h-3.5 w-3.5 accent-[#576CBC]"
-                        />
-                        Admins only
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* ── Delete Group ── */}
-                  <div className="rounded-md border border-[#F5D0D0] dark:border-[#5A2A2A] bg-[#FFF8F8] dark:bg-[#3A2525] p-3">
-                    <p className="mb-1 text-[13px] font-medium text-[#D14343] dark:text-[#F87171]">
+                  <div className="rounded-md border border-[#F5D0D0] bg-[#FFF8F8] p-3 dark:bg-[#3A2525] dark:border-[#5A2A2A]">
+                    <p className="mb-1 text-[13px] font-medium text-[#D14343]">
                       Delete Group
                     </p>
-                    <p className="mb-3 text-[11px] text-[#8C919C] dark:text-[#B5B5B5]">
-                      Once deleted, this group and all its messages will be
+                    <p className="mb-3 text-[11px] text-[#8C919C]">
+                      Once deleted, this group and all messages will be
                       permanently removed.
                     </p>
-
                     {!showDeleteConfirm ? (
                       <button
-                        type="button"
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="inline-flex items-center gap-2 h-9 rounded-md border border-[#D14343] text-[#D14343] px-4 text-[12px] font-semibold hover:bg-[#FDECEC] dark:hover:bg-[#4A2A2A] transition-colors"
+                        className="h-9 rounded-md border border-[#D14343] text-[#D14343] px-4 text-[12px] font-semibold"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="w-4 h-4"
-                        >
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
                         Delete Group
                       </button>
                     ) : (
-                      <div className="space-y-3">
-                        <p className="text-[12px] font-medium text-[#101B41] dark:text-white">
-                          Are you sure you want to delete this group?
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowDeleteConfirm(false)}
-                            className="flex-1 h-9 rounded-md border border-[#D5D9E2] dark:border-[#4A4A4A] text-[#101B41] dark:text-white px-3 text-[12px] font-semibold hover:bg-[#F8F9FC] dark:hover:bg-[#3A3A3A]"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDeleteGroup}
-                            className="flex-1 h-9 rounded-md bg-[#D14343] hover:bg-[#B93636] text-white px-3 text-[12px] font-semibold"
-                          >
-                            Yes, Delete
-                          </button>
-                        </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowDeleteConfirm(false)}
+                          className="flex-1 h-9 rounded-md border border-[#D5D9E2] px-3 text-[12px] font-semibold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleDeleteGroup}
+                          className="flex-1 h-9 rounded-md bg-[#D14343] text-white px-3 text-[12px] font-semibold"
+                        >
+                          Yes, Delete
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex-shrink-0 flex justify-end gap-2 sm:gap-3 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c]">
+                <div className="flex justify-end gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
                   <button
                     onClick={() => setShowGroupDetails(false)}
-                    className="flex-1 sm:flex-none h-10 sm:h-9 rounded-md border border-[#576CBC] text-[#576CBC] px-4 sm:px-5 text-[12px] font-semibold hover:bg-[#F2F4FF] dark:hover:bg-[#2A3550]"
+                    className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveGroupDetails}
-                    className="flex-1 sm:flex-none h-10 sm:h-9 rounded-md bg-[#576CBC] hover:bg-[#4C61AA] text-white px-4 sm:px-5 text-[12px] font-semibold"
+                    className="h-10 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold"
                   >
                     Done
                   </button>
@@ -2112,7 +2048,6 @@ const Message = () => {
           )}
         </AnimatePresence>
 
-        {/* ═══════════ MESSAGE INFO MODAL ═══════════ */}
         {infoMessage && (
           <MessageInfoModal
             message={infoMessage}
