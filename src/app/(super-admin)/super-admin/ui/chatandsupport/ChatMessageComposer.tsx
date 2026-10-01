@@ -28,13 +28,15 @@ export function ChatMessageComposer({
     message: string,
     attachment: File | null,
     attachmentName: string
-  ) => void;
+  ) => Promise<string | null>;
   formatFileSize: (bytes: number) => string;
 }) {
   const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
   const [pendingName, setPendingName] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const docInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentMenuRef = useRef<HTMLDivElement>(null);
@@ -69,16 +71,35 @@ export function ChatMessageComposer({
     event.target.value = "";
   };
 
-  const handleSend = () => {
-    if (!messageText.trim() && !pendingAttachment) return;
-    onSendMessage(messageText, pendingAttachment, pendingName);
-    setPendingAttachment(null);
-    setPendingName("");
-    setEditingName(false);
+  const handleSend = async () => {
+    if (!messageText.trim() || isSending) return;
+    setIsSending(true);
+    setSendError(null);
+
+    try {
+      const error = await onSendMessage(messageText, pendingAttachment, pendingName);
+      if (error) {
+        setSendError(error);
+        return;
+      }
+
+      setPendingAttachment(null);
+      setPendingName("");
+      setEditingName(false);
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : "Message could not be sent.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
     <div className="p-3 border-t border-[#EEEEEE] dark:border-[#3F3F3F]">
+      {sendError && (
+        <p role="alert" className="mb-2 text-[11px] text-red-500">
+          {sendError}
+        </p>
+      )}
       {replyTo && (
         <div className="mb-2 flex items-start justify-between rounded-md border-l-4 border-[#576CBC] bg-[#F0F1F3] dark:bg-[#2c2c2c] px-3 py-2 text-[11px]">
           <div className="min-w-0">
@@ -194,7 +215,10 @@ export function ChatMessageComposer({
           type="text"
           placeholder="Type a message"
           value={messageText}
-          onChange={(event) => onMessageTextChange(event.target.value)}
+          onChange={(event) => {
+            setSendError(null);
+            onMessageTextChange(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && (messageText.trim() || pendingAttachment)) {
               handleSend();
@@ -207,6 +231,7 @@ export function ChatMessageComposer({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleSend}
+          disabled={isSending}
           className="p-2 text-[#576CBC]"
         >
           <FaTelegramPlane size={13} />

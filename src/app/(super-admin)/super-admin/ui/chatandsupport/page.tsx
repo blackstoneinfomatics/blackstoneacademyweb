@@ -22,6 +22,10 @@ const API_TENANTS_BY_PLAN = (planId: string) =>
   `${API_BASE}/api/tenant-subscriptions/tenantsbyplan/${planId}`;
 const API_CREATE_CHAT_ROOM = `${API_BASE}/chat-room`;
 const API_LIST_CHAT_ROOMS = `${API_BASE}/chat-room`;
+const API_SEND_CHAT_MESSAGE = `${API_BASE}/chat/message`;
+const ROOM_MESSAGES_PAGE_LIMIT = 20;
+const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
+  `${API_BASE}/chat/${encodeURIComponent(roomId)}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
 
 const ROOMS_PAGE_LIMIT = 100;
 const DEFAULT_CREATOR_ID = "6aba4e3ee619505595695943";
@@ -47,6 +51,37 @@ interface IMessage {
   seenAt?: string;
   replyTo?: { _id: string; messages: string; senderName: string };
   attachment?: { name: string; size: number; type: string; url?: string };
+  side?: "left" | "right";
+}
+
+interface IRoomMessageResponse {
+  _id?: string;
+  senderId?: string;
+  senderName?: string;
+  message?: string;
+  createdAt?: string;
+  timestamp?: string;
+  side?: "left" | "right";
+  replyTo?: {
+    messageId?: string;
+    message?: string;
+    senderName?: string;
+  } | null;
+  attachments?: {
+    name?: string;
+    size?: number;
+    type?: string;
+    url?: string;
+  }[];
+}
+
+interface IRoomMessagesResponse {
+  success?: boolean;
+  statusCode?: number;
+  message?: string;
+  data?: {
+    messages?: IRoomMessageResponse[];
+  };
 }
 
 interface IUser {
@@ -410,6 +445,7 @@ const Message = () => {
   const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [showBroadcast, setShowBroadcast] = useState(false);
@@ -755,19 +791,164 @@ const Message = () => {
   }, [selectedUser, allMessages]);
 
   useEffect(() => {
+    if (!selectedUser) return;
+
+    const token = localStorage.getItem("SuperAdminAuthToken");
+    const userId = localStorage.getItem("SuperAdminUserId");
+    if (!token || !userId) {
+      console.error("Super-admin authentication data is missing");
+      return;
+    }
+
+    const controller = new AbortController();
+    setMessagesLoading(true);
+
+    const fetchRoomMessages = async () => {
+      try {
+        const response = await fetch(
+          API_ROOM_MESSAGES(selectedUser._id, userId),
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+            cache: "no-store",
+          }
+        );
+        const result: IRoomMessagesResponse = await response.json();
+
+        if (!response.ok || result.success === false) {
+          throw new Error(
+            result.message || `Fetch messages failed: HTTP ${response.status}`
+          );
+        }
+
+        const messages = (result.data?.messages ?? []).map(
+          (message, index): IMessage => {
+            const createdDate =
+              message.timestamp ?? message.createdAt ?? new Date().toISOString();
+            const date = new Date(createdDate);
+            const attachment = message.attachments?.[0];
+
+            return {
+              _id: message._id ?? `${selectedUser._id}-${index}`,
+              messages: message.message ?? "",
+              senderId: message.senderId ?? "",
+              senderName: message.senderName ?? "",
+              receiverId: selectedUser._id,
+              receiverName: selectedUser.userName,
+              createdDate,
+              time: Number.isNaN(date.getTime())
+                ? ""
+                : date.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+              notificationStatus: "Unseen",
+              isRead: false,
+              status: "Active",
+              side: message.side,
+              replyTo: message.replyTo
+                ? {
+                    _id: message.replyTo.messageId ?? "",
+                    messages: message.replyTo.message ?? "",
+                    senderName: message.replyTo.senderName ?? "",
+                  }
+                : undefined,
+              attachment: attachment
+                ? {
+                    name: attachment.name ?? "Attachment",
+                    size: attachment.size ?? 0,
+                    type: attachment.type ?? "application/octet-stream",
+                    url: attachment.url,
+                  }
+                : undefined,
+            };
+          }
+        );
+
+        setAllMessages((previous) => [
+          ...previous.filter((group) => group._id !== selectedUser._id),
+          { _id: selectedUser._id, messages },
+        ]);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Failed to fetch room messages:", error);
+        }
+      } finally {
+        if (!controller.signal.aborted) setMessagesLoading(false);
+      }
+    };
+
+    void fetchRoomMessages();
+    return () => controller.abort();
+  }, [selectedUser]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedMessages]);
 
   // ─────────────────────────────────────────────
   // Send message
   // ─────────────────────────────────────────────
-  const handleSendMessage = (
+  const handleSendMessage = async (
     text: string,
     pendingAttachment: File | null,
     pendingName: string
-  ) => {
-    if (!selectedUser) return;
-    if (!text.trim() && !pendingAttachment) return;
+  ): Promise<string | null> => {
+    if (!selectedUser) return "Select a tenant or group before sending.";
+    if (!text.trim()) return "Enter a message before sending.";
+
+    const token = localStorage.getItem("SuperAdminAuthToken");
+    const senderId = localStorage.getItem("SuperAdminUserId");
+    const senderName =
+      localStorage.getItem("SuperAdminPortalName") || currentUser.userName;
+
+    // if (!token || !senderId) {
+    //   const errorMessage = !token
+    //     ? "Your session is missing or expired. Sign in again."
+    //     : "Your account is missing the room membership user ID. Sign in again or ask the backend to include userId in the login response.";
+    //   console.error(errorMessage);
+    //   return errorMessage;
+    // }
+
+    const payload = {
+      roomId: selectedUser._id,
+      senderId,
+      senderName,
+      senderRole: "SUPERADMIN",
+      messageType: "TEXT",
+      message: text.trim(),
+      ...(replyTo
+        ? {
+            replyTo: {
+              messageId: replyTo._id,
+              message: replyTo.messages,
+              senderId: replyTo.senderId,
+              senderName: replyTo.senderName,
+            },
+          }
+        : {}),
+    };
+
+    try {
+      const response = await fetch(API_SEND_CHAT_MESSAGE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || result?.success === false) {
+        throw new Error(
+          result?.message || `Send message failed: HTTP ${response.status}`
+        );
+      }
+    } catch (error) {
+      console.error("Send message failed:", error);
+      return error instanceof Error ? error.message : "Message could not be sent.";
+    }
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], {
@@ -778,8 +959,8 @@ const Message = () => {
     const newMessage: IMessage = {
       _id: `msg-${Date.now()}`,
       messages: text.trim(),
-      senderId: currentUser.userId,
-      senderName: currentUser.userName,
+      senderId,
+      senderName,
       receiverId: selectedUser._id,
       receiverName: selectedUser.userName,
       createdDate: now.toISOString(),
@@ -788,6 +969,7 @@ const Message = () => {
       isRead: false,
       status: "Active",
       deliveredAt: timeStr,
+      side: "right",
       replyTo: replyTo
         ? {
           _id: replyTo._id,
@@ -819,6 +1001,7 @@ const Message = () => {
 
     setMessageText("");
     setReplyTo(null);
+    return null;
   };
 
   const getStatusColor = (status: string) => {
@@ -1260,7 +1443,12 @@ const Message = () => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#FCFCFD] dark:bg-[#2c2c2c]">
-                  {Object.entries(groupedMessages).map(([date, msgs]) => (
+                  {messagesLoading ? (
+                    <p className="py-6 text-center text-[11px] text-gray-400">
+                      Loading messages…
+                    </p>
+                  ) : (
+                    Object.entries(groupedMessages).map(([date, msgs]) => (
                     <div key={date}>
                       <div className="text-center mb-4">
                         <span className="text-[10px] text-[#A3A7B0] dark:text-[#8a8a8a]">
@@ -1268,7 +1456,9 @@ const Message = () => {
                         </span>
                       </div>
                       {msgs.map((msg) => {
-                        const isMine = msg.senderId === currentUser.userId;
+                        const isMine = msg.side
+                          ? msg.side === "right"
+                          : msg.senderId === currentUser.userId;
                         return (
                           <div
                             key={msg._id}
@@ -1352,7 +1542,8 @@ const Message = () => {
                         );
                       })}
                     </div>
-                  ))}
+                    ))
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
