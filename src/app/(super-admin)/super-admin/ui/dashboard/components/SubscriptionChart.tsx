@@ -114,7 +114,7 @@ const SubscriptionChart = () => {
   });
 
   return (
-    <div className="bg-white dark:bg-[#343434] rounded-[18px] p-6 w-full max-w-full shadow-[0_6px_19px_rgba(153,153,153,0.15)]">
+    <div className="min-w-0 w-full max-w-full rounded-[18px] bg-white p-6 shadow-[0_6px_19px_rgba(153,153,153,0.15)] dark:bg-[#343434]">
       <h2 className="text-[16px] font-semibold text-[#111827] dark:text-white mb-6">
         Subscriptions
       </h2>
@@ -132,12 +132,12 @@ const SubscriptionChart = () => {
           </p>
         </div>
       ) : (
-        <div className="flex items-center justify-between pr-9 pb-3 h-[190px]">
+        <div className="flex h-[190px] min-w-0 items-center justify-between pr-9 pb-3">
 
           {/* Left Labels */}
-          <div className="space-y-3 h-30 overflow-y-auto scrollbar-none">
+          <div className="h-30 min-w-0 flex-1 space-y-3 overflow-y-auto scrollbar-none">
             {subscriptions.map((item, index) => (
-              <div key={item.planName} className="">
+              <div key={item.planName} className="min-w-0">
                 <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-[3px]"
@@ -147,7 +147,7 @@ const SubscriptionChart = () => {
                     }}
                   />
 
-                  <span className="text-[13px] font-semibold text-[#111827] dark:text-white">
+                  <span className="min-w-0 truncate text-[13px] font-semibold text-[#111827] dark:text-white">
                     {item.planName}
                   </span>
                 </div>
@@ -160,7 +160,10 @@ const SubscriptionChart = () => {
           </div>
 
           {/* Donut */}
-          <div className="relative w-[220px] h-[220px] -mt-6">
+          <div
+            className="relative -mt-6 aspect-square shrink-0"
+            style={{ width: "min(220px, max(140px, calc(100% - 80px)))" }}
+          >
 
             <div
               className="w-full h-full rounded-full relative"
@@ -180,14 +183,16 @@ const SubscriptionChart = () => {
               {percentageLabels.map((item) => (
                 <span
                   key={`${item.planName}-percentage`}
-                  className="absolute left-1/2 top-1/2 text-white text-sm font-semibold pointer-events-none"
+                  className="absolute text-white text-sm font-semibold pointer-events-none"
                   style={{
                     transform: `
                       translate(
-                        calc(-50% + ${item.x}px),
-                        calc(-50% + ${item.y}px)
+                        -50%,
+                        -50%
                       )
                     `,
+                    left: `calc(50% + ${(item.x / 220) * 100}%)`,
+                    top: `calc(50% + ${(item.y / 220) * 100}%)`,
                   }}
                 >
                   {item.percentage}%

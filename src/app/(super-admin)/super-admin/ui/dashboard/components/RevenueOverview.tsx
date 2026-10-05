@@ -121,7 +121,7 @@ const RevenueOverview: React.FC = () => {
   }, [period]);
 
   return (
-    <div className="relative w-full bg-white dark:bg-[#343434] rounded-2xl p-6 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col justify-between overflow-hidden">
+    <div className="relative flex min-w-0 w-full flex-col justify-between overflow-hidden rounded-2xl bg-white p-6 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#343434]">
 
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
@@ -155,7 +155,7 @@ const RevenueOverview: React.FC = () => {
       </div>
 
       {/* Chart */}
-      <div className="w-full h-56 relative overflow-hidden flex items-center justify-center">
+      <div className="relative flex h-56 min-w-0 w-full items-center justify-center overflow-hidden">
         {loading ? (
           <div className="text-sm text-slate-400">
             Loading revenue...

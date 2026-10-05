@@ -62,7 +62,7 @@ const StatsCards: React.FC = () => {
         } else {
           setError(result.message || "Failed to fetch data");
         }
-      } catch (err) {
+      } catch {
         setError("Network error: Unable to reach server");
       } finally {
         setLoading(false);
@@ -74,7 +74,7 @@ const StatsCards: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         {[...Array(4)].map((_, i) => (
           <div
             key={i}
@@ -161,7 +161,7 @@ const StatsCards: React.FC = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-4 2xl:grid-cols-4">
       {cardsConfig.map((card, index) => {
         const Icon = card.icon;
         const trend = renderTrend(card.direction, card.percentage);
@@ -169,26 +169,26 @@ const StatsCards: React.FC = () => {
         return (
           <div
             key={index}
-            className="bg-[#ffffff] dark:bg-[#252525] rounded-2xl px-4 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col justify-between"
+            className="flex min-w-0 flex-col justify-between rounded-2xl bg-[#ffffff] px-4 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#252525]"
           >
-            <div className="flex items-start gap-4">
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
               <div
-                className={`w-12 h-12 rounded-full mt-3 flex items-center justify-center shrink-0 ${card.iconBg}`}
+                className={`w-10 h-10 rounded-full mt-3 flex items-center justify-center shrink-0 ${card.iconBg}`}
               >
                 <Icon className={`w-6 h-6 ${card.iconColor}`} />
               </div>
 
-              <div className="space-y-1">
-                <p className={`text-sm font-medium ${card.titleColor}`}>
+              <div className="min-w-0 space-y-1">
+                <p className={`text-[13px] font-medium ${card.titleColor}`}>
                   {card.title}
                 </p>
-                <h2 className="text-[25px] font-semibold text-gray-900 dark:text-white">
+                <h2 className="break-words text-[24px] font-semibold text-gray-900 dark:text-white">
                   {card.value}
                 </h2>
               </div>
             </div>
 
-            <p className="text-xs mt-3 ml-1 flex items-center gap-1 text-gray-500 dark:text-gray-400 justify-end">
+            <p className="mt-3 ml-1 flex items-center justify-end gap-1 text-[11px] text-gray-500 dark:text-gray-400">
               <span className={`${trend.color} flex items-center gap-1 font-medium`}>
                 {trend.icon}
                 {card.direction !== "same" && `${card.percentage}%`}

@@ -24,6 +24,7 @@ const API_CREATE_CHAT_ROOM = `${API_BASE}/chat-room`;
 const API_LIST_CHAT_ROOMS = `${API_BASE}/chat-room`;
 
 const API_SEND_CHAT_MESSAGE = `${API_BASE}/chat/message`;
+const API_MARK_CHAT_SEEN = `${API_BASE}/chat/seen`;
 const ROOM_MESSAGES_PAGE_LIMIT = 20;
 const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
   `${API_BASE}/chat/${encodeURIComponent(roomId)}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
@@ -134,7 +135,7 @@ interface IMessage {
   status: "Active" | "Inactive";
   deliveredAt?: string;
   seenAt?: string;
-  replyTo?: { _id: string; messages: string; senderName: string };
+  replyTo?: { messageId: string; messages: string; senderName: string; senderId : string; };
   attachment?: { name: string; size: number; type: string; url?: string };
   side?: "left" | "right";
 }
@@ -151,6 +152,7 @@ interface IRoomMessageResponse {
     messageId?: string;
     message?: string;
     senderName?: string;
+    senderId?: string;
   } | null;
   attachments?: {
     name?: string;
@@ -1016,9 +1018,10 @@ const Message = () => {
               side: message.side,
               replyTo: message.replyTo
                 ? {
-                    _id: message.replyTo.messageId ?? "",
+                    messageId: message.replyTo.messageId ?? "",
                     messages: message.replyTo.message ?? "",
                     senderName: message.replyTo.senderName ?? "",
+                    senderId: message.replyTo.senderId ?? "",
                   }
                 : undefined,
               attachment: attachment
@@ -1032,6 +1035,37 @@ const Message = () => {
             };
           }
         );
+
+        const lastMessageId = messages[messages.length - 1]?._id;
+        if (lastMessageId) {
+          void fetch(API_MARK_CHAT_SEEN, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              roomId: selectedUser._id,
+              userId,
+              messageId: lastMessageId,
+            }),
+            signal: controller.signal,
+          })
+            .then(async (seenResponse) => {
+              const seenResult = await seenResponse.json().catch(() => null);
+              if (!seenResponse.ok || seenResult?.success === false) {
+                throw new Error(
+                  seenResult?.message ||
+                    `Mark message as seen failed: HTTP ${seenResponse.status}`
+                );
+              }
+            })
+            .catch((error) => {
+              if (!controller.signal.aborted) {
+                console.error("Failed to mark room message as seen:", error);
+              }
+            });
+        }
 
         setAllMessages((previous) => [
           ...previous.filter((group) => group._id !== selectedUser._id),
@@ -1139,9 +1173,10 @@ const Message = () => {
       side: "right",
       replyTo: replyTo
         ? {
-          _id: replyTo._id,
+          messageId : replyTo._id,
           messages: replyTo.messages,
           senderName: replyTo.senderName,
+          senderId: replyTo.senderId,
         }
         : undefined,
       attachment: pendingAttachment

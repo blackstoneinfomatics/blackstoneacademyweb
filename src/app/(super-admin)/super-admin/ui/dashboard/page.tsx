@@ -7,48 +7,47 @@ import SubscriptionChart from "./components/SubscriptionChart";
 import RecentActivities from "./components/RecentActivities";
 import TenantsTable from "./components/TenantsTable";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
-import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
-import ExperingTenants from "./components/ExperingTenants";
+import OrganizationHeader, {
+  OrganizationTab,
+} from "../../components/OrganizationHeader";
+import ExpiringTenants from "./components/ExpiringTenants";
 
 const Page = () => {
   const [tab, setTab] = useState<OrganizationTab>("Institute");
   return (
     <BaseSuperLayout>
       <SuperAdminHeader currentSection="Dashboard" />
-      <div>
+      <div className="min-w-0">
         <OrganizationHeader
-
           showTabs
           activeTab={tab}
-          onTabChange={setTab} currentSection={""} />
-
+          onTabChange={setTab}
+          currentSection=""
+        />
       </div>
-      <div className="min-h-screen bg-[#F7F8FE] dark:bg-[#343434] p-4 rounded-xl">
-        <div className="grid grid-cols-12 gap-4 h-full">
-          {/* LEFT */}
-          <div className="col-span-9 flex flex-col gap-4">
+      <div className="min-h-screen min-w-0 rounded-xl bg-[#F7F8FE] p-4 dark:bg-[#343434]">
+        <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-12">
+          <section className="min-w-0 flex flex-col gap-4 xl:col-span-9">
             <StatsCards />
 
-            <div className="grid grid-cols-2 gap-4 h-[290px]">
+            <div className="grid min-w-0 grid-cols-1 gap-4 xl:h-[290px] xl:grid-cols-2">
               <RevenueOverview />
               <SubscriptionChart />
             </div>
 
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <TenantsTable />
             </div>
-          </div>
+          </section>
 
-          {/* RIGHT */}
-          <div className="col-span-3 flex flex-col gap-4">
-            <div className="">
-              <ExperingTenants />
+          <aside className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:col-span-3 xl:flex xl:flex-col">
+            <div className="min-w-0">
+              <ExpiringTenants />
             </div>
-
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <RecentActivities />
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </BaseSuperLayout>

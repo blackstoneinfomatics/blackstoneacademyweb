@@ -88,14 +88,14 @@ const RecentActivities = () => {
   }, []);
 
   return (
-    <div className="bg-white dark:bg-[#343434] rounded-xl p-5 shadow-[0_6px_19px_rgba(153,153,153,0.15)] h-full">
+    <div className="h-full min-w-0 rounded-xl bg-white p-5 shadow-[0_6px_19px_rgba(153,153,153,0.15)] dark:bg-[#343434]">
       <div className="flex justify-between">
         <h2 className="font-semibold mb-4 text-[16px]">
           Recent Activities
         </h2>
       </div>
 
-      <div className="space-y-3 mt-2 h-68 overflow-scroll scrollbar-none">
+      <div className="mt-2 h-[17rem] space-y-3 overflow-y-auto scrollbar-none">
         {loading ? (
           <div className="text-xs text-gray-400">
             Loading activities...
@@ -114,8 +114,8 @@ const RecentActivities = () => {
                 <Users className="w-4 h-4 text-[#4D5BF6]" />
               </div>
 
-              <div className="gap-1">
-                <p>{item.activityMessage}</p>
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="break-words">{item.activityMessage}</p>
 
                 <p className="text-[9px] text-gray-500 dark:text-gray-400">
                   {formatActivityTime(item.createdDate)}
