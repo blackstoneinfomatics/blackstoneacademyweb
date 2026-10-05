@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -46,15 +46,150 @@ const ToggleSwitch = ({
   );
 };
 
-const roleCodeMap: Record<string, string> = {
-  Admin: "ADMIN",
-  Teacher: "TEACHER",
-  Student: "STUDENT",
+interface PortalOption {
+  _id: string;
+  portalName: string;
+  status?: string;
+}
+
+interface AllowedRole {
+  portalId: string;
+  portalName: string;
+}
+
+const isAllowedRole = (value: unknown): value is AllowedRole =>
+  typeof value === "object" &&
+  value !== null &&
+  "portalId" in value &&
+  typeof value.portalId === "string" &&
+  "portalName" in value &&
+  typeof value.portalName === "string";
+
+interface FeatureControlRow {
+  portal: string;
+  parentModuleId: string;
+  parentModuleName: string;
+  childModuleId: string | null;
+  childModuleName: string | null;
+  featureId: string | null;
+  featureName: string | null;
+  status: string;
+}
+
+interface PlanFeatureItem {
+  featureId?: string;
+  featureName?: string;
+  portalId?: string;
+  portalName?: string;
+}
+
+interface PlanChildModule {
+  childModuleId?: string;
+  childModuleName?: string;
+  order?: number;
+  portalId?: string;
+  portalName?: string;
+  features?: PlanFeatureItem[];
+}
+
+interface PlanModule {
+  moduleId?: string;
+  moduleName?: string;
+  order?: number;
+  portalId?: string;
+  portalName?: string;
+  features?: PlanFeatureItem[];
+  children?: PlanChildModule[];
+}
+
+const getPlanFeatureCount = (plan: Record<string, unknown>): number => {
+  if (Array.isArray(plan.modules)) {
+    return (plan.modules as PlanModule[]).reduce(
+      (count, module) =>
+        count +
+        (module.features?.length ?? 0) +
+        (module.children ?? []).reduce(
+          (childCount, child) => childCount + (child.features?.length ?? 0),
+          0,
+        ),
+      0,
+    );
+  }
+
+  const legacyFeatures = plan.features;
+  return legacyFeatures && typeof legacyFeatures === "object"
+    ? Object.values(legacyFeatures as Record<string, unknown[]>).reduce(
+        (count, items) => count + (Array.isArray(items) ? items.length : 0),
+        0,
+      )
+    : 0;
 };
 
-const roleLabelMap: Record<string, string> = Object.fromEntries(
-  Object.entries(roleCodeMap).map(([label, code]) => [code, label]),
-);
+const getModulesForPortal = (
+  portal: PortalOption,
+  rows: FeatureControlRow[],
+): PlanModule[] => {
+  const modules = new Map<string, PlanModule>();
+
+  rows
+    .filter(
+      (row) =>
+        row.portal?.trim().toLowerCase() === portal.portalName.trim().toLowerCase() &&
+        row.status?.toLowerCase() === "active",
+    )
+    .forEach((row) => {
+      if (!row.parentModuleId || !row.parentModuleName) return;
+
+      let parentModule = modules.get(row.parentModuleId);
+      if (!parentModule) {
+        parentModule = {
+          moduleId: row.parentModuleId,
+          moduleName: row.parentModuleName,
+          order: modules.size + 1,
+          portalId: portal._id,
+          portalName: portal.portalName,
+          features: [],
+          children: [],
+        };
+        modules.set(row.parentModuleId, parentModule);
+      }
+
+      if (row.childModuleId && row.childModuleName) {
+        let child = parentModule.children?.find(
+          (item) => item.childModuleId === row.childModuleId,
+        );
+        if (!child) {
+          child = {
+            childModuleId: row.childModuleId,
+            childModuleName: row.childModuleName,
+            order: (parentModule.children?.length ?? 0) + 1,
+            portalId: portal._id,
+            portalName: portal.portalName,
+            features: [],
+          };
+          parentModule.children?.push(child);
+        }
+
+        if (row.featureId && row.featureName) {
+          child.features?.push({
+            featureId: row.featureId,
+            featureName: row.featureName,
+            portalId: portal._id,
+            portalName: portal.portalName,
+          });
+        }
+      } else if (row.featureId && row.featureName) {
+        parentModule.features?.push({
+          featureId: row.featureId,
+          featureName: row.featureName,
+          portalId: portal._id,
+          portalName: portal.portalName,
+        });
+      }
+    });
+
+  return Array.from(modules.values());
+};
 
 const PlansTable = () => {
   type FilterState = {
@@ -79,6 +214,15 @@ const PlansTable = () => {
     Record<string, string>
   >({});
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [featureCountByPlan, setFeatureCountByPlan] = useState<
+    Record<string, number>
+  >({});
+  const [subscribedTenantCountByPlan, setSubscribedTenantCountByPlan] =
+    useState<Record<string, number>>({});
+  const [selectedPlanModules, setSelectedPlanModules] = useState<PlanModule[]>([]);
+  const [portalOptions, setPortalOptions] = useState<PortalOption[]>([]);
+  const [featureCatalog, setFeatureCatalog] = useState<FeatureControlRow[]>([]);
+  const [isLoadingModuleCatalog, setIsLoadingModuleCatalog] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [plans, setPlans] = useState<any[]>([]);
@@ -108,33 +252,18 @@ const PlansTable = () => {
   ) => {
     const term = searchText.toLowerCase().trim();
 
-    const flatten = (val: any): string => {
-      if (val === null || val === undefined) return "";
-      if (Array.isArray(val)) return val.map(flatten).join(" ");
-      if (typeof val === "object") {
-        return Object.values(val).map(flatten).join(" ");
-      }
-      return String(val);
-    };
-
     return items.filter((item) => {
       const planName = item.planName || "";
       const billingCycle = item.billingCycle || "";
       const status = item.status || "";
       const createdDate = item.createdDate ? new Date(item.createdDate) : null;
 
-      const createdDateStr = createdDate
-        ? createdDate.toISOString().slice(0, 10) +
-          " " +
-          createdDate.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })
-        : "";
-
-      const searchableBlob = `${flatten(item)} ${createdDateStr}`.toLowerCase();
-      const matchesSearch = !term || searchableBlob.includes(term);
+      const matchesSearch =
+        !term ||
+        [planName, billingCycle, status, item.monthlyPrice, item.yearlyPrice]
+          .join(" ")
+          .toLowerCase()
+          .includes(term);
 
       const matchesPlanName =
         !filters.planName ||
@@ -262,9 +391,7 @@ const PlansTable = () => {
     try {
       setLoading(true);
 
-      const response = await axios.get(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`,
-      );
+      const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_TABLE}`);
 
       const responseData = response.data?.data ?? response.data;
 
@@ -272,14 +399,107 @@ const PlansTable = () => {
         ? responseData
         : responseData?.plans ?? responseData?.items ?? [];
 
-      setPlans(plansArray);
       const payload =
         response.data?.data?.items ??
         response.data?.items ??
         response.data?.data ??
         response.data;
 
-      setPlans(Array.isArray(payload) ? payload : []);
+      const planRows = Array.isArray(payload) ? payload : plansArray;
+      setPlans(planRows);
+
+      const counts = await Promise.all(
+        planRows.map(async (plan: any) => {
+          const planId = plan.planId;
+          if (!planId) return null;
+
+          try {
+            const detailResponse = await axios.get(
+              `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace(
+                "${planId}",
+                planId,
+              ),
+            );
+            const detail = detailResponse.data?.data ?? detailResponse.data;
+            return [planId, getPlanFeatureCount(detail)] as const;
+          } catch (error) {
+            console.error(`Error fetching plan features for ${planId}:`, error);
+            return [planId, getPlanFeatureCount(plan)] as const;
+          }
+        }),
+      );
+
+      const countEntries = counts.filter(
+        (entry): entry is readonly [string, number] => entry !== null,
+      );
+      setFeatureCountByPlan((current) => ({
+        ...current,
+        ...Object.fromEntries(countEntries),
+      }));
+
+      try {
+        const firstPageResponse = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET}`,
+          { params: { page: 1, limit: 100 } },
+        );
+        const firstPageData = firstPageResponse.data?.data;
+        const subscriptions: any[] = Array.isArray(firstPageData?.tenants)
+          ? [...firstPageData.tenants]
+          : Array.isArray(firstPageData?.items)
+            ? [...firstPageData.items]
+            : Array.isArray(firstPageData)
+              ? [...firstPageData]
+              : [];
+        const totalPages = Number(
+          firstPageData?.pagination?.totalPages ??
+            firstPageResponse.data?.pagination?.totalPages ??
+            1,
+        );
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          const pageResponse = await axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET}`,
+            { params: { page, limit: 100 } },
+          );
+          const pageTenants = pageResponse.data?.data?.tenants;
+          if (Array.isArray(pageTenants)) subscriptions.push(...pageTenants);
+        }
+
+        const tenantsByPlan = new Map<string, Set<string>>();
+        subscriptions.forEach((subscription) => {
+          const tenantKey = String(
+            subscription.tenantId ??
+              subscription.tenant?._id ??
+              subscription._id ??
+              "",
+          );
+          if (!tenantKey) return;
+
+          const planIdentifiers = new Set(
+            [
+              subscription.planId,
+              subscription.plan?._id,
+              subscription.plan?.planId,
+            ]
+              .filter(Boolean)
+              .map(String),
+          );
+
+          planIdentifiers.forEach((planIdentifier) => {
+            const tenantSet = tenantsByPlan.get(planIdentifier) ?? new Set<string>();
+            tenantSet.add(tenantKey);
+            tenantsByPlan.set(planIdentifier, tenantSet);
+          });
+        });
+
+        const tenantCounts: Record<string, number> = {};
+        tenantsByPlan.forEach((tenantIds, planIdentifier) => {
+          tenantCounts[planIdentifier] = tenantIds.size;
+        });
+        setSubscribedTenantCountByPlan(tenantCounts);
+      } catch (error) {
+        console.error("Error fetching tenant subscription counts:", error);
+      }
     } catch (error) {
       console.error("Error fetching plans:", error);
     } finally {
@@ -289,12 +509,7 @@ const PlansTable = () => {
 
   const handleViewPlan = async (planId: string) => {
     try {
-      const res = await axios.get(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace(
-          "${planId}",
-          planId,
-        ),
-      );
+      const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
 
       setSelectedPlan(res.data.data);
       setShowModal(true);
@@ -303,13 +518,18 @@ const PlansTable = () => {
     }
   };
 
-  const modules = useMemo(() => {
-    const features = selectedPlan?.features;
-    if (!features || typeof features !== "object") return [];
-    return Object.values(features as Record<string, string[]>)
-      .filter(Array.isArray)
-      .flat();
-  }, [selectedPlan]);
+  const modules = Array.isArray(selectedPlan?.modules)
+    ? selectedPlan.modules.flatMap((module: PlanModule) => [
+        module.moduleName,
+        ...(module.features ?? []).map((feature) => feature.featureName),
+        ...(module.children ?? []).flatMap((child) => [
+          child.childModuleName,
+          ...(child.features ?? []).map((feature) => feature.featureName),
+        ]),
+      ]).filter((name:any): name is string => Boolean(name))
+    : selectedPlan?.features && typeof selectedPlan.features === "object"
+      ? Object.values(selectedPlan.features as Record<string, string[]>).flat()
+      : [];
 
   const [formData, setFormData] = useState({
     planName: "",
@@ -322,8 +542,7 @@ const PlansTable = () => {
     userLimit: 0,
     storageLimit: 0,
     gstAndTax: 18,
-    allowedRoles: [] as string[],
-    features: {} as Record<string, string[]>,
+    allowedRoles: [] as AllowedRole[],
     canCreateCustomRole: false,
     customDomain: false,
     backup: false,
@@ -343,18 +562,6 @@ const PlansTable = () => {
     }>
   >([]);
 
-  const selectedModules: string[] = Object.values(
-    formData.features || {},
-  ).flat();
-  const roleTabs = ["Admin", "Teacher", "Student"] as const;
-  const [activeRoleTab, setActiveRoleTab] =
-    useState<(typeof roleTabs)[number]>("Admin");
-
-  const activeRoleModules =
-    formData.features && Array.isArray(formData.features[activeRoleTab])
-      ? formData.features[activeRoleTab]
-      : [];
-
   const pricingRowsForTable =
     pricingRows.length > 0
       ? pricingRows
@@ -373,22 +580,211 @@ const PlansTable = () => {
     }
   }, [showUpdateModal, selectedPlan]);
 
+  useEffect(() => {
+    if (!showUpdateModal) return;
+
+    let isCurrent = true;
+    const fetchModuleCatalog = async () => {
+      setIsLoadingModuleCatalog(true);
+      try {
+        const [portalResponse, firstFeatureResponse] = await Promise.all([
+          axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}`,
+            { params: { page: 1, limit: 100 } },
+          ),
+          axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FEATURE_CONTROL.GET_ALL}`,
+            { params: { page: 1, limit: 100 } },
+          ),
+        ]);
+
+        const portalPayload = portalResponse.data?.data;
+        const portals: PortalOption[] = Array.isArray(portalPayload?.items)
+          ? portalPayload.items
+          : Array.isArray(portalPayload)
+            ? portalPayload
+            : [];
+        const featureRows: FeatureControlRow[] = Array.isArray(
+          firstFeatureResponse.data?.data,
+        )
+          ? [...firstFeatureResponse.data.data]
+          : [];
+        const totalPages = Number(
+          firstFeatureResponse.data?.pagination?.totalPages ?? 1,
+        );
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          const response = await axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FEATURE_CONTROL.GET_ALL}`,
+            { params: { page, limit: 100 } },
+          );
+          if (Array.isArray(response.data?.data)) {
+            featureRows.push(...response.data.data);
+          }
+        }
+
+        if (isCurrent) {
+          setPortalOptions(
+            portals.filter(
+              (portal) =>
+                portal._id &&
+                portal.portalName &&
+                portal.status?.toUpperCase() !== "INACTIVE",
+            ),
+          );
+          setFeatureCatalog(featureRows);
+        }
+      } catch (error) {
+        console.error("Error loading portal module catalog:", error);
+        if (isCurrent) toast.error("Failed to load portals and features");
+      } finally {
+        if (isCurrent) setIsLoadingModuleCatalog(false);
+      }
+    };
+
+    fetchModuleCatalog();
+    return () => {
+      isCurrent = false;
+    };
+  }, [showUpdateModal]);
+
+  const togglePlanModule = (
+    portal: PortalOption,
+    module: PlanModule,
+    child?: PlanChildModule,
+    feature?: PlanFeatureItem,
+  ) => {
+    if (!module.moduleId) return;
+
+    setSelectedPlanModules((current) => {
+      const moduleIndex = current.findIndex(
+        (item) =>
+          item.moduleId === module.moduleId && item.portalId === portal._id,
+      );
+      const existingModule = current[moduleIndex];
+
+      if (!child && !feature) {
+        return existingModule
+          ? current.filter((_, index) => index !== moduleIndex)
+          : [
+              ...current,
+              {
+                ...module,
+                portalId: portal._id,
+                portalName: portal.portalName,
+                features: [],
+                children: [],
+              },
+            ];
+      }
+
+      const baseModule: PlanModule = existingModule ?? {
+        ...module,
+        portalId: portal._id,
+        portalName: portal.portalName,
+        features: [],
+        children: [],
+      };
+
+      let updatedModule = baseModule;
+      if (feature && child) {
+        const children = baseModule.children ?? [];
+        const childIndex = children.findIndex(
+          (item) => item.childModuleId === child.childModuleId,
+        );
+        const existingChild = children[childIndex];
+        const baseChild = existingChild ?? {
+          ...child,
+          portalId: portal._id,
+          portalName: portal.portalName,
+          features: [],
+        };
+        const selectedFeatures = baseChild.features ?? [];
+        const featureSelected = selectedFeatures.some(
+          (item) => item.featureId === feature.featureId,
+        );
+        const updatedChild: PlanChildModule = {
+          ...baseChild,
+          features: featureSelected
+            ? selectedFeatures.filter(
+                (item) => item.featureId !== feature.featureId,
+              )
+            : [
+                ...selectedFeatures,
+                {
+                  ...feature,
+                  portalId: portal._id,
+                  portalName: portal.portalName,
+                },
+              ],
+        };
+        updatedModule = {
+          ...baseModule,
+          children:
+            childIndex >= 0
+              ? children.map((item, index) =>
+                  index === childIndex ? updatedChild : item,
+                )
+              : [...children, updatedChild],
+        };
+      } else if (feature) {
+        const selectedFeatures = baseModule.features ?? [];
+        const featureSelected = selectedFeatures.some(
+          (item) => item.featureId === feature.featureId,
+        );
+        updatedModule = {
+          ...baseModule,
+          features: featureSelected
+            ? selectedFeatures.filter(
+                (item) => item.featureId !== feature.featureId,
+              )
+            : [
+                ...selectedFeatures,
+                {
+                  ...feature,
+                  portalId: portal._id,
+                  portalName: portal.portalName,
+                },
+              ],
+        };
+      } else if (child) {
+        const children = baseModule.children ?? [];
+        const childSelected = children.some(
+          (item) => item.childModuleId === child.childModuleId,
+        );
+        updatedModule = {
+          ...baseModule,
+          children: childSelected
+            ? children.filter(
+                (item) => item.childModuleId !== child.childModuleId,
+              )
+            : [
+                ...children,
+                {
+                  ...child,
+                  portalId: portal._id,
+                  portalName: portal.portalName,
+                  features: [],
+                },
+              ],
+        };
+      }
+
+      return moduleIndex >= 0
+        ? current.map((item, index) =>
+            index === moduleIndex ? updatedModule : item,
+          )
+        : [...current, updatedModule];
+    });
+  };
+
   const getPlanById = async (planId: string) => {
     try {
-      const res = await axios.get(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace(
-          "${planId}",
-          planId,
-        ),
-      );
+      const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
 
       const plan = res.data.data;
-
-      const normalizedFeatures: Record<string, string[]> = Object.fromEntries(
-        Object.entries(plan.features || {}).map(([role, mods]) => [
-          roleLabelMap[role] || role,
-          Array.isArray(mods) ? mods : [],
-        ]),
+      setSelectedPlanModules(
+        Array.isArray(plan.modules) ? plan.modules : [],
       );
 
       setFormData({
@@ -402,8 +798,9 @@ const PlansTable = () => {
         userLimit: plan.userLimit || 0,
         storageLimit: plan.storageLimit || 0,
         gstAndTax: plan.gstAndTax || 18,
-        allowedRoles: plan.allowedRoles || [],
-        features: normalizedFeatures,
+        allowedRoles: Array.isArray(plan.allowedRoles)
+          ? plan.allowedRoles.filter(isAllowedRole)
+          : [],
         canCreateCustomRole: plan.canCreateCustomRole,
         customDomain: plan.customDomain,
         backup: plan.backup,
@@ -423,16 +820,16 @@ const PlansTable = () => {
         setPricingRows(
           pricingSource
             .map((row: any) => {
+              // Some responses nest the record under its own `billingPeriod` key
+              // instead of returning it flat — unwrap that case if present.
               const record =
-                row?.billingPeriod && typeof row.billingPeriod === "object"
+                row?.billingPeriod &&
+                typeof row.billingPeriod === "object"
                   ? row.billingPeriod
                   : row;
 
               const months = Number(
-                record.durationInMonths ??
-                  record.months ??
-                  record.durationMonths ??
-                  0,
+                record.durationInMonths ?? record.months ?? record.durationMonths ?? 0,
               );
               const rawDuration = record.duration ?? record.durationLabel;
               let duration = months;
@@ -456,12 +853,8 @@ const PlansTable = () => {
                   record.billingPeriodId ?? record.id ?? record._id,
                 period: String(periodLabel),
                 duration,
-                price: Number(
-                  record.price ?? record.amount ?? record.monthlyPrice ?? 0,
-                ),
-                discount: Number(
-                  record.discount ?? record.discountPercent ?? 0,
-                ),
+                price: Number(record.price ?? record.amount ?? record.monthlyPrice ?? 0),
+                discount: Number(record.discount ?? record.discountPercent ?? 0),
                 gstRate: Number(record.gstRate ?? plan.gstAndTax ?? 0),
                 taxAmount: Number(record.taxAmount ?? 0),
                 totalAmount: Number(record.totalAmount ?? 0),
@@ -506,8 +899,7 @@ const PlansTable = () => {
         }
 
         const nextPrice = field === "price" ? numericValue : row.price;
-        const nextDiscount =
-          field === "discount" ? numericValue : row.discount;
+        const nextDiscount = field === "discount" ? numericValue : row.discount;
         const gstRate = Number(formData.gstAndTax) || row.gstRate || 0;
 
         const discounted = nextPrice - (nextPrice * nextDiscount) / 100;
@@ -562,8 +954,7 @@ const PlansTable = () => {
     }
   };
 
-  const [showAddBillingPeriodModal, setShowAddBillingPeriodModal] =
-    useState(false);
+  const [showAddBillingPeriodModal, setShowAddBillingPeriodModal] = useState(false);
   const [isSavingBillingPeriod, setIsSavingBillingPeriod] = useState(false);
   const [billingPeriodForm, setBillingPeriodForm] = useState({
     billingPeriod: "",
@@ -600,9 +991,7 @@ const PlansTable = () => {
   };
 
   const handleAddBillingPeriod = async () => {
-    const billingPeriod = normalizeBillingPeriodLabel(
-      billingPeriodForm.billingPeriod,
-    );
+    const billingPeriod = normalizeBillingPeriodLabel(billingPeriodForm.billingPeriod);
     const duration = normalizeDuration(billingPeriodForm.duration);
     const errors: { billingPeriod?: string; duration?: string } = {};
 
@@ -637,15 +1026,14 @@ const PlansTable = () => {
 
       const saved = response.data?.data ?? response.data;
 
+      // The API sometimes wraps the created record under a `billingPeriod` key
+      // instead of returning it flat — unwrap that case, same as CreatePlan.
       const record =
-        saved &&
-        typeof saved.billingPeriod === "object" &&
-        saved.billingPeriod !== null
+        saved && typeof saved.billingPeriod === "object" && saved.billingPeriod !== null
           ? saved.billingPeriod
           : saved;
 
-      const billingPeriodId =
-        record?.billingPeriodId ?? record?.id ?? record?._id;
+      const billingPeriodId = record?.billingPeriodId ?? record?.id ?? record?._id;
 
       if (!billingPeriodId) {
         toast.error(AppFailureToastMessages.ADD_BILLING_PERIOD_FAILED);
@@ -687,22 +1075,11 @@ const PlansTable = () => {
       return;
     }
 
-    const rolesFromFeatures = Object.keys(formData.features || {})
-      .filter((role) => (formData.features[role] || []).length > 0)
-      .map((role) => roleCodeMap[role] || role.toUpperCase());
+    const allowedRoles = formData.allowedRoles;
 
-    const allowedRoles =
-      rolesFromFeatures.length > 0 ? rolesFromFeatures : formData.allowedRoles;
-
-    const featuresForPayload = Object.fromEntries(
-      Object.entries(formData.features || {})
-        .filter(([, mods]) => (mods || []).length > 0)
-        .map(([role, mods]) => [
-          roleCodeMap[role] || role.toUpperCase(),
-          mods,
-        ]),
-    );
-
+    // Pricing is already saved per-row via handlePricingRowBlur — only resend the
+    // billingPeriods array here if every row has a real id, so a still-loading /
+    // placeholder row can't trip the backend's required billingPeriodId check.
     const billingPeriodsForPayload =
       pricingRows.length > 0 && pricingRows.every((row) => row.billingPeriodId)
         ? pricingRows.map((row) => ({
@@ -722,6 +1099,8 @@ const PlansTable = () => {
       studentLimit: Number(formData.studentLimit),
       billingCycle: formData.billingCycle,
       planDescription: formData.planDescription,
+      // The "Plan Tag" field (Most Popular / Recommended / Best Value) is the
+      // backend's `planStatus`; the "Status" field (Active/Inactive) is `status`.
       planStatus: formData.planTag,
       status: formData.planStatus,
 
@@ -733,9 +1112,9 @@ const PlansTable = () => {
       totalPrice: Number(selectedPlan.totalPrice ?? 0),
 
       allowedRoles,
-      features: featuresForPayload,
+      modules: selectedPlanModules,
 
-      canCreateCustomRole: allowedRoles.includes("ADMIN"),
+      canCreateCustomRole: Boolean(formData.canCreateCustomRole),
 
       lastUpdatedBy: "SUPER_ADMIN",
     };
@@ -760,8 +1139,7 @@ const PlansTable = () => {
       fetchPlans();
     } catch (err: any) {
       const message =
-        err.response?.data?.message ||
-        AppFailureToastMessages.UPDATE_PLAN_FAILED;
+        err.response?.data?.message || AppFailureToastMessages.UPDATE_PLAN_FAILED;
 
       toast.error(message);
     } finally {
@@ -836,6 +1214,7 @@ const PlansTable = () => {
         </div>
 
         {/* Table */}
+
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
@@ -866,9 +1245,7 @@ const PlansTable = () => {
                 </tr>
               ) : (
                 paginatedPlans.map((item, index) => {
-                  const billingPeriods: any[] = Array.isArray(
-                    item.billingPeriods,
-                  )
+                  const billingPeriods: any[] = Array.isArray(item.billingPeriods)
                     ? item.billingPeriods
                     : [];
                   const rowKey = item.planId ?? String(index);
@@ -883,125 +1260,127 @@ const PlansTable = () => {
                   );
 
                   return (
-                    <tr
-                      key={index}
-                      className={`text-[12px] ${
-                        index % 2 === 0
-                          ? "bg-[#fff] dark:bg-[#2C2C2C] "
-                          : "bg-[#F8F8F8] dark:bg-[#303030]"
-                      }`}
-                    >
-                      <td className="px-4 py-5">
-                        <span
-                          className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
-                            item.planName,
-                          )}`}
-                        >
-                          {item.planName}
-                        </span>
-                      </td>
+                  <tr
+                    key={index}
+                    className={`text-[12px] ${
+                      index % 2 === 0
+                        ? "bg-[#fff] dark:bg-[#2C2C2C] "
+                        : "bg-[#F8F8F8] dark:bg-[#303030]"
+                    }`}
+                  >
+                    <td className="px-4 py-5">
+                      <span
+                        className={`inline-flex items-center justify-center px-3 py-1 font-medium rounded-md ${getBadgeStyle(
+                          item.planName,
+                        )}`}
+                      >
+                        {item.planName}
+                      </span>
+                    </td>
 
-                      <td className="px-4">
-                        {billingPeriods.length > 0 ? (
-                          <select
-                            value={selectedBillingPeriodId ?? ""}
-                            onChange={(e) =>
-                              setSelectedBillingPeriodByPlan((prev) => ({
-                                ...prev,
-                                [rowKey]: e.target.value,
-                              }))
-                            }
-                            className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC]"
-                          >
-                            {billingPeriods.map((bp: any, bpIndex: number) => (
-                              <option
-                                key={bp.billingPeriodId ?? bpIndex}
-                                value={bp.billingPeriodId ?? bp.billingPeriod}
-                              >
-                                {bp.billingPeriod} -{" "}
-                                {Number(bp.duration) > 0
-                                  ? `${Number(bp.duration)} Month`
-                                  : "-"}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          item.billingCycle || "-"
+                    <td className="px-4">
+                      {billingPeriods.length > 0 ? (
+                        <select
+                          value={selectedBillingPeriodId ?? ""}
+                          onChange={(e) =>
+                            setSelectedBillingPeriodByPlan((prev) => ({
+                              ...prev,
+                              [rowKey]: e.target.value,
+                            }))
+                          }
+                          className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC]"
+                        >
+                          {billingPeriods.map((bp: any, bpIndex: number) => (
+                            <option
+                              key={bp.billingPeriodId ?? bpIndex}
+                              value={bp.billingPeriodId ?? bp.billingPeriod}
+                            >
+                              {bp.billingPeriod} - {Number(bp.duration) > 0
+                                ? `${Number(bp.duration)} Month`
+                                : "-"}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        item.billingCycle || "-"
+                      )}
+                    </td>
+
+                    <td className="px-4">
+                      ₹
+                      {selectedBillingPeriod
+                        ? (selectedBillingPeriod.totalAmount ??
+                          selectedBillingPeriod.price ??
+                          0)
+                        : item.monthlyPrice ?? 0}
+                    </td>
+
+                    <td className="px-4 text-[#4D74AE]">
+                      {formatTableDate(item.createdDate)}
+                    </td>
+
+                    <td className="px-4">
+                      {featureCountByPlan[item.planId] ??
+                        getPlanFeatureCount(item)}
+                    </td>
+
+                    <td className="px-4">
+                      {subscribedTenantCountByPlan[item._id] ??
+                        subscribedTenantCountByPlan[item.planId] ??
+                        item.subscribedTenants ??
+                        0}
+                    </td>
+
+                    <td className="px-4">
+                      <span
+                        className={`rounded-md px-3 py-1 text-xs font-medium ${getStatusBadgeStyle(
+                          item.status,
+                        )}`}
+                      >
+                        {formatStatusLabel(item.status)}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-4 relative">
+                      <div className="flex justify-center">
+                        <button
+                          className="rounded-md p-1 hover:bg-gray-100"
+                          onClick={() =>
+                            setOpenMenu(openMenu === index ? null : index)
+                          }
+                        >
+                          <MoreVertical size={18} className="text-[#6B7280]" />
+                        </button>
+
+                        {openMenu === index && (
+                          <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
+                            <button
+                              className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              onClick={() => {
+                                handleViewPlan(item.planId);
+                                setSelectedPlan(item);
+                                setShowModal(true);
+                                setOpenMenu(null);
+                              }}
+                            >
+                              View Details
+                            </button>
+
+                            <button
+                              className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              onClick={() => {
+                                setSelectedPlan(item);
+                                setShowUpdateModal(true);
+                                setOpenMenu(null);
+                              }}
+                            >
+                              Update
+                            </button>
+                          </div>
                         )}
-                      </td>
-
-                      <td className="px-4">
-                        ₹
-                        {selectedBillingPeriod
-                          ? selectedBillingPeriod.totalAmount ??
-                            selectedBillingPeriod.price ??
-                            0
-                          : item.monthlyPrice ?? 0}
-                      </td>
-
-                      <td className="px-4 text-[#4D74AE]">
-                        {formatTableDate(item.createdDate)}
-                      </td>
-
-                      <td className="px-4">
-                        {Object.values(item.features || {}).flat().length}
-                      </td>
-
-                      <td className="px-4">{item.subscribedTenants || 0}</td>
-
-                      <td className="px-4">
-                        <span
-                          className={`rounded-md px-3 py-1 text-xs font-medium ${getStatusBadgeStyle(
-                            item.status,
-                          )}`}
-                        >
-                          {formatStatusLabel(item.status)}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4 relative">
-                        <div className="flex justify-center">
-                          <button
-                            className="rounded-md p-1 hover:bg-gray-100"
-                            onClick={() =>
-                              setOpenMenu(openMenu === index ? null : index)
-                            }
-                          >
-                            <MoreVertical
-                              size={18}
-                              className="text-[#6B7280]"
-                            />
-                          </button>
-
-                          {openMenu === index && (
-                            <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
-                              <button
-                                className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
-                                onClick={() => {
-                                  handleViewPlan(item.planId);
-                                  setSelectedPlan(item);
-                                  setShowModal(true);
-                                  setOpenMenu(null);
-                                }}
-                              >
-                                View Details
-                              </button>
-
-                              <button
-                                className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
-                                onClick={() => {
-                                  setSelectedPlan(item);
-                                  setShowUpdateModal(true);
-                                  setOpenMenu(null);
-                                }}
-                              >
-                                Update
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </td>
+                  </tr>
                   );
                 })
               )}
@@ -1009,7 +1388,6 @@ const PlansTable = () => {
           </table>
         </div>
       </div>
-
       {showFilterPanel && (
         <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4">
           <div className="w-full max-w-[360px] overflow-hidden rounded-xl bg-white shadow-2xl">
@@ -1161,7 +1539,6 @@ const PlansTable = () => {
           </div>
         </div>
       )}
-
       <div className="flex items-center justify-end gap-2 px-4 py-3">
         <button
           type="button"
@@ -1191,7 +1568,9 @@ const PlansTable = () => {
       {/* Modal */}
       {showModal && selectedPlan && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-5">
+          {/* Modal */}
           <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden">
+            {/* Header */}
             <div className="flex items-start justify-between px-5 py-4 border-b">
               <div>
                 <h2 className="text-[15px] font-semibold text-[#1F2937]">
@@ -1261,6 +1640,7 @@ ${
               </div>
 
               {/* Info Cards */}
+
               <div className="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 gap-4 mb-5">
                 {[
                   ["Plan Name", selectedPlan.planName],
@@ -1269,35 +1649,31 @@ ${
 
                   [
                     "Created Date",
-                    selectedPlan.createdDate
-                      ? new Date(selectedPlan.createdDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )
-                      : "-",
+                    new Date(selectedPlan.createdDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
                   ],
 
                   [
                     "Last Updated",
-                    selectedPlan.updatedDate
-                      ? new Date(selectedPlan.updatedDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )
-                      : "-",
+                    new Date(selectedPlan.updatedDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
                   ],
 
-                  ["Created By", selectedPlan.createdBy ?? "-"],
+                  ["Created By", selectedPlan.createdBy],
                 ].map(([title, value]) => (
-                  <div key={title as string} className="bg-[#EEF1FF] rounded-md p-3">
+                  <div key={title} className="bg-[#EEF1FF] rounded-md p-3">
                     <p className="text-xs text-[#010E30]">{title}</p>
 
                     <p className="font-medium text-[#010e30a5] mt-1 text-[11px]">
@@ -1308,7 +1684,10 @@ ${
               </div>
 
               {/* Pricing & Statistics */}
+
               <div className="grid lg:grid-cols-2 gap-5 mb-5">
+                {/* Pricing */}
+
                 <div className="rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-400 to-blue-500 text-white p-4">
                   <h4 className="font-medium text-base mb-6">Pricing</h4>
 
@@ -1317,8 +1696,7 @@ ${
                       <p className="text-sm opacity-90">Monthly Price</p>
 
                       <h2 className="text-lg font-medium mt-3">
-                        ₹{selectedPlan.monthlyPrice ?? 0}{" "}
-                        <span>/ Month</span>
+                        ₹{selectedPlan.monthlyPrice} <span>/ Month</span>
                       </h2>
                     </div>
 
@@ -1326,7 +1704,7 @@ ${
                       <p className="text-sm opacity-90">Yearly Price</p>
 
                       <h2 className="text-lg font-medium mt-3">
-                        ₹{selectedPlan.yearlyPrice ?? 0} <span>/ Year</span>
+                        ₹{selectedPlan.yearlyPrice} <span>/ Year</span>
                       </h2>
 
                       <span className="inline-block mt-2 bg-[#D6FED5] text-green-800 px-3 py-1 rounded text-xs">
@@ -1336,16 +1714,21 @@ ${
                   </div>
                 </div>
 
+                {/* Statistics */}
+
                 <div className="border rounded-xl p-3">
                   <h4 className="font-medium text-base mb-2">
                     Plan Statistics
                   </h4>
 
                   {[
-                    ["Student Limit", selectedPlan.studentLimit ?? 0],
-                    ["Trial Days", selectedPlan.trialDays ?? 0],
-                    ["Setup Fee", `₹${selectedPlan.setupFee ?? 0}`],
-                    ["GST / Tax", `${selectedPlan.gstAndTax ?? 0}%`],
+                    ["Student Limit", selectedPlan.studentLimit],
+
+                    ["Trial Days", selectedPlan.trialDays],
+
+                    ["Setup Fee", `₹${selectedPlan.setupFee}`],
+
+                    ["GST / Tax", `${selectedPlan.gstAndTax}%`],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-[5px]">
                       <span className="text-[#010e30] text-[14px] font-normal">
@@ -1361,12 +1744,13 @@ ${
               </div>
 
               {/* Limits + Modules */}
+
               <div className="grid lg:grid-cols-2 gap-5 mb-5">
                 <div className="border rounded-xl p-3">
                   <h4 className="font-medium text-base mb-2">Plan Limits</h4>
                   <div className="max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2">
                     {[
-                      ["Maximum Students", selectedPlan.studentLimit ?? 0],
+                      ["Maximum Students", selectedPlan.studentLimit],
 
                       [
                         "Custom Domain",
@@ -1382,7 +1766,7 @@ ${
 
                       ["Domain", selectedPlan.domain || "-"],
                     ].map(([k, v]) => (
-                      <div key={k as string} className="flex justify-between py-2">
+                      <div key={k} className="flex justify-between py-2">
                         <span className="text-[#010e30] text-[14px] font-normal">
                           {k}
                         </span>
@@ -1400,55 +1784,46 @@ ${
                   </h4>
 
                   <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2 text-[#010e30] text-[14px] font-normal">
-                    {modules.length === 0 ? (
-                      <p className="text-[12px] text-gray-400 col-span-2">
-                        No modules configured
-                      </p>
-                    ) : (
-                      modules.map((item: string) => (
-                        <div key={item}>{item}</div>
-                      ))
-                    )}
+                    {modules.map((item: string) => (
+                      <div key={item}>{item}</div>
+                    ))}
                   </div>
                 </div>
               </div>
 
               {/* Timeline */}
+
               <div className="border rounded-xl p-3">
                 <h4 className="font-medium text-base mb-3">Timeline</h4>
 
                 {[
                   [
                     "Plan Created",
-                    selectedPlan.createdDate
-                      ? new Date(selectedPlan.createdDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )
-                      : "-",
+                    new Date(selectedPlan.createdDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
                   ],
 
                   [
                     "Last Updated",
-                    selectedPlan.updatedDate
-                      ? new Date(selectedPlan.updatedDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )
-                      : "-",
+                    new Date(selectedPlan.updatedDate).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    ),
                   ],
 
                   ["Last Updated By", selectedPlan.lastUpdatedBy || "-"],
                 ].map(([k, v]) => (
-                  <div key={k as string} className="flex justify-between py-2">
+                  <div key={k} className="flex justify-between py-2">
                     <span className="text-[#010e30] text-[14px] font-normal">
                       {k}
                     </span>
@@ -1468,9 +1843,7 @@ ${
         <div className="fixed inset-0 z-[9999] rounded-lg flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-lg border-2 border-[#3B82F6] bg-[#FBFDFF] shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-3">
-              <h2 className="text-lg font-semibold text-[#1F2A44]">
-                Update Plan
-              </h2>
+              <h2 className="text-lg font-semibold text-[#1F2A44]">Update Plan</h2>
 
               <button
                 onClick={() => setShowUpdateModal(false)}
@@ -1637,32 +2010,20 @@ ${
                   <table className="min-w-full text-[11px]">
                     <thead className="bg-[#576CBC] text-white">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">
-                          Billing Period
-                        </th>
-                        <th className="px-3 py-2 text-left font-medium">
-                          Duration
-                        </th>
-                        <th className="px-3 py-2 text-left font-medium">
-                          Price (₹)
-                        </th>
-                        <th className="px-3 py-2 text-left font-medium">
-                          Discount (%)
-                        </th>
+                        <th className="px-3 py-2 text-left font-medium">Billing Period</th>
+                        <th className="px-3 py-2 text-left font-medium">Duration</th>
+                        <th className="px-3 py-2 text-left font-medium">Price (₹)</th>
+                        <th className="px-3 py-2 text-left font-medium">Discount (%)</th>
                         <th className="px-3 py-2 text-left font-medium">
                           GST ({Number(formData.gstAndTax) || 0}%)
                         </th>
-                        <th className="px-3 py-2 text-left font-medium">
-                          Total (₹)
-                        </th>
+                        <th className="px-3 py-2 text-left font-medium">Total (₹)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {pricingRowsForTable.map((row) => {
-                        const discounted =
-                          row.price - (row.price * row.discount) / 100;
-                        const gst =
-                          (discounted * Number(formData.gstAndTax || 0)) / 100;
+                        const discounted = row.price - (row.price * row.discount) / 100;
+                        const gst = (discounted * Number(formData.gstAndTax || 0)) / 100;
                         const total = discounted + gst;
 
                         return (
@@ -1673,9 +2034,7 @@ ${
                             <td className="px-3 py-2">{String(row.period)}</td>
                             <td className="px-3 py-2">
                               {row.duration > 0
-                                ? `${row.duration} Month${
-                                    row.duration > 1 ? "s" : ""
-                                  }`
+                                ? `${row.duration} Month${row.duration > 1 ? "s" : ""}`
                                 : "-"}
                             </td>
                             <td className="px-3 py-2">
@@ -1691,9 +2050,7 @@ ${
                                     e.target.value,
                                   )
                                 }
-                                onBlur={() =>
-                                  handlePricingRowBlur(row.billingPeriodId)
-                                }
+                                onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
                                 className="h-7 w-[88px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 disabled:bg-[#F1F3F7]"
                               />
                             </td>
@@ -1711,9 +2068,7 @@ ${
                                     e.target.value,
                                   )
                                 }
-                                onBlur={() =>
-                                  handlePricingRowBlur(row.billingPeriodId)
-                                }
+                                onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
                                 className="h-7 w-[72px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2"
                               />
                             </td>
@@ -1749,87 +2104,207 @@ ${
                   <h3 className="text-[15px] font-semibold text-[#1F2A44]">
                     Included Modules & Features
                   </h3>
-                  <button
-                    type="button"
-                    className="rounded border border-[#C9D3F9] bg-[#EEF2FF] px-3 py-1 text-[11px] font-medium text-[#3D56A8]"
-                  >
-                    Add
-                  </button>
                 </div>
 
-                <div className="mb-4 flex gap-3">
-                  {roleTabs.map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setActiveRoleTab(role)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                        activeRoleTab === role
-                          ? "bg-[#E5EDFF] text-[#3D56A8]"
-                          : "text-[#475467] hover:bg-[#F2F4F7]"
-                      }`}
-                    >
-                      {role}
-                    </button>
-                  ))}
+                <div className="mb-5">
+                  <p className="mb-2 text-xs font-medium text-[#344054]">
+                    Allowed Portals
+                  </p>
+                  {isLoadingModuleCatalog ? (
+                    <p className="text-xs text-[#667085]">Loading portal catalog...</p>
+                  ) : portalOptions.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      {portalOptions.map((portal) => {
+                        const isChecked = formData.allowedRoles.some(
+                          (role) => role.portalId === portal._id,
+                        );
+
+                        return (
+                          <label
+                            key={portal._id}
+                            className="flex cursor-pointer items-center gap-2 text-[13px] text-[#344054]"
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-3.5 w-3.5 accent-[#576CBC]"
+                              checked={isChecked}
+                              onChange={(event) => {
+                                setFormData((current) => ({
+                                  ...current,
+                                  allowedRoles: event.target.checked
+                                    ? [
+                                        ...current.allowedRoles,
+                                        {
+                                          portalId: portal._id,
+                                          portalName: portal.portalName,
+                                        },
+                                      ]
+                                    : current.allowedRoles.filter(
+                                        (role) => role.portalId !== portal._id,
+                                      ),
+                                }));
+                                if (!event.target.checked) {
+                                  setSelectedPlanModules((current) =>
+                                    current.filter(
+                                      (module) => module.portalId !== portal._id,
+                                    ),
+                                  );
+                                }
+                              }}
+                            />
+                            {portal.portalName}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[#667085]">No portals found.</p>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 text-[13px] text-[#1F2A44] md:grid-cols-2">
-                  {[
-                    "Student Management",
-                    "Staff Management",
-                    "Attendance",
-                    "Fees Management",
-                    "Examination",
-                    "Transport Management",
-                    "Library Management",
-                    "Hostel Management",
-                    "HR & Payroll",
-                    "Performance Analytics",
-                  ].map((item) => (
-                    <label
-                      key={item}
-                      className="flex cursor-pointer items-center gap-2"
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 accent-[#576CBC]"
-                        checked={
-                          activeRoleModules.includes(item) ||
-                          selectedModules.includes(item)
-                        }
-                        onChange={(e) => {
-                          let mods = [...activeRoleModules];
+                <div className="space-y-4">
+                  {formData.allowedRoles.map((allowedRole) => {
+                    const portal = portalOptions.find(
+                      (item) => item._id === allowedRole.portalId,
+                    );
+                    if (!portal) return null;
 
-                          if (e.target.checked) {
-                            mods.push(item);
-                          } else {
-                            mods = mods.filter((m) => m !== item);
-                          }
+                    const portalModules = getModulesForPortal(
+                      portal,
+                      featureCatalog,
+                    );
 
-                          setFormData((prev) => ({
-                            ...prev,
-                            features: {
-                              ...prev.features,
-                              [activeRoleTab]: mods,
-                            },
-                          }));
-                        }}
-                      />
-                      {item}
-                    </label>
-                  ))}
+                    return (
+                      <section
+                        key={portal._id}
+                        className="rounded border border-[#E6EAF2] bg-[#F8FAFC] p-3"
+                      >
+                        <h4 className="mb-3 text-xs font-semibold text-[#344054]">
+                          {portal.portalName}
+                        </h4>
+                        {portalModules.length > 0 ? (
+                          <div className="space-y-3">
+                            {portalModules.map((module) => {
+                              const selectedModule = selectedPlanModules.find(
+                                (item) =>
+                                  item.portalId === portal._id &&
+                                  item.moduleId === module.moduleId,
+                              );
+
+                              return (
+                                <div
+                                  key={`${portal._id}-${module.moduleId}`}
+                                  className="rounded border border-[#E6EAF2] bg-white p-3"
+                                >
+                                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#1F2A44]">
+                                    <input
+                                      type="checkbox"
+                                      className="h-3.5 w-3.5 accent-[#576CBC]"
+                                      checked={Boolean(selectedModule)}
+                                      onChange={() =>
+                                        togglePlanModule(portal, module)
+                                      }
+                                    />
+                                    {module.moduleName}
+                                  </label>
+
+                                  {module.features?.map((feature) => (
+                                    <label
+                                      key={feature.featureId}
+                                      className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#475467]"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="h-3.5 w-3.5 accent-[#576CBC]"
+                                        checked={Boolean(
+                                          selectedModule?.features?.some(
+                                            (item) =>
+                                              item.featureId === feature.featureId,
+                                          ),
+                                        )}
+                                        onChange={() =>
+                                          togglePlanModule(portal, module, undefined, feature)
+                                        }
+                                      />
+                                      {feature.featureName}
+                                    </label>
+                                  ))}
+
+                                  {module.children?.map((child) => {
+                                    const selectedChild = selectedModule?.children?.find(
+                                      (item) =>
+                                        item.childModuleId === child.childModuleId,
+                                    );
+
+                                    return (
+                                      <div
+                                        key={child.childModuleId}
+                                        className="ml-6 mt-3 border-l border-[#D0D5DD] pl-3"
+                                      >
+                                        <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-[#344054]">
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 accent-[#576CBC]"
+                                            checked={Boolean(selectedChild)}
+                                            onChange={() =>
+                                              togglePlanModule(portal, module, child)
+                                            }
+                                          />
+                                          {child.childModuleName}
+                                        </label>
+                                        {child.features?.map((feature) => (
+                                          <label
+                                            key={feature.featureId}
+                                            className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#667085]"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              className="h-3.5 w-3.5 accent-[#576CBC]"
+                                              checked={Boolean(
+                                                selectedChild?.features?.some(
+                                                  (item) =>
+                                                    item.featureId === feature.featureId,
+                                                ),
+                                              )}
+                                              onChange={() =>
+                                                togglePlanModule(
+                                                  portal,
+                                                  module,
+                                                  child,
+                                                  feature,
+                                                )
+                                              }
+                                            />
+                                            {feature.featureName}
+                                          </label>
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[#667085]">
+                            No active modules or features for this portal.
+                          </p>
+                        )}
+                      </section>
+                    );
+                  })}
+                  {formData.allowedRoles.length === 0 && (
+                    <p className="text-xs text-[#667085]">
+                      Select a portal to choose its modules and features.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
-                  Status
-                </h3>
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">Status</h3>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-[140px_1fr] md:items-center">
-                  <label className="text-xs font-medium text-[#344054]">
-                    Plan Status
-                  </label>
+                  <label className="text-xs font-medium text-[#344054]">Plan Status</label>
                   <select
                     value={formData.planStatus}
                     onChange={(e) =>
@@ -1924,16 +2399,11 @@ ${
                 <input
                   type="number"
                   min={1}
-                  value={
-                    billingPeriodForm.duration === 0
-                      ? ""
-                      : billingPeriodForm.duration
-                  }
+                  value={billingPeriodForm.duration === 0 ? "" : billingPeriodForm.duration}
                   onChange={(e) =>
                     setBillingPeriodForm((prev) => ({
                       ...prev,
-                      duration:
-                        e.target.value === "" ? 0 : Number(e.target.value),
+                      duration: e.target.value === "" ? 0 : Number(e.target.value),
                     }))
                   }
                   placeholder="1"
