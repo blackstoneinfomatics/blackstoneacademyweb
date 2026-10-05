@@ -572,11 +572,11 @@ const CreatePlan = ({ onClose }: Props) => {
         billingPeriodId: savedBillingPeriodId,
         billingPeriod,
         duration,
-        price: record?.price,
-        discount: record?.discount,
-        gstRate: record?.gstRate ?? Number(planData.gstAndTax),
-        taxAmount: record?.taxAmount,
-        totalAmount: record?.totalAmount,
+        price: Number(record?.price ?? 0),
+        discount: Number(record?.discount ?? 0),
+        gstRate: Number(record?.gstRate ?? Number(planData.gstAndTax) ?? 0),
+        taxAmount: Number(record?.taxAmount ?? 0),
+        totalAmount: Number(record?.totalAmount ?? 0),
       };
 
       setBillingPeriods((prev) => [...prev, newRow]);
@@ -599,42 +599,61 @@ const CreatePlan = ({ onClose }: Props) => {
     field: "price" | "discount",
     rawValue: string,
   ) => {
-    setBillingPeriods((prev) =>
-      prev.map((row) => {
-        if (row.billingPeriodId !== billingPeriodId) {
-          return row;
-        }
+    const nextBillingPeriods = billingPeriods.map((row) => {
+      if (row.billingPeriodId !== billingPeriodId) {
+        return row;
+      }
 
-        const numericValue = rawValue === "" ? 0 : Number(rawValue);
+      const numericValue = rawValue === "" ? 0 : Number(rawValue);
 
-        if (Number.isNaN(numericValue) || numericValue < 0) {
-          return row;
-        }
+      if (Number.isNaN(numericValue) || numericValue < 0) {
+        return row;
+      }
 
-        if (field === "discount" && numericValue > 100) {
-          return row;
-        }
+      if (field === "discount" && numericValue > 100) {
+        return row;
+      }
 
-        const nextPrice = field === "price" ? numericValue : (row.price ?? 0);
-        const nextDiscount =
-          field === "discount" ? numericValue : (row.discount ?? 0);
-        const gstRate = Number(planData.gstAndTax) || row.gstRate || 0;
+      const nextPrice = field === "price" ? numericValue : (row.price ?? 0);
+      const nextDiscount =
+        field === "discount" ? numericValue : (row.discount ?? 0);
+      const gstRate = Number(planData.gstAndTax) || row.gstRate || 0;
 
-        const { taxAmount, totalAmount } = calculateBillingAmounts(
-          nextPrice,
-          nextDiscount,
-          gstRate,
-        );
+      const { taxAmount, totalAmount } = calculateBillingAmounts(
+        nextPrice,
+        nextDiscount,
+        gstRate,
+      );
 
-        return {
-          ...row,
-          [field]: numericValue,
-          gstRate,
-          taxAmount,
-          totalAmount,
-        };
-      }),
+      return {
+        ...row,
+        [field]: numericValue,
+        gstRate,
+        taxAmount,
+        totalAmount,
+      };
+    });
+
+    setBillingPeriods(nextBillingPeriods);
+
+    const rowToPersist = nextBillingPeriods.find(
+      (item) => item.billingPeriodId === billingPeriodId,
     );
+
+    if (!rowToPersist || !planId) {
+      return;
+    }
+
+    persistBillingPeriodPricing(planId, {
+      ...rowToPersist,
+      gstRate: rowToPersist.gstRate ?? Number(planData.gstAndTax),
+    }).catch((err: any) => {
+      const message =
+        err.response?.data?.message ||
+        AppFailureToastMessages.UPDATE_BILLING_PERIOD_FAILED;
+
+      toast.error(message);
+    });
   };
 
   const handleBillingPeriodBlur = async (billingPeriodId: string) => {
@@ -669,6 +688,19 @@ const CreatePlan = ({ onClose }: Props) => {
           portalName: portal.portalName,
         }));
 
+      const billingPeriodsForPayload = billingPeriods
+        .filter((row) => row.billingPeriodId && row.billingPeriod)
+        .map((row) => ({
+          billingPeriodId: row.billingPeriodId,
+          billingPeriod: row.billingPeriod,
+          duration: Number(row.duration ?? 0),
+          price: Number(row.price ?? 0),
+          discount: Number(row.discount ?? 0),
+          gstRate: Number(row.gstRate ?? Number(planData.gstAndTax) ?? 0),
+          taxAmount: Number(row.taxAmount ?? 0),
+          totalAmount: Number(row.totalAmount ?? 0),
+        }));
+
       const payload = {
         planName: planData.planName,
         studentLimit: Number(planData.studentLimit),
@@ -685,11 +717,11 @@ const CreatePlan = ({ onClose }: Props) => {
         totalPrice: Number(planData.totalPrice),
 
         allowedRoles,
-  modules: buildSelectedModulesPayload(),
+        modules: buildSelectedModulesPayload(),
 
-        billingPeriods,
+        billingPeriods: billingPeriodsForPayload,
 
-  canCreateCustomRole: planData.canCreateCustomRole,
+        canCreateCustomRole: planData.canCreateCustomRole,
 
         status: planId ? "Active" : planData.status,
         createdBy: planData.createdBy,
