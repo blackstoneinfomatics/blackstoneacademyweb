@@ -9,8 +9,7 @@ import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolba
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
-import { Download } from "lucide-react";
-import { downloadPdf } from "../downloadCsv";
+
 
 // ✅ CORRECTED: Matches your exact backend response from getBillings()
 interface BillingListApiResponse {
@@ -98,7 +97,7 @@ const transactionFields: FilterField[] = [
 ];
 
 export default function BillingTable() {
-  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(
+  const [ setSelectedTransaction] = useState<any | null>(
     null,
   );
   const [openFilter, setOpenFilter] = useState(false);
@@ -118,7 +117,7 @@ export default function BillingTable() {
     status: "",
   });
 
-  const [open, setOpen] = useState(false);
+  const [ setOpen] = useState(false);
 
   useEffect(() => {
     const fetchBillings = async () => {
@@ -256,7 +255,7 @@ export default function BillingTable() {
       ) : (
         <DataTable
           heading="All Transactions"
-          selectable={true}
+          selectable={false}
           columns={[
             {
               key: "billingName",
