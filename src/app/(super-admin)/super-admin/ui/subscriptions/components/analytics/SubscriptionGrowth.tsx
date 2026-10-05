@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import {
@@ -92,11 +92,11 @@ const normalizeYearly = (points: GrowthPoint[]): ChartPoint[] => {
   points.forEach((point) => {
     const year = Number(point.year ?? point.label);
     if (Number.isFinite(year)) {
-      byYear.set(year, byYear.get(year) ?? 0 + readAmount(point));
+      byYear.set(year, (byYear.get(year) ?? 0) + readAmount(point));
     }
   });
 
-const knownYears = Array.from(byYear.keys());
+  const knownYears = Array.from(byYear.keys());
   const currentYear = new Date().getFullYear();
 
   const end = knownYears.length ? Math.max(...knownYears) : currentYear;
@@ -157,17 +157,11 @@ const GrowthTooltip = ({ active, payload, label }: TooltipProps<number, string>)
 
 const SubscriptionGrowth = () => {
   const [view, setView] = useState<View>("yearly");
-  const [year, setYear] = useState<number>(new Date().getFullYear());
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   const hasLoadedOnce = useRef(false);
-
-  const yearOptions = useMemo(() => {
-    const now = new Date().getFullYear();
-    return Array.from({ length: 6 }, (_, i) => now - i);
-  }, []);
 
   const fetchGrowth = useCallback(
     async (signal?: AbortSignal) => {
@@ -175,7 +169,7 @@ const SubscriptionGrowth = () => {
 
       try {
         const response = await axios.get<GrowthApiResponse>(GROWTH_ENDPOINT, {
-          params: view === "monthly" ? { view, year } : { view },
+          params: { view },
           signal,
         });
 
@@ -206,7 +200,7 @@ const SubscriptionGrowth = () => {
         setStatus(hasLoadedOnce.current ? "ready" : "error");
       }
     },
-    [view, year]
+    [view]
   );
 
   useEffect(() => {
@@ -249,21 +243,6 @@ const SubscriptionGrowth = () => {
         </h2>
 
         <div className="flex items-center gap-2">
-          {view === "monthly" && (
-            <select
-              className={selectClass}
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              aria-label="Select year"
-            >
-              {yearOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          )}
-
           <select
             className={selectClass}
             value={view}
@@ -318,11 +297,11 @@ const SubscriptionGrowth = () => {
                 </linearGradient>
               </defs>
 
-              <CartesianGrid 
-                stroke="#E5E7EB" 
-                vertical 
-                horizontal 
-                className="dark:stroke-[#4B5563]" 
+              <CartesianGrid
+                stroke="#E5E7EB"
+                vertical
+                horizontal
+                className="dark:stroke-[#4B5563]"
               />
 
               <XAxis
@@ -346,9 +325,9 @@ const SubscriptionGrowth = () => {
                 className="dark:[&_tspan]:fill-[#9CA3AF]"
               />
 
-              <Tooltip 
-                content={<GrowthTooltip />} 
-                cursor={{ stroke: "#22C55E", strokeWidth: 1, strokeDasharray: "3 3" }} 
+              <Tooltip
+                content={<GrowthTooltip />}
+                cursor={{ stroke: "#22C55E", strokeWidth: 1, strokeDasharray: "3 3" }}
               />
 
               <Area

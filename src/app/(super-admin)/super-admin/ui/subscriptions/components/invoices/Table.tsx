@@ -75,6 +75,18 @@ const INITIAL_FILTERS: FilterState = {
   payment: "All",
 };
 
+const formatDateLabel = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
 const applyFilters = (
   items: InvoiceItem[],
   search: string,
@@ -84,23 +96,41 @@ const applyFilters = (
 
   return items.filter((item) => {
     const invoiceNumber = item.invoiceNumber ?? "";
+    const invoiceId = item.invoiceId ?? "";
     const tenantName = item.tenant?.tenantName ?? "";
+    const tenantCode = item.tenant?.tenantCode ?? "";
+    const tenantId = item.tenant?.tenantId ?? "";
     const planName = item.subscriptionPlan?.planName ?? "";
+    const planId = item.subscriptionPlan?.planId ?? "";
     const billingCycle = item.subscriptionPlan?.billingCycle ?? "";
     const totalAmount =
       item.totalAmount != null ? String(item.totalAmount) : "";
+    const currency = item.currency ?? "";
     const status = item.status ?? "";
+
+    // Formatted dates so search matches what the user sees in the table
+    const invoiceDateRaw = item.invoiceDate ?? "";
+    const dueDateRaw = item.dueDate ?? "";
+    const invoiceDateLabel = formatDateLabel(invoiceDateRaw);
+    const dueDateLabel = formatDateLabel(dueDateRaw);
 
     const matchesSearch =
       !term ||
       [
         invoiceNumber,
+        invoiceId,
         tenantName,
+        tenantCode,
+        tenantId,
         planName,
+        planId,
         billingCycle,
-        item.invoiceDate,
-        item.dueDate,
+        invoiceDateRaw,
+        invoiceDateLabel,
+        dueDateRaw,
+        dueDateLabel,
         totalAmount,
+        currency,
         status,
       ]
         .join(" ")
@@ -115,19 +145,33 @@ const applyFilters = (
       !filters.tenant ||
       tenantName.toLowerCase().includes(filters.tenant.toLowerCase());
 
-    const matchesPlan = filters.plan === "All" || planName === filters.plan;
-    const matchesBillingCycle =
-      filters.billingCycle === "All" || billingCycle === filters.billingCycle;
-    const matchesStatus = filters.status === "All" || status === filters.status;
-    const matchesPayment =
-      filters.payment === "All" || status === filters.payment;
+    const matchesPlan =
+      filters.plan === "All" ||
+      planName.toLowerCase() === filters.plan.toLowerCase();
 
-    const rowDate = new Date(item.invoiceDate ?? "");
-    const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
-    const toDate = filters.toDate ? new Date(filters.toDate) : null;
+    const matchesBillingCycle =
+      filters.billingCycle === "All" ||
+      billingCycle.toLowerCase() === filters.billingCycle.toLowerCase();
+
+    const matchesStatus =
+      filters.status === "All" ||
+      status.toLowerCase() === filters.status.toLowerCase();
+
+    const matchesPayment =
+      filters.payment === "All" ||
+      status.toLowerCase() === filters.payment.toLowerCase();
+
+    const rowDate = invoiceDateRaw ? new Date(invoiceDateRaw) : null;
+    const fromDate = filters.fromDate
+      ? new Date(`${filters.fromDate}T00:00:00`)
+      : null;
+    const toDate = filters.toDate
+      ? new Date(`${filters.toDate}T23:59:59`)
+      : null;
 
     const matchesDate =
-      (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+      (!fromDate || (rowDate && rowDate >= fromDate)) &&
+      (!toDate || (rowDate && rowDate <= toDate));
 
     return (
       matchesSearch &&
@@ -139,18 +183,6 @@ const applyFilters = (
       matchesPayment &&
       matchesDate
     );
-  });
-};
-
-const formatDateLabel = (value?: string) => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
   });
 };
 
@@ -174,16 +206,16 @@ const Table = () => {
   const itemsPerPage = 5;
   const planOptions = Array.from(
     new Set(items.map((item) => item.subscriptionPlan?.planName ?? "")),
-  ).filter(Boolean);
+  ).filter(Boolean) as string[];
   const billingOptions = Array.from(
     new Set(items.map((item) => item.subscriptionPlan?.billingCycle ?? "")),
-  ).filter(Boolean);
+  ).filter(Boolean) as string[];
   const statusOptions = Array.from(
     new Set(items.map((item) => item.status ?? "")),
-  ).filter(Boolean);
+  ).filter(Boolean) as string[];
   const paymentOptions = Array.from(
     new Set(items.map((item) => item.status ?? "")),
-  ).filter(Boolean);
+  ).filter(Boolean) as string[];
 
   const filteredItems = applyFilters(items, search, appliedFilters);
   const previewFilteredItems = applyFilters(items, search, draftFilters);
@@ -292,7 +324,17 @@ const Table = () => {
     setCurrentPage(1);
     setOpenMenu(null);
     setSelectedRows([]);
-  }, [search, appliedFilters]);
+  }, [
+    search,
+    appliedFilters.invoiceNo,
+    appliedFilters.tenant,
+    appliedFilters.plan,
+    appliedFilters.billingCycle,
+    appliedFilters.fromDate,
+    appliedFilters.toDate,
+    appliedFilters.status,
+    appliedFilters.payment,
+  ]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -333,7 +375,7 @@ const Table = () => {
           <div className="border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:border-b-0 md:border-r">
             <button
               onClick={() => {
-                setDraftFilters(appliedFilters);
+                setDraftFilters({ ...appliedFilters });
                 setShowFilterPanel(true);
               }}
               className="flex h-12 w-full items-center justify-between px-4 text-sm text-[#80848E] transition hover:bg-gray-50 dark:hover:bg-[#2F2F2F]"
@@ -374,11 +416,11 @@ const Table = () => {
                       onChange={(e) => {
                         const nextIds = e.target.checked
                           ? Array.from(
-                              new Set([...selectedRows, ...visibleIds]),
-                            )
+                            new Set([...selectedRows, ...visibleIds]),
+                          )
                           : selectedRows.filter(
-                              (id) => !visibleIds.includes(id),
-                            );
+                            (id) => !visibleIds.includes(id),
+                          );
 
                         setSelectedRows(nextIds);
                       }}
@@ -453,13 +495,17 @@ const Table = () => {
                         <td className="px-2 py-4">{item.totalAmount}</td>
                         <td className="px-2 py-4">
                           <span
-                            className={`rounded-md px-2 py-[3px] text-[12px] ${
-                              item.status === "Paid"
-                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
-                                : item.status === "notPaid"
+                            className={`rounded-md px-2 py-[3px] text-[12px] ${item.status?.toLowerCase() === "paid"
+                              ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                              : item.status?.toLowerCase() === "pending"
+                                ? "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                                : item.status?.toLowerCase() === "notpaid" ||
+                                  item.status?.toLowerCase() === "failed" ||
+                                  item.status?.toLowerCase() === "overdue" ||
+                                  item.status?.toLowerCase() === "cancelled"
                                   ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
-                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
-                            }`}
+                                  : "bg-[#EEF0F4] text-[#6B7280] dark:bg-[#3F3F3F] dark:text-[#D1D5DB]"
+                              }`}
                           >
                             {item.status}
                           </span>
@@ -528,11 +574,10 @@ const Table = () => {
           <button
             key={page}
             onClick={() => setCurrentPage(page)}
-            className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${
-              currentPageSafe === page
-                ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
-                : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
-            }`}
+            className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${currentPageSafe === page
+              ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
+              : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
+              }`}
           >
             {page}
           </button>
@@ -751,7 +796,13 @@ const Table = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setDraftFilters(INITIAL_FILTERS)}
+                onClick={() => {
+                  setDraftFilters({ ...INITIAL_FILTERS });
+                  setAppliedFilters({ ...INITIAL_FILTERS });
+                  setSearch("");
+                  setCurrentPage(1);
+                  setSelectedRows([]);
+                }}
                 className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"
               >
                 Reset
@@ -759,7 +810,7 @@ const Table = () => {
 
               <button
                 onClick={() => {
-                  setAppliedFilters(draftFilters);
+                  setAppliedFilters({ ...draftFilters });
                   setShowFilterPanel(false);
                 }}
                 className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white"
@@ -839,13 +890,12 @@ const Table = () => {
                     <input
                       readOnly
                       value={selectedInvoice?.status}
-                      className={`h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 outline-none ${
-                        selectedInvoice?.status === "Paid"
-                          ? "text-green-600"
-                          : selectedInvoice?.status === "Pending"
-                            ? "text-yellow-500"
-                            : "text-red-500"
-                      }`}
+                      className={`h-11 w-full rounded-md border border-[#D8DDE8] bg-white px-4 outline-none ${selectedInvoice?.status?.toLowerCase() === "paid"
+                        ? "text-green-600"
+                        : selectedInvoice?.status?.toLowerCase() === "pending"
+                          ? "text-yellow-500"
+                          : "text-red-500"
+                        }`}
                     />
                   </div>
                 </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { X } from "lucide-react";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
@@ -28,12 +27,27 @@ interface TableItem {
   tenantName: string;
   details: string;
   date: string;
-  activity: number | string; // Your UI uses activity as a number, API returns string
+  activity: number | string;
   status: string;
 }
 
+/**
+ * Format any date string into "Sep 23, 2026".
+ * Uses the API's raw date value — nothing hardcoded.
+ */
+const formatDateLabel = (value?: string): string => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 const Table = () => {
-  const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [selectedAnalytics, setSelectedAnalytics] = useState<any>(null);
 
@@ -53,13 +67,15 @@ const Table = () => {
         if (response.data.success) {
           const activities = response.data.data.activities || [];
 
-          // Map API data to match your exact UI format
           const mappedData: TableItem[] = activities.map((item) => ({
             tenantName: item.tenantName || "N/A",
             details: item.planName || "N/A",
-            date: item.date ? new Date(item.date).toLocaleDateString() : "N/A",
-            activity: item.type === "Payment Transaction" ? "Payment" : item.activity || 0, // Map to a readable string
-            status: item.activity || "Active", // Use the status provided by API
+            date: formatDateLabel(item.date),
+            activity:
+              item.type === "Payment Transaction"
+                ? "Payment"
+                : item.activity || 0,
+            status: item.activity || "Active",
           }));
 
           setRecentItems(mappedData);
@@ -75,105 +91,83 @@ const Table = () => {
   }, []);
 
   return (
-    <div className="bg-white shadow-lg dark:bg-[#343434] rounded-2xl border border-transparent dark:border-gray-700/50 transition-colors">
-      <div className="overflow-x-auto scrollbar-none h-full rounded-2xl">
-        <div className="h-[380px] rounded-b-xl scrollbar-none">
-          <table className="min-w-full text-xs border-collapse table-fixed">
-            <thead className="text-[14px] bg-[#4C6993] text-white dark:bg-[#44699d]">
+    <div className="bg-white shadow-lg dark:bg-[#343434] rounded-2xl border border-transparent dark:border-gray-700/50 transition-colors flex flex-col h-full">
+      <div className="overflow-x-auto overflow-y-auto scrollbar-none flex-1 rounded-2xl">
+        <table className="min-w-full text-xs border-collapse table-fixed">
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[20%]" />
+            <col className="w-[38%]" />
+            <col className="w-[20%]" />
+          </colgroup>
+
+          <thead className="text-[14px] bg-[#4C6993] text-white dark:bg-[#44699d] sticky top-0 z-10">
+            <tr>
+              {[
+                "Date & time",
+                "Activity",
+                "Tenant Name & Details",
+                "Status",
+              ].map((header) => (
+                <th
+                  key={header}
+                  className="py-4 px-2 font-medium text-left border border-[#466993]"
+                >
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {isLoading ? (
               <tr>
-                {[
-                  "Date & time",
-                  "Activity",
-                  "Tenant Name & Details",
-                  "Status",
-                  "Action",
-                ].map((header) => (
-                  <th
-                    key={header}
-                    className="py-4 px-2 font-medium text-left border border-[#466993]"
-                  >
-                    {header}
-                  </th>
-                ))}
+                <td
+                  colSpan={4}
+                  className="p-4 text-center dark:text-gray-400"
+                >
+                  Loading activities...
+                </td>
               </tr>
-            </thead>
-
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="p-4 text-center dark:text-gray-400">
-                    Loading activities...
+            ) : recentItems.length > 0 ? (
+              recentItems.map((item, index) => (
+                <tr
+                  key={index}
+                  className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030] transition-colors"
+                >
+                  <td className="py-4 px-2 dark:text-white">{item.date}</td>
+                  <td className="py-4 px-2 dark:text-white">
+                    {item.activity}
                   </td>
-                </tr>
-              ) : recentItems.length > 0 ? (
-                recentItems.map((item, index) => (
-                  <tr
-                    key={index}
-                    className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030] transition-colors"
-                  >
-                    <td className="py-4 px-2 dark:text-white">{item.date}</td>
-                    <td className="py-4 px-2 dark:text-white">{item.activity}</td>
-                    <td className="py-4 px-2 dark:text-white">{item.tenantName} & {item.details}</td>
-                    <td className="py-4 px-2">
-                      <span
-                        className={`px-2 text-[12px] py-[3px] rounded-md ${
-                          item.status === "Active"
-                            ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#2A3A3A] dark:text-[#4ADE80]"
-                            : item.status === "Expired"
-                              ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#3A2A2A] dark:text-[#F87171]"
-                              : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#3A3520] dark:text-[#FBBF24]"
+                  <td className="py-4 px-2 dark:text-white">
+                    {item.tenantName} & {item.details}
+                  </td>
+                  <td className="py-4 px-2">
+                    <span
+                      className={`inline-flex items-center justify-center text-center whitespace-nowrap min-w-[110px] h-[26px] px-3 text-[12px] rounded-md ${item.status === "Active"
+                        ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#2A3A3A] dark:text-[#4ADE80]"
+                        : item.status === "Expired"
+                          ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#3A2A2A] dark:text-[#F87171]"
+                          : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#3A3520] dark:text-[#FBBF24]"
                         }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-2 relative">
-                      <button
-                        onClick={() =>
-                          setOpenMenu(openMenu === index ? null : index)
-                        }
-                        className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
-                      >
-                        <BsThreeDotsVertical size={16} />
-                      </button>
-
-                      {openMenu === index && (
-                        <div className="absolute right-4 top-12 z-50 w-36 bg-white dark:bg-[#2c2c2c] rounded-lg shadow-lg border border-gray-100 dark:border-gray-700">
-                          <button
-                            className="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#444] transition-colors"
-                            onClick={() => {
-                              setSelectedAnalytics(item);
-                              setShowAnalyticsModal(true);
-                              setOpenMenu(null);
-                            }}
-                          >
-                            View Details
-                          </button>
-
-                          <button
-                            className="w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-gray-100 dark:hover:bg-[#444] transition-colors"
-                            onClick={() => {
-                              console.log("Cancel", item);
-                              setOpenMenu(null);
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="p-4 text-center dark:text-gray-400">
-                    No activities found for today
+                    >
+                      {item.status}
+                    </span>
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="p-4 text-center dark:text-gray-400"
+                >
+                  No activities found for today
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {showAnalyticsModal && (
@@ -186,7 +180,10 @@ const Table = () => {
               </h2>
 
               <button onClick={() => setShowAnalyticsModal(false)}>
-                <X size={22} className="text-gray-400 hover:text-black dark:hover:text-white" />
+                <X
+                  size={22}
+                  className="text-gray-400 hover:text-black dark:hover:text-white"
+                />
               </button>
             </div>
 
@@ -228,7 +225,7 @@ const Table = () => {
                     <input
                       readOnly
                       value={selectedAnalytics?.activity || ""}
-                      className="h-11 w-full rounded-md border border-[#D8DDE8] dark:border-gray-600 bg-white dark:bg-[#2C2C2C] px-4 text-sm text-[#4B5563] dark:text-gray-300 outline-none transition-colors"
+                      className="h-11 w-full rounded-md border border-[#D8DDE8] dark:border-gray-600 bg-white dark:bg-[#2C2C2C] px-4 text-sm text-[#4B5563] dark:text-gray-300 transition-colors outline-none"
                     />
                   </div>
                 </div>

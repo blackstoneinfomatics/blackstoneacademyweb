@@ -50,6 +50,7 @@ interface Subscription {
     planName?: string;
     studentLimit?: number;
     userLimit?: number;
+    customDomain?: boolean;
   };
 }
 
@@ -137,19 +138,19 @@ const applyFilters = (
 
     const matchesPlan =
       filters.plan === "All" ||
-      planName === filters.plan;
+      planName.toLowerCase() === filters.plan.toLowerCase();
 
     const matchesBillingCycle =
       filters.billingCycle === "All" ||
-      billingPeriod === filters.billingCycle;
+      billingPeriod.toLowerCase() === filters.billingCycle.toLowerCase();
 
     const matchesStatus =
       filters.subscriptionstatus === "All" ||
-      item.status === filters.subscriptionstatus;
+      item.status.toLowerCase() === filters.subscriptionstatus.toLowerCase();
 
     const matchesPayment =
       filters.paymentstatus === "All" ||
-      item.paymentStatus === filters.paymentstatus;
+      item.paymentStatus.toLowerCase() === filters.paymentstatus.toLowerCase();
 
     const rowDate = item.startDate
       ? new Date(item.startDate)
@@ -308,7 +309,7 @@ const Table = () => {
         .map((item) => item.status)
         .filter(Boolean),
     ),
-  );
+  ) as string[];
 
   const paymentOptions = Array.from(
     new Set(
@@ -316,7 +317,7 @@ const Table = () => {
         .map((item) => item.paymentStatus)
         .filter(Boolean),
     ),
-  );
+  ) as string[];
 
   /* =========================================================
      FILTERED DATA
@@ -389,9 +390,9 @@ const Table = () => {
     filteredItems.length === 0
       ? 0
       : Math.min(
-          startIndex + itemsPerPage,
-          filteredItems.length,
-        );
+        startIndex + itemsPerPage,
+        filteredItems.length,
+      );
 
   /* =========================================================
      RESET PAGINATION ON FILTER/SEARCH
@@ -400,7 +401,16 @@ const Table = () => {
   useEffect(() => {
     setCurrentPage(1);
     setOpenMenu(null);
-  }, [search, appliedFilters]);
+  }, [
+    search,
+    appliedFilters.tenantName,
+    appliedFilters.plan,
+    appliedFilters.billingCycle,
+    appliedFilters.fromDate,
+    appliedFilters.toDate,
+    appliedFilters.subscriptionstatus,
+    appliedFilters.paymentstatus,
+  ]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -450,9 +460,7 @@ const Table = () => {
           <div className="border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:border-b-0 md:border-r">
             <button
               onClick={() => {
-                setDraftFilters(
-                  appliedFilters,
-                );
+                setDraftFilters({ ...appliedFilters });
                 setShowFilterPanel(true);
               }}
               className="flex h-12 w-full items-center justify-between px-4 text-sm text-[#80848E] transition hover:bg-gray-50 dark:hover:bg-[#2F2F2F]"
@@ -587,18 +595,17 @@ const Table = () => {
 
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[12px] py-[3px] rounded-md ${
-                                item.status ===
+                              className={`px-2 text-[12px] py-[3px] rounded-md ${item.status ===
                                 "ACTIVE"
-                                  ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                                : item.status ===
+                                  "PENDING"
+                                  ? "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
                                   : item.status ===
-                                      "PENDING"
-                                    ? "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
-                                    : item.status ===
-                                        "EXPIRED"
-                                      ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
-                                      : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
-                              }`}
+                                    "EXPIRED"
+                                    ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
+                                    : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                                }`}
                             >
                               {item.status}
                             </span>
@@ -608,17 +615,16 @@ const Table = () => {
 
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[12px] py-[3px] rounded-md ${
+                              className={`px-2 text-[12px] py-[3px] rounded-md ${item.paymentStatus ===
+                                "SUCCESS" ||
                                 item.paymentStatus ===
-                                  "SUCCESS" ||
-                                item.paymentStatus ===
-                                  "PAID"
-                                  ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
-                                  : item.paymentStatus ===
-                                      "FAILED"
-                                    ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
-                                    : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
-                              }`}
+                                "PAID"
+                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                                : item.paymentStatus ===
+                                  "FAILED"
+                                  ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
+                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                                }`}
                             >
                               {item.paymentStatus}
                             </span>
@@ -715,11 +721,10 @@ const Table = () => {
             onClick={() =>
               setCurrentPage(page)
             }
-            className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${
-              currentPageSafe === page
-                ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
-                : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
-            }`}
+            className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${currentPageSafe === page
+              ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
+              : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
+              }`}
           >
             {page}
           </button>
@@ -1032,9 +1037,10 @@ const Table = () => {
 
               <button
                 onClick={() => {
-                  setDraftFilters(
-                    INITIAL_FILTERS,
-                  );
+                  setDraftFilters({ ...INITIAL_FILTERS });
+                  setAppliedFilters({ ...INITIAL_FILTERS });
+                  setSearch("");
+                  setCurrentPage(1);
                 }}
                 className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"
               >
@@ -1043,9 +1049,7 @@ const Table = () => {
 
               <button
                 onClick={() => {
-                  setAppliedFilters(
-                    draftFilters,
-                  );
+                  setAppliedFilters({ ...draftFilters });
                   setShowFilterPanel(false);
                 }}
                 className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white"
@@ -1119,12 +1123,11 @@ const Table = () => {
                 <div className="flex items-start gap-3">
 
                   <span
-                    className={`rounded-md px-2.5 py-1 text-[10px] font-medium ${
-                      selectedSubscription
-                        ?.status === "ACTIVE"
-                        ? "bg-[#E8F8EC] text-[#319346]"
-                        : "bg-[#F6EcDC] text-[#EFA133]"
-                    }`}
+                    className={`rounded-md px-2.5 py-1 text-[10px] font-medium ${selectedSubscription
+                      ?.status === "ACTIVE"
+                      ? "bg-[#E8F8EC] text-[#319346]"
+                      : "bg-[#F6EcDC] text-[#EFA133]"
+                      }`}
                   >
                     {selectedSubscription
                       ?.status ?? "-"}
@@ -1268,9 +1271,9 @@ const Table = () => {
                       selectedSubscription
                         ?.plan?.planName
                         ? [
-                            selectedSubscription
-                              .plan.planName,
-                          ]
+                          selectedSubscription
+                            .plan.planName,
+                        ]
                         : []
                     ).map((item) => (
                       <span
@@ -1459,13 +1462,12 @@ const Table = () => {
                     </span>
 
                     <span
-                      className={`rounded-md px-2 py-1 text-[9px] font-medium ${
-                        selectedSubscription
-                          ?.plan
-                          ?.customDomain
-                          ? "bg-[#E8F8EC] text-[#319346]"
-                          : "bg-[#F6E0E0] text-[#EA4F4F]"
-                      }`}
+                      className={`rounded-md px-2 py-1 text-[9px] font-medium ${selectedSubscription
+                        ?.plan
+                        ?.customDomain
+                        ? "bg-[#E8F8EC] text-[#319346]"
+                        : "bg-[#F6E0E0] text-[#EA4F4F]"
+                        }`}
                     >
                       {selectedSubscription
                         ?.plan
@@ -1483,12 +1485,11 @@ const Table = () => {
                     </span>
 
                     <span
-                      className={`rounded-md px-2 py-1 text-[9px] font-medium ${
-                        selectedSubscription
-                          ?.autoRenew
-                          ? "bg-[#E8F8EC] text-[#319346]"
-                          : "bg-[#F6E0E0] text-[#EA4F4F]"
-                      }`}
+                      className={`rounded-md px-2 py-1 text-[9px] font-medium ${selectedSubscription
+                        ?.autoRenew
+                        ? "bg-[#E8F8EC] text-[#319346]"
+                        : "bg-[#F6E0E0] text-[#EA4F4F]"
+                        }`}
                     >
                       {selectedSubscription
                         ?.autoRenew
@@ -1588,4 +1589,3 @@ const Table = () => {
 };
 
 export default Table;
-

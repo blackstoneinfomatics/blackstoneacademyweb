@@ -2,48 +2,31 @@ import React, { useState, useEffect } from "react";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // Types based on your actual API response
-interface DashboardResponse {
+interface PopularPlanItem {
+  planId: string;
+  planName: string;
+  revenue: number;
+  percentage: number;
+}
+
+interface PlanAnalyticsResponse {
   success: boolean;
   message: string;
   data: {
-    totalPlans: number;
-    activePlans: number;
-    inactivePlans: number;
-    totalTenants: number;
-    monthlyRevenue: number;
-    planSummary: {
-      active: {
-        count: number;
-        percentage: number;
-      };
-      trial: {
-        count: number;
-        percentage: number;
-      };
-      expired: {
-        count: number;
-        percentage: number;
-      };
-    };
-    topPerformingPlan: {
-      planId: string;
-      planName: string;
-      subscribedTenants: number;
-      revenue: number;
-      percentage: number;
-    };
+    period: string;
+    plans: PopularPlanItem[];
+    popularPlan: PopularPlanItem;
   };
 }
-
 
 const PopularPlan = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [planData, setPlanData] = useState({
-    planName: '',
+    planName: "",
     revenue: 0,
     percentage: 0,
-    subscribedTenants: 0
+    subscribedTenants: 0,
   });
 
   useEffect(() => {
@@ -55,27 +38,30 @@ const PopularPlan = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_CARD_COUNT}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_ANALYTICS}?period=yearly`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
-      
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      const result: DashboardResponse = await response.json();
-      
-      if (result.success && result.data) {
-        const topPlan = result.data.topPerformingPlan;
-        
+
+      const result: PlanAnalyticsResponse = await response.json();
+
+      if (result.success && result.data?.popularPlan) {
+        const topPlan = result.data.popularPlan;
+
         setPlanData({
-          planName: topPlan.planName || 'Standard',
+          planName: topPlan.planName || "",
           revenue: topPlan.revenue || 0,
           percentage: topPlan.percentage || 0,
-          subscribedTenants: topPlan.subscribedTenants || 0
+          subscribedTenants: 0,
         });
       } else {
         setError(result.message || "Failed to fetch plan data");
@@ -98,7 +84,9 @@ const PopularPlan = () => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-700/30 p-6 h-full flex flex-col items-center justify-center">
         <div className="flex flex-col items-center gap-2">
           <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-gray-500 dark:text-gray-400 text-sm">Loading popular plan...</div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">
+            Loading popular plan...
+          </div>
         </div>
       </div>
     );
@@ -132,15 +120,17 @@ const PopularPlan = () => {
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   // Format revenue in Indian Rupees
-  const formattedRevenue = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  const formattedRevenue = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(planData.revenue);
 
   // Capitalize plan name for display
-  const displayPlanName = planData.planName.charAt(0).toUpperCase() + planData.planName.slice(1);
+  const displayPlanName = planData.planName
+    ? planData.planName.charAt(0).toUpperCase() + planData.planName.slice(1)
+    : "";
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm dark:shadow-gray-700/30 p-6 h-full flex flex-col">
@@ -197,12 +187,11 @@ const PopularPlan = () => {
         </span>
       </div>
 
-      {/* Footer - Shows real data from API */}
+      {/* Footer */}
       <div className="text-center space-y-1">
         <p className="text-center text-base font-medium text-gray-800 dark:text-gray-200">
           Most popular plan this month
         </p>
-
       </div>
     </div>
   );

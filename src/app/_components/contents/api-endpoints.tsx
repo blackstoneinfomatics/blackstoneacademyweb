@@ -315,6 +315,7 @@ export const AppApiEndpoints = {
     PLAN_ACTIVITY: "/plans/dashboard",
     GET_TOP_PERFORMING_PLAN: "/plans/dashboard",
     PLAN_TABLE: "/plans",
+    PLAN_ANALYTICS: "/plans/analytics",
     GET_PLAN_BY_ID: "/plans/${planId}",
     UPDATE_PLAN: "/plans/${planId}",
     ADD_BILLING_PERIOD: "/plans/${planId}/billing-period",
