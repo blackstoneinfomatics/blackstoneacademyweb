@@ -374,7 +374,7 @@ export const AppApiEndpoints = {
   },
   FINANCE: {
     GET_ANALYTICS_COUNT: "/finance/analytics/count",
-    GET_GRAPH_DATA: "/finance/dashboard/graph",
+    GET_REVENUE_GRAPH: "/finance/analytics/graph",
     GET_TODAY_ACTIVITIES: "/finance/today-activities",
   },
 };
