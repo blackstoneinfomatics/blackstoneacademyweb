@@ -169,7 +169,7 @@ const StatsCards: React.FC = () => {
         return (
           <div
             key={index}
-            className="flex min-w-0 flex-col justify-between rounded-2xl bg-[#ffffff] px-4 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#252525]"
+            className="flex min-w-0 flex-col justify-between rounded-2xl bg-[#ffffff] px-4 py-3 dark:shadow-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#343434]"
           >
             <div className="flex min-w-0 items-start gap-3 sm:gap-4">
               <div

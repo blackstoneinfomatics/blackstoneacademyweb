@@ -59,7 +59,7 @@ const TenantsTable: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-[0_6px_19px_rgba(153,153,153,0.15)] dark:bg-[#343434]">
+    <div className="bg-white rounded-xl shadow-[0_6px_19px_rgba(153,153,153,0.15)] dark:bg-[#343434] dark:shadow-xl">
       <h2 className="text-[16px] font-semibold text-[#000] dark:text-[#fff] mb-0 px-5 py-3">
         Recent Tenants
       </h2>

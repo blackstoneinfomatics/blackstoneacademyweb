@@ -142,13 +142,13 @@ export default function TenantStats() {
         return (
           <div
             key={index}
-            className="bg-white dark:bg-[#343434] rounded-2xl p-5 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] hover:shadow-md transition-all duration-300"
+            className="bg-white dark:bg-[#343434] rounded-xl p-5 dark:shadow-xl shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] transition-all duration-300"
           >
             {/* Header */}
             <div className="flex items-center gap-3">
               {/* Icon Circle */}
               <div
-                className={`w-12 h-12 rounded-full ${item.bg} flex items-center justify-center transition-colors duration-300`}
+                className={`w-10 h-10 rounded-full ${item.bg} flex items-center justify-center transition-colors duration-300`}
               >
                 <Icon className={`w-6 h-6 ${item.color}`} />
               </div>
@@ -156,7 +156,7 @@ export default function TenantStats() {
               {/* Text Content */}
               <div className="text-left">
                 <h4
-                  className={`text-sm font-medium ${item.color}`}
+                  className={`text-[13px] font-medium ${item.color}`}
                 >
                   {item.title}
                 </h4>
@@ -181,22 +181,6 @@ export default function TenantStats() {
               <span className="text-[#646464] dark:text-gray-400 font-medium text-[12px]">
                 vs last Month
               </span>
-            </div>
-
-            {/* Overall Count - Bottom Left */}
-            <div className="mt-3 px-4">
-              {overallCount !== null ? (
-                <span className="text-[#646464] dark:text-gray-400 text-[11px] font-medium">
-                  Total:{" "}
-                  <span className="font-semibold text-gray-800 dark:text-white">
-                    {overallCount}
-                  </span>
-                </span>
-              ) : (
-                <span className="text-[#646464] dark:text-gray-400 text-[11px] font-medium">
-                  Total: -
-                </span>
-              )}
             </div>
           </div>
         );

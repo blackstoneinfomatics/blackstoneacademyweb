@@ -22,6 +22,8 @@ interface Transaction {
   paymentMethod: string;
   paymentDate: string;
   dueDate: string;
+  paymentDateValue: string;
+  dueDateValue: string;
   status: string;
   invoiceNumber?: string;
   subscriptionCode?: string;
@@ -135,8 +137,13 @@ const transactionFields: FilterField[] = [
     ],
   },
   {
-    key: "date",
-    label: "Date",
+    key: "paymentDate",
+    label: "Payment Date",
+    type: "dateRange",
+  },
+  {
+    key: "dueDate",
+    label: "Due Date",
     type: "dateRange",
   },
 ];
@@ -179,6 +186,10 @@ const mapTransaction = (item: ApiTransaction): Transaction => {
 
     dueDate: formatDate(item.invoice?.dueDate),
 
+    paymentDateValue: item.paymentDate,
+
+    dueDateValue: item.invoice?.dueDate || "",
+
     status: item.paymentStatus,
 
     invoiceNumber: item.invoice?.invoiceNumber,
@@ -216,12 +227,14 @@ export default function TransactionTable() {
     hasPreviousPage: false,
   });
 
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<Record<string, string | Date | null>>({
     tenant: "",
     type: "",
     paymentMethod: "",
-    dateFrom: "",
-    dateTo: "",
+    paymentDateFrom: null,
+    paymentDateTo: null,
+    dueDateFrom: null,
+    dueDateTo: null,
   });
 
   const [open, setOpen] = useState(false);
@@ -278,6 +291,32 @@ export default function TransactionTable() {
     setOpen(true);
   };
 
+  const matchesDateRange = (
+    value: string,
+    from: string | Date | null | undefined,
+    to: string | Date | null | undefined,
+  ) => {
+    if (!from && !to) return true;
+    if (!value) return false;
+
+    const transactionDate = new Date(value);
+    if (Number.isNaN(transactionDate.getTime())) return false;
+
+    const toDateKey = (date: Date) =>
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    const transactionDateKey = toDateKey(transactionDate);
+    const fromDate = from instanceof Date ? from : from ? new Date(from) : null;
+    const toDate = to instanceof Date ? to : to ? new Date(to) : null;
+
+    if (fromDate && Number.isNaN(fromDate.getTime())) return false;
+    if (toDate && Number.isNaN(toDate.getTime())) return false;
+
+    return (
+      (!fromDate || transactionDateKey >= toDateKey(fromDate)) &&
+      (!toDate || transactionDateKey <= toDateKey(toDate))
+    );
+  };
+
   const filteredData = transactions.filter((item) => {
     const keyword = search.toLowerCase().trim();
 
@@ -302,18 +341,44 @@ export default function TransactionTable() {
       }
     }
 
+    const tenantFilter = String(filters.tenant ?? "").trim().toLowerCase();
+    if (tenantFilter && !item.tenant.toLowerCase().includes(tenantFilter)) {
+      return false;
+    }
+
+    const typeFilter = String(filters.type ?? "").trim().toUpperCase();
+    if (typeFilter && String(item.type ?? "").trim().toUpperCase() !== typeFilter) {
+      return false;
+    }
+
+    const paymentMethodFilter = String(filters.paymentMethod ?? "")
+      .trim()
+      .toLowerCase();
     if (
-      filters.tenant &&
-      !item.tenant.toLowerCase().includes(filters.tenant.toLowerCase())
+      paymentMethodFilter &&
+      String(item.paymentMethod ?? "").trim().toLowerCase() !==
+        paymentMethodFilter
     ) {
       return false;
     }
 
-    if (filters.type && item.type !== filters.type) {
+    if (
+      !matchesDateRange(
+        item.paymentDateValue,
+        filters.paymentDateFrom,
+        filters.paymentDateTo,
+      )
+    ) {
       return false;
     }
 
-    if (filters.paymentMethod && item.paymentMethod !== filters.paymentMethod) {
+    if (
+      !matchesDateRange(
+        item.dueDateValue,
+        filters.dueDateFrom,
+        filters.dueDateTo,
+      )
+    ) {
       return false;
     }
 
@@ -385,8 +450,8 @@ export default function TransactionTable() {
   };
 
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between px-2 py-1">
+    <div className="w-full rounded-xl bg-white dark:bg-[#343434] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-xl">
+      <div className="mb-3 flex items-center justify-between p-3">
         <h2
           className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#e6e6e6]"
           style={{
@@ -547,13 +612,13 @@ export default function TransactionTable() {
             tenant: "",
             type: "",
             paymentMethod: "",
-            dateFrom: "",
-            dateTo: "",
+            paymentDateFrom: null,
+            paymentDateTo: null,
+            dueDateFrom: null,
+            dueDateTo: null,
           })
         }
-        onApply={(values: any) => {
-          console.log("Applied filters:", values);
-
+        onApply={(values) => {
           setFilters(values);
 
           setOpenFilter(false);

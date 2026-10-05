@@ -240,7 +240,7 @@ export default function OrganizationHeader({
                         <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 type="button"
-                                className="px-4 py-1.5 text-xs rounded-sm  bg-white text-black font-medium cursor-default dark:bg-[#252525] dark:text-[#a9b6f5] dark:border-[#576CBC]"
+                                className="px-4 py-1.5 text-xs rounded-sm  bg-white dark:bg-[#343434] text-black font-medium cursor-default dark:text-[#a9b6f5] dark:border-[#576CBC]"
                             >
                                 Organization
                             </button>

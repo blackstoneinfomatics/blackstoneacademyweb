@@ -349,7 +349,7 @@ const page = () => {
             currentSection={""}
           />
         </div>
-        <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] px-3 py-2">
+        <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#2e2e2e] px-3 py-2">
           <div className="flex items-center justify-between mt-2 py-2">
             <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
               Institute Feature Control
@@ -373,7 +373,7 @@ const page = () => {
           </div>{" "}
           <TenantStats />
           <br />
-          <div className="md:p-0 mx-auto w-full">
+          <div className="md:p-3 mx-auto w-full shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-xl rounded-xl bg-white dark:bg-[#343434]">
             <div className="flex flex-col h-full w-full justify-between">
               <div className="flex flex-col">
                 {/* Tabs */}
@@ -406,8 +406,8 @@ const page = () => {
                 </div>
 
                 {/* Search + Filter */}
-                <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
+                <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg">
+                  <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#3b3b3b]">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                       <input

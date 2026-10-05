@@ -88,7 +88,7 @@ const RecentActivities = () => {
   }, []);
 
   return (
-    <div className="h-full min-w-0 rounded-xl bg-white p-5 shadow-[0_6px_19px_rgba(153,153,153,0.15)] dark:bg-[#343434]">
+    <div className="h-full min-w-0 rounded-2xl bg-white p-5 shadow-[0_6px_19px_rgba(153,153,153,0.15)] dark:bg-[#343434] dark:shadow-xl">
       <div className="flex justify-between">
         <h2 className="font-semibold mb-4 text-[16px]">
           Recent Activities

@@ -25,7 +25,7 @@ const Page = () => {
           currentSection=""
         />
       </div>
-      <div className="min-h-screen min-w-0 rounded-xl bg-[#F7F8FE] p-4 dark:bg-[#343434]">
+      <div className="min-h-screen min-w-0 rounded-xl bg-[#F7F8FE] p-4 dark:bg-[#2e2e2e]">
         <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-12">
           <section className="min-w-0 flex flex-col gap-4 xl:col-span-9">
             <StatsCards />

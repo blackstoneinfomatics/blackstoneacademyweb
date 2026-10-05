@@ -54,12 +54,12 @@ const CustomTooltip: React.FC<
     });
 
     return (
-      <div className="bg-white p-3 rounded-xl shadow-lg border border-slate-100 flex flex-col gap-1">
-        <span className="text-xs text-slate-400 font-medium">
+      <div className="flex flex-col gap-1 rounded-xl border border-slate-100 bg-white p-3 shadow-lg dark:border-[#555] dark:bg-[#454545]">
+        <span className="text-[11px] font-medium text-slate-400 dark:text-slate-300">
           {payload[0].payload.name}
         </span>
 
-        <div className="text-base font-bold text-slate-800">
+        <div className="text-sm font-semibold text-slate-800 dark:text-white">
           ₹{formattedValue}
         </div>
       </div>
@@ -121,7 +121,7 @@ const RevenueOverview: React.FC = () => {
   }, [period]);
 
   return (
-    <div className="relative flex min-w-0 w-full flex-col justify-between overflow-hidden rounded-2xl bg-white p-6 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#343434]">
+    <div className="relative flex min-w-0 w-full flex-col justify-between overflow-hidden rounded-2xl bg-white p-6 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#343434] dark:shadow-xl">
 
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
@@ -145,7 +145,7 @@ const RevenueOverview: React.FC = () => {
             onChange={(e) =>
               setPeriod(e.target.value as Period)
             }
-            className="bg-slate-100 dark:bg-[#454545] text-slate-600 dark:text-slate-200 px-2.5 py-1 rounded-md border-none outline-none cursor-pointer hover:bg-slate-200 dark:hover:bg-[#505050] transition-colors"
+            className="bg-slate-100 dark:bg-[#454545] text-slate-600 text-xs dark:text-slate-200 px-2.5 py-1 rounded-md border-none outline-none cursor-pointer hover:bg-slate-200 dark:hover:bg-[#505050] transition-colors"
           >
             <option value="yearly">Yearly</option>
             <option value="monthly">Monthly</option>

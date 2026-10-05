@@ -70,7 +70,7 @@ const ExpiringTenants: React.FC = () => {
       ? minDaysLeft === 0
         ? "Tenant expires today"
         : `Next expiration in ${minDaysLeft} ${minDaysLeft === 1 ? "day" : "days"}`
-      : "Will expire in next 5 days";
+      : "Expire with in 5 days";
 
   // Format total count to always display 2 digits (e.g., "01", "00", "12")
   const totalCountFormatted = String(
@@ -83,11 +83,11 @@ const ExpiringTenants: React.FC = () => {
         h-[423px]
         w-full
         overflow-hidden
-        rounded-[18px]
+        rounded-2xl
         bg-white
         p-4
         shadow-[0_6px_19px_rgba(153,153,153,0.15)]
-        dark:bg-[#343434]
+        dark:bg-[#343434] dark:shadow-xl
       "
     >
       {/* ================= HEADER CARD ================= */}
@@ -157,7 +157,7 @@ const ExpiringTenants: React.FC = () => {
             shadow-[inset_1px_1.5px_2px_rgba(255,255,255,0.45),inset_-1.5px_-2px_4px_rgba(0,0,0,0.22),4px_4px_10px_rgba(0,0,0,0.18)]
           "
         >
-          <span className="text-[28px] font-medium leading-none text-white tracking-tight -translate-x-[0.5px]">
+          <span className="text-[25px] font-medium leading-none text-white tracking-tight -translate-x-[0.5px]">
             {loading ? "--" : totalCountFormatted}
           </span>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiMoreVertical } from "react-icons/fi";
+import { FiCheck, FiClock, FiMoreVertical, FiX } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 
 import BaseLayout3 from "../../components/BaseSuperLayout";
@@ -24,7 +24,10 @@ const API_CREATE_CHAT_ROOM = `${API_BASE}/chat-room`;
 const API_LIST_CHAT_ROOMS = `${API_BASE}/chat-room`;
 
 const API_SEND_CHAT_MESSAGE = `${API_BASE}/chat/message`;
+const API_CLEAR_CHAT = `${API_BASE}/chat/clear`;
 const API_MARK_CHAT_SEEN = `${API_BASE}/chat/seen`;
+const API_MESSAGE_SEEN_USERS = (messageId: string, userId: string) =>
+  `${API_BASE}/chat/message/${encodeURIComponent(messageId)}/seen/${encodeURIComponent(userId)}`;
 const ROOM_MESSAGES_PAGE_LIMIT = 20;
 const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
   `${API_BASE}/chat/${encodeURIComponent(roomId)}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
@@ -41,6 +44,27 @@ const DEFAULT_CREATOR_ID = "6aba4e3ee619505595695943";
 // ─────────────────────────────────────────────
 const LS_KEY_REMOVED = "chatRoom.removedTenants.";
 const LS_KEY_ROOM_MEMBERS = "chatRoom.allMembers.";
+const LS_KEY_CLEARED_AT = "chatRoom.clearedAt.";
+
+const getChatClearedAt = (roomId: string): number | null => {
+  if (typeof window === "undefined") return null;
+  const value = Number(window.localStorage.getItem(LS_KEY_CLEARED_AT + roomId));
+  return Number.isFinite(value) && value > 0 ? value : null;
+};
+
+const setChatClearedAt = (roomId: string, timestamp: number) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_KEY_CLEARED_AT + roomId, String(timestamp));
+  } catch { }
+};
+
+const removeChatClearedAt = (roomId: string) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(LS_KEY_CLEARED_AT + roomId);
+  } catch { }
+};
 
 const getRemovedTenants = (roomId: string): string[] => {
   if (typeof window === "undefined") return [];
@@ -129,6 +153,7 @@ interface IMessage {
   receiverId: string;
   receiverName: string;
   createdDate: string;
+  dateLabel?: string;
   time: string;
   notificationStatus: "Unseen" | "Seen";
   isRead: boolean;
@@ -138,6 +163,7 @@ interface IMessage {
   replyTo?: { messageId: string; messages: string; senderName: string; senderId : string; };
   attachment?: { name: string; size: number; type: string; url?: string };
   side?: "left" | "right";
+  canReply?: boolean;
 }
 
 interface IRoomMessageResponse {
@@ -147,6 +173,7 @@ interface IRoomMessageResponse {
   message?: string;
   createdAt?: string;
   timestamp?: string;
+  dateLabel?: string;
   side?: "left" | "right";
   replyTo?: {
     messageId?: string;
@@ -168,6 +195,21 @@ interface IRoomMessagesResponse {
   message?: string;
   data?: {
     messages?: IRoomMessageResponse[];
+  };
+}
+
+interface IMessageSeenUser {
+  userId: string;
+  name: string;
+  seenAt: string;
+}
+
+interface IMessageSeenResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    totalSeen?: number;
+    seenUsers?: IMessageSeenUser[];
   };
 }
 
@@ -361,9 +403,13 @@ const ReceiptDots = ({
 );
 
 const MessageMenu = ({
+  showInfo,
+  showReply,
   onInfo,
   onReply,
 }: {
+  showInfo: boolean;
+  showReply: boolean;
   onInfo: () => void;
   onReply: () => void;
 }) => {
@@ -407,26 +453,30 @@ const MessageMenu = ({
 
       {open && (
         <div className="absolute right-0 top-6 z-30 w-24 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-[#454545] dark:bg-[#2C2C2C]">
-          <button
-            type="button"
-            onClick={() => {
-              onInfo();
-              setOpen(false);
-            }}
-            className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
-          >
-            Info
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onReply();
-              setOpen(false);
-            }}
-            className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
-          >
-            Reply
-          </button>
+          {showInfo && (
+            <button
+              type="button"
+              onClick={() => {
+                onInfo();
+                setOpen(false);
+              }}
+              className="block w-full px-2 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+            >
+              Info
+            </button>
+          )}
+          {showReply && (
+            <button
+              type="button"
+              onClick={() => {
+                onReply();
+                setOpen(false);
+              }}
+              className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+            >
+              Reply
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -440,56 +490,167 @@ const MessageInfoModal = ({
   message: IMessage;
   onClose: () => void;
 }) => {
+  const [seenUsers, setSeenUsers] = useState<IMessageSeenUser[]>([]);
+  const [seenLoading, setSeenLoading] = useState(true);
+  const [seenError, setSeenError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("SuperAdminAuthToken");
+    const userId = localStorage.getItem("SuperAdminUserId");
+
+    if (!token || !userId) {
+      setSeenError("Super-admin authentication data is missing.");
+      setSeenLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setSeenLoading(true);
+    setSeenError(null);
+
+    const fetchSeenUsers = async () => {
+      try {
+        const response = await fetch(
+          API_MESSAGE_SEEN_USERS(message._id, userId),
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+            cache: "no-store",
+          }
+        );
+        const result: IMessageSeenResponse = await response.json();
+
+        if (!response.ok || result.success === false) {
+          throw new Error(
+            result.message || `Fetch seen users failed: HTTP ${response.status}`
+          );
+        }
+
+        setSeenUsers(result.data?.seenUsers ?? []);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setSeenError(
+            error instanceof Error ? error.message : "Could not load seen info."
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setSeenLoading(false);
+      }
+    };
+
+    void fetchSeenUsers();
+    return () => controller.abort();
+  }, [message._id]);
+
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="message-info-title"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[380px] rounded-xl bg-white dark:bg-[#2C2C2C] p-5 shadow-2xl"
+        className="w-full max-w-[420px] overflow-hidden rounded-xl border border-[#E7EAF0] bg-white shadow-2xl dark:border-[#42464D] dark:bg-[#262A30]"
       >
-        <div className="mb-3 flex items-start justify-between">
-          <h3 className="text-[14px] font-bold text-[#101B41] dark:text-white">
-            Message Info
-          </h3>
+        <div className="flex items-center justify-between border-b border-[#ECEEF2] px-5 py-4 dark:border-[#3B4048]">
+          <div>
+            <h3
+              id="message-info-title"
+              className="mt-0.5 text-[15px] font-semibold text-[#172033] dark:text-white"
+            >
+              Message info
+            </h3>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            aria-label="Close message info"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-[#7C8492] transition hover:bg-[#F1F3F6] hover:text-[#172033] dark:hover:bg-[#383D45] dark:hover:text-white"
           >
-            ✕
+            <FiX size={16} />
           </button>
         </div>
 
-        <div className="space-y-3 text-[12px]">
-          <div className="rounded-md bg-gray-50 px-3 py-2 dark:bg-[#3A3A3A]">
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              Message
-            </p>
-            <p className="mt-1 text-[#101B41] dark:text-white break-words">
-              {message.messages || "—"}
-            </p>
-          </div>
+        <div className="max-h-[min(70vh,560px)] space-y-5 overflow-y-auto p-5">
+          <section>
+            <div className="ml-auto max-w-[88%] rounded-xl rounded-br-sm bg-[#576CBC] px-3.5 py-3 text-white shadow-sm">
+              <p className="whitespace-pre-wrap break-words text-[13px] leading-5">
+                {message.messages || "Attachment"}
+              </p>
+              <p className="mt-2 text-right text-[10px] text-white/75">
+                {message.time}
+              </p>
+            </div>
+          </section>
 
-          <div className="flex items-center justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Sent</span>
-            <span className="text-[#101B41] dark:text-white">
-              {message.time}
+          <div className="flex items-center justify-between border-t border-[#ECEEF2] pt-4 text-[12px] dark:border-[#3B4048]">
+            <span className="text-[#7C8492]">Sent</span>
+            <span className="font-medium text-[#172033] dark:text-[#E7EAF0]">
+              {message.time || "—"}
             </span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Read</span>
-            <span
-              className={
-                message.seenAt
-                  ? "text-[#101B41] dark:text-white"
-                  : "text-gray-400"
-              }
-            >
-              {message.seenAt ?? "Not seen yet"}
-            </span>
-          </div>
+          <section>
+            <div className="mb-3 flex items-center justify-between border-b border-[#ECEEF2] pb-2 dark:border-[#3B4048]">
+              <div className="flex items-center gap-2">
+                <FiCheck className="text-[#2F8F76]" size={14} />
+                <h4 className="text-[12px] font-semibold text-[#172033] dark:text-white">
+                  Seen by
+                </h4>
+              </div>
+              {!seenLoading && !seenError && (
+                <span className="rounded-full bg-[#E5F3EF] px-2 py-0.5 text-[10px] font-semibold text-[#287A66] dark:bg-[#243D37] dark:text-[#83C8B4]">
+                  {seenUsers.length}
+                </span>
+              )}
+            </div>
+
+            {seenLoading ? (
+              <div className="flex items-center gap-2 py-2 text-[11px] text-[#7C8492]">
+                <FiClock size={13} /> Loading seen details…
+              </div>
+            ) : seenError ? (
+              <p role="alert" className="py-2 text-[11px] text-red-500">
+                {seenError}
+              </p>
+            ) : seenUsers.length === 0 ? (
+              <p className="py-2 text-[11px] text-[#9299A5]">Not seen yet</p>
+            )
+            : (
+              <div className="divide-y divide-[#ECEEF2] dark:divide-[#3B4048]">
+                {seenUsers.map((user) => {
+                  const seenAt = new Date(user.seenAt);
+                  const seenTime = Number.isNaN(seenAt.getTime())
+                    ? user.seenAt
+                    : seenAt.toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                  return (
+                    <div
+                      key={user.userId}
+                      className="flex items-center gap-3 py-2.5"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9EEF8] text-[11px] font-semibold text-[#4863A8] dark:bg-[#343D50] dark:text-[#B5C5F1]">
+                        {user.name.trim().charAt(0).toUpperCase() || "?"}
+                      </div>
+                      <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">
+                        {user.name}
+                      </span>
+                      {/* <span className="shrink-0 text-[10px] text-[#8992A0]">
+                        {seenTime}
+                      </span> */}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
@@ -565,6 +726,19 @@ const Message = () => {
     const id = extractRoomId(r);
     const roomType = normalizeRoomType(r?.type);
     const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
+    const clearedAt = getChatClearedAt(id);
+    const lastRoomMessageAt = new Date(
+      r?.lastMessage?.createdAt ?? r?.lastMessageAt ?? ""
+    ).getTime();
+    const hasMessageAfterClear =
+      clearedAt !== null &&
+      Number.isFinite(lastRoomMessageAt) &&
+      lastRoomMessageAt > clearedAt;
+    const isChatCleared = clearedAt !== null && !hasMessageAfterClear;
+
+    if (hasMessageAfterClear) {
+      removeChatClearedAt(id);
+    }
 
     const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
       ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
@@ -614,15 +788,17 @@ const Message = () => {
       email: "room@example.com",
       role: isGroup ? ["Group"] : ["Tenant"],
       status: r?.isEnabled ? "online" : "offline",
-      lastSeen: r?.lastMessageAt
-        ? formatMessageTime(r.lastMessageAt)
-        : "recently",
+      lastSeen: isChatCleared
+        ? ""
+        : r?.lastMessageAt
+          ? formatMessageTime(r.lastMessageAt)
+          : "recently",
       isGroup,
       roomType,
       plan: r?.planName ?? "",
       members,
       groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
-      lastMessage: r?.lastMessage
+      lastMessage: !isChatCleared && r?.lastMessage
         ? {
           text: r.lastMessage.message ?? "",
           time: formatMessageTime(
@@ -1006,6 +1182,7 @@ const Message = () => {
               receiverId: selectedUser._id,
               receiverName: selectedUser.userName,
               createdDate,
+              dateLabel: message.dateLabel,
               time: Number.isNaN(date.getTime())
                 ? ""
                 : date.toLocaleTimeString([], {
@@ -1130,7 +1307,20 @@ const Message = () => {
         : {}),
     };
 
+      let createdMessageId: string | undefined;
+
     try {
+      console.log("[chat/message] request", {
+        url: API_SEND_CHAT_MESSAGE,
+        roomId: payload.roomId,
+        senderId: payload.senderId,
+        senderIdLength: payload.senderId.length,
+        senderRole: payload.senderRole,
+        messageType: payload.messageType,
+        replyToMessageId: replyTo?._id ?? null,
+        replyToSenderId: replyTo?.senderId ?? null,
+      });
+
       const response = await fetch(API_SEND_CHAT_MESSAGE, {
         method: "POST",
         headers: {
@@ -1140,11 +1330,57 @@ const Message = () => {
         body: JSON.stringify(payload),
       });
       const result = await response.json().catch(() => null);
+      console.log("[chat/message] response", {
+        status: response.status,
+        success: result?.success,
+        message: result?.message,
+        errorCode: result?.errorCode,
+      });
 
       if (!response.ok || result?.success === false) {
         throw new Error(
           result?.message || `Send message failed: HTTP ${response.status}`
         );
+      }
+
+      const messageIdCandidates: unknown[] = [
+        result?.data?.message?._id,
+        result?.data?.messageId,
+        result?.data?._id,
+        result?.message?._id,
+        result?.messageId,
+        result?._id,
+      ];
+      createdMessageId = messageIdCandidates.find(
+        (value): value is string =>
+          typeof value === "string" && /^[a-f\d]{24}$/i.test(value)
+      );
+
+      if (!createdMessageId) {
+        try {
+          const messagesResponse = await fetch(
+            API_ROOM_MESSAGES(selectedUser._id, senderId),
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              cache: "no-store",
+            }
+          );
+          const messagesResult: IRoomMessagesResponse =
+            await messagesResponse.json();
+          const matchingMessages = (messagesResult.data?.messages ?? []).filter(
+            (message) =>
+              message.senderId === senderId && message.message === text.trim()
+          );
+          const persistedMessage = matchingMessages[matchingMessages.length - 1];
+          if (
+            typeof persistedMessage?._id === "string" &&
+            /^[a-f\d]{24}$/i.test(persistedMessage._id)
+          ) {
+            createdMessageId = persistedMessage._id;
+          }
+        } catch (error) {
+          console.error("Could not resolve persisted message ID:", error);
+        }
       }
     } catch (error) {
       console.error("Send message failed:", error);
@@ -1158,7 +1394,7 @@ const Message = () => {
     });
 
     const newMessage: IMessage = {
-      _id: `msg-${Date.now()}`,
+      _id: createdMessageId ?? `local-${Date.now()}`,
       messages: text.trim(),
       senderId,
       senderName,
@@ -1171,6 +1407,7 @@ const Message = () => {
       status: "Active",
       deliveredAt: timeStr,
       side: "right",
+      canReply: Boolean(createdMessageId),
       replyTo: replyTo
         ? {
           messageId : replyTo._id,
@@ -1216,15 +1453,26 @@ const Message = () => {
     }
   };
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString("en-US", {
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+
+    return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
+  };
 
   const groupedMessages = selectedMessages.reduce((acc, message) => {
-    const date = formatDate(message.createdDate);
+    const date = message.dateLabel || formatDate(message.createdDate);
     if (!acc[date]) acc[date] = [];
     acc[date].push(message);
     return acc;
@@ -1239,11 +1487,35 @@ const Message = () => {
   const handleDeleteGroup = async () => {
     if (!selectedUser) return;
     const deletedId = selectedUser._id;
+    const roomId = selectedUser.roomId || deletedId;
+    const token = localStorage.getItem("SuperAdminAuthToken");
+
+    try {
+      const response = await fetch(API_UPDATE_CHAT_ROOM(roomId), {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ deletedBy: "SUPERADMIN" }),
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || result?.success === false) {
+        throw new Error(
+          result?.message || `Delete group failed: HTTP ${response.status}`
+        );
+      }
+    } catch (error) {
+      console.error("Delete group failed:", error);
+      return;
+    }
 
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(LS_KEY_REMOVED + deletedId);
-      window.localStorage.removeItem(LS_KEY_ROOM_MEMBERS + deletedId);
+      window.localStorage.removeItem(LS_KEY_REMOVED + roomId);
+      window.localStorage.removeItem(LS_KEY_ROOM_MEMBERS + roomId);
     }
+    removeChatClearedAt(roomId);
 
     setAllRooms((prev) => prev.filter((u) => u._id !== deletedId));
     setGroupRooms((prev) => prev.filter((u) => u._id !== deletedId));
@@ -1257,13 +1529,63 @@ const Message = () => {
     setEditGroupImagePreview(null);
   };
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
     if (!selectedUser) return;
+
+    const token = localStorage.getItem("SuperAdminAuthToken");
+    const userId = localStorage.getItem("SuperAdminUserId");
+    if (!token || !userId) {
+      console.error("Super-admin authentication data is missing");
+      return;
+    }
+
+    const roomId = selectedUser.roomId || selectedUser._id;
+
+    try {
+      const response = await fetch(API_CLEAR_CHAT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ roomId, userId }),
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || result?.success === false) {
+        throw new Error(
+          result?.message || `Clear chat failed: HTTP ${response.status}`
+        );
+      }
+
+      const serverClearedAt = Date.parse(result?.data?.clearedAt ?? "");
+      setChatClearedAt(
+        roomId,
+        Number.isFinite(serverClearedAt) ? serverClearedAt : Date.now()
+      );
+    } catch (error) {
+      console.error("Clear chat failed:", error);
+      return;
+    }
+
     setAllMessages((prev) =>
       prev.map((g) =>
         g._id === selectedUser._id ? { ...g, messages: [] } : g
       )
     );
+
+    const clearRoomPreview = (rooms: IUser[]) =>
+      rooms.map((room) =>
+        room._id === selectedUser._id ||
+        room._id === roomId ||
+        room.roomId === roomId
+          ? { ...room, lastMessage: { text: "", time: "" }, lastSeen: "" }
+          : room
+      );
+
+    setAllRooms(clearRoomPreview);
+    setGroupRooms(clearRoomPreview);
+    setUnreadRooms(clearRoomPreview);
     setShowGroupMenu(false);
   };
 
@@ -1317,7 +1639,7 @@ const Message = () => {
         participants,
         tenantIds: participants,
         memberIds: participants,
-        createdBy: currentUser.userId,
+        createdBy: currentUser.userName,
         creatorId: currentUser.userId,
         adminId: currentUser.userId,
         sendAccess: "EVERYONE",
@@ -1405,7 +1727,7 @@ const Message = () => {
       <SuperAdminHeader currentSection="Chats" />
       <div className="min-h-screen rounded-2xl bg-[#F5F7FC] dark:bg-[#1F1F1F] p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[22px] font-semibold text-[#010E30] dark:text-white">
+          <h1 className="text-[16px] font-semibold text-[#010E30] dark:text-white">
             Institute Chats
           </h1>
           <button
@@ -1418,7 +1740,7 @@ const Message = () => {
 
         <div className="flex flex-col md:flex-row gap-3 md:h-[calc(100vh-105px)]">
           {/* LEFT PANEL */}
-          <div className="w-full md:w-[350px] md:flex-shrink-0 bg-white dark:bg-[#343434] rounded-lg shadow-sm border border-[#E8EAF0] dark:border-[#3F3F3F] flex flex-col">
+          <div className="w-full md:w-[350px] md:flex-shrink-0 bg-white dark:bg-[#343434] rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col">
             <div className="p-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-md bg-[#E7EAF2] dark:bg-[#2c2c2c] flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -1566,7 +1888,7 @@ const Message = () => {
           </div>
 
           {/* RIGHT CHAT PANEL */}
-          <div className="flex-1 bg-white dark:bg-[#343434] rounded-lg shadow-sm border border-[#E8EAF0] dark:border-[#3F3F3F] flex flex-col min-w-0 min-h-[500px] md:min-h-0">
+          <div className="flex-1 bg-white dark:bg-[#343434] rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col min-w-0 min-h-[500px] md:min-h-0">
             {selectedUser ? (
               <>
                 <div className="h-[58px] px-4 border-b border-[#EEEEEE] dark:border-[#3F3F3F] flex items-center justify-between">
@@ -1621,31 +1943,37 @@ const Message = () => {
                       <FiMoreVertical size={15} />
                     </button>
                     {showGroupMenu && (
-                      <div className="absolute right-0 top-10 z-40 w-[160px] bg-white dark:bg-[#2c2c2c] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                      <div className="absolute right-0 top-10 z-40 w-[100px] bg-white dark:bg-[#2c2c2c] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                        {(selectedUser.isGroup ||
+                          selectedUser.role.includes("Group")) && (
+                          <button
+                            className="block w-full text-left px-2 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                            onClick={handleOpenGroupDetails}
+                          >
+                            Group Details
+                          </button>
+                        )}
                         <button
-                          className="block w-full text-left px-4 py-2 text-[12px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
-                          onClick={handleOpenGroupDetails}
-                        >
-                          Group Details
-                        </button>
-                        <button
-                          className="block w-full text-left px-4 py-2 text-[12px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                          className="block w-full text-left px-2 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
                           onClick={handleClearChat}
                         >
                           Clear chat
                         </button>
-                        <button
-                          className="block w-full text-left px-4 py-2 text-[12px] text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-                          onClick={handleDeleteChat}
-                        >
-                          Delete
-                        </button>
+                        {(selectedUser.isGroup ||
+                          selectedUser.role.includes("Group")) && (
+                          <button
+                            className="block w-full text-left px-2 py-2 text-[12px] text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
+                            onClick={handleDeleteChat}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#FCFCFD] dark:bg-[#2c2c2c]">
+                <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]">
                   {messagesLoading ? (
                     <p className="py-6 text-center text-[11px] text-gray-400">
                       Loading messages…
@@ -1736,6 +2064,11 @@ const Message = () => {
                                 </div>
 
                                 <MessageMenu
+                                  showInfo={isMine}
+                                  showReply={
+                                    msg.canReply !== false &&
+                                    /^[a-f\d]{24}$/i.test(msg._id)
+                                  }
                                   onInfo={() => setInfoMessage(msg)}
                                   onReply={() => setReplyTo(msg)}
                                 />
