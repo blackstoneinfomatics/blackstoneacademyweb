@@ -9,7 +9,7 @@ import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolba
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import axios from "axios";
 import { Download, X } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface Transaction {
   id: string;
@@ -101,20 +101,6 @@ const transactionFields: FilterField[] = [
     label: "Type",
     type: "select",
     placeholder: "Select Type",
-    options: [
-      {
-        label: "Subscription",
-        value: "SUBSCRIPTION",
-      },
-      {
-        label: "Refund",
-        value: "REFUND",
-      },
-      {
-        label: "Renewal",
-        value: "RENEWAL",
-      },
-    ],
   },
   {
     key: "paymentMethod",
@@ -206,6 +192,7 @@ const mapTransaction = (item: ApiTransaction): Transaction => {
 
 export default function TransactionTable() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionTypes, setTransactionTypes] = useState<string[]>([]);
 
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -215,6 +202,7 @@ export default function TransactionTable() {
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const latestRequestId = useRef(0);
 
   const [error, setError] = useState("");
 
@@ -242,7 +230,12 @@ export default function TransactionTable() {
     string[]
   >([]);
 
-  const fetchTransactions = async (page = 1, limit = 10) => {
+  const fetchTransactions = async (
+    page = pagination.page,
+    limit = pagination.limit,
+  ) => {
+    const requestId = ++latestRequestId.current;
+
     try {
       setLoading(true);
       setError("");
@@ -257,16 +250,35 @@ export default function TransactionTable() {
         },
       );
 
+      if (requestId !== latestRequestId.current) return;
+
       if (response.data.success) {
         const apiItems = response.data.data.items || [];
 
         const mappedData = apiItems.map(mapTransaction);
+        const apiTransactionTypes = Array.from(
+          new Set(
+            apiItems
+              .map((item) => item.paymentType?.trim())
+              .filter((type): type is string => Boolean(type)),
+          ),
+        ).sort((first, second) => first.localeCompare(second));
 
         setTransactions(mappedData);
+        setTransactionTypes(apiTransactionTypes);
 
-        setPagination(response.data.data.pagination);
+        setPagination({
+          ...response.data.data.pagination,
+          page,
+          limit,
+        });
+      } else {
+        setError("Failed to load transactions.");
+        setTransactions([]);
       }
     } catch (error: any) {
+      if (requestId !== latestRequestId.current) return;
+
       console.error("Failed to fetch transactions:", error);
 
       setError(
@@ -275,7 +287,9 @@ export default function TransactionTable() {
 
       setTransactions([]);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestId.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -289,6 +303,13 @@ export default function TransactionTable() {
     setSelectedTransaction(row);
 
     setOpen(true);
+  };
+  const handleCancel = (row: Transaction) => {
+    console.log("Cancel Transaction", row);
+
+    setSelectedTransaction(row);
+
+    setOpen(false);
   };
 
   const matchesDateRange = (
@@ -384,6 +405,17 @@ export default function TransactionTable() {
 
     return true;
   });
+  const filterFields = transactionFields.map((field) =>
+    field.key === "type"
+      ? {
+          ...field,
+          options: transactionTypes.map((type) => ({
+            label: type,
+            value: type,
+          })),
+        }
+      : field,
+  );
 
   const selectedItems = transactions.filter((item) =>
     selectedTransactionIds.includes(item.id),
@@ -490,6 +522,17 @@ export default function TransactionTable() {
         heading="All Transactions"
         selectable={true}
         onSelectionChange={setSelectedTransactionIds}
+        pagination={{
+          currentPage: pagination.page,
+          totalPages: Math.max(1, pagination.totalPages),
+          onPageChange: (page) => {
+            if (page !== pagination.page) {
+              fetchTransactions(page, pagination.limit);
+            }
+          },
+          disabled: loading,
+        }}
+        paginationClassName="px-4 pb-4"
         columns={[
           {
             key: "transactionId",
@@ -504,9 +547,12 @@ export default function TransactionTable() {
           {
             key: "type",
             header: "Type",
+            width: "140px",
+            minWidth: "140px",
+            align: "center",
             render: (row: Transaction) => (
               <span
-                className={`inline-flex items-center rounded-md px-3 py-1 text-xs font-medium ${
+                className={`inline-flex w-[112px] items-center justify-center rounded-md px-3 py-1 text-xs font-medium ${
                   row.type === "SUBSCRIPTION"
                     ? "bg-[#ECE9FF] text-[#576CBC] dark:bg-[#40386B] dark:text-[#B7B0FF]"
                     : row.type === "REFUND"
@@ -591,6 +637,10 @@ export default function TransactionTable() {
                     label: "View Details",
                     onClick: handleView,
                   },
+                  {
+                    label: "Cancel",
+                    onClick: handleCancel,
+                  },
                 ]}
               />
             ),
@@ -603,7 +653,7 @@ export default function TransactionTable() {
       <FilterDrawer
         open={openFilter}
         title="Filter by"
-        fields={transactionFields}
+        fields={filterFields}
         values={filters}
         resultCount={filteredData.length}
         onClose={() => setOpenFilter(false)}

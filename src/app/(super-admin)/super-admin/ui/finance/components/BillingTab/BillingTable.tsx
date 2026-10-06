@@ -6,9 +6,10 @@ import FilterDrawer, {
   FilterField,
 } from "@/app/(super-admin)/super-admin/components/FilterDrawer";
 import TableToolbar from "@/app/(super-admin)/super-admin/components/TableToolbar";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import { toast } from "react-toastify";
 
 
 // ✅ CORRECTED: Matches your exact backend response from getBillings()
@@ -104,14 +105,21 @@ export default function BillingTable() {
   const [search, setSearch] = useState("");
   const [data, setData] = useState<BillingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const latestRequestId = useRef(0);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    totalRecords: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
   const [filters, setFilters] = useState({
     billingName: "",
-    category: "",
     paymentMethod: "",
     paymentDateFrom: "",
     paymentDateTo: "",
-    addedBy: "",
     dueDateFrom: "",
     dueDateTo: "",
     status: "",
@@ -119,53 +127,72 @@ export default function BillingTable() {
 
   const [ setOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchBillings = async () => {
-      try {
-        setIsLoading(true);
-        const response = await axios.get<BillingListApiResponse>(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.BILLING.GET}`,
-        );
+  const fetchBillings = useCallback(async (page: number) => {
+    const requestId = ++latestRequestId.current;
 
-        if (response.data.success) {
-          // ✅ READ `items` from the API response
-          const billingArray = Array.isArray(response.data.data.items)
-            ? response.data.data.items
-            : [];
+    try {
+      setIsLoading(true);
+      const response = await axios.get<BillingListApiResponse>(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.BILLING.GET}`,
+        {
+          params: {
+            page,
+            limit: pagination.limit,
+          },
+        },
+      );
 
-          const mappedData: BillingItem[] = billingArray.map((item: any) => {
-            const formattedDate = new Date(item.paymentDate).toLocaleDateString(
-              "en-US",
-              {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              },
-            );
+      if (requestId !== latestRequestId.current) return;
 
-            return {
-              id: item._id,
-              billingName: item.billingName,
-              category: item.category,
-              amount: item.amount.toLocaleString("en-IN"),
-              paymentMethod: item.paymentMethod,
-              addedBy: item.addedBy,
-              dueDate: formattedDate,
-              status: item.status,
-            };
-          });
+      if (response.data.success) {
+        const billingArray = Array.isArray(response.data.data.items)
+          ? response.data.data.items
+          : [];
 
-          setData(mappedData);
-        }
-      } catch (error) {
-        console.error("Failed to fetch billing data:", error);
-      } finally {
+        const mappedData: BillingItem[] = billingArray.map((item: any) => {
+          const formattedDate = new Date(item.paymentDate).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            },
+          );
+
+          return {
+            id: item._id,
+            billingName: item.billingName,
+            category: item.category,
+            amount: item.amount.toLocaleString("en-IN"),
+            paymentMethod: item.paymentMethod,
+            addedBy: item.addedBy,
+            dueDate: formattedDate,
+            status: item.status,
+          };
+        });
+
+        setData(mappedData);
+        setPagination(response.data.data.pagination);
+      } else {
+        setData([]);
+        toast.error(response.data.message || "Failed to fetch billing data");
+      }
+    } catch (error) {
+      if (requestId !== latestRequestId.current) return;
+
+      console.error("Failed to fetch billing data:", error);
+      setData([]);
+      toast.error("Failed to fetch billing data");
+    } finally {
+      if (requestId === latestRequestId.current) {
         setIsLoading(false);
       }
-    };
+    }
+  }, [pagination.limit]);
 
-    fetchBillings();
-  }, []);
+  useEffect(() => {
+    fetchBillings(1);
+  }, [fetchBillings]);
 
   const handleView = (row: any) => {
     console.log("View", row);
@@ -242,43 +269,28 @@ export default function BillingTable() {
       <TableToolbar
         search={search}
         onSearchChange={setSearch}
-        total={data.length}
+        total={pagination.totalRecords}
         showing={filteredBySearch.length}
         searchPlaceholder="Search By Keyword"
         onFilterClick={() => setOpenFilter(true)}
       />
 
-      {isLoading ? (
-        <div className="py-10 text-center text-gray-500 dark:text-gray-400">
-          Loading billing data...
-        </div>
-      ) : (
-        <DataTable
-          heading="All Transactions"
-          selectable={false}
-          columns={[
+      <DataTable
+        heading="All Transactions"
+        selectable={false}
+        loading={isLoading}
+        pagination={{
+          currentPage: pagination.page,
+          totalPages: Math.max(pagination.totalPages, 1),
+          onPageChange: fetchBillings,
+          disabled: isLoading,
+        }}
+        columns={[
             {
               key: "billingName",
               header: "Billing Name",
               render: (row: any) => (
                 <span className="dark:text-white">{row.billingName}</span>
-              ),
-            },
-            {
-              key: "category",
-              header: "Category",
-              render: (row: any) => (
-                <span
-                  className={`inline-flex min-w-[70px] justify-center rounded-md px-3 py-1 text-xs font-medium ${
-                    row.status === "PAID"
-                      ? "bg-[#E8F8EC] text-[#2E9E44] dark:bg-green-900/30 dark:text-green-400"
-                      : row.status === "REFUNDED"
-                        ? "bg-[#E7E5FF] text-[#576CBC] dark:bg-indigo-900/30 dark:text-indigo-400"
-                        : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
-                  }`}
-                >
-                  {row.category}
-                </span>
               ),
             },
             {
@@ -291,29 +303,11 @@ export default function BillingTable() {
               ),
             },
             {
-              key: "paymentDate",
-              header: "Billing Date",
-              render: (row: any) => (
-                <span className="font-medium text-[#344054] dark:text-white">
-                  {row.paymentDate}
-                </span>
-              ),
-            },
-            {
               key: "paymentMethod",
               header: "Payment Method",
               render: (row: any) => (
                 <span className="text-[#344054] dark:text-gray-300">
                   {row.paymentMethod}
-                </span>
-              ),
-            },
-            {
-              key: "addedBy",
-              header: "Added By",
-              render: (row: any) => (
-                <span className="text-[#2E62B8] dark:text-sky-300">
-                  {row.addedBy}
                 </span>
               ),
             },
@@ -350,10 +344,9 @@ export default function BillingTable() {
                 />
               ),
             },
-          ]}
-          data={filteredBySearch}
-        />
-      )}
+        ]}
+        data={filteredBySearch}
+      />
 
       <FilterDrawer
         open={openFilter}
@@ -365,11 +358,9 @@ export default function BillingTable() {
         onReset={() =>
           setFilters({
             billingName: "",
-            category: "",
             paymentMethod: "",
             paymentDateFrom: "",
             paymentDateTo: "",
-            addedBy: "",
             dueDateFrom: "",
             dueDateTo: "",
             status: "",

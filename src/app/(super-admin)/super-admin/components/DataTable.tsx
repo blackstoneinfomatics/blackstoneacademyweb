@@ -24,6 +24,13 @@ interface TableProps<T extends Record<string, any>> {
   loading?: boolean;
   emptyMessage?: string;
   rowKey?: keyof T & string;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+    disabled?: boolean;
+  };
+  paginationClassName?: string;
 }
 
 export default function DataTable<T extends Record<string, any>>({
@@ -35,6 +42,8 @@ export default function DataTable<T extends Record<string, any>>({
   loading = false,
   emptyMessage = "No records found",
   rowKey = "id" as keyof T & string,
+  pagination,
+  paginationClassName,
 }: TableProps<T>) {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -276,7 +285,14 @@ ${column.className ?? ""}
           </table>
         </div>
       </div>
-      <Pagination currentPage={page} totalPages={10} onPageChange={setPage} />
+      <div className={paginationClassName}>
+        <Pagination
+          currentPage={pagination?.currentPage ?? page}
+          totalPages={pagination?.totalPages ?? 10}
+          onPageChange={pagination?.onPageChange ?? setPage}
+          disabled={pagination?.disabled}
+        />
+      </div>
     </div>
   );
 }
