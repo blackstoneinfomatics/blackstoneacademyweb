@@ -312,17 +312,6 @@ const Usercards = () => {
     setPortalPage(1);
   }, [tenantId]);
 
-  useEffect(() => {
-    const selectedPortalIndex = portalOptions.findIndex(
-      (option) => option.id === formData.portal,
-    );
-    setPortalPage(
-      selectedPortalIndex === -1
-        ? 1
-        : Math.floor(selectedPortalIndex / PAGE_LIMIT) + 1,
-    );
-  }, [formData.portal, portalOptions]);
-
   /* ====== FORM STATE ====== */
   const [formData, setFormData] = useState<FormData>({
     portal: portalIdParam,
@@ -337,6 +326,17 @@ const Usercards = () => {
     description: "",
     status: "Active",
   });
+
+  useEffect(() => {
+    const selectedPortalIndex = portalOptions.findIndex(
+      (option) => option.id === formData.portal,
+    );
+    setPortalPage(
+      selectedPortalIndex === -1
+        ? 1
+        : Math.floor(selectedPortalIndex / PAGE_LIMIT) + 1,
+    );
+  }, [formData.portal, portalOptions]);
 
   const parentModuleOptions: TenantParentModuleOption[] = tenantModules.map(
     (module) => ({
