@@ -34,7 +34,7 @@ const ToggleSwitch = ({
       className={`group relative justify-start h-5 w-9 rounded-full border transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#576CBC]/40 ${
         checked
           ? "border-[#576CBC] bg-gradient-to-r from-[#576CBC] to-[#6F85D6]"
-          : "border-[#D6DCEB] bg-[#EFF2F8]"
+          : "border-[#D6DCEB] bg-[#EFF2F8] dark:border-[#555] dark:bg-[#2C2C2C]"
       }`}
     >
       <span
@@ -322,18 +322,18 @@ const PlansTable = () => {
     const name = planName.toLowerCase();
 
     if (name.includes("basic")) {
-      return "bg-[#DEF5FA] text-[#18BCDC]";
+      return "bg-[#DEF5FA] text-[#18BCDC] dark:bg-[#16414A] dark:text-[#65D8EB]";
     }
 
     if (name.includes("standard")) {
-      return "bg-[#DAE4F6] text-[#2668EF]";
+      return "bg-[#DAE4F6] text-[#2668EF] dark:bg-[#263B5A] dark:text-[#8DB5FF]";
     }
 
     if (name.includes("premium")) {
-      return "bg-[#E7E8FA] text-[#585BDC]";
+      return "bg-[#E7E8FA] text-[#585BDC] dark:bg-[#38395E] dark:text-[#A6A7FF]";
     }
 
-    return "bg-gray-100 text-gray-600";
+    return "bg-gray-100 text-gray-600 dark:bg-[#444] dark:text-gray-200";
   };
 
   const formatTableDate = (value?: string) => {
@@ -358,18 +358,18 @@ const PlansTable = () => {
     const normalized = String(status || "").toUpperCase();
 
     if (normalized === "ACTIVE") {
-      return "bg-[#EAF8EC] text-[#34A853]";
+      return "bg-[#EAF8EC] text-[#34A853] dark:bg-[#23452B] dark:text-[#72D889]";
     }
 
     if (normalized === "EXPIRED") {
-      return "bg-[#FDEAEA] text-[#E35D5D]";
+      return "bg-[#FDEAEA] text-[#E35D5D] dark:bg-[#512B2B] dark:text-[#FF8B8B]";
     }
 
     if (normalized === "EXPIRED_SOON" || normalized === "INACTIVE") {
-      return "bg-[#FFF7E8] text-[#F4A429]";
+      return "bg-[#FFF7E8] text-[#F4A429] dark:bg-[#4A3A1F] dark:text-[#FFD078]";
     }
 
-    return "bg-[#EEF3FF] text-[#4D74AE]";
+    return "bg-[#EEF3FF] text-[#4D74AE] dark:bg-[#29384F] dark:text-[#AFC2E4]";
   };
 
   const formatStatusLabel = (status?: string) => {
@@ -1166,23 +1166,23 @@ const PlansTable = () => {
   return (
     <div className="w-full">
       {/* Title */}
-      <h2 className="mb-0 text-[22px] p-2 font-semibold text-[#1F2A44]">
+      <h2 className="mb-0 text-[22px] p-2 font-semibold text-[#1F2A44] dark:text-white">
         Plan
       </h2>
 
       {/* Card */}
-      <div className="overflow-hidden rounded-lg border border-[#E6EAF2] bg-white">
+      <div className="overflow-hidden rounded-lg border border-[#E6EAF2] bg-white text-gray-800 dark:border-[#3F3F3F] dark:bg-[#343434] dark:text-gray-200">
         {/* Top Bar */}
-        <div className="grid grid-cols-3 border-b border-[#E6EAF2]">
+        <div className="grid grid-cols-3 border-b border-[#E6EAF2] dark:border-[#3F3F3F]">
           {/* Search */}
-          <div className="flex h-12 items-center border-r border-[#E6EAF2] px-4">
+          <div className="flex h-12 items-center border-r border-[#E6EAF2] px-4 dark:border-[#3F3F3F]">
             <Search size={17} className="text-[#A5AAB4]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by keyword"
-              className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4]"
+              className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4] dark:text-white dark:placeholder:text-gray-400"
             />
           </div>
 
@@ -1192,7 +1192,7 @@ const PlansTable = () => {
               setDraftFilters(appliedFilters);
               setShowFilterPanel(true);
             }}
-            className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50"
+            className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50 dark:border-[#3F3F3F] dark:text-gray-300 dark:hover:bg-[#3A3A3A]"
           >
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={16} />
@@ -1208,7 +1208,7 @@ const PlansTable = () => {
           </button>
 
           {/* Count */}
-          <div className="flex h-12 items-center px-4 text-sm text-[#80848E]">
+          <div className="flex h-12 items-center px-4 text-sm text-[#80848E] dark:text-gray-300">
             Showing {showingStart} - {showingEnd} of {filteredPlans.length}
           </div>
         </div>
@@ -1218,7 +1218,7 @@ const PlansTable = () => {
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
-              <tr className="h-10 bg-[#496A96] text-left text-[14px] text-white">
+              <tr className="h-10 bg-[#496A96] text-left text-[14px] text-white dark:bg-[#344563]">
                 <th className="px-4 font-medium">Plan Name</th>
                 <th className="px-4 font-medium">Billing Cycle</th>
                 <th className="px-4 font-medium">Price</th>
@@ -1233,13 +1233,13 @@ const PlansTable = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center">
+                  <td colSpan={8} className="p-8 text-center text-gray-700 dark:text-gray-200">
                     Loading...
                   </td>
                 </tr>
               ) : filteredPlans.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-[#6B7280]">
+                  <td colSpan={8} className="p-8 text-center text-[#6B7280] dark:text-gray-300">
                     No plans found.
                   </td>
                 </tr>
@@ -1288,7 +1288,7 @@ const PlansTable = () => {
                               [rowKey]: e.target.value,
                             }))
                           }
-                          className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC]"
+                          className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                         >
                           {billingPeriods.map((bp: any, bpIndex: number) => (
                             <option
@@ -1315,7 +1315,7 @@ const PlansTable = () => {
                         : item.monthlyPrice ?? 0}
                     </td>
 
-                    <td className="px-4 text-[#4D74AE]">
+                    <td className="px-4 text-[#4D74AE] dark:text-[#9CB8E0]">
                       {formatTableDate(item.createdDate)}
                     </td>
 
@@ -1344,7 +1344,7 @@ const PlansTable = () => {
                     <td className="px-4 py-4 relative">
                       <div className="flex justify-center">
                         <button
-                          className="rounded-md p-1 hover:bg-gray-100"
+                          className="rounded-md p-1 hover:bg-gray-100 dark:hover:bg-[#444]"
                           onClick={() =>
                             setOpenMenu(openMenu === index ? null : index)
                           }
@@ -1353,9 +1353,9 @@ const PlansTable = () => {
                         </button>
 
                         {openMenu === index && (
-                          <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
+                          <div className="absolute right-4 top-12 z-50 w-36 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-[#4A4A4A] dark:bg-[#343434] dark:text-gray-100">
                             <button
-                              className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              className="w-full border-b border-gray-200 px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-[#4A4A4A] dark:hover:bg-[#444]"
                               onClick={() => {
                                 handleViewPlan(item.planId);
                                 setSelectedPlan(item);
@@ -1367,7 +1367,7 @@ const PlansTable = () => {
                             </button>
 
                             <button
-                              className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              className="w-full px-4 py-2 text-left text-xs hover:bg-gray-100 dark:hover:bg-[#444]"
                               onClick={() => {
                                 setSelectedPlan(item);
                                 setShowUpdateModal(true);
@@ -1390,17 +1390,17 @@ const PlansTable = () => {
       </div>
       {showFilterPanel && (
         <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-[360px] overflow-hidden rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-5 py-4">
+          <div className="w-full max-w-[360px] overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl dark:bg-[#343434] dark:text-white">
+            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-5 py-4 dark:border-[#4A4A4A]">
               <div>
-                <h3 className="text-lg font-semibold font-sans text-[#111827]">
+                <h3 className="text-lg font-semibold font-sans text-[#111827] dark:text-white">
                   Filter by
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowFilterPanel(false)}
-                className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100"
+                className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#444]"
               >
                 <X size={18} />
               </button>
@@ -1409,7 +1409,7 @@ const PlansTable = () => {
             <div className="space-y-4 p-5">
               <div className="grid gap-4 md:grid-cols-1">
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Plan Name
                   </label>
                   <input
@@ -1422,12 +1422,12 @@ const PlansTable = () => {
                       }))
                     }
                     placeholder="Search plan name"
-                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Billing Cycle
                   </label>
                   <select
@@ -1438,7 +1438,7 @@ const PlansTable = () => {
                         billingCycle: e.target.value,
                       }))
                     }
-                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">All</option>
                     {billingOptions.map((option) => (
@@ -1452,7 +1452,7 @@ const PlansTable = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Status
                   </label>
                   <select
@@ -1463,7 +1463,7 @@ const PlansTable = () => {
                         status: e.target.value,
                       }))
                     }
-                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">All</option>
                     {statusOptions.map((option) => (
@@ -1475,7 +1475,7 @@ const PlansTable = () => {
                 </div>
 
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Created From
                   </label>
                   <div className="relative">
@@ -1488,7 +1488,7 @@ const PlansTable = () => {
                           fromDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                      className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
                 </div>
@@ -1496,7 +1496,7 @@ const PlansTable = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Created To
                   </label>
                   <div className="relative">
@@ -1509,18 +1509,18 @@ const PlansTable = () => {
                           toDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                      className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] px-5 py-4 bg-[#F9FAFB]">
+            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] bg-[#F9FAFB] px-5 py-4 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]">
               <button
                 type="button"
                 onClick={() => setDraftFilters(INITIAL_FILTERS)}
-                className="rounded-md border border-[#d5d5d5] px-4 py-2 text-xs text-[#4B5563] hover:bg-gray-50"
+                className="rounded-md border border-[#d5d5d5] px-4 py-2 text-xs text-[#4B5563] hover:bg-gray-50 dark:border-[#555] dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
               >
                 Reset
               </button>
@@ -1544,12 +1544,12 @@ const PlansTable = () => {
           type="button"
           onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={currentPageSafe === 1}
-          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#3A3A3A]"
         >
           <ChevronLeft size={18} />
         </button>
 
-        <div className="flex h-8 min-w-[44px] items-center justify-center rounded border border-[#496A96] bg-white px-3 text-sm font-medium text-[#496A96]">
+        <div className="flex h-8 min-w-[44px] items-center justify-center rounded border border-[#496A96] bg-white px-3 text-sm font-medium text-[#496A96] dark:bg-[#343434] dark:text-[#AFC2E4]">
           {currentPageSafe} / {totalPages}
         </div>
 
@@ -1559,7 +1559,7 @@ const PlansTable = () => {
             setCurrentPage((prev) => Math.min(prev + 1, totalPages))
           }
           disabled={currentPageSafe === totalPages}
-          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#3A3A3A]"
         >
           <ChevronRight size={18} />
         </button>
@@ -1569,18 +1569,18 @@ const PlansTable = () => {
       {showModal && selectedPlan && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-5">
           {/* Modal */}
-          <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden">
+          <div className="relative w-full max-w-4xl overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl dark:bg-[#343434] dark:text-gray-100">
             {/* Header */}
-            <div className="flex items-start justify-between px-5 py-4 border-b">
+            <div className="flex items-start justify-between border-b border-gray-200 px-5 py-4 dark:border-[#4A4A4A]">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#1F2937]">
+                <h2 className="text-[15px] font-semibold text-[#1F2937] dark:text-white">
                   Plan Details
                 </h2>
               </div>
 
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-700 transition"
+                className="text-gray-400 transition hover:text-gray-700 dark:hover:text-white"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1599,11 +1599,11 @@ const PlansTable = () => {
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] max-h-[85vh]">
+            <div className="max-h-[85vh] overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] dark:scrollbar-track-[#343434]">
               {/* Top Plan Card */}
               <div className="flex justify-between items-start mb-5">
                 <div className="flex gap-4">
-                  <div className="w-20 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                  <div className="flex h-16 w-20 items-center justify-center rounded-2xl bg-indigo-100 dark:bg-[#41466A]">
                     <Image
                       src="/assets/images/plandetails.svg"
                       alt="Plan Details"
@@ -1614,7 +1614,7 @@ const PlansTable = () => {
 
                   <div>
                     <div className="flex items-center gap-3 justify-between">
-                      <h3 className="text-lg font-semibold">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {selectedPlan.planName}
                       </h3>
 
@@ -1630,7 +1630,7 @@ ${
                       </span>
                     </div>
 
-                    <p className="text-gray-700 text-xs mt-1 font-medium">
+                    <p className="mt-1 text-xs font-medium text-gray-700 dark:text-gray-300">
                       Our most powerful subscription plan designed for large
                       organizations with advanced features, higher resource
                       limits and priority support.
@@ -1673,10 +1673,10 @@ ${
 
                   ["Created By", selectedPlan.createdBy],
                 ].map(([title, value]) => (
-                  <div key={title} className="bg-[#EEF1FF] rounded-md p-3">
-                    <p className="text-xs text-[#010E30]">{title}</p>
+                  <div key={title} className="rounded-md bg-[#EEF1FF] p-3 dark:bg-[#2C3344]">
+                    <p className="text-xs text-[#010E30] dark:text-gray-200">{title}</p>
 
-                    <p className="font-medium text-[#010e30a5] mt-1 text-[11px]">
+                    <p className="mt-1 text-[11px] font-medium text-[#010e30a5] dark:text-gray-300">
                       {value}
                     </p>
                   </div>
@@ -1716,7 +1716,7 @@ ${
 
                 {/* Statistics */}
 
-                <div className="border rounded-xl p-3">
+                <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                   <h4 className="font-medium text-base mb-2">
                     Plan Statistics
                   </h4>
@@ -1731,11 +1731,11 @@ ${
                     ["GST / Tax", `${selectedPlan.gstAndTax}%`],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-[5px]">
-                      <span className="text-[#010e30] text-[14px] font-normal">
+                      <span className="text-[14px] font-normal text-[#010e30] dark:text-gray-300">
                         {k}
                       </span>
 
-                      <span className="font-light text-[14px] text-[#010e30]">
+                      <span className="text-[14px] font-light text-[#010e30] dark:text-gray-200">
                         {v}
                       </span>
                     </div>
@@ -1746,9 +1746,9 @@ ${
               {/* Limits + Modules */}
 
               <div className="grid lg:grid-cols-2 gap-5 mb-5">
-                <div className="border rounded-xl p-3">
+                <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                   <h4 className="font-medium text-base mb-2">Plan Limits</h4>
-                  <div className="max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2">
+                  <div className="max-h-[180px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] dark:scrollbar-track-[#343434]">
                     {[
                       ["Maximum Students", selectedPlan.studentLimit],
 
@@ -1767,10 +1767,10 @@ ${
                       ["Domain", selectedPlan.domain || "-"],
                     ].map(([k, v]) => (
                       <div key={k} className="flex justify-between py-2">
-                        <span className="text-[#010e30] text-[14px] font-normal">
+                        <span className="text-[14px] font-normal text-[#010e30] dark:text-gray-300">
                           {k}
                         </span>
-                        <span className="font-light text-[14px] text-[#010e30]">
+                        <span className="text-[14px] font-light text-[#010e30] dark:text-gray-200">
                           {v}
                         </span>
                       </div>
@@ -1778,12 +1778,12 @@ ${
                   </div>
                 </div>
 
-                <div className="border rounded-xl p-3">
+                <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                   <h4 className="font-medium text-base mb-4">
                     Included Modules
                   </h4>
 
-                  <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2 text-[#010e30] text-[14px] font-normal">
+                  <div className="grid max-h-[180px] grid-cols-2 gap-y-3 overflow-y-auto pr-2 text-[14px] font-normal text-[#010e30] scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] dark:text-gray-200 dark:scrollbar-track-[#343434]">
                     {modules.map((item: string) => (
                       <div key={item}>{item}</div>
                     ))}
@@ -1793,7 +1793,7 @@ ${
 
               {/* Timeline */}
 
-              <div className="border rounded-xl p-3">
+              <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                 <h4 className="font-medium text-base mb-3">Timeline</h4>
 
                 {[
@@ -1824,11 +1824,11 @@ ${
                   ["Last Updated By", selectedPlan.lastUpdatedBy || "-"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between py-2">
-                    <span className="text-[#010e30] text-[14px] font-normal">
+                    <span className="text-[14px] font-normal text-[#010e30] dark:text-gray-300">
                       {k}
                     </span>
 
-                    <span className="font-light text-[13px] text-[#010e30]">
+                    <span className="text-[13px] font-light text-[#010e30] dark:text-gray-200">
                       {v}
                     </span>
                   </div>
@@ -1841,13 +1841,13 @@ ${
 
       {showUpdateModal && selectedPlan && (
         <div className="fixed inset-0 z-[9999] rounded-lg flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-lg border-2 border-[#3B82F6] bg-[#FBFDFF] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-3">
-              <h2 className="text-lg font-semibold text-[#1F2A44]">Update Plan</h2>
+          <div className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-lg border-2 border-[#3B82F6] bg-[#FBFDFF] text-gray-900 shadow-2xl dark:bg-[#2C2C2C] dark:text-gray-100">
+            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-3 dark:border-[#4A4A4A]">
+              <h2 className="text-lg font-semibold text-[#1F2A44] dark:text-white">Update Plan</h2>
 
               <button
                 onClick={() => setShowUpdateModal(false)}
-                className="rounded-md p-1 text-[#667085] transition hover:bg-gray-100"
+                className="rounded-md p-1 text-[#667085] transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#444]"
                 type="button"
               >
                 <X size={18} />
@@ -1855,14 +1855,14 @@ ${
             </div>
 
             <div className="space-y-4 px-4 py-3">
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                   Basic Information
                 </h3>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Plan Name
                     </label>
                     <input
@@ -1874,12 +1874,12 @@ ${
                           planName: e.target.value,
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Plan Tag
                     </label>
                     <select
@@ -1890,7 +1890,7 @@ ${
                           planTag: e.target.value,
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     >
                       <option>Most Popular</option>
                       <option>Growing</option>
@@ -1900,7 +1900,7 @@ ${
                 </div>
 
                 <div className="mt-4">
-                  <label className="mb-1 block text-xs font-medium text-[#344054]">
+                  <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                     Description
                   </label>
                   <textarea
@@ -1912,20 +1912,20 @@ ${
                         planDescription: e.target.value,
                       })
                     }
-                    className="w-full rounded border border-[#D0D5DD] p-3 text-xs outline-none focus:border-[#576CBC]"
+                    className="w-full rounded border border-[#D0D5DD] bg-white p-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     placeholder="Short explanation about the plan and its features."
                   />
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                   Plan Limits
                 </h3>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Students
                     </label>
                     <input
@@ -1937,12 +1937,12 @@ ${
                           studentLimit: Number(e.target.value),
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Users
                     </label>
                     <input
@@ -1954,13 +1954,13 @@ ${
                           userLimit: Number(e.target.value),
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
 
                   <div className="flex items-end gap-8 md:col-span-2 lg:col-span-2">
                     <div className="flex flex-col">
-                      <span className="mb-2 text-xs font-medium text-[#344054]">
+                      <span className="mb-2 text-xs font-medium text-[#344054] dark:text-gray-300">
                         Custom Domain
                       </span>
                       <ToggleSwitch
@@ -1975,7 +1975,7 @@ ${
                     </div>
 
                     <div className="flex flex-col">
-                      <span className="mb-2 text-xs font-medium text-[#344054]">
+                      <span className="mb-2 text-xs font-medium text-[#344054] dark:text-gray-300">
                         Backup
                       </span>
                       <ToggleSwitch
@@ -1992,9 +1992,9 @@ ${
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-[15px] font-semibold text-[#1F2A44]">
+                  <h3 className="text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                     Pricing Configuration
                   </h3>
                   <button
@@ -2006,7 +2006,7 @@ ${
                   </button>
                 </div>
 
-                <div className="overflow-x-auto rounded border border-[#E6EAF2]">
+                <div className="overflow-x-auto rounded border border-[#E6EAF2] dark:border-[#4A4A4A]">
                   <table className="min-w-full text-[11px]">
                     <thead className="bg-[#576CBC] text-white">
                       <tr>
@@ -2029,7 +2029,7 @@ ${
                         return (
                           <tr
                             key={row.billingPeriodId ?? row.period}
-                            className="border-t border-[#EEF2F7] text-[#344054]"
+                            className="border-t border-[#EEF2F7] text-[#344054] dark:border-[#4A4A4A] dark:text-gray-200"
                           >
                             <td className="px-3 py-2">{String(row.period)}</td>
                             <td className="px-3 py-2">
@@ -2051,7 +2051,7 @@ ${
                                   )
                                 }
                                 onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
-                                className="h-7 w-[88px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 disabled:bg-[#F1F3F7]"
+                                className="h-7 w-[88px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 disabled:bg-[#F1F3F7] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white dark:disabled:bg-[#383838]"
                               />
                             </td>
                             <td className="px-3 py-2">
@@ -2069,7 +2069,7 @@ ${
                                   )
                                 }
                                 onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
-                                className="h-7 w-[72px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2"
+                                className="h-7 w-[72px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                               />
                             </td>
                             <td className="px-3 py-2">₹{gst.toFixed(2)}</td>
@@ -2082,7 +2082,7 @@ ${
                 </div>
 
                 <div className="mt-4">
-                  <label className="mb-1 block text-xs font-medium text-[#344054]">
+                  <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                     GST / Tax
                   </label>
                   <input
@@ -2094,24 +2094,24 @@ ${
                         gstAndTax: Number(e.target.value),
                       })
                     }
-                    className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                    className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-[15px] font-semibold text-[#1F2A44]">
+                  <h3 className="text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                     Included Modules & Features
                   </h3>
                 </div>
 
                 <div className="mb-5">
-                  <p className="mb-2 text-xs font-medium text-[#344054]">
+                  <p className="mb-2 text-xs font-medium text-[#344054] dark:text-gray-300">
                     Allowed Portals
                   </p>
                   {isLoadingModuleCatalog ? (
-                    <p className="text-xs text-[#667085]">Loading portal catalog...</p>
+                    <p className="text-xs text-[#667085] dark:text-gray-400">Loading portal catalog...</p>
                   ) : portalOptions.length > 0 ? (
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       {portalOptions.map((portal) => {
@@ -2122,7 +2122,7 @@ ${
                         return (
                           <label
                             key={portal._id}
-                            className="flex cursor-pointer items-center gap-2 text-[13px] text-[#344054]"
+                            className="flex cursor-pointer items-center gap-2 text-[13px] text-[#344054] dark:text-gray-300"
                           >
                             <input
                               type="checkbox"
@@ -2158,7 +2158,7 @@ ${
                       })}
                     </div>
                   ) : (
-                    <p className="text-xs text-[#667085]">No portals found.</p>
+                    <p className="text-xs text-[#667085] dark:text-gray-400">No portals found.</p>
                   )}
                 </div>
 
@@ -2177,9 +2177,9 @@ ${
                     return (
                       <section
                         key={portal._id}
-                        className="rounded border border-[#E6EAF2] bg-[#F8FAFC] p-3"
+                        className="rounded border border-[#E6EAF2] bg-[#F8FAFC] p-3 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]"
                       >
-                        <h4 className="mb-3 text-xs font-semibold text-[#344054]">
+                        <h4 className="mb-3 text-xs font-semibold text-[#344054] dark:text-gray-200">
                           {portal.portalName}
                         </h4>
                         {portalModules.length > 0 ? (
@@ -2194,9 +2194,9 @@ ${
                               return (
                                 <div
                                   key={`${portal._id}-${module.moduleId}`}
-                                  className="rounded border border-[#E6EAF2] bg-white p-3"
+                                  className="rounded border border-[#E6EAF2] bg-white p-3 dark:border-[#4A4A4A] dark:bg-[#343434]"
                                 >
-                                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#1F2A44]">
+                                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#1F2A44] dark:text-gray-200">
                                     <input
                                       type="checkbox"
                                       className="h-3.5 w-3.5 accent-[#576CBC]"
@@ -2211,7 +2211,7 @@ ${
                                   {module.features?.map((feature) => (
                                     <label
                                       key={feature.featureId}
-                                      className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#475467]"
+                                      className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#475467] dark:text-gray-300"
                                     >
                                       <input
                                         type="checkbox"
@@ -2239,9 +2239,9 @@ ${
                                     return (
                                       <div
                                         key={child.childModuleId}
-                                        className="ml-6 mt-3 border-l border-[#D0D5DD] pl-3"
+                                        className="ml-6 mt-3 border-l border-[#D0D5DD] pl-3 dark:border-[#555]"
                                       >
-                                        <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-[#344054]">
+                                        <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-[#344054] dark:text-gray-300">
                                           <input
                                             type="checkbox"
                                             className="h-3.5 w-3.5 accent-[#576CBC]"
@@ -2255,7 +2255,7 @@ ${
                                         {child.features?.map((feature) => (
                                           <label
                                             key={feature.featureId}
-                                            className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#667085]"
+                                            className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#667085] dark:text-gray-400"
                                           >
                                             <input
                                               type="checkbox"
@@ -2286,7 +2286,7 @@ ${
                             })}
                           </div>
                         ) : (
-                          <p className="text-xs text-[#667085]">
+                          <p className="text-xs text-[#667085] dark:text-gray-400">
                             No active modules or features for this portal.
                           </p>
                         )}
@@ -2294,17 +2294,17 @@ ${
                     );
                   })}
                   {formData.allowedRoles.length === 0 && (
-                    <p className="text-xs text-[#667085]">
+                    <p className="text-xs text-[#667085] dark:text-gray-400">
                       Select a portal to choose its modules and features.
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">Status</h3>
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44] dark:text-white">Status</h3>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-[140px_1fr] md:items-center">
-                  <label className="text-xs font-medium text-[#344054]">Plan Status</label>
+                  <label className="text-xs font-medium text-[#344054] dark:text-gray-300">Plan Status</label>
                   <select
                     value={formData.planStatus}
                     onChange={(e) =>
@@ -2313,7 +2313,7 @@ ${
                         planStatus: e.target.value,
                       })
                     }
-                    className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                    className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option>Active</option>
                     <option>Inactive</option>
@@ -2322,7 +2322,7 @@ ${
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] bg-[#F8FAFC] px-5 py-3">
+            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] bg-[#F8FAFC] px-5 py-3 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]">
               <button
                 type="button"
                 onClick={() => {
@@ -2330,7 +2330,7 @@ ${
                     getPlanById(selectedPlan.planId);
                   }
                 }}
-                className="rounded border border-[#D0D5DD] bg-white px-4 py-1.5 text-xs font-medium text-[#475467]"
+                className="rounded border border-[#D0D5DD] bg-white px-4 py-1.5 text-xs font-medium text-[#475467] dark:border-[#555] dark:bg-[#343434] dark:text-gray-200"
               >
                 Reset
               </button>
@@ -2350,15 +2350,15 @@ ${
 
       {showAddBillingPeriodModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-5">
-          <div className="bg-white rounded-xl w-full max-w-sm shadow-xl p-5">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 text-gray-900 shadow-xl dark:bg-[#343434] dark:text-gray-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-[#010E30]">
+              <h3 className="text-base font-semibold text-[#010E30] dark:text-white">
                 Add Custom Billing Period
               </h3>
 
               <button
                 onClick={handleCancelAddBillingPeriod}
-                className="flex h-7 w-7 items-center justify-center text-gray-500 transition hover:bg-gray-100 hover:text-black rounded-md"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-black dark:text-gray-300 dark:hover:bg-[#444] dark:hover:text-white"
                 type="button"
               >
                 <X size={15} />
@@ -2367,7 +2367,7 @@ ${
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-[#010E30] font-medium mb-2">
+                <label className="mb-2 block text-sm font-medium text-[#010E30] dark:text-gray-200">
                   Billing Period
                 </label>
 
@@ -2381,7 +2381,7 @@ ${
                     }))
                   }
                   placeholder="Monthly"
-                  className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                  className="h-8 w-full rounded-sm border border-[#D4D4D4] px-2 text-xs outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white dark:placeholder:text-gray-400"
                 />
 
                 {billingPeriodFormErrors.billingPeriod && (
@@ -2392,7 +2392,7 @@ ${
               </div>
 
               <div>
-                <label className="block text-sm text-[#010E30] font-medium mb-2">
+                <label className="mb-2 block text-sm font-medium text-[#010E30] dark:text-gray-200">
                   Duration
                 </label>
 
@@ -2407,7 +2407,7 @@ ${
                     }))
                   }
                   placeholder="1"
-                  className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                  className="h-8 w-full rounded-sm border border-[#D4D4D4] px-2 text-xs outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white dark:placeholder:text-gray-400"
                 />
 
                 {billingPeriodFormErrors.duration && (
@@ -2421,7 +2421,7 @@ ${
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={handleCancelAddBillingPeriod}
-                className="border border-gray-300 hover:bg-gray-50 px-4 text-xs py-2 rounded-md"
+                className="rounded-md border border-gray-300 px-4 py-2 text-xs hover:bg-gray-50 dark:border-[#555] dark:hover:bg-[#444]"
                 type="button"
               >
                 Cancel

@@ -77,7 +77,7 @@ const Card = () => {
       title: "Total Subscription",
       value: dashboardData?.totalSubscriptions.totalCount ?? 0,
       icon: "/assets/images/TotalSub.svg",
-      iconBg: "bg-[#E5DFFD]",
+      iconBg: "bg-[#E5DFFD] dark:bg-[#493D70]",
       iconColor: "text-[#5225FC]",
       titleColor: "text-[#5225FC]",
       trend: "All Subscriptions Plan",
@@ -87,7 +87,7 @@ const Card = () => {
       title: "Active Subscriptions",
       value: dashboardData?.activeSubscriptions.totalCount ?? 0,
       icon: "/assets/images/ActiveSubscription.svg",
-      iconBg: "bg-[#E3F4E7]",
+      iconBg: "bg-[#E3F4E7] dark:bg-[#294A32]",
       iconColor: "text-[#40BD5F]",
       titleColor: "text-[#40BD5F]",
       trend: "Currently Active Plan",
@@ -97,7 +97,7 @@ const Card = () => {
       title: "Inactive Subscriptions",
       value: dashboardData?.inactiveSubscriptions.totalCount ?? 0,
       icon: "/assets/images/TrialSubscription.svg",
-      iconBg: "bg-[#FCF0DC]",
+      iconBg: "bg-[#FCF0DC] dark:bg-[#594522]",
       iconColor: "text-[#FCAA25]",
       titleColor: "text-[#FCAA25]",
       trend: "Subscribed Tenants",
@@ -107,7 +107,7 @@ const Card = () => {
       title: "Expiring this month",
       value: dashboardData?.expiringThisMonth.currentMonthCount ?? 0,
       icon: GoAlertFill,
-      iconBg: "bg-[#F8E4E4]",
+      iconBg: "bg-[#F8E4E4] dark:bg-[#512B2B]",
       iconColor: "text-[#D34645]",
       titleColor: "text-[#D34645]",
       trend: "vs last Month",
@@ -123,7 +123,7 @@ const Card = () => {
         return (
           <div
             key={index}
-            className="bg-[#ffffff] dark:bg-[#343434] rounded-2xl px-4 py-3 shadow-[0_6px_19px_rgba(153,153,153,0.15)]"
+            className="bg-[#ffffff] dark:bg-[#343434] rounded-2xl px-4 py-3 shadow-lg"
           >
             <div className="flex items-start gap-4">
               {/* Icon */}
@@ -162,12 +162,12 @@ const Card = () => {
 <p className="text-sm mt-3 ml-[70px] flex flex-row items-center gap-1">
   <span className="flex flex-row items-center gap-x-1 text-[#646464] dark:text-gray-300">
         {card.percentage >= 0 ? (
-      <span className="flex items-center gap-1 text-[#377E36] font-medium">
+      <span className="flex items-center gap-1 text-[#377E36] font-medium dark:text-[#72D889]">
         <FaArrowUp className="w-3 h-3" />
         {Math.abs(card.percentage)}%
       </span>
     ) : (
-      <span className="flex items-center gap-1 text-[#D34645] font-medium">
+      <span className="flex items-center gap-1 text-[#D34645] font-medium dark:text-[#FF8B8B]">
         <FaArrowDown className="w-3 h-3" />
         {Math.abs(card.percentage)}%
       </span>

@@ -42,7 +42,7 @@ const Activities = () => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl p-5 h-[280px] animate-pulse" />
+      <div className="bg-white dark:bg-[#343434] rounded-xl p-5 h-[280px] animate-pulse" />
     );
   }
 
@@ -73,7 +73,7 @@ const Activities = () => {
   const trialDeg = (stats[1].percentage / 100) * 360;
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-[#ECECEC] h-full">
+    <div className="bg-white dark:bg-[#343434] rounded-xl p-5 border border-[#ECECEC] dark:border-[#3F3F3F] h-full text-gray-900 dark:text-white">
       <div className="flex flex-col xl:flex-row items-center justify-between gap-6 h-full">
 
         {/* Donut Chart */}
@@ -87,12 +87,12 @@ const Activities = () => {
             )`,
           }}
         >
-          <div className="absolute inset-[28px] bg-white rounded-full flex flex-col items-center justify-center">
-            <h2 className="text-[30px] font-bold text-[#111827]">
+          <div className="absolute inset-[28px] bg-white dark:bg-[#343434] rounded-full flex flex-col items-center justify-center">
+            <h2 className="text-[30px] font-bold text-[#111827] dark:text-white">
               {total}
             </h2>
 
-            <p className="text-[13px]">
+            <p className="text-[13px] text-gray-600 dark:text-gray-300">
               Activities
             </p>
           </div>
