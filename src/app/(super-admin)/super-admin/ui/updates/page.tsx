@@ -105,6 +105,19 @@ const CARD_ICONS = {
   totalViews: "/assets/images/superadmin-updates-totalviews.svg",
 };
 
+const formatReleaseDate = (value: string) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 const isApiRow = (row: ApiUpdateRow | LocalUpdate): row is ApiUpdateRow => {
   return (row as ApiUpdateRow)._id !== undefined;
 };
@@ -1061,7 +1074,9 @@ const page = () => {
                           <td className="py-4 px-2 text-[11px]">
                             {item.audience}
                           </td>
-                          <td className="py-4 px-2">{item.releaseDate}</td>
+                          <td className="py-4 px-2">
+                            {formatReleaseDate(item.releaseDate)}
+                          </td>
                           <td className="py-4 px-2">
                             <span
                               className={`px-2 text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
