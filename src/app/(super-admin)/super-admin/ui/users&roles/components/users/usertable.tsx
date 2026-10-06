@@ -45,10 +45,64 @@ interface AnalyticsData {
   total: number;
   active: number;
   inactive: number;
-  totalGrowth?: number;
-  activeGrowth?: number;
-  inactiveGrowth?: number;
+  totalGrowth: number;
+  totalTrend: "up" | "down" | "same";
+  activeGrowth: number;
+  activeTrend: "up" | "down" | "same";
+  inactiveGrowth: number;
+  inactiveTrend: "up" | "down" | "same";
 }
+
+interface AnalyticsApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    overall: {
+      totalTenants: number;
+      activeTenants: number;
+      trialTenants: number;
+      inactiveTenants: number;
+    };
+    totalTenants: {
+      currentCount: number;
+      previousMonthCount: number;
+      percentage: number;
+      trend: "up" | "down" | "same";
+    };
+    activeTenants: {
+      currentCount: number;
+      previousMonthCount: number;
+      percentage: number;
+      trend: "up" | "down" | "same";
+    };
+    trialTenants: {
+      currentCount: number;
+      previousMonthCount: number;
+      percentage: number;
+      trend: "up" | "down" | "same";
+    };
+    inactiveTenants: {
+      currentCount: number;
+      previousMonthCount: number;
+      percentage: number;
+      trend: "up" | "down" | "same";
+    };
+    expiringTenants: {
+      currentCount: number;
+      previousMonthCount: number;
+      percentage: number;
+      trend: "up" | "down" | "same";
+    };
+  };
+}
+
+const EMPTY_FILTERS: TenantFilterValues = {
+  tenantName: "",
+  startDate: "",
+  plan: "",
+  renewalDate: "",
+  status: "",
+};
 
 const Usertable = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
@@ -57,9 +111,12 @@ const Usertable = () => {
     total: 0,
     active: 0,
     inactive: 0,
-    totalGrowth: 14,
-    activeGrowth: 14,
-    inactiveGrowth: -5,
+    totalGrowth: 0,
+    totalTrend: "same",
+    activeGrowth: 0,
+    activeTrend: "same",
+    inactiveGrowth: 0,
+    inactiveTrend: "same",
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -69,13 +126,8 @@ const Usertable = () => {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [hasPreviousPage, setHasPreviousPage] = useState(false);
   const [showFilterForm, setShowFilterForm] = useState(false);
-  const [filterValues, setFilterValues] = useState<TenantFilterValues>({
-    tenantName: "",
-    startDate: "",
-    plan: "",
-    renewalDate: "",
-    status: "",
-  });
+  const [filterValues, setFilterValues] =
+    useState<TenantFilterValues>(EMPTY_FILTERS);
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
 
@@ -116,21 +168,23 @@ const Usertable = () => {
   // Fetch tenant analytics
   const fetchTenantAnalytics = async () => {
     try {
-      const response = await axios.get(
+      const response = await axios.get<AnalyticsApiResponse>(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_ANALYTICS_CARDS}`,
       );
 
-      console.log("Analytics API Response:", response.data);
-
-      if (response.data.success) {
+      if (response.data.success && response.data.data) {
         const data = response.data.data;
+
         setAnalytics({
-          total: data.total || 0,
-          active: data.active || 0,
-          inactive: data.inactive || 0,
-          totalGrowth: data.totalGrowth || 14,
-          activeGrowth: data.activeGrowth || 14,
-          inactiveGrowth: data.inactiveGrowth || -5,
+          total: data.overall?.totalTenants ?? 0,
+          active: data.overall?.activeTenants ?? 0,
+          inactive: data.overall?.inactiveTenants ?? 0,
+          totalGrowth: data.totalTenants?.percentage ?? 0,
+          totalTrend: data.totalTenants?.trend ?? "same",
+          activeGrowth: data.activeTenants?.percentage ?? 0,
+          activeTrend: data.activeTenants?.trend ?? "same",
+          inactiveGrowth: data.inactiveTenants?.percentage ?? 0,
+          inactiveTrend: data.inactiveTenants?.trend ?? "same",
         });
       }
     } catch (error) {
@@ -149,23 +203,15 @@ const Usertable = () => {
 
       const params = new URLSearchParams({
         page: String(page),
-        limit: "5",
+        limit: "1000",
       });
-      const tenantName = filters.tenantName.trim() || search.trim();
-      if (tenantName) params.set("search", tenantName);
-      if (filters.startDate) params.set("startDate", filters.startDate);
-      if (filters.plan) params.set("plan", filters.plan);
-      if (filters.renewalDate) params.set("renewalDate", filters.renewalDate);
-      if (filters.status) params.set("status", filters.status);
 
       const response = await axios.get(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}?${params.toString()}`,
       );
 
-      console.log("Tenant List API Response:", response.data);
-
       // Extract tenants from response
-      let tenants = [];
+      let tenants: any[] = [];
       let total = 0;
       const pagination =
         response.data?.data?.pagination ?? response.data?.pagination;
@@ -186,8 +232,6 @@ const Usertable = () => {
         tenants = response.data?.data ? [response.data.data] : [];
         total = tenants.length;
       }
-
-      console.log("Extracted tenants:", tenants);
 
       // Map tenants to match the table structure
       const mappedTenants = tenants.map((item: any) => {
@@ -211,7 +255,7 @@ const Usertable = () => {
           startDate: formatDate(createdDate),
           createdDate: createdDate,
           plan: capitalizeFirst(planName),
-          users: 0, // Default value as not in API response
+          users: 0,
           renewalDate: formatDate(renewalDate),
           filterStartDate: createdDate,
           filterRenewalDate: renewalDate,
@@ -231,50 +275,114 @@ const Usertable = () => {
         };
       });
 
-      const normalizedSearch = search.trim().toLowerCase();
-      const normalizedPlan = filters.plan.trim().toLowerCase();
+      // ---------- SEARCH & FILTER (works across every field) ----------
+      const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+      const term = norm(search);
+
       const filteredTenants = mappedTenants.filter((tenant: any) => {
-        const matchesSearch = normalizedSearch
-          ? tenant.tenantName.toLowerCase().includes(normalizedSearch)
+        // Full-row search — matches ANY field
+        const haystack = [
+          tenant.tenantName,
+          tenant.organizationName,
+          tenant.tenantCode,
+          tenant.domain,
+          tenant.phoneNumber,
+          tenant.mobileNumber,
+          tenant.email,
+          tenant.emailId,
+          tenant.plan,
+          tenant.status,
+          tenant.startDate,
+          tenant.createdDate,
+          tenant.renewalDate,
+          tenant.website,
+          tenant.gstNo,
+          tenant.panNo,
+          tenant.faxNo,
+          tenant.state,
+          tenant.country,
+          tenant.city,
+          tenant.street,
+          tenant.postalCode,
+          tenant.timeZone,
+          tenant.currency,
+          String(tenant.users ?? ""),
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        const matchesSearch = !term || haystack.includes(term);
+
+        // Filter fields — each normalized
+        const matchesName = filters.tenantName
+          ? norm(tenant.tenantName).includes(norm(filters.tenantName)) ||
+          norm(tenant.organizationName).includes(norm(filters.tenantName))
           : true;
-        const matchesName = filters.tenantName.trim()
-          ? tenant.tenantName
-              .toLowerCase()
-              .includes(filters.tenantName.trim().toLowerCase())
+
+        const matchesPlan = filters.plan
+          ? norm(tenant.plan) === norm(filters.plan) ||
+          norm(tenant.plan).replace(/\s+/g, "-") === norm(filters.plan)
           : true;
-        const matchesStartDate = filters.startDate
-          ? tenant.filterStartDate.startsWith(filters.startDate)
-          : true;
-        const matchesPlan = normalizedPlan
-          ? tenant.plan.toLowerCase() === normalizedPlan ||
-            tenant.plan.toLowerCase().replace(/\s+/g, "-") === normalizedPlan
-          : true;
-        const matchesRenewalDate = filters.renewalDate
-          ? tenant.filterRenewalDate.startsWith(filters.renewalDate)
-          : true;
+
         const matchesStatus = filters.status
-          ? tenant.status.toUpperCase() === filters.status.toUpperCase()
+          ? norm(tenant.status) === norm(filters.status)
           : true;
+
+        // Date filters — inclusive range
+        const startTs = tenant.filterStartDate
+          ? new Date(tenant.filterStartDate).getTime()
+          : null;
+
+        const fromDateTs = filters.startDate
+          ? new Date(`${filters.startDate}T00:00:00`).getTime()
+          : null;
+        const toDateTs = filters.startDate
+          ? new Date(`${filters.startDate}T23:59:59`).getTime()
+          : null;
+
+        const matchesStartDate =
+          !filters.startDate ||
+          (startTs !== null && startTs >= fromDateTs! && startTs <= toDateTs!);
+
+        const renewalTs = tenant.filterRenewalDate
+          ? new Date(tenant.filterRenewalDate).getTime()
+          : null;
+
+        const fromRenewalTs = filters.renewalDate
+          ? new Date(`${filters.renewalDate}T00:00:00`).getTime()
+          : null;
+        const toRenewalTs = filters.renewalDate
+          ? new Date(`${filters.renewalDate}T23:59:59`).getTime()
+          : null;
+
+        const matchesRenewalDate =
+          !filters.renewalDate ||
+          (renewalTs !== null &&
+            renewalTs >= fromRenewalTs! &&
+            renewalTs <= toRenewalTs!);
 
         return (
           matchesSearch &&
           matchesName &&
-          matchesStartDate &&
           matchesPlan &&
-          matchesRenewalDate &&
-          matchesStatus
+          matchesStatus &&
+          matchesStartDate &&
+          matchesRenewalDate
         );
       });
 
-      const filteredTotal =
-        search.trim() ||
-        filters.tenantName ||
-        filters.startDate ||
-        filters.plan ||
-        filters.renewalDate ||
-        filters.status
-          ? filteredTenants.length
-          : (pagination?.totalRecords ?? total);
+      const hasActiveCriteria =
+        !!term ||
+        !!filters.tenantName ||
+        !!filters.startDate ||
+        !!filters.plan ||
+        !!filters.renewalDate ||
+        !!filters.status;
+
+      const filteredTotal = hasActiveCriteria
+        ? filteredTenants.length
+        : (pagination?.totalRecords ?? total);
+
       const pageSize = 5;
       const effectiveTotalPages = Math.max(
         1,
@@ -308,19 +416,18 @@ const Usertable = () => {
   // Initial data fetch
   useEffect(() => {
     fetchTenantAnalytics();
-    fetchTenantList("", 1, filterValues);
+    fetchTenantList("", 1, EMPTY_FILTERS);
   }, []);
 
-  // Handle search
   const handleSearch = () => {
     fetchTenantList(searchTerm, 1, filterValues);
   };
 
   const handleFilterApply = (values: TenantFilterValues) => {
     setFilterValues(values);
-    setSearchTerm(values.tenantName);
+    setSearchTerm("");
     setShowFilterForm(false);
-    fetchTenantList(values.tenantName, 1, values);
+    fetchTenantList("", 1, values);
   };
 
   const handlePageChange = (page: number) => {
@@ -335,7 +442,6 @@ const Usertable = () => {
     }
   };
 
-  // Click outside handler for dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -354,7 +460,6 @@ const Usertable = () => {
     };
   }, [openMenu]);
 
-  // Helper to get status badge styles
   const getStatusBadgeStyles = (status: string) => {
     if (status === "ACTIVE" || status === "Active") {
       return "bg-[#ECFDF3] text-[#377E36]";
@@ -363,7 +468,6 @@ const Usertable = () => {
     }
   };
 
-  // Helper to get plan badge styles
   const getPlanBadgeStyles = (plan: string) => {
     if (plan === "Standard") {
       return "bg-[#2668EF24] text-[#2668EF]";
@@ -376,9 +480,31 @@ const Usertable = () => {
     }
   };
 
+  const renderGrowth = (
+    trend: "up" | "down" | "same",
+    percentage: number,
+  ) => {
+    if (trend === "same" || percentage === 0) {
+      return (
+        <span className="text-[13px] font-medium text-gray-500">
+          — 0%
+        </span>
+      );
+    }
+
+    const isUp = trend === "up";
+    return (
+      <span
+        className={`text-[13px] font-medium ${isUp ? "text-[#377E36]" : "text-[#D34645]"
+          }`}
+      >
+        {isUp ? "↑" : "↓"} {Math.abs(percentage)}%
+      </span>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
-      {/* Main Container */}
       <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
         {showFilterForm && (
           <TenantListFilterForm
@@ -390,30 +516,9 @@ const Usertable = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-2 mt-3">
           {/* Total Tenants */}
-          <div
-            className="
-              bg-white
-              dark:bg-[#343434]
-              rounded-xl
-              shadow-[0_4px_15px_rgba(0,0,0,0.06)]
-              px-4
-              py-4
-              min-h-[112px]
-            "
-          >
+          <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.06)] px-4 py-4 min-h-[112px]">
             <div className="flex items-start gap-3">
-              <div
-                className="
-                  w-11
-                  h-11
-                  rounded-full
-                  bg-[#EEE8FF]
-                  flex
-                  items-center
-                  justify-center
-                  shrink-0
-                "
-              >
+              <div className="w-11 h-11 rounded-full bg-[#EEE8FF] flex items-center justify-center shrink-0">
                 <img
                   src="/assets/images/users.svg"
                   alt="User Icon"
@@ -433,42 +538,16 @@ const Usertable = () => {
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span
-                className={`text-[13px] font-medium ${analytics.totalGrowth && analytics.totalGrowth > 0 ? "text-[#377E36]" : "text-[#D34645]"}`}
-              >
-                {analytics.totalGrowth && analytics.totalGrowth > 0 ? "↑" : "↓"}{" "}
-                {Math.abs(analytics.totalGrowth || 0)}%
-              </span>
+              {renderGrowth(analytics.totalTrend, analytics.totalGrowth)}
 
               <span className="text-[12px] text-gray-500">vs last Month</span>
             </div>
           </div>
 
           {/* Active Tenants */}
-          <div
-            className="
-              bg-white
-              dark:bg-[#343434]
-              rounded-xl
-              shadow-[0_4px_15px_rgba(0,0,0,0.06)]
-              px-4
-              py-4
-              min-h-[102px]
-            "
-          >
+          <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.06)] px-4 py-4 min-h-[102px]">
             <div className="flex items-start gap-3">
-              <div
-                className="
-                  w-11
-                  h-11
-                  rounded-full
-                  bg-[#E4F7EA]
-                  flex
-                  items-center
-                  justify-center
-                  shrink-0
-                "
-              >
+              <div className="w-11 h-11 rounded-full bg-[#E4F7EA] flex items-center justify-center shrink-0">
                 <MdCheckCircle className="text-[#45BD67] text-[23px]" />
               </div>
 
@@ -484,44 +563,16 @@ const Usertable = () => {
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span
-                className={`text-[13px] font-medium ${analytics.activeGrowth && analytics.activeGrowth > 0 ? "text-[#377E36]" : "text-[#D34645]"}`}
-              >
-                {analytics.activeGrowth && analytics.activeGrowth > 0
-                  ? "↑"
-                  : "↓"}{" "}
-                {Math.abs(analytics.activeGrowth || 0)}%
-              </span>
+              {renderGrowth(analytics.activeTrend, analytics.activeGrowth)}
 
               <span className="text-[12px] text-gray-500">vs last Month</span>
             </div>
           </div>
 
           {/* Inactive Tenants */}
-          <div
-            className="
-              bg-white
-              dark:bg-[#343434]
-              rounded-xl
-              shadow-[0_4px_15px_rgba(0,0,0,0.06)]
-              px-4
-              py-4
-              min-h-[102px]
-            "
-          >
+          <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.06)] px-4 py-4 min-h-[102px]">
             <div className="flex items-start gap-3">
-              <div
-                className="
-                  w-11
-                  h-11
-                  rounded-full
-                  bg-[#FCE6E6]
-                  flex
-                  items-center
-                  justify-center
-                  shrink-0
-                "
-              >
+              <div className="w-11 h-11 rounded-full bg-[#FCE6E6] flex items-center justify-center shrink-0">
                 <MdCancel className="text-[#E53935] text-[23px]" />
               </div>
 
@@ -537,31 +588,14 @@ const Usertable = () => {
             </div>
 
             <div className="flex justify-end items-center gap-2 mt-1">
-              <span
-                className={`text-[13px] font-medium ${analytics.inactiveGrowth && analytics.inactiveGrowth > 0 ? "text-[#377E36]" : "text-[#D34645]"}`}
-              >
-                {analytics.inactiveGrowth && analytics.inactiveGrowth > 0
-                  ? "↑"
-                  : "↓"}{" "}
-                {Math.abs(analytics.inactiveGrowth || 0)}%
-              </span>
+              {renderGrowth(analytics.inactiveTrend, analytics.inactiveGrowth)}
 
               <span className="text-[12px] text-gray-500">vs last Month</span>
             </div>
           </div>
         </div>
 
-        <div
-          className="
-            bg-white
-            dark:bg-[#343434]
-            rounded-xl
-            shadow-[0_4px_15px_rgba(0,0,0,0.05)]
-            mt-3
-            overflow-hidden
-            mx-2
-          "
-        >
+        <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] mt-3 overflow-hidden mx-2">
           {/* Section Title */}
           <div className="px-3 pt-3 pb-2">
             <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
@@ -569,26 +603,8 @@ const Usertable = () => {
             </h2>
           </div>
 
-          <div
-            className="
-              grid
-              grid-cols-1
-              md:grid-cols-3
-              bg-[#FAFAFB]
-              dark:bg-[#2E2E2E]
-            "
-          >
-            {/* Search */}
-            <div
-              className="
-                flex
-                items-center
-                px-3
-                h-10
-                border-r
-                border-[#E7EAF3]
-              "
-            >
+          <div className="grid grid-cols-1 md:grid-cols-3 bg-[#FAFAFB] dark:bg-[#2E2E2E]">
+            <div className="flex items-center px-3 h-10 border-r border-[#E7EAF3]">
               <FiSearch className="text-gray-400 mr-2 text-[15px]" />
 
               <input
@@ -596,19 +612,10 @@ const Usertable = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleKeyPress}
-                className="
-                  w-full
-                  outline-none
-                  bg-transparent
-                  text-[11px]
-                  text-gray-600
-                  dark:text-gray-200
-                  placeholder:text-gray-400
-                "
+                className="w-full outline-none bg-transparent text-[11px] text-gray-600 dark:text-gray-200 placeholder:text-gray-400"
               />
             </div>
 
-            {/* Filter */}
             <button
               type="button"
               onClick={() => setShowFilterForm(true)}
@@ -623,7 +630,6 @@ const Usertable = () => {
               <FiChevronDown className="text-gray-400 text-[14px]" />
             </button>
 
-            {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
                 Showing {userItems.length} Of {totalRecords || analytics.total}
@@ -635,15 +641,7 @@ const Usertable = () => {
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[750px] text-xs border-collapse">
-              {/* Table Header */}
-              <thead
-                className="
-                  bg-[#4C6993]
-                  text-white
-                  text-[13px]
-                  dark:bg-[#44699D]
-                "
-              >
+              <thead className="bg-[#4C6993] text-white text-[13px] dark:bg-[#44699D]">
                 <tr>
                   {[
                     "Tenants Name",
@@ -659,16 +657,7 @@ const Usertable = () => {
                   ].map((header) => (
                     <th
                       key={header}
-                      className="
-                        py-3
-                        px-3
-                        whitespace-nowrap
-                        font-medium
-                        text-left
-                        text-[11px]
-                        border-r
-                        border-[#466993]
-                      "
+                      className="py-3 px-3 whitespace-nowrap font-medium text-left text-[11px] border-r border-[#466993]"
                     >
                       {header}
                     </th>
@@ -676,7 +665,6 @@ const Usertable = () => {
                 </tr>
               </thead>
 
-              {/* Table Body */}
               <tbody>
                 {loading ? (
                   <tr>
@@ -688,86 +676,52 @@ const Usertable = () => {
                   userItems.map((item, index) => (
                     <tr
                       key={index}
-                      className="
-                        text-[11px]
-                        odd:bg-[#F8F8F8]
-                        even:bg-white
-                        dark:odd:bg-[#2C2C2C]
-                        dark:even:bg-[#303030]
-                      "
+                      className="text-[11px] odd:bg-[#F8F8F8] even:bg-white dark:odd:bg-[#2C2C2C] dark:even:bg-[#303030]"
                     >
-                      {/* Tenant Name */}
                       <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
                         {item.tenantName}
                       </td>
 
-                      {/* Domain */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                         {item.domain}
                       </td>
 
-                      {/* Phone Number */}
                       <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                         {item.phoneNumber}
                       </td>
 
-                      {/* Email */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
                         {item.email}
                       </td>
 
-                      {/* Start Date */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
                         {item.startDate}
                       </td>
 
-                      {/* Plan */}
                       <td className="py-3 px-3">
                         <span
-                          className={`
-                            inline-flex
-                            items-center
-                            px-3
-                            py-1
-                            rounded-md
-                            text-[9px]
-                            font-medium
-                            ${getPlanBadgeStyles(item.plan)}
-                          `}
+                          className={`inline-flex items-center px-3 py-1 rounded-md text-[9px] font-medium ${getPlanBadgeStyles(item.plan)}`}
                         >
                           {item.plan}
                         </span>
                       </td>
 
-                      {/* Users */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
                         {item.users || 0}
                       </td>
 
-                      {/* Renewal Date */}
                       <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
                         {item.renewalDate}
                       </td>
 
-                      {/* Tenant Status */}
                       <td className="py-3 px-3">
                         <span
-                          className={`
-                            inline-flex
-                            items-center
-                            px-3
-                            py-1
-                            rounded-md
-                            text-[9px]
-                            font-medium
-                            ${getStatusBadgeStyles(item.status)}
-                          `}
+                          className={`inline-flex items-center px-3 py-1 rounded-md text-[9px] font-medium ${getStatusBadgeStyles(item.status)}`}
                         >
                           {item.status}
                         </span>
                       </td>
 
-                      {/* Action */}
                       <td
                         className="py-3 px-3 relative"
                         ref={openMenu === index ? openMenuRef : null}
@@ -776,45 +730,15 @@ const Usertable = () => {
                           onClick={() =>
                             setOpenMenu(openMenu === index ? null : index)
                           }
-                          className="
-                            p-1
-                            rounded-md
-                            hover:bg-gray-100
-                            dark:hover:bg-gray-700
-                          "
+                          className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                           <BsThreeDotsVertical className="text-[14px]" />
                         </button>
 
                         {openMenu === index && (
-                          <div
-                            className="
-                              absolute
-                              right-3
-                              top-full
-                              mt-1
-                              w-28
-                              bg-white
-                              dark:bg-[#2C2C2C]
-                              rounded-lg
-                              shadow-lg
-                              border
-                              border-gray-100
-                              dark:border-gray-700
-                              z-50
-                            "
-                          >
+                          <div className="absolute right-3 top-full mt-1 w-28 bg-white dark:bg-[#2C2C2C] rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50">
                             <button
-                              className="
-                                w-full
-                                text-center
-                                px-3
-                                py-2
-                                text-[10px]
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-700
-                                rounded-t-lg
-                              "
+                              className="w-full text-center px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-lg"
                               onClick={() => {
                                 setOpenMenu(null);
                                 router.push(
@@ -827,18 +751,7 @@ const Usertable = () => {
                               View Details
                             </button>
 
-                            <button
-                              className="
-                                w-full
-                                text-center
-                                px-3
-                                py-2
-                                text-[10px]
-                                hover:bg-gray-100
-                                dark:hover:bg-gray-700
-                                rounded-b-lg
-                              "
-                            >
+                            <button className="w-full text-center px-3 py-2 text-[10px] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg">
                               Edit
                             </button>
                           </div>
