@@ -5,7 +5,6 @@ export const AppApiEndpoints = {
 
   AUTH: {
     LOGIN: "/signin",
-    ADMIN_LOGIN: "/signin",
     LOGOUT: "/signout",
     STUDENTS_SIGNIN: "/studentsignin",
   },
