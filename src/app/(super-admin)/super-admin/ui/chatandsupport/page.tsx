@@ -2201,8 +2201,12 @@ const fetchRooms = async () => {
                             <div className="relative max-w-[240px]">
                               <div
                                 className={`px-3 py-2 rounded-lg ${isMine
-                                  ? "bg-[#576CBC] text-white rounded-br-sm"
-                                  : "bg-[#F0F1F3] dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] rounded-bl-sm"
+                                  ? msg.isDeleted
+                                    ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-br-sm"
+                                    : "bg-[#576CBC] text-white rounded-br-sm"
+                                  : msg.isDeleted
+                                    ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-bl-sm"
+                                    : "bg-[#F0F1F3] dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] rounded-bl-sm"
                                   }`}
                               >
                                 {msg.replyTo && (
