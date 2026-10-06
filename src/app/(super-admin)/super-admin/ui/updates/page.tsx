@@ -522,7 +522,7 @@ const page = () => {
       setTableLoading(true);
       try {
         const localRows = loadLocalUpdates();
-        const res = await fetch(`${UPDATES_TABLE_API}?limit=1000`);
+        const res = await fetch(`${UPDATES_TABLE_API}?limit=100`);
         const json: UpdatesTableResponse = await res.json();
         if (cancelled) return;
         const apiRows: ApiUpdateRow[] = json.success ? json.data ?? [] : [];

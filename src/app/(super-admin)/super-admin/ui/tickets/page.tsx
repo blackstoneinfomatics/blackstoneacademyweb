@@ -146,7 +146,7 @@ const buildCards = (tickets: Ticket[]) => [
     title: "Total Tickets",
     value: tickets.length.toString(),
     icon: TicketIcon,
-    iconBg: "bg-[#E5DFFD]",
+    iconBg: "bg-[#E5DFFD] dark:bg-[#493D70]",
     iconColor: "text-[#5225FC]",
     titleColor: "text-[#5225FC]",
     trend: "All raised tickets",
@@ -155,7 +155,7 @@ const buildCards = (tickets: Ticket[]) => [
     title: "Open Tickets",
     value: tickets.filter((t) => t.status === "Open").length.toString(),
     icon: AlertTriangle,
-    iconBg: "bg-[#F8E4E4]",
+    iconBg: "bg-[#F8E4E4] dark:bg-[#512B2B]",
     iconColor: "text-[#D34645]",
     titleColor: "text-[#D34645]",
     trend: "Awaiting response",
@@ -166,7 +166,7 @@ const buildCards = (tickets: Ticket[]) => [
       .filter((t) => t.status === "In Progress" || t.status === "Acknowledged")
       .length.toString(),
     icon: Clock3,
-    iconBg: "bg-[#FCF0DC]",
+    iconBg: "bg-[#FCF0DC] dark:bg-[#514126]",
     iconColor: "text-[#F59E0B]",
     titleColor: "text-[#F59E0B]",
     trend: "Being worked on",
@@ -175,7 +175,7 @@ const buildCards = (tickets: Ticket[]) => [
     title: "Resolved",
     value: tickets.filter((t) => t.status === "Resolved" || t.status === "Closed").length.toString(),
     icon: CheckCircle2,
-    iconBg: "bg-[#E3F4E7]",
+    iconBg: "bg-[#E3F4E7] dark:bg-[#294A32]",
     iconColor: "text-[#40BD5F]",
     titleColor: "text-[#40BD5F]",
     trend: "Successfully closed",
@@ -262,24 +262,24 @@ const applyFilters = (
 const priorityBadgeClass = (priority: Ticket["priority"]) => {
   switch (priority) {
     case "High":
-      return "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]";
+      return "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533] dark:text-[#FF8B8B]";
     case "Medium":
-      return "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]";
+      return "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33] dark:text-[#FFC66D]";
     default:
-      return "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]";
+      return "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#294A32] dark:text-[#72D889]";
   }
 };
 
 const statusBadgeClass = (status: Ticket["status"]) => {
   switch (status) {
     case "Open":
-      return "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]";
+      return "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533] dark:text-[#FF8B8B]";
     case "In Progress":
-      return "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]";
+      return "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33] dark:text-[#FFC66D]";
     case "Resolved":
-      return "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]";
+      return "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#294A32] dark:text-[#72D889]";
     default:
-      return "bg-[#E6EAF2] text-[#576CBC] dark:bg-[#576CBC33]";
+      return "bg-[#E6EAF2] text-[#576CBC] dark:bg-[#37385F] dark:text-[#B4B5FF]";
   }
 };
 
@@ -403,7 +403,7 @@ const page = () => {
               </div>
 
               <p className='text-sm mt-3 ml-[70px] flex flex-row gap-1'>
-                <span className="flex flex-row gap-x-1 text-[#646464]">{card.trend}</span>
+                <span className="flex flex-row gap-x-1 text-[#646464] dark:text-gray-300">{card.trend}</span>
               </p>
             </div>
           );
@@ -417,13 +417,13 @@ const page = () => {
         <div className="bg-white rounded-xl shadow-lg dark:bg-[#343434] overflow-hidden rounded-b-xl border-t border-[#E6EAF2] dark:border-[#3F3F3F]">
           <div className="grid grid-cols-1 border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:grid-cols-3">
             <div className="flex h-12 items-center border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F] md:border-b-0 md:border-r">
-              <Search size={17} className="text-[#A5AAB4]" />
+              <Search size={17} className="text-[#A5AAB4] dark:text-[#B5B5B5]" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by ticket ID, tenant, subject..."
-                className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4] dark:text-[#E2E2E2]"
+                placeholder="Search by Keywords"
+                className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4] dark:text-[#E2E2E2] dark:placeholder:text-[#8A8A8A]"
               />
             </div>
 
@@ -433,7 +433,7 @@ const page = () => {
                   setDraftFilters(appliedFilters);
                   setShowFilterPanel(true);
                 }}
-                className="flex h-12 w-full items-center justify-between px-4 text-sm text-[#80848E] transition hover:bg-gray-50 dark:hover:bg-[#2F2F2F]"
+                className="flex h-12 w-full items-center justify-between px-4 text-sm text-[#80848E] transition hover:bg-gray-50 dark:text-[#B5B5B5] dark:hover:bg-[#2F2F2F]"
               >
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal size={16} />
@@ -486,7 +486,7 @@ const page = () => {
                     paginatedItems.map((item) => (
                       <tr
                         key={item.ticketId}
-                        className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]"
+                        className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]"
                       >
                         <td className="py-4 px-2 font-medium">{item.ticketId}</td>
                         <td className="py-4 px-2">{item.tenantName}</td>
@@ -520,10 +520,10 @@ const page = () => {
                           </button>
 
                           {openMenu === item.ticketId && (
-                            <div className="absolute right-4 top-12 z-50 w-44 bg-white dark:bg-[#2c2c2c] rounded-lg shadow-lg border dark:border-gray-700">
+                            <div className="absolute right-4 top-12 z-50 w-44 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
                               <button
                                 disabled={item.status !== "Open"}
-                                className="w-full text-left px-4 border-b py-2 text-xs dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
+                                className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
                                 onClick={() => {
                                   setOpenMenu(null);
                                   setAcknowledgeTicket(item);
@@ -534,7 +534,7 @@ const page = () => {
 
                               <button
                                 disabled={item.status === "Resolved" || item.status === "Closed"}
-                                className="w-full text-left px-4 border-b py-2 text-xs dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
+                                className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
                                 onClick={() => {
                                   setOpenMenu(null);
                                   setResolveTicket(item);
@@ -544,7 +544,7 @@ const page = () => {
                               </button>
 
                               <button
-                                className="w-full text-left px-4 border-b py-2 text-xs dark:border-gray-700 dark:hover:bg-gray-700"
+                                className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700"
                                 onClick={() => {
                                   setOpenMenu(null);
                                   setViewTicketModal(item);
@@ -554,7 +554,7 @@ const page = () => {
                               </button>
 
                               <button
-                                className="w-full text-left px-4 py-2 text-xs text-[#98A2B3] dark:hover:bg-gray-700"
+                                className="w-full px-4 py-2 text-left text-xs text-[#98A2B3] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                                 onClick={() => setOpenMenu(null)}
                               >
                                 Cancel
@@ -566,7 +566,7 @@ const page = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={10} className="p-4 text-center">
+                      <td colSpan={10} className="p-4 text-center text-gray-500 dark:text-gray-300">
                         No tickets found
                       </td>
                     </tr>
@@ -592,7 +592,7 @@ const page = () => {
               onClick={() => setCurrentPage(p)}
               className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${
                 currentPageSafe === p
-                  ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
+                  ? "border-[#496A96] bg-white text-[#496A96] dark:border-[#7FA7E8] dark:bg-[#343434] dark:text-[#B8D0FF]"
                   : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
               }`}
             >
