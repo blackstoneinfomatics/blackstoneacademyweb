@@ -434,7 +434,7 @@ const Table = () => {
             SEARCH / FILTER HEADER
         ===================================================== */}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 bg-[#FAFAFB]">
+        <div className="grid grid-cols-1 bg-[#FAFAFB] dark:bg-[#2C2C2C] md:grid-cols-3">
 
           {/* Search */}
 
@@ -529,7 +529,7 @@ const Table = () => {
                   <tr>
                     <td
                       colSpan={8}
-                      className="p-8 text-center text-[#80848E]"
+                      className="p-8 text-center text-[#80848E] dark:text-gray-300"
                     >
                       Loading subscriptions...
                     </td>
@@ -597,14 +597,14 @@ const Table = () => {
                             <span
                               className={`px-2 text-[12px] py-[3px] rounded-md ${item.status ===
                                 "ACTIVE"
-                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#23452B] dark:text-[#72D889]"
                                 : item.status ===
                                   "PENDING"
-                                  ? "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                                  ? "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#4A3A1F] dark:text-[#FFD078]"
                                   : item.status ===
                                     "EXPIRED"
-                                    ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
-                                    : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                                    ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#512B2B] dark:text-[#FF8B8B]"
+                                    : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#4A3A1F] dark:text-[#FFD078]"
                                 }`}
                             >
                               {item.status}
@@ -619,11 +619,11 @@ const Table = () => {
                                 "SUCCESS" ||
                                 item.paymentStatus ===
                                 "PAID"
-                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#36477e33]"
+                                ? "bg-[#E4F4E8] text-[#40BD5F] dark:bg-[#23452B] dark:text-[#72D889]"
                                 : item.paymentStatus ===
                                   "FAILED"
-                                  ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#D3464533]"
-                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#F0AD4E33]"
+                                  ? "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#512B2B] dark:text-[#FF8B8B]"
+                                  : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#4A3A1F] dark:text-[#FFD078]"
                                 }`}
                             >
                               {item.paymentStatus}
@@ -652,7 +652,7 @@ const Table = () => {
                               <div className="absolute right-4 top-12 z-50 w-36 bg-white dark:bg-[#2c2c2c] rounded-lg shadow-lg border dark:border-gray-700">
 
                                 <button
-                                  className="w-full text-left px-4 border-b py-2 text-xs dark:hover:bg-gray-700"
+                                  className="w-full border-b border-gray-200 px-4 py-2 text-left text-xs text-gray-800 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-700"
                                   onClick={() => {
                                     setOpenMenu(
                                       null,
@@ -681,7 +681,7 @@ const Table = () => {
                   <tr>
                     <td
                       colSpan={8}
-                      className="p-8 text-center text-[#80848E]"
+                      className="p-8 text-center text-[#80848E] dark:text-gray-300"
                     >
                       No data available
                     </td>
@@ -756,10 +756,10 @@ const Table = () => {
       {showFilterPanel && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
 
-          <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] bg-white p-5 shadow-2xl">
+          <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] bg-white p-5 text-gray-900 shadow-2xl dark:border-[#4A4A4A] dark:bg-[#343434] dark:text-gray-100">
 
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[#101B41] font-sans">
+              <h3 className="font-sans text-lg font-semibold text-[#101B41] dark:text-white">
                 Filter by
               </h3>
 
@@ -767,7 +767,7 @@ const Table = () => {
                 onClick={() =>
                   setShowFilterPanel(false)
                 }
-                className="text-[#B8C0D3] hover:text-[#6E7891]"
+                className="text-[#B8C0D3] hover:text-[#6E7891] dark:hover:text-white"
               >
                 <X size={20} />
               </button>
@@ -778,7 +778,7 @@ const Table = () => {
               {/* Tenant */}
 
               <div>
-                <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-gray-200">
                   Tenant Name
                 </label>
 
@@ -796,14 +796,14 @@ const Table = () => {
                     )
                   }
                   placeholder="Enter tenant name"
-                  className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                  className="h-8 w-full rounded-md border border-[#d5d5d5] bg-white px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white dark:placeholder:text-gray-400"
                 />
               </div>
 
               {/* Plan */}
 
               <div>
-                <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-gray-200">
                   Plan
                 </label>
 
@@ -820,7 +820,7 @@ const Table = () => {
                         }),
                       )
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">
                       All Plans
@@ -848,7 +848,7 @@ const Table = () => {
               {/* Billing Cycle */}
 
               <div>
-                <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-gray-200">
                   Billing Cycle
                 </label>
 
@@ -866,7 +866,7 @@ const Table = () => {
                         }),
                       )
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">
                       All Billing Cycles
@@ -894,7 +894,7 @@ const Table = () => {
               {/* Date */}
 
               <div>
-                <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-gray-200">
                   Date
                 </label>
 
@@ -914,7 +914,7 @@ const Table = () => {
                         }),
                       )
                     }
-                    className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   />
 
                   <input
@@ -931,7 +931,7 @@ const Table = () => {
                         }),
                       )
                     }
-                    className="h-8 w-full rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   />
 
                 </div>
@@ -940,7 +940,7 @@ const Table = () => {
               {/* Subscription Status */}
 
               <div>
-                <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-gray-200">
                   Subscription Status
                 </label>
 
@@ -958,7 +958,7 @@ const Table = () => {
                         }),
                       )
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">
                       All Status
@@ -986,7 +986,7 @@ const Table = () => {
               {/* Payment Status */}
 
               <div>
-                <label className="mb-2 block text-sm leading-none text-[#101B41]">
+                <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-gray-200">
                   Payment Status
                 </label>
 
@@ -1004,7 +1004,7 @@ const Table = () => {
                         }),
                       )
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">
                       All Payment Status
@@ -1031,7 +1031,7 @@ const Table = () => {
 
             </div>
 
-            <div className="my-5 h-px bg-[#E4E8F1]" />
+            <div className="my-5 h-px bg-[#E4E8F1] dark:bg-[#4A4A4A]" />
 
             <div className="grid grid-cols-2 gap-3">
 
@@ -1042,7 +1042,7 @@ const Table = () => {
                   setSearch("");
                   setCurrentPage(1);
                 }}
-                className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"
+                className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC] dark:text-[#AFC2E4]"
               >
                 Reset
               </button>
@@ -1071,7 +1071,7 @@ const Table = () => {
       {viewSubscriptionModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3">
 
-          <div className="w-full max-w-[680px] max-h-[95vh] overflow-y-auto rounded-lg bg-white shadow-2xl scrollbar-none">
+          <div className="max-h-[95vh] w-full max-w-[680px] overflow-y-auto rounded-lg bg-white text-gray-900 shadow-2xl scrollbar-none dark:bg-[#343434] dark:text-gray-100">
 
             {/* HEADER */}
 
@@ -1081,7 +1081,7 @@ const Table = () => {
 
                 <div className="flex items-center gap-3">
 
-                  <div className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-xl bg-[#EEEAFE]">
+                  <div className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-xl bg-[#EEEAFE] dark:bg-[#41466A]">
                     <RiSchoolFill
                       size={28}
                       className="text-[#576CBC]"
@@ -1090,14 +1090,14 @@ const Table = () => {
 
                   <div>
 
-                    <h2 className="text-[16px] font-semibold text-[#101B41]">
+                    <h2 className="text-[16px] font-semibold text-[#101B41] dark:text-white">
                       {selectedSubscription
                         ?.tenant?.tenantName ??
                         selectedSubscription?.tenantId ??
                         "-"}
                     </h2>
 
-                    <div className="mt-1.5 flex items-center gap-3 text-[8px] text-[#666]">
+                    <div className="mt-1.5 flex items-center gap-3 text-[8px] text-[#666] dark:text-gray-400">
 
                       <span>
                         {selectedSubscription
@@ -1107,7 +1107,7 @@ const Table = () => {
                           "-"}
                       </span>
 
-                      <span className="h-3 w-px bg-[#D5D5D5]" />
+                      <span className="h-3 w-px bg-[#D5D5D5] dark:bg-[#555]" />
 
                       <span>
                         Subscription ID:{" "}
@@ -1125,8 +1125,8 @@ const Table = () => {
                   <span
                     className={`rounded-md px-2.5 py-1 text-[10px] font-medium ${selectedSubscription
                       ?.status === "ACTIVE"
-                      ? "bg-[#E8F8EC] text-[#319346]"
-                      : "bg-[#F6EcDC] text-[#EFA133]"
+                      ? "bg-[#E8F8EC] text-[#319346] dark:bg-[#23452B] dark:text-[#72D889]"
+                      : "bg-[#F6EcDC] text-[#EFA133] dark:bg-[#4A3A1F] dark:text-[#FFD078]"
                       }`}
                   >
                     {selectedSubscription
@@ -1139,7 +1139,7 @@ const Table = () => {
                         false,
                       )
                     }
-                    className="text-gray-400 transition hover:text-gray-700"
+                    className="text-gray-400 transition hover:text-gray-700 dark:hover:text-white"
                   >
                     <X size={18} />
                   </button>
@@ -1158,20 +1158,20 @@ const Table = () => {
 
                 {/* Subscription Summary */}
 
-                <div className="rounded-lg border border-[#D9D9D9] p-2.5">
+                <div className="rounded-lg border border-[#D9D9D9] p-2.5 dark:border-[#4A4A4A]">
 
-                  <h3 className="mb-3 text-[12px] font-medium text-[#101B41]">
+                  <h3 className="mb-3 text-[12px] font-medium text-[#101B41] dark:text-white">
                     Subscription Summary
                   </h3>
 
                   <div className="space-y-2">
 
                     <div className="grid grid-cols-[145px_1fr] items-center text-[11px]">
-                      <span className="text-[#101B41]">
+                      <span className="text-[#101B41] dark:text-gray-300">
                         Current Plan
                       </span>
 
-                      <span className="text-[#101B41]">
+                      <span className="text-[#101B41] dark:text-gray-200">
                         {selectedSubscription
                           ?.plan?.planName ??
                           selectedSubscription?.planName ??
@@ -1184,7 +1184,7 @@ const Table = () => {
                         Subscription Status
                       </span>
 
-                      <span className="w-fit rounded-md bg-[#E8F8EC] px-2 py-1 text-[9px] font-medium text-[#319346]">
+                      <span className="w-fit rounded-md bg-[#E8F8EC] px-2 py-1 text-[9px] font-medium text-[#319346] dark:bg-[#23452B] dark:text-[#72D889]">
                         {selectedSubscription
                           ?.status ?? "-"}
                       </span>
@@ -1258,9 +1258,9 @@ const Table = () => {
 
                 {/* Included Modules */}
 
-                <div className="rounded-lg border border-[#D9D9D9] p-2.5">
+                <div className="rounded-lg border border-[#D9D9D9] p-2.5 dark:border-[#4A4A4A]">
 
-                  <h3 className="mb-2 text-[12px] font-medium text-[#101B41]">
+                  <h3 className="mb-2 text-[12px] font-medium text-[#101B41] dark:text-white">
                     Included Modules &amp;
                     Features
                   </h3>
@@ -1278,7 +1278,7 @@ const Table = () => {
                     ).map((item) => (
                       <span
                         key={item}
-                        className="rounded-sm bg-[#E8ECFA] px-2 py-1 text-[10px] font-medium text-[#576CBC]"
+                        className="rounded-sm bg-[#E8ECFA] px-2 py-1 text-[10px] font-medium text-[#576CBC] dark:bg-[#29384F] dark:text-[#AFC2E4]"
                       >
                         {item}
                       </span>
@@ -1286,7 +1286,7 @@ const Table = () => {
 
                   </div>
 
-                  <div className="grid grid-cols-2 gap-y-2 text-[11px] text-[#101B41]">
+                  <div className="grid grid-cols-2 gap-y-2 text-[11px] text-[#101B41] dark:text-gray-200">
                     <span>
                       Student Limit
                     </span>
@@ -1315,15 +1315,15 @@ const Table = () => {
 
               {/* PLAN USAGE */}
 
-              <div className="rounded-lg border border-[#D9D9D9] p-2.5">
+              <div className="rounded-lg border border-[#D9D9D9] p-2.5 dark:border-[#4A4A4A]">
 
-                <h3 className="mb-3 text-[12px] font-medium text-[#101B41]">
+                <h3 className="mb-3 text-[12px] font-medium text-[#101B41] dark:text-white">
                   Plan Usage
                 </h3>
 
                 <div className="mb-3 flex items-center gap-3">
 
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#E8ECFA]">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#E8ECFA] dark:bg-[#29384F]">
 
                     <svg
                       width="17"
@@ -1363,11 +1363,11 @@ const Table = () => {
 
                   </div>
 
-                  <span className="w-[55px] text-[11px] text-[#101B41]">
+                  <span className="w-[55px] text-[11px] text-[#101B41] dark:text-gray-300">
                     Students
                   </span>
 
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#C5CDE8]">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#C5CDE8] dark:bg-[#4A4A4A]">
 
                     <div
                       className="h-full rounded-full bg-[#576CBC]"
@@ -1378,7 +1378,7 @@ const Table = () => {
 
                   </div>
 
-                  <span className="w-[52px] text-right text-[11px] text-[#101B41]">
+                  <span className="w-[52px] text-right text-[11px] text-[#101B41] dark:text-gray-300">
                     -
                   </span>
 
@@ -1386,7 +1386,7 @@ const Table = () => {
 
                 <div className="flex items-center gap-3">
 
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#E8ECFA]">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#E8ECFA] dark:bg-[#29384F]">
 
                     <svg
                       width="17"
@@ -1423,11 +1423,11 @@ const Table = () => {
 
                   </div>
 
-                  <span className="w-[55px] text-[11px] text-[#101B41]">
+                  <span className="w-[55px] text-[11px] text-[#101B41] dark:text-gray-300">
                     Users
                   </span>
 
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#C5CDE8]">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#C5CDE8] dark:bg-[#4A4A4A]">
 
                     <div
                       className="h-full rounded-full bg-[#576CBC]"
@@ -1438,7 +1438,7 @@ const Table = () => {
 
                   </div>
 
-                  <span className="w-[52px] text-right text-[11px] text-[#101B41]">
+                  <span className="w-[52px] text-right text-[11px] text-[#101B41] dark:text-gray-300">
                     -
                   </span>
 
@@ -1447,9 +1447,9 @@ const Table = () => {
 
               {/* ADDITIONAL SERVICES */}
 
-              <div className="rounded-lg border border-[#D9D9D9] p-2.5">
+              <div className="rounded-lg border border-[#D9D9D9] p-2.5 dark:border-[#4A4A4A]">
 
-                <h3 className="mb-3 text-[12px] font-medium text-[#101B41]">
+                <h3 className="mb-3 text-[12px] font-medium text-[#101B41] dark:text-white">
                   Additional Services
                 </h3>
 
@@ -1457,7 +1457,7 @@ const Table = () => {
 
                   <div className="flex items-center justify-between">
 
-                    <span className="text-[11px] text-[#101B41]">
+                    <span className="text-[11px] text-[#101B41] dark:text-gray-300">
                       Custom Domain
                     </span>
 
@@ -1465,8 +1465,8 @@ const Table = () => {
                       className={`rounded-md px-2 py-1 text-[9px] font-medium ${selectedSubscription
                         ?.plan
                         ?.customDomain
-                        ? "bg-[#E8F8EC] text-[#319346]"
-                        : "bg-[#F6E0E0] text-[#EA4F4F]"
+                        ? "bg-[#E8F8EC] text-[#319346] dark:bg-[#23452B] dark:text-[#72D889]"
+                        : "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#512B2B] dark:text-[#FF8B8B]"
                         }`}
                     >
                       {selectedSubscription
@@ -1480,15 +1480,15 @@ const Table = () => {
 
                   <div className="flex items-center justify-between">
 
-                    <span className="text-[11px] text-[#101B41]">
+                    <span className="text-[11px] text-[#101B41] dark:text-gray-300">
                       Auto Renewal
                     </span>
 
                     <span
                       className={`rounded-md px-2 py-1 text-[9px] font-medium ${selectedSubscription
                         ?.autoRenew
-                        ? "bg-[#E8F8EC] text-[#319346]"
-                        : "bg-[#F6E0E0] text-[#EA4F4F]"
+                        ? "bg-[#E8F8EC] text-[#319346] dark:bg-[#23452B] dark:text-[#72D889]"
+                        : "bg-[#F6E0E0] text-[#EA4F4F] dark:bg-[#512B2B] dark:text-[#FF8B8B]"
                         }`}
                     >
                       {selectedSubscription
@@ -1504,9 +1504,9 @@ const Table = () => {
 
               {/* PLAN CHANGE HISTORY */}
 
-              <div className="rounded-lg border border-[#D9D9D9] p-2.5">
+              <div className="rounded-lg border border-[#D9D9D9] p-2.5 dark:border-[#4A4A4A]">
 
-                <h3 className="mb-3 text-[12px] font-medium text-[#101B41]">
+                <h3 className="mb-3 text-[12px] font-medium text-[#101B41] dark:text-white">
                   Plan Change History
                 </h3>
 
@@ -1536,22 +1536,22 @@ const Table = () => {
                       </tr>
                     </thead>
 
-                    <tbody className="text-center text-[#101B41]">
+                    <tbody className="text-center text-[#101B41] dark:text-gray-200">
 
-                      <tr className="bg-[#F1F1F1]">
+                      <tr className="bg-[#F1F1F1] dark:bg-[#2C2C2C]">
 
-                        <td className="border-r border-[#D5D5D5] px-2 py-3">
+                        <td className="border-r border-[#D5D5D5] px-2 py-3 dark:border-[#4A4A4A]">
                           {formatDate(
                             selectedSubscription
                               ?.createdAt,
                           )}
                         </td>
 
-                        <td className="border-r border-[#D5D5D5] px-2 py-3">
+                        <td className="border-r border-[#D5D5D5] px-2 py-3 dark:border-[#4A4A4A]">
                           New Subscription
                         </td>
 
-                        <td className="border-r border-[#D5D5D5] px-2 py-3">
+                        <td className="border-r border-[#D5D5D5] px-2 py-3 dark:border-[#4A4A4A]">
                           –
                         </td>
 

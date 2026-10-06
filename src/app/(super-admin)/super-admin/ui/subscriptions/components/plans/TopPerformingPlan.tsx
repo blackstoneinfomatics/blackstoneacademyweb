@@ -47,13 +47,13 @@ const TopPerformingPlan = () => {
 
   if (loading) {
     return (
-      <div className="w-full rounded-xl bg-white p-5 shadow-sm animate-pulse h-[220px]" />
+      <div className="w-full rounded-xl bg-white dark:bg-[#343434] p-5 shadow-sm animate-pulse h-[220px]" />
     );
   }
 
   return (
     <div className="w-full rounded-xl bg-white dark:bg-[#343434] p-3 shadow-sm">
-      <h2 className="text-[18px] font-semibold text-[#0D1B4C] ml-2">
+      <h2 className="text-[18px] font-semibold text-[#0D1B4C] dark:text-white ml-2">
         Top Performing Plan
       </h2>
 
@@ -61,7 +61,7 @@ const TopPerformingPlan = () => {
         {/* Left Section */}
         <div className="flex items-center gap-4">
           {/* Icon */}
-          <div className="w-[145px] h-[150px] rounded-[16px] bg-[#EAE7F7] flex items-center justify-center">
+          <div className="w-[145px] h-[150px] rounded-[16px] bg-[#EAE7F7] dark:bg-[#41466A] flex items-center justify-center">
             <svg width="100" height="90" viewBox="0 0 120 140" fill="none">
               <path
                 d="M60 0
@@ -71,7 +71,7 @@ const TopPerformingPlan = () => {
                 C36 122 12 102 12 72
                 V24
                 C28 20 50 12 60 0Z"
-                fill="#5A6FCB"
+                className="fill-[#5A6FCB] dark:fill-[#8798E8]"
               />
 
               <path
@@ -86,14 +86,14 @@ const TopPerformingPlan = () => {
                 L30 60
                 L52 58
                 Z"
-                fill="#EAE7F7"
+                className="fill-[#EAE7F7] dark:fill-[#41466A]"
               />
             </svg>
           </div>
 
           {/* Content */}
           <div>
-            <p className="inline-block px-2 py-1 rounded-sm bg-[#ECFDF3] text-[#377E36] text-[10px] font-semibold mb-4">
+            <p className="inline-block px-2 py-1 rounded-sm bg-[#ECFDF3] text-[#377E36] dark:bg-[#377E3633] text-[10px] font-semibold mb-4">
               Top Performing
             </p>
 
@@ -101,14 +101,14 @@ const TopPerformingPlan = () => {
               {plan.planName || "-"}
             </h3>
 
-            <p className="text-[14px] text-black mb-2">
+            <p className="text-[14px] text-black dark:text-gray-200 mb-2">
               <span className="font-bold text-[16px]">
                 {plan.subscribedTenants}
               </span>{" "}
               Tenants
             </p>
 
-            <p className="text-[14px] text-black">
+            <p className="text-[14px] text-black dark:text-gray-200">
               <span className="font-bold text-[18px]">
                 ₹{Number(plan.revenue).toLocaleString()}
               </span>{" "}

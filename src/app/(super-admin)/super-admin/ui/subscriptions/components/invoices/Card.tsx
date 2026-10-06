@@ -88,14 +88,14 @@ const getTrendColor = (
   trend: "UP" | "DOWN" | "NO_CHANGE"
 ) => {
   if (trend === "UP") {
-    return "text-[#40BD5F]";
+    return "text-[#40BD5F] dark:text-[#72D889]";
   }
 
   if (trend === "DOWN") {
-    return "text-[#D34645]";
+    return "text-[#D34645] dark:text-[#FF8B8B]";
   }
 
-  return "text-[#646464]";
+  return "text-[#646464] dark:text-gray-300";
 };
 
   const cards = dashboard
@@ -104,7 +104,7 @@ const getTrendColor = (
           title: "Total Invoices",
           value: dashboard.totalInvoices.count,
           icon: "/assets/images/TotalInvoices.svg",
-          iconBg: "bg-[#E5DFFD]",
+          iconBg: "bg-[#E5DFFD] dark:bg-[#493D70]",
           iconColor: "text-[#5225FC]",
           titleColor: "text-[#5225FC]",
 
@@ -116,7 +116,7 @@ const getTrendColor = (
           title: "Paid Invoices",
           value: dashboard.paidInvoices.count,
           icon: FaCircleCheck,
-          iconBg: "bg-[#E3F4E7]",
+          iconBg: "bg-[#E3F4E7] dark:bg-[#294A32]",
           iconColor: "text-[#40BD5F]",
           titleColor: "text-[#40BD5F]",
 
@@ -128,7 +128,7 @@ const getTrendColor = (
           title: "Pending Invoices",
           value: dashboard.pendingInvoices.count,
           icon: FaRegClock,
-          iconBg: "bg-[#FCF0DC]",
+          iconBg: "bg-[#FCF0DC] dark:bg-[#594522]",
           iconColor: "text-[#F59E0B]",
           titleColor: "text-[#F59E0B]",
 
@@ -140,7 +140,7 @@ const getTrendColor = (
           title: "Overdue Invoices",
           value: dashboard.overdueInvoices.count,
           icon: GoAlertFill,
-          iconBg: "bg-[#F8E4E4]",
+          iconBg: "bg-[#F8E4E4] dark:bg-[#512B2B]",
           iconColor: "text-[#D34645]",
           titleColor: "text-[#D34645]",
 
@@ -157,7 +157,7 @@ const getTrendColor = (
         {[1, 2, 3, 4].map((item) => (
           <div
             key={item}
-            className="h-[110px] rounded-2xl bg-gray-100 animate-pulse"
+            className="h-[110px] rounded-2xl bg-gray-100 dark:bg-[#343434] animate-pulse"
           />
         ))}
       </div>
@@ -201,7 +201,7 @@ const getTrendColor = (
                   {card.title}
                 </p>
 
-                <h2 className="text-[25px] font-semibold text-gray-800 mt-1">
+                <h2 className="text-[25px] font-semibold text-gray-800 dark:text-white mt-1">
                   {card.value}
                 </h2>
               </div>
@@ -218,7 +218,7 @@ const getTrendColor = (
     )}
   </span>
 
-  <span className="text-[#646464] ml-1">
+  <span className="text-[#646464] dark:text-gray-300 ml-1">
     vs last Month
   </span>
 </p>
