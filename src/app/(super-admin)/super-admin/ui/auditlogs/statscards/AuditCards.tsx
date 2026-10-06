@@ -92,21 +92,21 @@ async function fetchCards(force = false): Promise<AuditCardsData> {
 const cardConfig = {
     totalLogs: {
         image: "/assets/images/superadmin-auditlogs-totallogs.svg",
-        iconBg: "bg-[#e5dffd] dark:bg-[#e5dffd]",
+        iconBg: "bg-[#e5dffd] dark:bg-[#493D70]",
         title: "Total Logs",
-        titleColor: "text-[#5225fc] dark:text-[#5225fc]",
+        titleColor: "text-[#5225fc] dark:text-[#B9A6FF]",
     },
     UsersActivities: {
         image: "/assets/images/superadmin-auditlogs-usersactivities.svg",
-        iconBg: "bg-[#e3eefb] dark:bg-[#e3eefb]",
+        iconBg: "bg-[#e3eefb] dark:bg-[#263F5B]",
         title: "Users Activities",
-        titleColor: "text-[#3B82F6] dark:text-[#3B82F6]",
+        titleColor: "text-[#3B82F6] dark:text-[#82B6FF]",
     },
     FailedActions: {
         image: "/assets/images/superadmin-auditlogs-failedactions.svg",
-        iconBg: "bg-[#f8e4e4] dark:bg-[#f8e4e4]",
+        iconBg: "bg-[#f8e4e4] dark:bg-[#512B2B]",
         title: "Failed Actions",
-        titleColor: "text-[#40BD5F] dark:text-[#40BD5F]",
+        titleColor: "text-[#40BD5F] dark:text-[#72D889]",
     },
 };
 
@@ -190,7 +190,7 @@ const AuditCards = ({ type }: AuditCardProps) => {
     }, [type, reloadKey]);
 
     let currentCount = 0;
-    let trend = { label: "—", color: "text-gray-400" };
+    let trend = { label: "—", color: "text-gray-400 dark:text-gray-300" };
 
     if (data) {
         if (type === "totalLogs") {

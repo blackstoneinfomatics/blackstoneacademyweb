@@ -44,21 +44,21 @@ const MOCK_DATA: BackupCardsData = {
 const cardConfig = {
     totalBackups: {
         image: "/assets/images/superadmin-backup-totalbackups.svg",
-        iconBg: "bg-[#e5dffd] dark:bg-[#e5dffd]",
+        iconBg: "bg-[#e5dffd] dark:bg-[#493D70]",
         title: "Total Backups",
-        titleColor: "text-[#5225fc] dark:text-[#5225fc]",
+        titleColor: "text-[#5225fc] dark:text-[#B9A6FF]",
     },
     currentMonthBackups: {
         image: "/assets/images/superadmin-backup-currentmonthbackups.svg",
-        iconBg: "bg-[#e3eefb] dark:bg-[#e3eefb]",
+        iconBg: "bg-[#e3eefb] dark:bg-[#263F5B]",
         title: "Current Month Backups",
-        titleColor: "text-[#3B82F6] dark:text-[#3B82F6]",
+        titleColor: "text-[#3B82F6] dark:text-[#82B6FF]",
     },
     backupsDelivered: {
         image: "/assets/images/superadmin-backup-backupsdelivered.svg",
-        iconBg: "bg-[#e3f4e7] dark:bg-[#e3f4e7]",
+        iconBg: "bg-[#e3f4e7] dark:bg-[#294A32]",
         title: "Backups Delivered",
-        titleColor: "text-[#40BD5F] dark:text-[#40BD5F]",
+        titleColor: "text-[#40BD5F] dark:text-[#72D889]",
     },
 };
 
@@ -114,7 +114,7 @@ const BackupCard = ({ type }: BackupCardProps) => {
 
     // Resolve value + trend per card type
     let value = "—";
-    let trend = { label: "—", color: "text-gray-400" };
+    let trend = { label: "—", color: "text-gray-400 dark:text-gray-300" };
 
     if (data) {
         if (type === "totalBackups") {
