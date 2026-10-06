@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { RiSchoolFill } from "react-icons/ri";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 
 interface Subscription {
@@ -247,7 +248,7 @@ const Table = () => {
         setLoading(true);
 
         const response = await fetch(
-          "http://localhost:5001/tenantsubscription",
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET}`,
         );
 
         if (!response.ok) {

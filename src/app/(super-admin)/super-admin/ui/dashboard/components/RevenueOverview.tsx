@@ -14,6 +14,7 @@ import {
   ValueType,
   NameType,
 } from "recharts/types/component/DefaultTooltipContent";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type Period = "yearly" | "monthly" | "weekly";
 
@@ -81,7 +82,7 @@ const RevenueOverview: React.FC = () => {
         setLoading(true);
 
         const response = await fetch(
-          `http://localhost:5001/analytics/revenue-overview?period=${period}`
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.REVENUE_OVERVIEW}?period=${period}`
         );
 
         if (!response.ok) {

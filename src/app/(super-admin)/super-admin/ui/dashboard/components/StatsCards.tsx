@@ -3,6 +3,7 @@ import { Users, UserPlus, Clock3, LucideIcon } from "lucide-react";
 import { HiArrowTrendingUp, HiArrowTrendingDown } from "react-icons/hi2";
 import { HiOutlineCurrencyDollar } from "react-icons/hi2";
 import { IconType } from "react-icons";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // API Response Interfaces
 type Direction = "up" | "down" | "same";
@@ -53,7 +54,7 @@ const StatsCards: React.FC = () => {
     const fetchDashboardCards = async () => {
       try {
         const response = await fetch(
-          "http://localhost:5001/api/dashboard/cards"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.SUPER_ADMIN_DASHBOARD.GET_CARDS}`
         );
         const result: ApiResponse = await response.json();
 

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface DashboardCardData {
   current: number;
@@ -76,7 +77,7 @@ useEffect(() => {
       }
 
       const response = await fetch(
-        `http://localhost:5001/tenant/analytics/dashboard/summary?tenantId=${encodeURIComponent(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_DASHBOARD_SUMMARY}?tenantId=${encodeURIComponent(
           tenantId
         )}`
       );

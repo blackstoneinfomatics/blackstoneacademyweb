@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 export interface BroadcastData {
   messageTitle: string;
@@ -53,7 +54,9 @@ const handleSend = async () => {
       throw new Error("Super admin session details are missing. Please sign in again.");
     }
 
-    const response = await fetch("http://localhost:5001/chat/message", {
+    const response = await fetch(
+      `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CHAT.MESSAGE}`,
+      {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -69,7 +72,8 @@ const handleSend = async () => {
         title: data.messageTitle.trim(),
         attachments: [],
       }),
-    });
+      },
+    );
 
     const responseText = await response.text();
     let result: { success?: boolean; message?: string; error?: string } = {};

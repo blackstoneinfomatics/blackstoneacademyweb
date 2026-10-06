@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type CardType = "totalLogs" | "UsersActivities" | "FailedActions";
 
@@ -30,7 +31,7 @@ interface AuditCardsApiResponse {
     };
 }
 
-const API_URL = "http://localhost:5001/audit-log/cards";
+const API_URL = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUDIT_LOG.GET_CARDS}`;
 const CACHE_TTL = 30_000;
 const POLL_INTERVAL = 30_000;
 

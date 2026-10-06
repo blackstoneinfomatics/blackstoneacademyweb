@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { TbCalendarTime } from "react-icons/tb";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // API Response Interfaces
 interface Tenant {
@@ -31,7 +32,7 @@ const ExpiringTenants: React.FC = () => {
     const fetchUpcomingRenewals = async () => {
       try {
         const response = await fetch(
-          "http://localhost:5001/api/tenants/upcoming-renewals"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.SUPER_ADMIN_DASHBOARD.GET_UPCOMING_RENEWALS}`
         );
         const result: ApiResponse = await response.json();
 

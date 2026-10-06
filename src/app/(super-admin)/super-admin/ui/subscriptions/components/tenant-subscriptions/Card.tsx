@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { GoAlertFill } from "react-icons/go";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface SubscriptionMetric {
   totalCount?: number;
@@ -47,7 +48,7 @@ const Card = () => {
         setLoading(true);
 
         const response = await fetch(
-          "http://localhost:5001/tenant-subscriptions/dashboard"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET_DASHBOARD}`
         );
 
         if (!response.ok) {

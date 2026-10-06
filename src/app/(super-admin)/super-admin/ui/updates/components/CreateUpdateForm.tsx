@@ -53,8 +53,8 @@ interface CreateUpdateFormProps {
   onFileChange: (file: File | null) => void;
 }
 
-const API_URL = "http://localhost:5001/api/updates";
-const TENANTS_API = "http://localhost:5001/tenant";
+const API_URL = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.CREATE}`;
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
 
 const inputClassName =
   "w-full px-3 py-2 border border-[#D5D9E2] rounded-md text-[12px] text-[#101B41] placeholder:text-gray-400 focus:outline-none focus:border-[#5872C5] dark:bg-[#3A3A3A] dark:border-[#555] dark:text-white dark:placeholder:text-gray-500";

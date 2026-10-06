@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { IoChevronDown, IoClose } from "react-icons/io5";
 import { LuCalendarDays, LuUpload } from "react-icons/lu";
 import { FaInfoCircle } from "react-icons/fa";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import type {
   Plan,
   ProductUpdate,
@@ -21,7 +22,7 @@ interface UpdateFeatureFormProps {
   onSubmit?: (payload: UpdateFeaturePayload) => void;
 }
 
-const TENANTS_API = "http://localhost:5001/tenant";
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
 
 const FALLBACK_PLANS: Plan[] = [
   { planId: "PLAN-001", planName: "Standard" },

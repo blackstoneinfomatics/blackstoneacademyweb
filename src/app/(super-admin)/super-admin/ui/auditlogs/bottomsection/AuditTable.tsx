@@ -11,6 +11,7 @@ import {
     Calendar,
     Loader2,
 } from "lucide-react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type LogStatus = "Success" | "Warning" | "Failed";
 
@@ -41,7 +42,7 @@ interface Filters {
     toDate: string;
 }
 
-const API_URL = "http://localhost:5001/audit-log";
+const API_URL = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUDIT_LOG.GET_LIST}`;
 
 const mapLogTypeToStatus = (logType?: string): LogStatus => {
     switch ((logType || "").toUpperCase()) {

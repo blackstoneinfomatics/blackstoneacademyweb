@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Users } from "lucide-react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface Activity {
   date: string;
@@ -65,7 +66,7 @@ const RecentActivities = () => {
         setLoading(true);
 
         const response = await fetch(
-          "http://localhost:5001/analytics/tenant-subscription-activities"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_SUBSCRIPTION_ACTIVITIES}`
         );
 
         if (!response.ok) {

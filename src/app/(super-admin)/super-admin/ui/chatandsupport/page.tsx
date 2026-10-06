@@ -11,29 +11,30 @@ import { ChatRoomSearch } from "./ChatRoomSearch";
 import { AddGroupModal, type GroupFormData } from "./AddGroupModal";
 import { BroadcastModal, type BroadcastData } from "./BroadcastModal";
 import { GroupDetailsModal } from "./GroupDetailsModal";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // ─────────────────────────────────────────────
 // API Endpoints
 // ─────────────────────────────────────────────
-const API_BASE = "http://localhost:5001";
+const API_BASE = AppApiEndpoints.API_END_POINT;
 
-const API_ACTIVE_PLANS = `${API_BASE}/api/plans/active`;
+const API_ACTIVE_PLANS = `${API_BASE}${AppApiEndpoints.CHAT.GET_ACTIVE_PLANS}`;
 const API_TENANTS_BY_PLAN = (planId: string) =>
-  `${API_BASE}/api/tenant-subscriptions/tenantsbyplan/${planId}`;
-const API_CREATE_CHAT_ROOM = `${API_BASE}/chat-room`;
-const API_LIST_CHAT_ROOMS = `${API_BASE}/chat-room`;
+  `${API_BASE}${AppApiEndpoints.CHAT.GET_TENANTS_BY_PLAN(planId)}`;
+const API_CREATE_CHAT_ROOM = `${API_BASE}${AppApiEndpoints.CHAT.ROOM}`;
+const API_LIST_CHAT_ROOMS = `${API_BASE}${AppApiEndpoints.CHAT.ROOM}`;
 
-const API_SEND_CHAT_MESSAGE = `${API_BASE}/chat/message`;
-const API_CLEAR_CHAT = `${API_BASE}/chat/clear`;
-const API_MARK_CHAT_SEEN = `${API_BASE}/chat/seen`;
+const API_SEND_CHAT_MESSAGE = `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE}`;
+const API_CLEAR_CHAT = `${API_BASE}${AppApiEndpoints.CHAT.CLEAR}`;
+const API_MARK_CHAT_SEEN = `${API_BASE}${AppApiEndpoints.CHAT.SEEN}`;
 const API_MESSAGE_SEEN_USERS = (messageId: string, userId: string) =>
-  `${API_BASE}/chat/message/${encodeURIComponent(messageId)}/seen/${encodeURIComponent(userId)}`;
+  `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE_SEEN_USERS(messageId, userId)}`;
 const ROOM_MESSAGES_PAGE_LIMIT = 20;
 const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
-  `${API_BASE}/chat/${encodeURIComponent(roomId)}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
+  `${API_BASE}${AppApiEndpoints.CHAT.ROOM_MESSAGES(roomId, userId, ROOM_MESSAGES_PAGE_LIMIT)}`;
 
 const API_UPDATE_CHAT_ROOM = (roomId: string) =>
-  `${API_BASE}/chat-room/${roomId}`;
+  `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
 
 
 const ROOMS_PAGE_LIMIT = 100;

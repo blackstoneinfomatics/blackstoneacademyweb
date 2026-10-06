@@ -12,10 +12,10 @@ import CreateUpdateForm, { UpdateFormData } from './components/CreateUpdateForm'
 import type { ProductUpdate, UpdateFeaturePayload, UpdatePriority, UpdateStatus } from './types';
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-const DASHBOARD_CARDS_API = "http://localhost:5001/api/updates/dashboard/cards";
-const UPDATES_TABLE_API = "http://localhost:5001/api/updates/table";
-const UPDATE_BY_ID_API = "http://localhost:5001/api/updates";
-const TENANTS_API = "http://localhost:5001/tenant";
+const DASHBOARD_CARDS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`;
+const UPDATES_TABLE_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_TABLE}`;
+const UPDATE_BY_ID_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_BY_ID}`;
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
 
 const LOCAL_UPDATES_KEY = "blackstone_created_updates_v1";
 

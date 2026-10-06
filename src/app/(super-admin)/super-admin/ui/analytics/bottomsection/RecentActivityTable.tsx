@@ -26,7 +26,7 @@ interface ApiResponse {
 }
 
 const MAX_RECORDS = 5;
-const API_URL = "http://localhost:5001/analytics/tenant-subscription-activities";
+const API_URL = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_SUBSCRIPTION_ACTIVITIES}`;
 
 const formatDateTime = (iso: string): string => {
   if (!iso) return "—";

@@ -54,6 +54,7 @@ export const AppApiEndpoints = {
     STUDENT_INVOICE_LIST: "/studentinvoice/list",
     INVOICE_COUNTS: "/invoicecounts",
     STUDENT_INVOICE_BYID: "/studentinvoiceById",
+    CREATE_SUBSCRIPTION_INVOICE: "/subscription-invoices",
     GET_INVOICE_CARD_COUNT: "/subscription-invoices/dashboard-count",
     GET_INVOICE_TABLE: "/subscription-invoices",
     GET_FINANCE_TRANSATIONS: "/finance/transactions",
@@ -97,6 +98,12 @@ export const AppApiEndpoints = {
     DASHBOARD_STUDENT_COUNTS: "/dashboard/student/counts",
     GET_TEACHER_FEMALEMALE: "/teacherfemalemale",
     GET_CARDS: "/dashboard/cards",
+  },
+
+  SUPER_ADMIN_DASHBOARD: {
+    GET_CARDS: "/api/dashboard/cards",
+    GET_RECENT_TENANTS: "/api/tenants/recent",
+    GET_UPCOMING_RENEWALS: "/api/tenants/upcoming-renewals",
   },
 
   CLASSSHEDULE: {
@@ -185,6 +192,7 @@ export const AppApiEndpoints = {
   TENANT_SUBSCRIPTION: {
     GET: "/tenantsubscription",
     GET_ANALYTICS_CARD: "/tenantsubscription/analytics/card",
+    GET_DASHBOARD: "/tenant-subscriptions/dashboard",
   },
 
   CUSTOM_SERVICE_INVOICE: {
@@ -238,6 +246,29 @@ export const AppApiEndpoints = {
     TENANTS_GROWTH: "/analytics/tenants-growth",
     REVENUE_OVERVIEW: "/analytics/revenue-overview",
     TENANT_SUBSCRIPTION_ACTIVITIES: "/analytics/tenant-subscription-activities",
+    SUBSCRIPTION_CHART_COUNT: "/analytics/chartcount",
+    TENANT_DASHBOARD_SUMMARY: "/tenant/analytics/dashboard/summary",
+    TENANT_DASHBOARD_ACTIVITY: "/tenant/analytics/dashboard/activity",
+  },
+
+  AUDIT_LOG: {
+    GET_LIST: "/audit-log",
+    GET_CARDS: "/audit-log/cards",
+  },
+
+  CHAT: {
+    GET_ACTIVE_PLANS: "/api/plans/active",
+    GET_TENANTS_BY_PLAN: (planId: string) =>
+      `/api/tenant-subscriptions/tenantsbyplan/${planId}`,
+    ROOM: "/chat-room",
+    ROOM_BY_ID: (roomId: string) => `/chat-room/${roomId}`,
+    MESSAGE: "/chat/message",
+    CLEAR: "/chat/clear",
+    SEEN: "/chat/seen",
+    MESSAGE_SEEN_USERS: (messageId: string, userId: string) =>
+      `/chat/message/${encodeURIComponent(messageId)}/seen/${encodeURIComponent(userId)}`,
+    ROOM_MESSAGES: (roomId: string, userId: string, limit: number) =>
+      `/chat/${encodeURIComponent(roomId)}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${limit}`,
   },
 
   ASSIGNMENT: {
@@ -360,6 +391,8 @@ export const AppApiEndpoints = {
   UPDATES: {
     CREATE: "/api/updates",
     GET_DASHBOARD_CARDS: "/api/updates/dashboard/cards",
+    GET_TABLE: "/api/updates/table",
+    GET_BY_ID: "/api/updates",
   },
   MODULE: {
     GET_LIST: "/modules",

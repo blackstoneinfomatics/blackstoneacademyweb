@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { X, Download, FileText } from "lucide-react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-const TENANTS_API = "http://localhost:5001/tenant";
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
 
 interface UpdateDetailsProps {
   updateId: string;

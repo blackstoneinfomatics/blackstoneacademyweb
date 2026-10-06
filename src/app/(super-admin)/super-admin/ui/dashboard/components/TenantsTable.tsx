@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // Interface mapping the API response fields
 interface Tenant {
@@ -31,7 +32,7 @@ const TenantsTable: React.FC = () => {
       try {
         setLoading(true);
         const response = await axios.get<ApiResponse>(
-          "http://localhost:5001/api/tenants/recent"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.SUPER_ADMIN_DASHBOARD.GET_RECENT_TENANTS}`
         );
         if (response.data?.success) {
           setTenants(response.data.data);

@@ -819,7 +819,10 @@ export default function SubscriptionInvoice({ onClose }: Props) {
 
                 console.log("Sending payload:", payload);
 
-                const res = await axios.post("http://localhost:5001/subscription-invoices", payload);
+                const res = await axios.post(
+                  `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.INVOICE.CREATE_SUBSCRIPTION_INVOICE}`,
+                  payload,
+                );
                 toast.success(res.data?.message || AppSuccessToastMessages.CREATE_PLAN_SUCCESS || "Invoice created successfully");
                 setTimeout(() => onClose(), 400);
               } catch (err: any) {

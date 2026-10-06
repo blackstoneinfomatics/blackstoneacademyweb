@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface Subscription {
   planName: string;
@@ -35,7 +36,7 @@ const SubscriptionsChart = () => {
     const fetchSubscriptionChart = async () => {
       try {
         const response = await fetch(
-          "http://localhost:5001/analytics/chartcount"
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.SUBSCRIPTION_CHART_COUNT}`
         );
 
         if (!response.ok) {
