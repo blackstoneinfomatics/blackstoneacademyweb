@@ -38,9 +38,9 @@ const insights = [
 
 const QuickInsight = () => {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-5 h-full">
+    <div className="bg-white  dark:bg-[#343434] rounded-2xl shadow-sm p-5 h-full">
       {/* Header */}
-      <h2 className="text-[18px] font-semibold text-[#111827] mb-6">
+      <h2 className="text-[18px] font-semibold text-[#111827] dark:text-white mb-6">
         Quick Insights
       </h2>
 
@@ -60,10 +60,10 @@ const QuickInsight = () => {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-800">
+                  <h3 className="text-sm dark:text-white font-semibold text-gray-800">
                     {item.title}
                   </h3>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs dark:text-gray-400 text-gray-500 mt-1">
                     {item.subtitle}
                   </p>
                 </div>
