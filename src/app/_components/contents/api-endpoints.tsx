@@ -269,6 +269,8 @@ export const AppApiEndpoints = {
       `/chat/message/${encodeURIComponent(messageId)}/seen/${encodeURIComponent(userId)}`,
     ROOM_MESSAGES: (roomId: string, userId: string, limit: number) =>
       `/chat/${encodeURIComponent(roomId)}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${limit}`,
+    DELETE_MESSAGE_FOR_EVERYONE: (messageId: string, userId: string) =>
+      `/chat/message/${encodeURIComponent(messageId)}/everyone/${encodeURIComponent(userId)}`,
   },
 
   ASSIGNMENT: {

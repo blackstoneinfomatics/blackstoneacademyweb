@@ -35,7 +35,8 @@ const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
 
 const API_UPDATE_CHAT_ROOM = (roomId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
-
+ const API_DELETE_MESSAGE_FOR_EVERYONE =(messageId: string , userId :string) =>
+  `${API_BASE}${AppApiEndpoints.CHAT.DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`;
 
 const ROOMS_PAGE_LIMIT = 100;
 const DEFAULT_CREATOR_ID = "6aba4e3ee619505595695943";
@@ -160,6 +161,7 @@ interface IMessage {
   isRead: boolean;
   status: "Active" | "Inactive";
   deliveredAt?: string;
+  isDeleted : boolean;
   seenAt?: string;
   replyTo?: { messageId: string; messages: string; senderName: string; senderId : string; };
   attachment?: { name: string; size: number; type: string; url?: string };
@@ -174,6 +176,7 @@ interface IRoomMessageResponse {
   message?: string;
   createdAt?: string;
   timestamp?: string;
+  isDeleted?: boolean;
   dateLabel?: string;
   side?: "left" | "right";
   replyTo?: {
@@ -233,7 +236,8 @@ interface IUser {
   }[];
   groupSettings: "everyone" | "admins";
   lastMessage?: { text: string; time: string; senderName?: string };
-
+  unreadCount: number;
+  isUnread: boolean;
   roomId?: string;
   roomCode?: string;
   description?: string;
@@ -406,13 +410,17 @@ const ReceiptDots = ({
 const MessageMenu = ({
   showInfo,
   showReply,
+  showDelete,
   onInfo,
   onReply,
+  onDelete,
 }: {
   showInfo: boolean;
   showReply: boolean;
+  showDelete: boolean;
   onInfo: () => void;
   onReply: () => void;
+  onDelete: () => void;
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -461,7 +469,7 @@ const MessageMenu = ({
                 onInfo();
                 setOpen(false);
               }}
-              className="block w-full px-2 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+              className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
             >
               Info
             </button>
@@ -476,6 +484,18 @@ const MessageMenu = ({
               className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
             >
               Reply
+            </button>
+          )}
+          {showDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                onDelete();
+                setOpen(false);
+              }}
+              className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
+            >
+              Delete
             </button>
           )}
         </div>
@@ -672,11 +692,16 @@ const Message = () => {
   const [unreadRooms, setUnreadRooms] = useState<IUser[]>([]);
   const [groupRooms, setGroupRooms] = useState<IUser[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState({
+  all: 0,
+  unread: 0,
+  group: 0,
+});
 
   const [allMessages, setAllMessages] = useState<IMessageData[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"all" | "unread" | "groups">(
-    "all"
+  const [activeTab, setActiveTab] = useState<"ALL" | "UNREAD" | "GROUP">(
+    "ALL"
   );
   const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
   const [messageText, setMessageText] = useState("");
@@ -811,6 +836,8 @@ const Message = () => {
       profileImage: null,
       roomId: id,
       roomCode: r?.roomCode ?? "",
+      unreadCount: r?.unreadCount ?? 0,
+      isUnread:r?.isUnread ?? false,
       description: r?.description ?? "",
       planName: r?.planName ?? "",
       planId: r?.planId ?? "",
@@ -825,94 +852,185 @@ const Message = () => {
   // Fetch rooms
   // ✅ Saves full member snapshot per room
   // ─────────────────────────────────────────────
-  const fetchRooms = async () => {
-    setRoomsLoading(true);
-    try {
+const fetchRooms = async () => {
+  setRoomsLoading(true);
+
+  try {
+    const fetchTab = async (tab: "ALL" | "UNREAD" | "GROUP") => {
+
+      const userId = localStorage.getItem("SuperAdminUserId") || "";
+      const tenantId = localStorage.getItem("tenantId") || "";
       const res = await fetch(
-        `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}`,
+        `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}&tab=${tab}&userId=${userId}&tenantId=${tenantId}`,
         { cache: "no-store" }
       );
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`GET /chat-room failed: ${res.status}`, errText);
-        setAllRooms([]);
-        setUnreadRooms([]);
-        setGroupRooms([]);
-        return;
+        console.error(
+          `GET /chat-room?tab=${tab} failed: ${res.status}`,
+          errText
+        );
+
+        return {
+          rooms: [],
+          counts: {
+            all: 0,
+            unread: 0,
+            group: 0,
+          },
+        };
       }
 
       const json = await res.json();
-      const d = json?.data ?? {};
 
-      const allRaw: any[] = Array.isArray(d?.all?.rooms) ? d.all.rooms : [];
-      const unreadRaw: any[] = Array.isArray(d?.unread?.rooms)
-        ? d.unread.rooms
+      const data = json?.data ?? {};
+
+      return {
+        rooms: Array.isArray(data?.data) ? data.data : [],
+        counts: data?.counts ?? {
+          all: 0,
+          unread: 0,
+          group: 0,
+        },
+      };
+    };
+
+    // Fetch all three tabs
+    const [allResponse, unreadResponse, groupResponse] =
+      await Promise.all([
+        fetchTab("ALL"),
+        fetchTab("UNREAD"),
+        fetchTab("GROUP"),
+      ]);
+
+    // --------------------------------------------------
+    // ALL
+    // --------------------------------------------------
+
+    const mappedAll = allResponse.rooms
+      .map(mapRoomToUser)
+      .filter((r:any) => r._id);
+
+    // --------------------------------------------------
+    // UNREAD
+    // --------------------------------------------------
+
+    const mappedUnread = unreadResponse.rooms
+      .map(mapRoomToUser)
+      .filter((r:any) => r._id);
+
+    // --------------------------------------------------
+    // GROUP
+    // --------------------------------------------------
+
+    const mappedGroup = groupResponse.rooms
+      .map(mapRoomToUser)
+      .filter((r:any) => r._id);
+
+    // --------------------------------------------------
+    // Save rooms
+    // --------------------------------------------------
+
+    setAllRooms(mappedAll);
+    setUnreadRooms(mappedUnread);
+    setGroupRooms(mappedGroup);
+
+    // --------------------------------------------------
+    // Save unread counts
+    // --------------------------------------------------
+
+    const counts = allResponse.counts;
+
+    setUnreadCounts({
+      all: counts?.all ?? 0,
+      unread: counts?.unread ?? 0,
+      group: counts?.group ?? 0,
+    });
+
+    // --------------------------------------------------
+    // Save member snapshot
+    // --------------------------------------------------
+
+    const allRoomResponses = [
+      ...allResponse.rooms,
+      ...unreadResponse.rooms,
+      ...groupResponse.rooms,
+    ];
+
+    allRoomResponses.forEach((r: any) => {
+      const roomId = extractRoomId(r);
+
+      if (!roomId) return;
+
+      const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
+        ? r.tenantIds.filter(
+            (x: any) =>
+              typeof x === "string" && x.trim()
+          )
         : [];
 
-      // 🔑 Save member snapshot for every room with tenantIds
-      allRaw.forEach((r: any) => {
-        const roomId = extractRoomId(r);
-        if (!roomId) return;
-        const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
-          ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
-          : [];
-        if (rawTenantIds.length === 0) return;
+      if (rawTenantIds.length === 0) return;
 
-        const rawMembers = Array.isArray(r?.members) ? r.members : [];
-        const snapshot: StoredMember[] = rawTenantIds.map((tid) => {
+      const rawMembers = Array.isArray(r?.members)
+        ? r.members
+        : [];
+
+      const snapshot: StoredMember[] = rawTenantIds.map(
+        (tid) => {
           const found = rawMembers.find(
-            (m: any) => (m.tenantId || m._id || m.id) === tid
+            (m: any) =>
+              (m.tenantId || m._id || m.id) === tid
           );
+
           return {
             tenantId: tid,
-            tenantName: found?.tenantName || found?.name || tid,
+            tenantName:
+              found?.tenantName ||
+              found?.name ||
+              tid,
           };
-        });
-
-        mergeIntoRoomMembersCache(roomId, snapshot);
-      });
-
-      const mappedAll = allRaw.map(mapRoomToUser).filter((r) => r._id);
-      const mappedUnread = unreadRaw.map(mapRoomToUser).filter((r) => r._id);
-
-      const groupList = mappedAll.filter(
-        (r) => r.roomType === "SEGMENT" || r.roomType === "GLOBAL"
+        }
       );
-      const individualList = mappedAll.filter((r) => r.roomType === "TENANT");
 
-      setAllRooms(individualList);
-      setUnreadRooms(mappedUnread);
-      setGroupRooms(groupList);
-    } catch (err) {
-      console.error("❌ fetchRooms failed:", err);
-      setAllRooms([]);
-      setUnreadRooms([]);
-      setGroupRooms([]);
-    } finally {
-      setRoomsLoading(false);
-    }
-  };
+      mergeIntoRoomMembersCache(roomId, snapshot);
+    });
+  } catch (err) {
+    console.error("❌ fetchRooms failed:", err);
+
+    setAllRooms([]);
+    setUnreadRooms([]);
+    setGroupRooms([]);
+
+    setUnreadCounts({
+      all: 0,
+      unread: 0,
+      group: 0,
+    });
+  } finally {
+    setRoomsLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchRooms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTab]);
 
-  const tabCounts = useMemo(
-    () => ({
-      all: allRooms.length,
-      unread: unreadRooms.length,
-      groups: groupRooms.length,
-    }),
-    [allRooms, unreadRooms, groupRooms]
-  );
+  // const tabCounts = useMemo(
+  //   () => ({
+  //     all: allRooms.length,
+  //     unread: unreadRooms.length,
+  //     groups: groupRooms.length,
+  //   }),
+  //   [allRooms, unreadRooms, groupRooms]
+  // );
 
   const visibleRooms = useMemo(() => {
     const source: IUser[] =
-      activeTab === "all"
+      activeTab === "ALL"
         ? allRooms
-        : activeTab === "unread"
+        : activeTab === "UNREAD"
           ? unreadRooms
           : groupRooms;
 
@@ -924,7 +1042,7 @@ const Message = () => {
         (r) =>
           r.userName.toLowerCase().includes(q) ||
           r.plan?.toLowerCase().includes(q) ||
-          r.members?.some((m) => m.name.toLowerCase().includes(q))
+          r.members?.some((m: any) => m.name.toLowerCase().includes(q))
       );
     }
 
@@ -1193,6 +1311,7 @@ const Message = () => {
               notificationStatus: "Unseen",
               isRead: false,
               status: "Active",
+              isDeleted: message.isDeleted ?? false,
               side: message.side,
               replyTo: message.replyTo
                 ? {
@@ -1407,6 +1526,7 @@ const Message = () => {
       isRead: false,
       status: "Active",
       deliveredAt: timeStr,
+      isDeleted: false,
       side: "right",
       canReply: Boolean(createdMessageId),
       replyTo: replyTo
@@ -1597,6 +1717,41 @@ const Message = () => {
     setSelectedUser(null);
   };
 
+ const handleDeleteMessage = async (
+  messageId: string
+) => {
+  try {
+    const userId = localStorage.getItem("SuperAdminUserId") || "";
+    const res = await fetch(
+      `${API_DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      }
+    );
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        json?.message || "Failed to delete message"
+      );
+    }
+
+    return json;
+  } catch (error: any) {
+    console.error(
+      "deleteMessageForEveryone failed:",
+      error
+    );
+
+    throw error;
+  }
+};
+
   const handleCreateGroup = async () => {
     if (!addGroupData.groupName.trim()) {
       setCreateGroupError("Group name is required");
@@ -1781,9 +1936,9 @@ const Message = () => {
             <div className="flex items-center px-3 mt-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F] gap-2">
               {(
                 [
-                  { key: "all", label: "All", count: tabCounts.all },
-                  { key: "unread", label: "Unread", count: tabCounts.unread },
-                  { key: "groups", label: "Groups", count: tabCounts.groups },
+                  { key: "ALL", label: "All", count: unreadCounts.all },
+                  { key: "UNREAD", label: "Unread", count: unreadCounts.unread },
+                  { key: "GROUP", label: "Groups", count: unreadCounts.group },
                 ] as const
               ).map((tab) => (
                 <button
@@ -1814,9 +1969,9 @@ const Message = () => {
                 </p>
               ) : visibleRooms.length === 0 ? (
                 <p className="py-6 text-center text-[11px] text-gray-400">
-                  {activeTab === "groups"
+                  {activeTab === "GROUP"
                     ? "No groups yet — create one"
-                    : activeTab === "unread"
+                    : activeTab === "UNREAD"
                       ? "No unread chats"
                       : "No chats"}
                 </p>
@@ -1826,61 +1981,107 @@ const Message = () => {
                     const planColor = getPlanColor(room.plan);
 
                     return (
-                      <motion.button
-                        key={room._id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F] ${selectedUser?._id === room._id
-                          ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]"
-                          : ""
-                          }`}
-                        onClick={() => setSelectedUser(room)}
-                      >
-                        <div className="relative flex-shrink-0">
-                          <div className="w-8 h-8 rounded-md bg-[#E7E8EC] dark:bg-[#242424] flex items-center justify-center overflow-hidden">
-                            {room.profileImage ? (
-                              <img
-                                src={room.profileImage}
-                                alt={room.userName}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-[12px] font-medium text-[#9297A2] dark:text-[#B5B5B5]">
-                                {room.userName?.charAt(0)?.toUpperCase() ?? "B"}
-                              </span>
-                            )}
-                          </div>
-                          <span
-                            className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
-                              room.status
-                            )}`}
-                          />
-                        </div>
+                     <motion.button
+  key={room._id}
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left transition-colors
+    ${
+      selectedUser?._id === room._id
+        ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]"
+        : room.isUnread
+          ? "bg-[#FAFBFF] dark:bg-[#292929] hover:bg-[#F4F6FF] dark:hover:bg-[#303030]"
+          : "hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F]"
+    }`}
+  onClick={() => setSelectedUser(room)}
+>
+  <div className="relative flex-shrink-0">
+    <div
+      className={`w-8 h-8 rounded-md flex items-center justify-center overflow-hidden
+        ${
+          room.isUnread
+            ? "bg-[#E1E7FF] dark:bg-[#343A55]"
+            : "bg-[#E7E8EC] dark:bg-[#242424]"
+        }`}
+    >
+      {room.profileImage ? (
+        <img
+          src={room.profileImage}
+          alt={room.userName}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <span
+          className={`text-[12px] font-medium ${
+            room.isUnread
+              ? "text-[#4F46E5]"
+              : "text-[#9297A2] dark:text-[#B5B5B5]"
+          }`}
+        >
+          {room.userName?.charAt(0)?.toUpperCase() ?? "B"}
+        </span>
+      )}
+    </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[12px] font-semibold text-[#252B3A] dark:text-white truncate">
-                              {room.userName}
-                            </span>
-                            {room.plan && (
-                              <span
-                                className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}
-                              >
-                                {room.plan}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[12px] text-[#989DA8] dark:text-[#8a8a8a] truncate mt-[2px]">
-                            {room.lastMessage?.text || "No messages yet"}
-                          </p>
-                        </div>
+    <span
+      className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
+        room.status
+      )}`}
+    />
+  </div>
 
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          <span className="text-[10px] text-[#A2A6AF] dark:text-[#8a8a8a]">
-                            {room.lastMessage?.time || room.lastSeen}
-                          </span>
-                        </div>
-                      </motion.button>
+  <div className="flex-1 min-w-0">
+    <div className="flex items-center gap-1">
+      <span
+        className={`text-[12px] truncate ${
+          room.isUnread
+            ? "font-bold text-[#171B26] dark:text-white"
+            : "font-semibold text-[#252B3A] dark:text-white"
+        }`}
+      >
+        {room.userName}
+      </span>
+
+      {room.plan && (
+        <span
+          className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}
+        >
+          {room.plan}
+        </span>
+      )}
+    </div>
+
+    <p
+      className={`text-[12px] truncate mt-[2px] ${
+        room.isUnread
+          ? "text-[#555D70] dark:text-[#C5C7CE] font-medium"
+          : "text-[#989DA8] dark:text-[#8a8a8a]"
+      }`}
+    >
+      {room.lastMessage?.text || "No messages yet"}
+    </p>
+  </div>
+
+  {/* Right side */}
+  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+    <span
+      className={`text-[10px] ${
+        room.isUnread
+          ? "text-[#4F46E5] dark:text-[#8B93FF] font-semibold"
+          : "text-[#A2A6AF] dark:text-[#8a8a8a]"
+      }`}
+    >
+      {room.lastMessage?.time || room.lastSeen}
+    </span>
+
+    {/* Unread count */}
+    {room.isUnread && (room.unreadCount ?? 0) > 0 && (
+      <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#4F46E5] text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-sm">
+        {room.unreadCount > 99 ? "99+" : room.unreadCount}
+      </span>
+    )}
+  </div>
+</motion.button>
                     );
                   })}
                 </AnimatePresence>
@@ -2063,16 +2264,19 @@ const Message = () => {
                                     />
                                   )}
                                 </div>
-
+                                {!msg.isDeleted && (
                                 <MessageMenu
                                   showInfo={isMine}
                                   showReply={
                                     msg.canReply !== false &&
                                     /^[a-f\d]{24}$/i.test(msg._id)
                                   }
+                                  showDelete={isMine}
                                   onInfo={() => setInfoMessage(msg)}
                                   onReply={() => setReplyTo(msg)}
+                                  onDelete={() => handleDeleteMessage(msg._id)}
                                 />
+                      )}
                               </div>
                             </div>
                           </div>
