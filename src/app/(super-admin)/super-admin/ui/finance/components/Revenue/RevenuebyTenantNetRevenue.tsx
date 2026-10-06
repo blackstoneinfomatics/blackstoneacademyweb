@@ -33,6 +33,7 @@ interface NetRevenueOverview {
   tax: RevenueAmount;
   processingFee: RevenueAmount;
   refunds: RevenueAmount;
+  collected: RevenueAmount;
   netRevenue: NetRevenueAmount;
 }
 
@@ -48,6 +49,7 @@ const defaultNetRevenue: NetRevenueOverview = {
   tax: { amount: "0", rawAmount: "0" },
   processingFee: { amount: "0", rawAmount: "0" },
   refunds: { amount: "0", rawAmount: "0" },
+  collected: { amount: "0", rawAmount: "0" },
   netRevenue: {
     amount: "0",
     rawAmount: "0",
@@ -148,7 +150,7 @@ export default function RevenuebyTenantNetRevenue() {
           {/* Header */}
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-[16px] font-semibold text-[#242424] dark:text-white">
-              Revenue by Tenant(Top 5)
+              Monthly Revenue by Top 5 Tenants
             </h2>
           </div>
 
@@ -238,7 +240,7 @@ export default function RevenuebyTenantNetRevenue() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-[14px] font-medium text-[#3d3d3d] dark:text-[#E2E6EE]">
-                Gross Revenue
+                Gross Revenue <span className="text-[10px]">(Plan amount + GST - Discount)</span> 
               </span>
               <span
                 title={`Amount: ₹ ${netRevenue.grossRevenue.amount}`}
@@ -294,13 +296,24 @@ export default function RevenuebyTenantNetRevenue() {
                 - ₹ {netRevenue.refunds.rawAmount}
               </span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] font-medium text-[#3d3d3d] dark:text-[#E2E6EE]">
+                Collected
+              </span>
+              <span
+                title={`Amount: ₹ ${netRevenue.collected.amount}`}
+                className="text-[14px] font-semibold text-[#333] dark:text-white"
+              >
+                ₹ {netRevenue.collected.rawAmount}
+              </span>
+            </div>
           </div>
 
           {/* Net Revenue */}
           <div className="mt-4 border-y border-[#9ee3b0] bg-[#f3fff5] px-4 py-4 dark:border-[#467A50] dark:bg-[#203B26]">
             <div className="flex items-center justify-between">
               <span className="text-[15px] font-medium text-[#3d3d3d] dark:text-[#E2E6EE]">
-                Net Revenue
+                Net Revenue <br/> <span className="text-[10px]">(Collected - Refund)</span> 
               </span>
 
               <span

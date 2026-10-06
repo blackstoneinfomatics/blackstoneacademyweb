@@ -382,7 +382,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
   };
 
   return (
-     <div className="mx-auto w-full max-w-[950px] p-4 bg-[#ffffff]">
+     <div className="mx-auto w-full max-w-[950px] bg-white p-4 text-[#010E30] dark:bg-[#1e1e1e] dark:text-gray-100 dark:[&_h1]:text-gray-100 dark:[&_h2]:text-gray-100 dark:[&_h3]:text-gray-100 dark:[&_label]:text-gray-300 dark:[&_p]:text-gray-400 dark:[&_input]:border-[#4B5563] dark:[&_input]:bg-[#303030] dark:[&_input]:text-gray-100 dark:[&_select]:border-[#4B5563] dark:[&_select]:bg-[#303030] dark:[&_select]:text-gray-100 dark:[&_textarea]:border-[#4B5563] dark:[&_textarea]:bg-[#303030] dark:[&_textarea]:text-gray-100 dark:[&_section]:border-[#444444] dark:[&_section]:bg-[#262626] dark:[&_td]:text-gray-300 dark:[&_tr]:border-[#444444]">
       {/* Header */}
 
       <div className="mb-6 flex items-start gap-3">
@@ -696,7 +696,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
 
         {isItemFormOpen && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
-            <div className="relative z-[10000] w-full max-w-2xl rounded-xl bg-white p-5 shadow-2xl">
+            <div className="relative z-[10000] w-full max-w-2xl rounded-xl bg-white p-5 shadow-2xl dark:bg-[#262626]">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-base font-semibold text-[#101828]">
                   Add Invoice Item
@@ -790,7 +790,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
                 </label>
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t pt-4">
+              <div className="mt-4 flex items-center justify-between border-t border-[#D4D4D4] pt-4 dark:border-[#4B5563]">
                 <span className="text-sm font-semibold text-[#344054]">
                   Amount: ₹
                   {(
@@ -802,7 +802,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
                   <button
                     type="button"
                     onClick={() => setIsItemFormOpen(false)}
-                    className="rounded-md border border-[#D4D4D4] px-4 py-2 text-sm text-[#667085]"
+                    className="rounded-md border border-[#D4D4D4] px-4 py-2 text-sm text-[#667085] dark:border-[#4B5563] dark:text-gray-300"
                   >
                     Cancel
                   </button>
@@ -949,7 +949,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
               <tr>
                 <td
                   colSpan={3}
-                  className="rounded-bl-xl bg-[#E9E9E9] text-right font-semibold text-[#101828]"
+                  className="rounded-bl-xl bg-[#E9E9E9] text-right font-semibold text-[#101828] dark:bg-[#383838]"
                   style={{
                     padding: "clamp(14px,1.2vw,20px)",
                     fontSize: "clamp(12px,1vw,16px)",
@@ -959,7 +959,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
                 </td>
 
                 <td
-                  className="bg-[#E9E9E9] font-medium text-[#242424]"
+                  className="bg-[#E9E9E9] font-medium text-[#242424] dark:bg-[#383838]"
                   style={{
                     padding: "clamp(14px,1.2vw,20px)",
                     fontSize: "clamp(12px,.85vw,16px)",
@@ -972,7 +972,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
                 </td>
 
                 <td
-                  className="bg-[#E9E9E9] font-medium text-[#242424]"
+                  className="bg-[#E9E9E9] font-medium text-[#242424] dark:bg-[#383838]"
                   style={{
                     padding: "clamp(14px,1.2vw,20px)",
                     fontSize: "clamp(11px,.7vw,13px)",
@@ -982,7 +982,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
                 </td>
 
                 <td
-                  className="rounded-br-xl bg-[#E9E9E9] font-medium text-[#242424]"
+                  className="rounded-br-xl bg-[#E9E9E9] font-medium text-[#242424] dark:bg-[#383838]"
                   style={{
                     padding: "clamp(14px,1.2vw,20px)",
                     fontSize: "clamp(12px,.85vw,16px)",
@@ -1053,7 +1053,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
 
             <label
               htmlFor="fileUpload"
-              className="flex cursor-pointer items-center rounded-xl bg-[#F3F3F3]"
+              className="flex cursor-pointer items-center rounded-xl bg-[#F3F3F3] dark:bg-[#333333]"
               style={{
                 minHeight: "70px",
                 padding: "clamp(14px,1.2vw,18px)",
@@ -1078,7 +1078,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
               <div className="flex flex-col">
                 <div className="flex items-center gap-3">
                   <span
-                    className="font-normal text-[#010E30]"
+                    className="font-normal text-[#010E30] dark:text-gray-100"
                     style={{
                       fontSize: "clamp(14px,.95vw,16px)",
                     }}
@@ -1087,7 +1087,7 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
                   </span>
 
                   <span
-                    className="text-[#010E30]"
+                    className="text-[#010E30] dark:text-gray-100 opacity-60"
                     style={{
                       fontSize: "clamp(11px,.8vw,13px)",
                     }}
@@ -1113,22 +1113,22 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
       </section>
 
       {/* Footer */}
-      <div className="mt-2 flex justify-end gap-4  pt-5">
+      <div className="mt-2 flex justify-end gap-4 pt-5">
         <button
           onClick={() =>handleClose()}
           type="button"
           className="
-      min-w-[140px]
       rounded-lg
       border
       border-[#576CBC]
-      py-3
-      px-4
+      py-1
+      px-2
       text-sm
       font-semibold
       text-[#576CBC]
       transition
       hover:bg-[#F5F7FF]
+      dark:hover:bg-[#30384f]
     "
         >
           Cancel
@@ -1139,11 +1139,10 @@ export default function CreateInvoiceForm({ onClose }: CreateInvoiceFormProps) {
           onClick={handleSubmit}
           disabled={loading}
           className="
-      min-w-[180px]
       rounded-lg
       bg-[#576CBC]
-      py-3
-      px-4
+      py-1
+      px-2
       text-sm
       font-semibold
       text-white

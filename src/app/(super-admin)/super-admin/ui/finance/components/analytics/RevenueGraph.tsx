@@ -34,7 +34,7 @@ interface CountApiResponse {
 interface SummaryMetric {
   value: number;
   comparison: number;
-  direction: "UP" | "DOWN";
+  direction: "up" | "down" | "same";
 }
 
 // Helper to format numbers
@@ -54,9 +54,9 @@ const RevenueOverview = () => {
     overdueRate: SummaryMetric;
     netRevenue: SummaryMetric;
   }>({
-    collectionRate: { value: 0, comparison: 0, direction: "UP" as const },
-    overdueRate: { value: 0, comparison: 0, direction: "UP" as const },
-    netRevenue: { value: 0, comparison: 0, direction: "UP" as const },
+    collectionRate: { value: 0, comparison: 0, direction: "same" as const },
+    overdueRate: { value: 0, comparison: 0, direction: "same" as const },
+    netRevenue: { value: 0, comparison: 0, direction: "same" as const },
   });
   const [countLoading, setCountLoading] = useState(true);
 
@@ -154,19 +154,7 @@ const renderTrendBadge = (item: {
   comparison: number;
   direction: string;
 }) => {
-  const value = Number(item.value || 0);
-  const comparison = Number(item.comparison || 0);
-
-  let percentage = 0;
-
-  if (comparison !== 0) {
-    percentage = ((value - comparison) / Math.abs(comparison)) * 100;
-  }
-
-  // Prevent -0
-  if (Object.is(percentage, -0)) {
-    percentage = 0;
-  }
+  const percentage = Math.abs(Number(item.comparison || 0));
 
   const isPositive = item.direction === "up";
   const isNegative = item.direction === "down";
@@ -182,7 +170,7 @@ const renderTrendBadge = (item: {
       }`}
     >
       {isPositive ? "+" : isNegative ? "-" : ""}
-      {Math.abs(percentage).toFixed(0)}%
+      {percentage.toFixed(0)}%
     </span>
   );
 };

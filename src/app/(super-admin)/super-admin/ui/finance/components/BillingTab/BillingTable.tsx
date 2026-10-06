@@ -48,35 +48,10 @@ const transactionFields: FilterField[] = [
     placeholder: "Enter Billing Name",
   },
   {
-    key: "category",
-    label: "Category",
-    type: "select",
-    placeholder: "Select Type",
-    options: [
-      { label: "Subscription", value: "Subscription" },
-      { label: "Refund", value: "Refund" },
-      { label: "Renewal", value: "Renewal" },
-    ],
-  },
-  {
     key: "paymentMethod",
     label: "Payment Method",
     type: "select",
     placeholder: "Select Payment Method",
-    options: [
-      { label: "Google Pay", value: "Google Pay" },
-      { label: "Stripe", value: "Stripe" },
-      { label: "UPI", value: "UPI" },
-      { label: "Credit Card", value: "Credit Card" },
-      { label: "Razorpay", value: "Razorpay" },
-      { label: "Bank Transfer", value: "Bank Transfer" },
-      { label: "PayPal", value: "PayPal" },
-    ],
-  },
-  {
-    key: "addedBy",
-    label: "Added By",
-    type: "text",
   },
   {
     key: "dueDate",
@@ -104,6 +79,7 @@ export default function BillingTable() {
   const [openFilter, setOpenFilter] = useState(false);
   const [search, setSearch] = useState("");
   const [data, setData] = useState<BillingItem[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const latestRequestId = useRef(0);
   const [pagination, setPagination] = useState({
@@ -148,6 +124,16 @@ export default function BillingTable() {
         const billingArray = Array.isArray(response.data.data.items)
           ? response.data.data.items
           : [];
+
+        const methodsFromResponse = billingArray
+          .map((item: any) => String(item.paymentMethod ?? "").trim())
+          .filter((method: string) => method.length > 0);
+
+        setPaymentMethods((currentMethods) =>
+          Array.from(new Set([...currentMethods, ...methodsFromResponse])).sort(
+            (a, b) => a.localeCompare(b),
+          ),
+        );
 
         const mappedData: BillingItem[] = billingArray.map((item: any) => {
           const formattedDate = new Date(item.paymentDate).toLocaleDateString(
@@ -254,6 +240,18 @@ export default function BillingTable() {
       item.status.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const filterFields = transactionFields.map((field) =>
+    field.key === "paymentMethod"
+      ? {
+          ...field,
+          options: paymentMethods.map((method) => ({
+            label: method,
+            value: method,
+          })),
+        }
+      : field,
+  );
+
   return (
     <div className="dark:text-white">
       <h2
@@ -351,7 +349,7 @@ export default function BillingTable() {
       <FilterDrawer
         open={openFilter}
         title="Filter by"
-        fields={transactionFields}
+        fields={filterFields}
         values={filters}
         resultCount={filteredBySearch.length}
         onClose={() => setOpenFilter(false)}

@@ -55,10 +55,11 @@ interface AddFeatureFormProps {
 }
 
 const selectClassName =
-  "w-full appearance-none px-3 py-2 pr-9 border border-[#D6D8DE] rounded-md text-[11px] text-[#17244A] bg-white focus:outline-none focus:border-[#5872C5]";
+  "w-full appearance-none px-3 py-2 pr-9 border border-[#D6D8DE] rounded-md text-[11px] text-[#17244A] bg-white focus:outline-none focus:border-[#5872C5] dark:border-gray-600 dark:bg-[#2F2F2F] dark:text-gray-100";
 const inputClassName =
-  "w-full px-3 py-2 border border-[#D6D8DE] rounded-md text-[11px] text-[#17244A] placeholder:text-gray-400 focus:outline-none focus:border-[#5872C5]";
-const labelClassName = "block text-[12px] font-medium text-[#17244A] mb-1.5";
+  "w-full px-3 py-2 border border-[#D6D8DE] rounded-md text-[11px] text-[#17244A] placeholder:text-gray-400 focus:outline-none focus:border-[#5872C5] dark:border-gray-600 dark:bg-[#2F2F2F] dark:text-gray-100 dark:placeholder:text-gray-400";
+const labelClassName =
+  "mb-1.5 block text-[12px] font-medium text-[#17244A] dark:text-gray-300";
 
 const AddFeatureForm = ({
   formData,
@@ -78,24 +79,24 @@ const AddFeatureForm = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-4">
-      <div className="relative max-h-[95vh] w-full max-w-[700px] overflow-y-auto rounded-lg bg-white shadow-2xl">
+      <div className="relative max-h-[95vh] w-full max-w-[700px] overflow-y-auto rounded-lg bg-white shadow-2xl dark:bg-[#343434]">
         <button
           type="button"
           aria-label="Close add feature form"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 rounded-md p-1 text-gray-500 transition hover:bg-gray-100"
+          className="absolute right-4 top-4 z-10 rounded-md p-1 text-gray-500 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#454545]"
         >
           <BsX className="text-[22px]" />
         </button>
 
         <div className="px-5 pb-5 pt-4">
-          <h2 className="mb-4 text-[16px] font-semibold text-[#101B3D]">
+          <h2 className="mb-4 text-[16px] font-semibold text-[#101B3D] dark:text-gray-100">
             Add Feature
           </h2>
 
           <form onSubmit={onSubmit} className="space-y-3">
-            <section className="rounded-lg border border-[#DDE2EC] p-3.5">
-              <h3 className="mb-3 text-[15px] font-semibold text-[#101B3D]">
+            <section className="rounded-lg border border-[#DDE2EC] p-3.5 dark:border-gray-700">
+              <h3 className="mb-3 text-[15px] font-semibold text-[#101B3D] dark:text-gray-100">
                 Basic Information
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -140,14 +141,14 @@ const AddFeatureForm = ({
               </div>
             </section>
 
-            <section className="rounded-lg border border-[#DDE2EC] p-3.5">
-              <h3 className="mb-3 text-[15px] font-semibold text-[#101B3D]">
+            <section className="rounded-lg border border-[#DDE2EC] p-3.5 dark:border-gray-700">
+              <h3 className="mb-3 text-[15px] font-semibold text-[#101B3D] dark:text-gray-100">
                 Navigation Menu Information
               </h3>
 
               {isModule && (
                 <div className="mb-3 flex items-center gap-8">
-                  <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#17244A]">
+                  <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#17244A] dark:text-gray-300">
                     <input
                       type="radio"
                       name="navigationType"
@@ -157,7 +158,7 @@ const AddFeatureForm = ({
                     />
                     Parent Module
                   </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#17244A]">
+                  <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#17244A] dark:text-gray-300">
                     <input
                       type="radio"
                       name="navigationType"
@@ -187,7 +188,7 @@ const AddFeatureForm = ({
                       Existing Parent Modules (select one to add the feature
                       against it)
                     </span>
-                    <div className="flex flex-wrap gap-2 rounded-md border border-[#D6D8DE] p-2.5">
+                    <div className="flex flex-wrap gap-2 rounded-md border border-[#D6D8DE] p-2.5 dark:border-gray-600">
                       {parentModuleOptions.length === 0 ? (
                         <span className="px-1 py-1 text-[11px] text-gray-400">
                           No parent modules yet
@@ -198,7 +199,7 @@ const AddFeatureForm = ({
                             key={option.id}
                             type="button"
                             onClick={() => onParentModuleSelect(option.id)}
-                            className={`rounded-md px-3 py-1.5 text-[11px] transition ${formData.parentModule === option.id ? "border border-[#5872C5] bg-[#E5EAFF] text-[#17244A]" : "bg-[#E5EAFF] text-[#17244A] hover:bg-[#DCE3FF]"}`}
+                            className={`rounded-md px-3 py-1.5 text-[11px] transition ${formData.parentModule === option.id ? "border border-[#5872C5] bg-[#E5EAFF] text-[#17244A] dark:border-[#8296E6] dark:bg-[#40386B] dark:text-gray-100" : "bg-[#E5EAFF] text-[#17244A] hover:bg-[#DCE3FF] dark:bg-[#38334F] dark:text-gray-200 dark:hover:bg-[#40386B]"}`}
                           >
                             {option.name}
                           </button>
@@ -276,7 +277,7 @@ const AddFeatureForm = ({
 
                   <div className="mb-3">
                     <span className={labelClassName}>Child Module</span>
-                    <div className="flex flex-wrap gap-2 rounded-md border border-[#D6D8DE] p-2.5">
+                    <div className="flex flex-wrap gap-2 rounded-md border border-[#D6D8DE] p-2.5 dark:border-gray-600">
                       {!formData.parentModule ? (
                         <span className="px-1 py-1 text-[11px] text-gray-400">
                           Select a parent module first
@@ -291,7 +292,7 @@ const AddFeatureForm = ({
                             key={child.id}
                             type="button"
                             onClick={() => onChildNavigationToggle(child.id)}
-                            className={`rounded-md px-4 py-2 text-[11px] transition ${formData.childNavigations.includes(child.id) ? "border border-[#5872C5] bg-[#E5EAFF] text-[#17244A]" : "bg-[#E5EAFF] text-[#17244A] hover:bg-[#DCE3FF]"}`}
+                            className={`rounded-md px-4 py-2 text-[11px] transition ${formData.childNavigations.includes(child.id) ? "border border-[#5872C5] bg-[#E5EAFF] text-[#17244A] dark:border-[#8296E6] dark:bg-[#40386B] dark:text-gray-100" : "bg-[#E5EAFF] text-[#17244A] hover:bg-[#DCE3FF] dark:bg-[#38334F] dark:text-gray-200 dark:hover:bg-[#40386B]"}`}
                           >
                             {child.name}
                           </button>
@@ -354,11 +355,11 @@ const AddFeatureForm = ({
               </label>
             </section>
 
-            <div className="flex justify-end gap-3 border-t border-[#E1E3E8] pt-3">
+            <div className="flex justify-end gap-3 border-t border-[#E1E3E8] pt-3 dark:border-gray-700">
               <button
                 type="button"
                 onClick={onReset}
-                className="rounded-md border border-[#5872C5] px-5 py-2 text-[11px] font-semibold text-[#5872C5] transition hover:bg-[#F2F4FF]"
+                className="rounded-md border border-[#5872C5] px-5 py-2 text-[11px] font-semibold text-[#5872C5] transition hover:bg-[#F2F4FF] dark:border-[#8296E6] dark:text-[#B7C2FF] dark:hover:bg-[#40386B]"
               >
                 Reset
               </button>

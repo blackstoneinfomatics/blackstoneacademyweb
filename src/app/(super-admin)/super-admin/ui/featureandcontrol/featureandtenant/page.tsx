@@ -13,6 +13,9 @@ import AddTenantFeatureForm, {
   type TenantParentModuleOption,
   type TenantPortalOption,
 } from "../component/AddTenantFeatureForm";
+import FilterDrawer, {
+  type FilterField,
+} from "../../../components/FilterDrawer";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
@@ -40,6 +43,7 @@ interface ModuleListRow {
   order: number | string;
   description: string;
   addOn: string;
+  addOnDateValue: string;
   status: "Enable" | "Disable";
   isEnabled: boolean;
 }
@@ -53,6 +57,7 @@ interface FeatureListRow {
   childModule: string;
   description: string;
   addOn: string;
+  addOnDateValue: string;
   status: "Enable" | "Disable";
   isEnabled: boolean;
 }
@@ -66,6 +71,35 @@ const formatDate = (value?: string) =>
       })
     : "-";
 
+const isDateInRange = (
+  value: string,
+  from?: Date | string | null,
+  to?: Date | string | null,
+) => {
+  if (!from && !to) return true;
+
+  const itemDate = value ? new Date(value) : null;
+  const fromDate = from ? new Date(from) : null;
+  const toDate = to ? new Date(to) : null;
+
+  if (
+    !itemDate ||
+    Number.isNaN(itemDate.getTime()) ||
+    (fromDate && Number.isNaN(fromDate.getTime())) ||
+    (toDate && Number.isNaN(toDate.getTime()))
+  ) {
+    return false;
+  }
+
+  if (fromDate) fromDate.setHours(0, 0, 0, 0);
+  if (toDate) toDate.setHours(23, 59, 59, 999);
+
+  return (
+    (!fromDate || itemDate >= fromDate) &&
+    (!toDate || itemDate <= toDate)
+  );
+};
+
 /* Flattens tenant modules -> one row per parent module + one row per child module */
 const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
   const rows: ModuleListRow[] = [];
@@ -78,6 +112,7 @@ const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
       order: module.orderNo,
       description: module.description || "-",
       addOn: formatDate(module.createdAt),
+      addOnDateValue: module.createdAt || "",
       status: module.isEnabled ? "Enable" : "Disable",
       isEnabled: module.isEnabled,
     });
@@ -90,6 +125,7 @@ const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
         order: "-",
         description: child.description || "-",
         addOn: formatDate(child.createdAt),
+        addOnDateValue: child.createdAt || "",
         status: child.isEnabled ? "Enable" : "Disable",
         isEnabled: child.isEnabled,
       });
@@ -112,6 +148,7 @@ const buildFeatureRows = (modules: TenantModule[]): FeatureListRow[] => {
         childModule: "-",
         description: feature.description || "-",
         addOn: formatDate(feature.createdAt),
+        addOnDateValue: feature.createdAt || "",
         status: feature.isEnabled ? "Enable" : "Disable",
         isEnabled: feature.isEnabled,
       });
@@ -127,6 +164,7 @@ const buildFeatureRows = (modules: TenantModule[]): FeatureListRow[] => {
           childModule: child.childModuleName,
           description: feature.description || "-",
           addOn: formatDate(feature.createdAt),
+          addOnDateValue: feature.createdAt || "",
           status: feature.isEnabled ? "Enable" : "Disable",
           isEnabled: feature.isEnabled,
         });
@@ -214,7 +252,11 @@ const Usercards = () => {
   } | null>(null);
   const [activeTab, setActiveTab] = useState<"module" | "feature">("module");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [portalPage, setPortalPage] = useState(1);
   const [togglingModuleKey, setTogglingModuleKey] = useState<string | null>(
     null,
   );
@@ -255,6 +297,31 @@ const Usercards = () => {
   const [subscriptionDetails, setSubscriptionDetails] =
     useState<SubscriptionDetails | null>(null);
   const [configCreatedAt, setConfigCreatedAt] = useState<string | null>(null);
+  const portalTotalPages = Math.max(
+    1,
+    Math.ceil(portalOptions.length / PAGE_LIMIT),
+  );
+  const safePortalPage = Math.min(portalPage, portalTotalPages);
+  const pagedPortalOptions = paginate(
+    portalOptions,
+    safePortalPage,
+    PAGE_LIMIT,
+  );
+
+  useEffect(() => {
+    setPortalPage(1);
+  }, [tenantId]);
+
+  useEffect(() => {
+    const selectedPortalIndex = portalOptions.findIndex(
+      (option) => option.id === formData.portal,
+    );
+    setPortalPage(
+      selectedPortalIndex === -1
+        ? 1
+        : Math.floor(selectedPortalIndex / PAGE_LIMIT) + 1,
+    );
+  }, [formData.portal, portalOptions]);
 
   /* ====== FORM STATE ====== */
   const [formData, setFormData] = useState<FormData>({
@@ -342,6 +409,9 @@ const Usercards = () => {
 
   useEffect(() => {
     setSearchTerm("");
+    setFilterValues({});
+    setAppliedFilters({});
+    setShowFilter(false);
     setOpenMenu(null);
     setCurrentPage(1);
   }, [activeTab]);
@@ -953,17 +1023,123 @@ const Usercards = () => {
   const featureListCount = featureRows.length;
 
   const filteredModules = moduleRows.filter(
-    (item) =>
-      item.moduleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.childModule.toLowerCase().includes(searchTerm.toLowerCase()),
+    (item) => {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        [
+          item.moduleName,
+          item.childModule,
+          String(item.order),
+          item.description,
+          item.addOn,
+          item.status,
+        ].some((value) => value.toLowerCase().includes(term));
+      const matchesText = (value: string, key: string) =>
+        !appliedFilters[key] ||
+        value.toLowerCase().includes(String(appliedFilters[key]).toLowerCase());
+      const matchesDate = isDateInRange(
+        item.addOnDateValue,
+        appliedFilters.addOnDateFrom,
+        appliedFilters.addOnDateTo,
+      );
+
+      return (
+        matchesSearch &&
+        matchesText(item.moduleName, "parentModule") &&
+        matchesText(item.childModule, "childModule") &&
+        matchesText(String(item.order), "order") &&
+        matchesText(item.description, "description") &&
+        (!appliedFilters.status || item.status === appliedFilters.status) &&
+        matchesDate
+      );
+    },
   );
 
   const filteredFeatures = featureRows.filter(
-    (item) =>
-      item.featureName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.parentModule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.childModule.toLowerCase().includes(searchTerm.toLowerCase()),
+    (item) => {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        [
+          item.featureName,
+          item.parentModule,
+          item.childModule,
+          item.description,
+          item.addOn,
+          item.status,
+        ].some((value) => value.toLowerCase().includes(term));
+      const matchesText = (value: string, key: string) =>
+        !appliedFilters[key] ||
+        value.toLowerCase().includes(String(appliedFilters[key]).toLowerCase());
+      const matchesDate = isDateInRange(
+        item.addOnDateValue,
+        appliedFilters.addOnDateFrom,
+        appliedFilters.addOnDateTo,
+      );
+
+      return (
+        matchesSearch &&
+        matchesText(item.parentModule, "parentModule") &&
+        matchesText(item.childModule, "childModule") &&
+        matchesText(item.description, "description") &&
+        (!appliedFilters.status || item.status === appliedFilters.status) &&
+        matchesDate
+      );
+    },
   );
+
+  const filterFields: FilterField[] = [
+    {
+      key: "parentModule",
+      label: "Parent Module",
+      type: "text",
+      placeholder: "All parent modules",
+    },
+    {
+      key: "childModule",
+      label: "Child Module",
+      type: "text",
+      placeholder: "All child modules",
+    },
+    ...(activeTab === "module"
+      ? [
+          {
+            key: "order",
+            label: "Order",
+            type: "text" as const,
+            placeholder: "Any order",
+          },
+        ]
+      : []),
+    {
+      key: "description",
+      label: "Description",
+      type: "text",
+      placeholder: "Any description",
+    },
+    {
+      key: "addOnDate",
+      label: "Add on",
+      type: "dateRange",
+    },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      placeholder: "All statuses",
+      options: [
+        { label: "Enable", value: "Enable" },
+        { label: "Disable", value: "Disable" },
+      ],
+    },
+  ];
+
+  const resetFilters = () => {
+    setFilterValues({});
+    setAppliedFilters({});
+    setCurrentPage(1);
+  };
 
   /* ================= PAGINATION ================= */
   const activeRowCount =
@@ -1281,7 +1457,7 @@ const Usercards = () => {
                   {tenantId ? "No portals configured" : "No tenant selected"}
                 </span>
               ) : (
-                portalOptions.map((option) => (
+                pagedPortalOptions.map((option) => (
                   <button
                     key={option.id}
                     onClick={() =>
@@ -1307,6 +1483,67 @@ const Usercards = () => {
                 ))
               )}
             </div>
+            {portalOptions.length > 0 && (
+              <div className="mt-3 border-t border-[#E7EAF3] pt-3 dark:border-gray-700">
+                <p className="mb-2 px-2 text-[10px] text-gray-500 dark:text-gray-400">
+                  Showing {pagedPortalOptions.length} of {portalOptions.length}
+                </p>
+                <div className="flex items-center justify-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPortalPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={safePortalPage === 1}
+                    aria-label="Previous portal page"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F5F5F2] text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-[#3A3A3A] dark:text-gray-300"
+                  >
+                    ‹
+                  </button>
+                  {getPageNumbers(safePortalPage, portalTotalPages).map(
+                    (page, index) =>
+                      page === "..." ? (
+                        <span
+                          key={`portal-ellipsis-${index}`}
+                          className="flex h-7 w-5 items-center justify-center text-[10px] text-gray-400"
+                        >
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setPortalPage(page)}
+                          aria-label={`Portal page ${page}`}
+                          aria-current={
+                            page === safePortalPage ? "page" : undefined
+                          }
+                          className={`h-7 min-w-7 rounded-md border px-1 text-[10px] ${
+                            page === safePortalPage
+                              ? "border-[#203F78] bg-[#FAFAFB] text-[#203F78] dark:border-[#8296E6] dark:bg-[#3A3A3A] dark:text-[#8296E6]"
+                              : "border-[#E6E7EA] bg-[#F5F5F2] text-gray-500 dark:border-gray-600 dark:bg-[#3A3A3A] dark:text-gray-300"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ),
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPortalPage((page) =>
+                        Math.min(portalTotalPages, page + 1),
+                      )
+                    }
+                    disabled={safePortalPage === portalTotalPages}
+                    aria-label="Next portal page"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F5F5F2] text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-[#3A3A3A] dark:text-gray-300"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 bg-white dark:bg-[#343434] rounded-xl border border-[#E4E8EF] dark:border-gray-700 overflow-hidden">
@@ -1351,13 +1588,20 @@ const Usercards = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between px-3 h-10 border-r border-[#E7EAF3] dark:border-gray-700 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setShowFilter(true)}
+                className="flex items-center justify-between px-3 h-10 border-r border-[#E7EAF3] dark:border-gray-700 cursor-pointer"
+              >
                 <div className="flex items-center">
-                  <MdTune className="text-gray-400 mr-2 text-[16px]" />
-                  <span className="text-[12px] text-gray-500">Filter</span>
+                  <MdTune className="mr-2 text-[16px] text-gray-400" />
+                  <span className="text-[12px] text-gray-500">
+                    Filter
+                    {Object.values(appliedFilters).some(Boolean) ? " •" : ""}
+                  </span>
                 </div>
                 <FiChevronDown className="text-gray-400 text-[14px]" />
-              </div>
+              </button>
 
               <div className="flex items-center px-4 h-10">
                 <span className="text-[12px] text-gray-500">
@@ -1365,6 +1609,22 @@ const Usercards = () => {
                 </span>
               </div>
             </div>
+
+            <FilterDrawer
+              open={showFilter}
+              title={`Filter ${activeTab === "module" ? "Modules" : "Features"}`}
+              fields={filterFields}
+              values={filterValues}
+              resultCount={activeTab === "module" ? filteredModules.length : filteredFeatures.length}
+              onClose={() => setShowFilter(false)}
+              onApply={(values) => {
+                setFilterValues(values);
+                setAppliedFilters(values);
+                setCurrentPage(1);
+                setShowFilter(false);
+              }}
+              onReset={resetFilters}
+            />
 
             <div className="overflow-x-auto">
               {activeTab === "module" ? (

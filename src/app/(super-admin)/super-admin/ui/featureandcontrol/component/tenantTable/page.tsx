@@ -47,6 +47,19 @@ interface TenantAnalyticsCardsResponse {
   data: TenantAnalyticsCards;
 }
 
+const PAGE_LIMIT = 10;
+
+const getPageNumbers = (current: number, total: number): (number | "...")[] => {
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+  if (current <= 3) return [1, 2, 3, "...", total];
+  if (current >= total - 2) {
+    return [1, "...", total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
+};
+
 // TODO: replace with a real tenant/portal list once a "list all tenants" API
 // is available - /modules/tenant/config is scoped to a single tenant+portal.
 const KNOWN_TENANT_PORTALS = [
@@ -89,6 +102,7 @@ const Usertable = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
+  const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
 
   useEffect(() => {
@@ -186,6 +200,28 @@ const Usertable = () => {
     });
   }, [appliedFilters, searchTerm, userItems]);
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredUserItems.length / PAGE_LIMIT),
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedUserItems = useMemo(
+    () =>
+      filteredUserItems.slice(
+        (safeCurrentPage - 1) * PAGE_LIMIT,
+        safeCurrentPage * PAGE_LIMIT,
+      ),
+    [filteredUserItems, safeCurrentPage],
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, appliedFilters]);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.min(Math.max(page, 1), totalPages));
+  };
+
   const filterFields: FilterField[] = [
     {
       key: "tenantName",
@@ -222,6 +258,7 @@ const Usertable = () => {
   const resetFilters = () => {
     setFilterValues({});
     setAppliedFilters({});
+    setCurrentPage(1);
   };
 
   return (
@@ -464,7 +501,7 @@ const Usertable = () => {
             {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing {filteredUserItems.length} Of {userItems.length}
+                Showing {pagedUserItems.length} Of {filteredUserItems.length}
               </span>
             </div>
           </div>
@@ -479,6 +516,7 @@ const Usertable = () => {
             onApply={(values) => {
               setFilterValues(values);
               setAppliedFilters(values);
+              setCurrentPage(1);
               setShowFilter(false);
             }}
             onReset={resetFilters}
@@ -530,10 +568,10 @@ const Usertable = () => {
 
               {/* Table Body */}
               <tbody>
-                {filteredUserItems.length > 0 ? (
-                  filteredUserItems.map((item, index) => (
+                {pagedUserItems.length > 0 ? (
+                  pagedUserItems.map((item) => (
                     <tr
-                      key={index}
+                      key={`${item.tenantId}-${item.portalId}`}
                       className="
                         text-[11px]
                         odd:bg-[#F8F8F8]
@@ -644,121 +682,78 @@ const Usertable = () => {
             </table>
           </div>
 
-          <div className="flex justify-end items-center gap-1 px-3 py-4">
-            {/* Previous */}
+          <div className="flex items-center justify-end gap-1 px-3 py-4">
             <button
+              type="button"
+              onClick={() => goToPage(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
               className="
                 w-7
                 h-7
                 rounded-md
                 border
                 border-[#E5E7EB]
+                dark:border-gray-600
                 flex
                 items-center
                 justify-center
                 text-gray-400
                 bg-[#F5F5F2]
+                dark:bg-[#3A3A3A]
+                disabled:cursor-not-allowed
+                disabled:opacity-50
               "
             >
-              <span className="text-[23px] color-[#999FAC]">‹</span>
+              <span className="text-[23px]">‹</span>
             </button>
 
-            {/* Page 1 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#203F78]
-                text-[#203F78]
-                bg-[#FAFAFB]
-                text-[11px]
-              "
-            >
-              1
-            </button>
+            {getPageNumbers(safeCurrentPage, totalPages).map((page, index) =>
+              page === "..." ? (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="flex h-7 w-7 items-center justify-center text-[11px] text-gray-400"
+                >
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => goToPage(page)}
+                  aria-current={page === safeCurrentPage ? "page" : undefined}
+                  className={`h-7 w-7 rounded-md border text-[11px] ${
+                    page === safeCurrentPage
+                      ? "border-[#203F78] bg-[#FAFAFB] text-[#203F78] dark:border-[#8296E6] dark:bg-[#3A3A3A] dark:text-[#8296E6]"
+                      : "border-[#E6E7EA] bg-[#F5F5F2] text-gray-400 dark:border-gray-600 dark:bg-[#3A3A3A]"
+                  }`}
+                >
+                  {page}
+                </button>
+              ),
+            )}
 
-            {/* Page 2 */}
             <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              3
-            </button>
-
-            {/* Dots */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              ...
-            </button>
-
-            {/* Page 10 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              10
-            </button>
-
-            {/* Next */}
-            <button
+              type="button"
+              onClick={() => goToPage(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages}
               className="
                 w-7
                 h-7
                 rounded-md
                 border
                 border-[#E5E7EB]
+                dark:border-gray-600
                 flex
                 items-center
                 justify-center
                 text-gray-400
                 bg-[#F5F5F2]
+                dark:bg-[#3A3A3A]
+                disabled:cursor-not-allowed
+                disabled:opacity-50
               "
             >
-              <span className="text-[23px] color-[#999FAC]">›</span>
+              <span className="text-[23px]">›</span>
             </button>
           </div>
         </div>

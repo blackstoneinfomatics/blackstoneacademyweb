@@ -343,27 +343,27 @@ export default function SubscriptionInvoice({ onClose }: Props) {
   };
 
   return (
-    <div className="bg-[#F0F2F9] p-4 text-slate-700">
-      <div className="mx-auto max-w-6xl space-y-6 border border-[#E4E8EF] bg-white p-4 rounded-xl">
+    <div className="bg-[#F0F2F9] p-4 text-slate-700 dark:bg-[#141414] dark:text-slate-200">
+      <div className="mx-auto max-w-6xl space-y-6 rounded-xl border border-[#E4E8EF] bg-white p-4 dark:border-slate-700 dark:bg-[#1e1e1e]">
         {/* Header Section */}
         <div>
-          <span className="text-base font-medium text-[#1E293B]">
+          <span className="text-base font-medium text-[#1E293B] dark:text-slate-100">
             Subscription Invoice
           </span>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Create an invoice for a tenant based on their subscription plan.
           </p>
         </div>
 
         {/* Section 1: Tenant & Subscription Details */}
-        <div className="space-y-5 rounded-xl border border-[#E4E8EF] bg-white p-6">
-          <h2 className="text-base font-semibold text-[#1E293B]">
+        <div className="space-y-5 rounded-xl border border-[#E4E8EF] bg-white p-6 dark:border-slate-700 dark:bg-[#262626]">
+          <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-100">
             Tenant & Subscription Details
           </h2>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Select Tenant
               </label>
               <div className="relative">
@@ -371,7 +371,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   name="tenant"
                   value={formData.tenant}
                   onChange={handleChange}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 >
                   <option value="">Select Tenant</option>
                   {tenantSubscriptions.map((subscription) => (
@@ -385,20 +385,20 @@ export default function SubscriptionInvoice({ onClose }: Props) {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Plan
               </label>
               <input
                 type="text"
                 value={plan?.planName || selectedSubscription?.planName || ""}
                 readOnly
-                className="w-full rounded-lg border border-slate-200 bg-gray-50 px-3 py-2 text-xs text-slate-700"
+                className="w-full rounded-lg border border-slate-200 bg-gray-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 placeholder="Select tenant first"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Billing Period
               </label>
               <div className="relative">
@@ -407,7 +407,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   value={formData.selectedBillingPeriod}
                   onChange={handleChange}
                   disabled={!selectedSubscription}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100 dark:disabled:bg-[#383838]"
                 >
                   <option value="">Select Period</option>
                   {plan?.billingPeriods?.map((bp) => (
@@ -422,43 +422,43 @@ export default function SubscriptionInvoice({ onClose }: Props) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5">
-            <div className="rounded-lg bg-[#EAEAEA] p-3">
-              <span className="block text-[11px] font-medium text-slate-600">
+            <div className="rounded-lg bg-[#EAEAEA] p-3 dark:bg-[#383838]">
+              <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 Plan Amount
               </span>
-              <span className="mt-1 block text-xs font-semibold text-slate-800">
+              <span className="mt-1 block text-xs font-semibold text-slate-800 dark:text-slate-100">
                 {selectedBillingPeriod ? `₹ ${selectedBillingPeriod.price.toLocaleString()}` : "-"}
               </span>
             </div>
-            <div className="rounded-lg bg-[#EAEAEA] p-3">
-              <span className="block text-[11px] font-medium text-slate-600">
+            <div className="rounded-lg bg-[#EAEAEA] p-3 dark:bg-[#383838]">
+              <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 Period
               </span>
-              <span className="mt-1 block text-xs font-semibold text-slate-800">
+              <span className="mt-1 block text-xs font-semibold text-slate-800 dark:text-slate-100">
                 {selectedBillingPeriod?.billingPeriod || "-"}
               </span>
             </div>
-            <div className="rounded-lg bg-[#EAEAEA] p-3">
-              <span className="block text-[11px] font-medium text-slate-600">
+            <div className="rounded-lg bg-[#EAEAEA] p-3 dark:bg-[#383838]">
+              <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 Start Date
               </span>
-              <span className="mt-1 block text-xs font-semibold text-slate-800">
+              <span className="mt-1 block text-xs font-semibold text-slate-800 dark:text-slate-100">
                 {formData.billingStartDate ? formatDate(formData.billingStartDate) : "-"}
               </span>
             </div>
-            <div className="rounded-lg bg-[#EAEAEA] p-3">
-              <span className="block text-[11px] font-medium text-slate-600">
+            <div className="rounded-lg bg-[#EAEAEA] p-3 dark:bg-[#383838]">
+              <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 End Date
               </span>
-              <span className="mt-1 block text-xs font-semibold text-slate-800">
+              <span className="mt-1 block text-xs font-semibold text-slate-800 dark:text-slate-100">
                 {formData.billingEndDate ? formatDate(formData.billingEndDate) : "-"}
               </span>
             </div>
-            <div className="rounded-lg bg-[#EAEAEA] p-3">
-              <span className="block text-[11px] font-medium text-slate-600">
+            <div className="rounded-lg bg-[#EAEAEA] p-3 dark:bg-[#383838]">
+              <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 Duration
               </span>
-              <span className="mt-1 block text-xs font-semibold text-slate-800">
+              <span className="mt-1 block text-xs font-semibold text-slate-800 dark:text-slate-100">
                 {selectedBillingPeriod ? `${selectedBillingPeriod.duration} months` : "-"}
               </span>
             </div>
@@ -466,14 +466,14 @@ export default function SubscriptionInvoice({ onClose }: Props) {
         </div>
 
         {/* Section 2: Invoice Information */}
-        <div className="space-y-5 rounded-xl border border-[#E4E8EF] bg-white p-6">
-          <h2 className="text-base font-semibold text-[#1E293B]">
+        <div className="space-y-5 rounded-xl border border-[#E4E8EF] bg-white p-6 dark:border-slate-700 dark:bg-[#262626]">
+          <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-100">
             Invoice Information
           </h2>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Invoice Number
               </label>
               <input
@@ -481,13 +481,13 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                 name="invoiceNumber"
                 value={formData.invoiceNumber}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-slate-200 bg-gray-50 px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-200 bg-gray-50 px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 readOnly
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Invoice Date
               </label>
               <div className="relative">
@@ -497,7 +497,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   name="invoiceDate"
                   value={formData.invoiceDate}
                   onChange={handleChange}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-10 text-xs text-slate-700 [&::-webkit-calendar-picker-indicator]:hidden"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-10 text-xs text-slate-700 [&::-webkit-calendar-picker-indicator]:hidden dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 />
                 <Calendar
                   className="absolute right-2.5 bottom-2.5 h-4 w-4 cursor-pointer text-slate-400"
@@ -507,7 +507,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Due Date
               </label>
               <div className="relative">
@@ -517,7 +517,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   name="dueDate"
                   value={formData.dueDate}
                   onChange={handleChange}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-10 text-xs text-slate-700 [&::-webkit-calendar-picker-indicator]:hidden"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-10 text-xs text-slate-700 [&::-webkit-calendar-picker-indicator]:hidden dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 />
                 <Calendar
                   className="absolute right-2.5 bottom-2.5 h-4 w-4 cursor-pointer text-slate-400"
@@ -529,7 +529,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Currency
               </label>
               <div className="relative">
@@ -537,7 +537,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   name="currency"
                   value={formData.currency}
                   onChange={handleChange}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 >
                   <option value="INR">INR - Indian Rupee (₹)</option>
                   <option value="USD">USD - US Dollar ($)</option>
@@ -550,7 +550,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Payment Terms (Days)
               </label>
               <div className="relative">
@@ -558,7 +558,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   name="paymentTerms"
                   value={formData.paymentTerms}
                   onChange={handleChange}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 30, 45, 60, 90].map((days) => (
                     <option key={days} value={days}>{days}</option>
@@ -569,7 +569,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Next Reminder Date
               </label>
               <div className="relative">
@@ -579,7 +579,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   name="nextReminderDate"
                   value={formData.nextReminderDate}
                   onChange={handleChange}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-10 text-xs text-slate-700 [&::-webkit-calendar-picker-indicator]:hidden"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-10 text-xs text-slate-700 [&::-webkit-calendar-picker-indicator]:hidden dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
                 />
                 <Calendar
                   className="absolute right-2.5 bottom-2.5 h-4 w-4 cursor-pointer text-slate-400"
@@ -591,8 +591,8 @@ export default function SubscriptionInvoice({ onClose }: Props) {
         </div>
 
         {/* Section 3: Invoice Items */}
-        <div className="space-y-4 rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-[#1E293B]">
+        <div className="space-y-4 rounded-xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-[#262626]">
+          <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-100">
             Invoice Items
           </h2>
 
@@ -609,10 +609,10 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   <th className="px-4 py-3 text-right font-medium rounded-tr-md">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 bg-[#e2e2e23c]">
+              <tbody className="divide-y divide-slate-100 bg-[#e2e2e23c] text-slate-700 dark:divide-slate-700 dark:bg-[#303030] dark:text-slate-200">
                 {invoiceItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
+                    <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
                       Select a tenant and billing period to load invoice items.
                     </td>
                   </tr>
@@ -621,7 +621,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                     <tr key={it.id}>
                       <td className="px-4 py-4 rounded-b-md">{idx + 1}</td>
                       <td className="px-4 py-4 font-medium">{it.planName}</td>
-                      <td className="px-4 py-4 text-slate-500">{it.description || "-"}</td>
+                      <td className="px-4 py-4 text-slate-500 dark:text-slate-400">{it.description || "-"}</td>
                       <td className="px-4 py-4 text-right">₹ {it.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="px-4 py-4 text-center">{it.discountPercent > 0 ? `${it.discountPercent}%` : "-"}</td>
                       <td className="px-4 py-4 text-center">{it.taxPercent}%</td>
@@ -637,53 +637,53 @@ export default function SubscriptionInvoice({ onClose }: Props) {
           {invoiceItems.length > 0 && (
             <div className="mt-4 flex flex-col items-end space-y-1.5 text-xs">
               <div className="flex items-center justify-end w-full max-w-xs">
-                <span className="w-32 text-right font-medium text-slate-600">Subtotal:</span>
-                <span className="w-28 text-right font-medium text-slate-800">₹ {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="w-32 text-right font-medium text-slate-600 dark:text-slate-300">Subtotal:</span>
+                <span className="w-28 text-right font-medium text-slate-800 dark:text-slate-100">₹ {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="flex items-center justify-end w-full max-w-xs">
-                <span className="w-32 text-right font-medium text-slate-600">Total Discount:</span>
+                <span className="w-32 text-right font-medium text-slate-600 dark:text-slate-300">Total Discount:</span>
                 <span className="w-28 text-right font-medium text-green-600">- ₹ {totalDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="flex items-center justify-end w-full max-w-xs">
-                <span className="w-32 text-right font-medium text-slate-600">Tax Amount:</span>
-                <span className="w-28 text-right font-medium text-slate-800">₹ {taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="w-32 text-right font-medium text-slate-600 dark:text-slate-300">Tax Amount:</span>
+                <span className="w-28 text-right font-medium text-slate-800 dark:text-slate-100">₹ {taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex items-center justify-end w-full max-w-xs border-t border-slate-200 pt-1.5 mt-0.5">
-                <span className="w-32 text-right font-semibold text-slate-800">Total Amount:</span>
-                <span className="w-28 text-right font-bold text-slate-900">₹ {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <div className="mt-0.5 flex w-full max-w-xs items-center justify-end border-t border-slate-200 pt-1.5 dark:border-slate-700">
+                <span className="w-32 text-right font-semibold text-slate-800 dark:text-slate-100">Total Amount:</span>
+                <span className="w-28 text-right font-bold text-slate-900 dark:text-white">₹ {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
           )}
         </div>
 
         {/* Section 4: Notes & Attachments */}
-        <div className="rounded-xl border border-[#E4E8EF] bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-[#1E293B]">Notes</h2>
+        <div className="rounded-xl border border-[#E4E8EF] bg-white p-6 dark:border-slate-700 dark:bg-[#262626]">
+          <h2 className="mb-4 text-base font-semibold text-[#1E293B] dark:text-slate-100">Notes</h2>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Customer Notes (Visible to Tenant)
               </label>
               <textarea
                 name="notes"
                 value={formData.notes}
                 onChange={handleChange}
-                className="w-full h-[78px] resize-none rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+                className="h-[78px] w-full resize-none rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-600 dark:bg-[#303030] dark:text-slate-100"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Attachments
               </label>
-              <div className="flex items-center space-x-4 rounded-xl border border-slate-200 bg-[#F3F4F6] p-4">
+              <div className="flex items-center space-x-4 rounded-xl border border-slate-200 bg-[#F3F4F6] p-4 dark:border-slate-700 dark:bg-[#303030]">
                 <div className="rounded-lg bg-[#4E709D] p-3 text-white">
                   <Upload className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-semibold text-slate-700">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
                       Upload Files
                     </span>
                     <span className="text-[10px] text-slate-400">
@@ -708,8 +708,8 @@ export default function SubscriptionInvoice({ onClose }: Props) {
                   {formData.attachments.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {formData.attachments.map((file, index) => (
-                        <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-md bg-white px-2 py-1">
-                          <span className="max-w-[200px] truncate text-[11px] text-slate-600">
+                        <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-md bg-white px-2 py-1 dark:bg-[#383838]">
+                          <span className="max-w-[200px] truncate text-[11px] text-slate-600 dark:text-slate-300">
                             {file.name}
                           </span>
                           <button
@@ -734,7 +734,7 @@ export default function SubscriptionInvoice({ onClose }: Props) {
           <button
             onClick={onClose}
             type="button"
-            className="rounded-lg border border-indigo-400 px-5 py-2 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50"
+            className="rounded-lg border border-indigo-400 px-5 py-2 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-[#30384f]"
             disabled={isSubmitting}
           >
             Cancel
