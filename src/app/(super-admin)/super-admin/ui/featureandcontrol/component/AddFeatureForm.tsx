@@ -101,7 +101,7 @@ const AddFeatureForm = ({
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label>
-                  <span className={labelClassName}>Select Module</span>
+                  <span className={labelClassName}>Select Portal</span>
                   <div className="relative">
                     <select
                       name="portal"
