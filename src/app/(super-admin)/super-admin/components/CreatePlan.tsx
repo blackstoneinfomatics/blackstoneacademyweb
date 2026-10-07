@@ -65,44 +65,61 @@ interface BillingPeriod {
   duration: number;
   price?: number;
   discount?: number;
+  discountAmount?: number;
   gstRate?: number;
+  gstAmount?: number;
   taxAmount?: number;
   totalAmount?: number;
 }
 
-// Single source of truth for GST + Total calculation across the billing-period table.
+// GST is calculated on the undiscounted plan price.
 const calculateBillingAmounts = (
-  price: number,
-  discount: number,
-  gstRate: number,
+  baseAmount: number,
+  discountPercentage: number,
+  gstPercentage: number,
 ) => {
-  const safePrice = Number.isFinite(price) ? price : 0;
-  const safeDiscount = Number.isFinite(discount) ? discount : 0;
-  const safeGstRate = Number.isFinite(gstRate) ? gstRate : 0;
-
-  const discountedPrice = safePrice - (safePrice * safeDiscount) / 100;
-  const taxAmount = (discountedPrice * safeGstRate) / 100;
-  const totalAmount = discountedPrice + taxAmount;
+  const roundCurrency = (amount: number) =>
+    Math.round((amount + Number.EPSILON) * 100) / 100;
+  const safeBaseAmount = Number.isFinite(baseAmount)
+    ? roundCurrency(baseAmount)
+    : 0;
+  const safeDiscountPercentage = Number.isFinite(discountPercentage)
+    ? discountPercentage
+    : 0;
+  const safeGstPercentage = Number.isFinite(gstPercentage)
+    ? gstPercentage
+    : 0;
+  const discountAmount = roundCurrency(
+    (safeBaseAmount * safeDiscountPercentage) / 100,
+  );
+  const gstAmount = roundCurrency((safeBaseAmount * safeGstPercentage) / 100);
 
   return {
-    taxAmount: Number(taxAmount.toFixed(2)),
-    totalAmount: Number(totalAmount.toFixed(2)),
+    baseAmount: safeBaseAmount,
+    discountAmount,
+    gstAmount,
+    taxAmount: gstAmount,
+    totalAmount: roundCurrency(safeBaseAmount - discountAmount + gstAmount),
   };
 };
 
-const persistBillingPeriodPricing = (planId: string, row: BillingPeriod) =>
-  axios.put(
-    `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_BILLING_PERIOD}`
-      .replace("${planId}", planId)
-      .replace("${billingPeriodId}", row.billingPeriodId),
-    {
-      price: row.price ?? 0,
-      discount: row.discount ?? 0,
-      gstRate: row.gstRate ?? 0,
-      taxAmount: row.taxAmount ?? 0,
-      totalAmount: row.totalAmount ?? 0,
-    },
+const persistBillingPeriodPricing = (planId: string, row: BillingPeriod) => {
+  const price = row.price ?? 0;
+  const discount = row.discount ?? 0;
+  const gstRate = row.gstRate ?? 0;
+
+  return axios.put(
+      `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_BILLING_PERIOD}`
+        .replace("${planId}", planId)
+        .replace("${billingPeriodId}", row.billingPeriodId),
+      {
+        price,
+        discount,
+        gstRate,
+        ...calculateBillingAmounts(price, discount, gstRate),
+      },
   );
+};
 
 const steps = [1, 2, 3, 4];
 
@@ -439,13 +456,13 @@ const CreatePlan = ({ onClose }: Props) => {
     const gstRate = Number(planData.gstAndTax) || 0;
 
     const recalculatedBillingPeriods = billingPeriods.map((row) => {
-      const { taxAmount, totalAmount } = calculateBillingAmounts(
+      const amounts = calculateBillingAmounts(
         row.price ?? 0,
         row.discount ?? 0,
         gstRate,
       );
 
-      return { ...row, gstRate, taxAmount, totalAmount };
+      return { ...row, ...amounts, gstRate };
     });
 
     try {
@@ -575,8 +592,11 @@ const CreatePlan = ({ onClose }: Props) => {
         price: Number(record?.price ?? 0),
         discount: Number(record?.discount ?? 0),
         gstRate: Number(record?.gstRate ?? Number(planData.gstAndTax) ?? 0),
-        taxAmount: Number(record?.taxAmount ?? 0),
-        totalAmount: Number(record?.totalAmount ?? 0),
+        ...calculateBillingAmounts(
+          Number(record?.price ?? 0),
+          Number(record?.discount ?? 0),
+          Number(record?.gstRate ?? Number(planData.gstAndTax) ?? 0),
+        ),
       };
 
       setBillingPeriods((prev) => [...prev, newRow]);
@@ -617,9 +637,9 @@ const CreatePlan = ({ onClose }: Props) => {
       const nextPrice = field === "price" ? numericValue : (row.price ?? 0);
       const nextDiscount =
         field === "discount" ? numericValue : (row.discount ?? 0);
-      const gstRate = Number(planData.gstAndTax) || row.gstRate || 0;
+      const gstRate = Number(planData.gstAndTax);
 
-      const { taxAmount, totalAmount } = calculateBillingAmounts(
+      const amounts = calculateBillingAmounts(
         nextPrice,
         nextDiscount,
         gstRate,
@@ -629,8 +649,7 @@ const CreatePlan = ({ onClose }: Props) => {
         ...row,
         [field]: numericValue,
         gstRate,
-        taxAmount,
-        totalAmount,
+        ...amounts,
       };
     });
 
@@ -690,16 +709,21 @@ const CreatePlan = ({ onClose }: Props) => {
 
       const billingPeriodsForPayload = billingPeriods
         .filter((row) => row.billingPeriodId && row.billingPeriod)
-        .map((row) => ({
-          billingPeriodId: row.billingPeriodId,
-          billingPeriod: row.billingPeriod,
-          duration: Number(row.duration ?? 0),
-          price: Number(row.price ?? 0),
-          discount: Number(row.discount ?? 0),
-          gstRate: Number(row.gstRate ?? Number(planData.gstAndTax) ?? 0),
-          taxAmount: Number(row.taxAmount ?? 0),
-          totalAmount: Number(row.totalAmount ?? 0),
-        }));
+        .map((row) => {
+          const price = Number(row.price ?? 0);
+          const discount = Number(row.discount ?? 0);
+          const gstRate = Number(row.gstRate ?? planData.gstAndTax ?? 0);
+
+          return {
+            billingPeriodId: row.billingPeriodId,
+            billingPeriod: row.billingPeriod,
+            duration: Number(row.duration ?? 0),
+            price,
+            discount,
+            gstRate,
+            ...calculateBillingAmounts(price, discount, gstRate),
+          };
+        });
 
       const payload = {
         planName: planData.planName,
@@ -1124,7 +1148,7 @@ const CreatePlan = ({ onClose }: Props) => {
 
                   <div className="overflow-hidden rounded-[12px] border border-[#D9DDE8] bg-[#F4F6FB] dark:border-[#5c5c5c] dark:bg-[#2d2d2d]">
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[560px] text-left text-[12px]">
+                      <table className="w-full min-w-[640px] text-left text-[12px]">
                         <thead>
                           <tr className="bg-[#EAEFFF] text-[#0f172a] dark:bg-[#343434] dark:text-[#f4f4f5]">
                             <th className="px-3 py-3 font-semibold">
@@ -1140,6 +1164,9 @@ const CreatePlan = ({ onClose }: Props) => {
                               Discount (%)
                             </th>
                             <th className="px-3 py-3 font-semibold">
+                              Discount (₹)
+                            </th>
+                            <th className="px-3 py-3 font-semibold">
                               GST ({Number(planData.gstAndTax) || 0}%)
                             </th>
                             <th className="px-3 py-3 font-semibold">
@@ -1152,7 +1179,7 @@ const CreatePlan = ({ onClose }: Props) => {
                           {billingPeriods.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={6}
+                                colSpan={7}
                                 className="px-3 py-8 text-center text-[#80848E] dark:text-[#a2a2a2]"
                               >
                                 No billing periods added yet
@@ -1212,6 +1239,9 @@ const CreatePlan = ({ onClose }: Props) => {
                                     placeholder="0"
                                     className="w-[68px] h-[32px] rounded-[8px] border border-[#D9DDE8] bg-white px-2 text-[12px] outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#5c5c5c]"
                                   />
+                                </td>
+                                <td className="px-3 py-3">
+                                  {(row.discountAmount ?? 0).toFixed(2)}
                                 </td>
                                 <td className="px-3 py-3">
                                   {row.taxAmount !== undefined
