@@ -217,6 +217,28 @@ interface TenantPortalListItem {
   portalName: string;
 }
 
+interface TenantConfigurationItem {
+  tenantId: string;
+  portalName: string;
+  modules: TenantModule[];
+  createdAt?: string;
+}
+
+interface TenantRecord {
+  tenantCode?: string;
+  tenantJobCode?: string;
+  tenantId?: string;
+  tenantName?: string;
+  organizationName?: string;
+  tenantLogo?: string | null;
+  domainName?: string | null;
+  emailId?: string;
+  phoneNumber?: string;
+  mobileNumber?: string;
+  plan?: string;
+  status?: string;
+}
+
 interface TenantDetails {
   tenantCode: string;
   tenantName: string;
@@ -463,28 +485,31 @@ const Usercards = () => {
 
         if (response.data.success) {
           const items: TenantPortalListItem[] = response.data.data?.items ?? [];
-
-          // Only keep the tenant's portals that have modules configured
-          // (a tenantPortalConfig exists for this tenant + portal).
-          const configured = await Promise.all(
-            items.map(async (item) => {
-              try {
-                const params = new URLSearchParams({
-                  tenantId,
-                  portalId: item.portalId,
-                });
-                const configResponse = await axios.get(
-                  `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
-                );
-                return configResponse.data.success;
-              } catch {
-                return false;
-              }
-            }),
+          const params = new URLSearchParams({ tenantId });
+          const configResponse = await axios.get<{
+            success: boolean;
+            message: string;
+            data: TenantConfigurationItem[];
+          }>(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
           );
+          if (!configResponse.data.success) {
+            throw new Error(
+              configResponse.data.message || "Failed to load tenant configs",
+            );
+          }
+          const configurations = Array.isArray(configResponse.data.data)
+            ? configResponse.data.data
+            : [];
 
           const options: TenantPortalOption[] = items
-            .filter((_, index) => configured[index])
+            .filter((item) =>
+              configurations.some(
+                (configuration) =>
+                  configuration.portalName.trim().toLowerCase() ===
+                  item.portalName.trim().toLowerCase(),
+              ),
+            )
             .map((item) => ({
               id: item.portalId,
               name: item.portalName,
@@ -496,6 +521,50 @@ const Usercards = () => {
               ? previous.portal
               : options[0]?.id || "",
           }));
+
+          try {
+            const tenantParams = new URLSearchParams({
+              page: "1",
+              limit: "1000",
+            });
+            const tenantResponse = await axios.get(
+              `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}?${tenantParams.toString()}`,
+            );
+            const tenantData = tenantResponse.data;
+            const tenants: TenantRecord[] = Array.isArray(tenantData?.tenants)
+              ? tenantData.tenants
+              : Array.isArray(tenantData?.data?.tenants)
+                ? tenantData.data.tenants
+                : Array.isArray(tenantData?.data?.items)
+                  ? tenantData.data.items
+                  : Array.isArray(tenantData?.data)
+                    ? tenantData.data
+                    : [];
+            const tenant = tenants.find(
+              (item) =>
+                (item.tenantCode || item.tenantJobCode || item.tenantId)
+                  ?.trim()
+                  .toLowerCase() === tenantId.trim().toLowerCase(),
+            );
+            if (tenant) {
+              setTenantDetails({
+                tenantCode:
+                  tenant.tenantCode || tenant.tenantJobCode || tenantId,
+                tenantName:
+                  tenant.tenantName || tenant.organizationName || "Tenant",
+                tenantLogo: tenant.tenantLogo ?? null,
+                domainName: tenant.domainName ?? null,
+                organizationName: tenant.organizationName ?? null,
+                emailId: tenant.emailId || "",
+                phoneNumber: tenant.phoneNumber || "",
+                mobileNumber: tenant.mobileNumber || "",
+                plan: tenant.plan || "",
+                status: tenant.status || "",
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching tenant details:", error);
+          }
         }
       } catch (error) {
         console.error("Error fetching tenant portal list:", error);
@@ -506,43 +575,55 @@ const Usercards = () => {
     loadTenantPortals();
   }, [tenantId]);
 
-  /* ====== LOAD TENANT CONFIG (modules, tenant details, subscription details) ====== */
+  /* ====== LOAD TENANT CONFIG FOR THE SELECTED PORTAL ====== */
   const loadTenantModules = async () => {
     if (!tenantId || !formData.portal) {
       setTenantModules([]);
       return;
     }
 
+    const selectedPortal = portalOptions.find(
+      (portal) => portal.id === formData.portal,
+    );
+    if (!selectedPortal) {
+      setTenantModules([]);
+      return;
+    }
+
     try {
-      const params = new URLSearchParams({
-        tenantId,
-        portalId: formData.portal,
-      });
-      const response = await axios.get(
+      const params = new URLSearchParams({ tenantId });
+      const response = await axios.get<{
+        success: boolean;
+        message: string;
+        data: TenantConfigurationItem[];
+      }>(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
       );
-
       if (!response.data.success) {
-        // Not every module/portal combination has a tenantPortalConfig yet -
-        // just show an empty module/feature list for this portal, keep
-        // showing the tenant's own details (name, plan, domain, ...) as-is.
-        setTenantModules([]);
-        return;
+        throw new Error(
+          response.data.message || "Failed to load tenant configuration",
+        );
       }
 
-      const data = response.data.data;
-      const modules: TenantModule[] = data?.modules ?? [];
+      const configurations = Array.isArray(response.data.data)
+        ? response.data.data
+        : [];
+      const configuration = configurations.find(
+        (item) =>
+          item.portalName.trim().toLowerCase() ===
+          selectedPortal.name.trim().toLowerCase(),
+      );
+      const modules = configuration?.modules ?? [];
 
       setTenantModules(modules);
-      setTenantDetails(data?.tenantDetails ?? null);
-      setSubscriptionDetails(data?.subscriptionDetails ?? null);
-      setConfigCreatedAt(data?.createdAt ?? null);
+      setSubscriptionDetails(null);
+      setConfigCreatedAt(configuration?.createdAt ?? null);
       setFormData((previous) => ({
         ...previous,
         parentNavigation: modules[0]?.moduleId || "",
         parentModule: modules[0]?.moduleId || "",
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching tenant config:", error);
       setTenantModules([]);
     }
@@ -551,7 +632,7 @@ const Usercards = () => {
   useEffect(() => {
     loadTenantModules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, formData.portal]);
+  }, [tenantId, formData.portal, portalOptions]);
 
   /* ====== TENANT PARENT/CHILD MODULE + FEATURE ENABLE-DISABLE (in-place, independent updates) ====== */
   const setModuleEnabled = (moduleId: string, isEnabled: boolean) => {

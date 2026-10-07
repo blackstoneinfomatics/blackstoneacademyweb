@@ -506,7 +506,7 @@ const Table = () => {
                     "Tenant Name",
                     "Current Plan",
                     "Amount",
-                    "Billing Cycle",
+                    "Billing Period",
                     "Renewal Date",
                     "Subscription Status",
                     "Payment",
@@ -850,7 +850,7 @@ const Table = () => {
 
               <div>
                 <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-gray-200">
-                  Billing Cycle
+                  Billing Period
                 </label>
 
                 <div className="relative">
@@ -870,7 +870,7 @@ const Table = () => {
                     className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">
-                      All Billing Cycles
+                      All Billing Period
                     </option>
 
                     {billingOptions.map(
@@ -1193,7 +1193,7 @@ const Table = () => {
 
                     <div className="grid grid-cols-[145px_1fr] items-center text-[11px]">
                       <span>
-                        Billing Cycle
+                        Billing Period
                       </span>
 
                       <span>

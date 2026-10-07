@@ -357,6 +357,13 @@ export interface TenantPortalConfig {
   updatedBy?: string | null;
 }
 
+export interface TenantConfigurationSummary {
+  tenantId: string;
+  portalName: string;
+  modules: TenantModule[];
+  createdAt?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Tenant (Custom) - request payloads
 // ---------------------------------------------------------------------------
@@ -425,9 +432,12 @@ export interface TenantAccessPayload {
 // Tenant (Custom) - endpoints
 // ---------------------------------------------------------------------------
 
-// GET /modules/tenant/config?tenantId=&portalId=
-export const getTenantConfig = (tenantId: string, portalId: string) =>
-  request<TenantPortalConfig>("GET", `/modules/tenant/config${query({ tenantId, portalId })}`);
+// GET /modules/tenant/config?tenantId=
+export const getTenantConfig = (tenantId: string) =>
+  request<TenantConfigurationSummary[]>(
+    "GET",
+    `/modules/tenant/config${query({ tenantId })}`,
+  );
 
 // POST /modules/tenant
 export const addTenantModule = (payload: AddTenantModulePayload) =>

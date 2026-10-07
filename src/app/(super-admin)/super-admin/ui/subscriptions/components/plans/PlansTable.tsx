@@ -1220,7 +1220,7 @@ const PlansTable = () => {
             <thead>
               <tr className="h-10 bg-[#496A96] text-left text-[14px] text-white dark:bg-[#344563]">
                 <th className="px-4 font-medium">Plan Name</th>
-                <th className="px-4 font-medium">Billing Cycle</th>
+                <th className="px-4 font-medium">Billing Period</th>
                 <th className="px-4 font-medium">Price</th>
                 <th className="px-4 font-medium">Created Date</th>
                 <th className="px-4 font-medium">Features</th>
@@ -1428,7 +1428,7 @@ const PlansTable = () => {
 
                 <div>
                   <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
-                    Billing Cycle
+                    Billing Period
                   </label>
                   <select
                     value={draftFilters.billingCycle}

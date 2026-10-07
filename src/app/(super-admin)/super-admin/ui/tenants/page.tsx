@@ -92,6 +92,7 @@ const page = () => {
   const searchParams = useSearchParams();
   searchParams.get("tenantCode");
   const [showAddTenant, setAddTenant] = useState(false);
+  const [tenantRefreshKey, setTenantRefreshKey] = useState(0);
 
   const [tenants, setTenants] = useState<TenantType[]>([]);
   useEffect(() => {
@@ -165,7 +166,7 @@ const page = () => {
     };
 
     fetchTenants();
-  }, []);
+  }, [tenantRefreshKey]);
 
   const [openDropdowntenantCode, setOpenDropdowntenantCode] = useState<
     string | null
@@ -810,7 +811,12 @@ const page = () => {
           />
         )}
 
-        {showAddTenant && <AddNewTenant onClose={() => setAddTenant(false)} />}
+        {showAddTenant && (
+          <AddNewTenant
+            onClose={() => setAddTenant(false)}
+            onSuccess={() => setTenantRefreshKey((key) => key + 1)}
+          />
+        )}
       </BaseSuperLayout>
     </div>
   );

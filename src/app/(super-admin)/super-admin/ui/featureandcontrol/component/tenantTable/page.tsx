@@ -13,7 +13,6 @@ import FilterDrawer, {
 
 interface TenantConfigRow {
   tenantId: string;
-  portalId: string;
   tenantName: string;
   domain: string;
   phoneNumber: string;
@@ -60,11 +59,33 @@ const getPageNumbers = (current: number, total: number): (number | "...")[] => {
   return [1, "...", current - 1, current, current + 1, "...", total];
 };
 
-// TODO: replace with a real tenant/portal list once a "list all tenants" API
-// is available - /modules/tenant/config is scoped to a single tenant+portal.
-const KNOWN_TENANT_PORTALS = [
-  { tenantId: "TEN000010", portalId: "6aa002bb4afeaa160576aeec" },
-];
+interface TenantListItem {
+  _id?: string;
+  tenantCode?: string;
+  tenantJobCode?: string;
+  tenantId?: string;
+  tenantName?: string;
+  organizationName?: string;
+  domainName?: string;
+  domain?: string;
+  website?: string;
+  phoneNumber?: string;
+  mobileNumber?: string;
+  emailId?: string;
+  email?: string;
+  createdDate?: string;
+  createdAt?: string;
+  startDate?: string;
+  plan?: string;
+  planName?: string;
+  renewalDate?: string;
+  status?: string;
+}
+
+interface TenantConfigurationItem {
+  tenantId: string;
+  portalName: string;
+}
 
 const formatDate = (value?: string) =>
   value
@@ -125,43 +146,120 @@ const Usertable = () => {
 
   useEffect(() => {
     const loadTenantConfigs = async () => {
-      const rows = await Promise.all(
-        KNOWN_TENANT_PORTALS.map(async ({ tenantId, portalId }) => {
-          try {
-            const params = new URLSearchParams({ tenantId, portalId });
-            const response = await axios.get(
-              `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
+      try {
+        const tenantParams = new URLSearchParams({
+          page: "1",
+          limit: "1000",
+        });
+        const tenantResponse = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}?${tenantParams.toString()}`,
+        );
+        const tenantData = tenantResponse.data;
+        if (tenantData?.success === false) {
+          throw new Error(tenantData.message || "Tenant list request failed");
+        }
+        let tenants: TenantListItem[] = [];
+        if (Array.isArray(tenantData?.tenants)) {
+          tenants = tenantData.tenants;
+        } else if (Array.isArray(tenantData?.data?.tenants)) {
+          tenants = tenantData.data.tenants;
+        } else if (Array.isArray(tenantData?.data?.items)) {
+          tenants = tenantData.data.items;
+        } else if (Array.isArray(tenantData)) {
+          tenants = tenantData;
+        } else if (Array.isArray(tenantData?.data)) {
+          tenants = tenantData.data;
+        } else if (tenantData?.data) {
+          tenants = [tenantData.data];
+        }
+
+        const uniqueTenants = new Map<
+          string,
+          { tenant: TenantListItem; tenantId: string }
+        >();
+        tenants.forEach((tenant) => {
+          const tenantId =
+            tenant.tenantCode || tenant.tenantJobCode || tenant.tenantId;
+          if (!tenantId) {
+            console.error(
+              "Skipping tenant without a tenant identifier:",
+              tenant,
             );
-
-            if (!response.data.success) return null;
-
-            const data = response.data.data;
-            const tenantDetails = data?.tenantDetails ?? {};
-            const subscriptionDetails = data?.subscriptionDetails ?? {};
-
-            const row: TenantConfigRow = {
-              tenantId: data?.tenantId ?? tenantId,
-              portalId: data?.portalId ?? portalId,
-              tenantName: tenantDetails.tenantName ?? "-",
-              domain: tenantDetails.domainName ?? "-",
-              phoneNumber: tenantDetails.phoneNumber ?? "-",
-              email: tenantDetails.emailId ?? "-",
-              startDate: formatDate(subscriptionDetails.startDate),
-              plan: subscriptionDetails.planName ?? "-",
-              renewalDate: formatDate(subscriptionDetails.nextRenewalDate),
-              status: tenantDetails.status ?? "-",
-              startDateValue: subscriptionDetails.startDate ?? "",
-              renewalDateValue: subscriptionDetails.nextRenewalDate ?? "",
-            };
-            return row;
-          } catch (error) {
-            console.error("Error fetching tenant config:", error);
-            return null;
+            return;
           }
-        }),
-      );
 
-      setUserItems(rows.filter((row): row is TenantConfigRow => row !== null));
+          const key = tenantId.trim().toLowerCase();
+          if (!uniqueTenants.has(key)) {
+            uniqueTenants.set(key, { tenant, tenantId });
+          }
+        });
+
+        const rows = await Promise.all(
+          Array.from(uniqueTenants.values()).map(async ({ tenant, tenantId }) => {
+            try {
+              const params = new URLSearchParams({ tenantId });
+              const response = await axios.get<{
+                success: boolean;
+                message: string;
+                data: TenantConfigurationItem[];
+              }>(
+                `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
+              );
+              if (!response.data.success) {
+                throw new Error(
+                  response.data.message ||
+                    `Tenant config request failed for ${tenantId}`,
+                );
+              }
+
+              const configurations = Array.isArray(response.data.data)
+                ? response.data.data
+                : [];
+              if (
+                !configurations.some(
+                  (configuration) =>
+                    configuration.tenantId?.trim().toLowerCase() ===
+                    tenantId.trim().toLowerCase(),
+                )
+              ) {
+                return null;
+              }
+
+              const startDate =
+                tenant.startDate ||
+                tenant.createdDate ||
+                tenant.createdAt ||
+                "";
+              const renewalDate = tenant.renewalDate || "";
+              return {
+                tenantId,
+                tenantName: tenant.tenantName || tenant.organizationName || "-",
+                domain:
+                  tenant.domainName || tenant.domain || tenant.website || "-",
+                phoneNumber: tenant.phoneNumber || tenant.mobileNumber || "-",
+                email: tenant.emailId || tenant.email || "-",
+                startDate: formatDate(startDate),
+                plan: tenant.plan || tenant.planName || "-",
+                renewalDate: formatDate(renewalDate),
+                status: tenant.status || "-",
+                startDateValue: startDate,
+                renewalDateValue: renewalDate,
+              } satisfies TenantConfigRow;
+            } catch (error) {
+              console.error(
+                `Error fetching tenant config for ${tenantId}:`,
+                error,
+              );
+              return null;
+            }
+          }),
+        );
+
+        setUserItems(rows.filter((row): row is TenantConfigRow => row !== null));
+      } catch (error) {
+        console.error("Error fetching tenant list:", error);
+        setUserItems([]);
+      }
     };
 
     loadTenantConfigs();
@@ -571,7 +669,7 @@ const Usertable = () => {
                 {pagedUserItems.length > 0 ? (
                   pagedUserItems.map((item) => (
                     <tr
-                      key={`${item.tenantId}-${item.portalId}`}
+                      key={item.tenantId}
                       className="
                         text-[11px]
                         odd:bg-[#F8F8F8]
@@ -661,8 +759,6 @@ const Usertable = () => {
                                 router.push(
                                   `/super-admin/ui/featureandcontrol/featureandtenant?tenantId=${encodeURIComponent(
                                     row.tenantId,
-                                  )}&portalId=${encodeURIComponent(
-                                    row.portalId,
                                   )}`,
                                 ),
                             },

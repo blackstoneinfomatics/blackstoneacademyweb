@@ -278,7 +278,7 @@ const Table = () => {
       "Invoice No",
       "Tenant",
       "Plan",
-      "Billing Cycle",
+      "Billing Period",
       "Invoice Date",
       "Due Date",
       "Amount",
@@ -431,7 +431,7 @@ const Table = () => {
                     "Invoice No",
                     "Tenant",
                     "Plan",
-                    "Billing Cycle",
+                    "Billing Period",
                     "Invoice Date",
                     "Due Date",
                     "Amount",
@@ -675,7 +675,7 @@ const Table = () => {
 
               <div>
                 <label className="mb-2 block text-sm text-[#101B41] dark:text-gray-200">
-                  Billing Cycle
+                  Billing Period
                 </label>
                 <div className="relative">
                   <select
@@ -688,7 +688,7 @@ const Table = () => {
                     }
                     className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] bg-white px-3 pr-9 text-xs text-[#38486A] outline-none dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
-                    <option value="All">Select Billing Cycle</option>
+                    <option value="All">Select Billing Period</option>
                     {billingOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
