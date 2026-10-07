@@ -74,6 +74,8 @@ const SignIn: React.FC = () => {
     try {
       const data = await signIn(username1, password);
       const { accessToken, role, _id } = data;
+      const superAdminUserId =
+        data.userId ?? data.user?.userId ?? data.user?.id;
       const portalName: string = data.userName ?? data.username ?? "";
       const userEmail: string = data.email ?? data.userEmail ?? "";
       const tenantId: string | null = data.tenantId ?? null;
@@ -81,6 +83,11 @@ const SignIn: React.FC = () => {
 
       localStorage.setItem("SuperAdminAuthToken", accessToken);
       localStorage.setItem("SuperAdminPortalId", _id);
+      if (superAdminUserId) {
+        localStorage.setItem("SuperAdminUserId", superAdminUserId);
+      } else {
+        localStorage.removeItem("SuperAdminUserId");
+      }
       localStorage.setItem("SuperAdminPortalName", portalName);
       localStorage.setItem("SuperAdminPortalEmail", userEmail);
       localStorage.setItem("SuperAdminRole", role);
@@ -211,6 +218,11 @@ const SignIn: React.FC = () => {
 
         localStorage.setItem("SuperAdminAuthToken", result.data.accessToken);
         localStorage.setItem("SuperAdminPortalId", result.data.id);
+        const superAdminUserId =
+          result.data.userId ??
+          result.data.user?.userId ??
+          result.data.user?.id;
+          localStorage.setItem("SuperAdminUserId", superAdminUserId); 
         localStorage.setItem("SuperAdminPortalName", portalName);
         if (result.data.tenantId) {
           localStorage.setItem("tenantId", result.data.tenantId);

@@ -130,10 +130,10 @@ const Table = () => {
           : FiMinus;
     const trendColor =
       metric.trend === "UP"
-        ? "text-[#377E36]"
+        ? "text-[#377E36] dark:text-[#72D889]"
         : metric.trend === "DOWN"
-          ? "text-[#D34645]"
-          : "text-gray-500";
+          ? "text-[#D34645] dark:text-[#FF8B8B]"
+          : "text-gray-500 dark:text-gray-300";
 
     return (
       <span
@@ -466,6 +466,7 @@ const Table = () => {
                   h-11
                   rounded-full
                   bg-[#EEE8FF]
+                  dark:bg-[#493D70]
                   flex
                   items-center
                   justify-center
@@ -513,6 +514,7 @@ const Table = () => {
                   h-11
                   rounded-full
                   bg-[#E4F7EA]
+                  dark:bg-[#294A32]
                   flex
                   items-center
                   justify-center
@@ -560,6 +562,7 @@ const Table = () => {
                   h-11
                   rounded-full
                   bg-[#FCE6E6]
+                  dark:bg-[#512B2B]
                   flex
                   items-center
                   justify-center
@@ -666,7 +669,7 @@ const Table = () => {
               <div className="flex items-center">
                 <MdTune className="text-gray-400 mr-2 text-[16px]" />
 
-                <span className="text-[11px] text-gray-400">Filter</span>
+                <span className="text-[11px] text-gray-400 dark:text-gray-300">Filter</span>
               </div>
 
               <FiChevronDown className="text-gray-400 text-[14px]" />
@@ -731,6 +734,7 @@ const Table = () => {
                         text-[11px]
                         border-r
                         border-[#466993]
+                        dark:border-[#59749B]
                       "
                     >
                       {header}
@@ -784,8 +788,8 @@ const Table = () => {
                             font-medium
                             ${
                               item.status === "Active"
-                                ? "bg-[#E7F8ED] text-[#2E9D4D]"
-                                : "bg-[#FDECEC] text-[#E53935]"
+                                ? "bg-[#E7F8ED] text-[#2E9D4D] dark:bg-[#23452B] dark:text-[#72D889]"
+                                : "bg-[#FDECEC] text-[#E53935] dark:bg-[#512B2B] dark:text-[#FF8B8B]"
                             }
                           `}
                         >
@@ -832,6 +836,8 @@ const Table = () => {
                                 border
                                 border-gray-100
                                 dark:border-gray-700
+                                text-gray-800
+                                dark:text-gray-100
                                 z-50
                               "
                             >
@@ -842,7 +848,9 @@ const Table = () => {
                                   px-2 border-b
                                   py-2
                                   text-[10px]
+                                  text-gray-800
                                   hover:bg-gray-100
+                                  dark:text-gray-100
                                   dark:hover:bg-gray-700
                                 "
                                 onClick={() =>
@@ -864,6 +872,7 @@ const Table = () => {
                                   text-[10px]
                                   text-red-800
                                   hover:bg-gray-100
+                                  dark:text-red-300
                                   dark:hover:bg-gray-700
                                 "
                                 onClick={closeMenu}
@@ -878,7 +887,7 @@ const Table = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="p-5 text-center text-gray-500">
+                    <td colSpan={8} className="p-5 text-center text-gray-500 dark:text-gray-300">
                       No data available
                     </td>
                   </tr>
@@ -898,11 +907,15 @@ const Table = () => {
                 rounded-md
                 border
                 border-[#E5E7EB]
+                dark:border-[#4A4A4A]
                 flex
                 items-center
                 justify-center
                 text-gray-400
                 bg-[#F5F5F2]
+                dark:bg-[#2C2C2C]
+                dark:text-gray-300
+                dark:hover:bg-[#3A3A3A]
                 disabled:cursor-not-allowed
                 disabled:opacity-50
               "
@@ -910,7 +923,7 @@ const Table = () => {
               <span className="text-[23px] color-[#999FAC]">‹</span>
             </button>
 
-            <span className="px-2 text-[11px] text-gray-500">
+            <span className="px-2 text-[11px] text-gray-500 dark:text-gray-300">
               Page {currentPage} of {totalPages}
             </span>
 
@@ -926,8 +939,12 @@ const Table = () => {
                 rounded-md
                 border
                 border-[#E6E7EA]
+                dark:border-[#4A4A4A]
                 text-gray-400
                 bg-[#F5F5F2]
+                dark:bg-[#2C2C2C]
+                dark:text-gray-300
+                dark:hover:bg-[#3A3A3A]
                 disabled:cursor-not-allowed
                 disabled:opacity-50
                 text-[11px]

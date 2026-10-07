@@ -40,18 +40,18 @@ export default function Tabs({ activeTab, onTabChange }: TabsProps) {
           const isActive = activeTab === tab.id;
 
           return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTabChange(tab.id)}
-              className={`text-md font-medium transition ${
-                isActive
-                  ? "border-4 border-b-[#576CBC] text-[#576CBC]"
-                  : "hover:text-[#576CBC]"
-              }`}
-            >
-              {tab.label}
-            </button>
+<button
+  key={tab.id}
+  type="button"
+  onClick={() => onTabChange(tab.id)}
+  className={`relative text-sm font-medium transition ${
+    isActive
+      ? "text-[#576CBC] after:absolute after:left-[-4px] after:right-[-4px] after:-bottom-[4px] after:h-[4px] after:bg-[#576CBC] after:rounded-full"
+      : "hover:text-[#576CBC]"
+  }`}
+>
+  {tab.label}
+</button>
           );
         })}
       </div>

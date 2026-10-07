@@ -8,11 +8,10 @@ import { PiSealCheckFill } from "react-icons/pi";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-
 type TrialsDashboardCounts = {
   totalTrials: number;
   activeTrials: number;
-  expiredTrials: number;
+  completedTrials: number;
   convertedTrials: number;
 };
 
@@ -20,7 +19,7 @@ const Card = () => {
   const [counts, setCounts] = useState<TrialsDashboardCounts>({
     totalTrials: 0,
     activeTrials: 0,
-    expiredTrials: 0,
+    completedTrials: 0,
     convertedTrials: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -35,11 +34,14 @@ const Card = () => {
         );
 
         if (response.data?.success && response.data?.data) {
+          const data = response.data.data;
+
           setCounts({
-            totalTrials: Number(response.data.data.totalTrials) || 0,
-            activeTrials: Number(response.data.data.activeTrials) || 0,
-            expiredTrials: Number(response.data.data.expiredTrials) || 0,
-            convertedTrials: Number(response.data.data.convertedTrials) || 0,
+            totalTrials: Number(data.totalTrials) || 0,
+            activeTrials: Number(data.activeTrials) || 0,
+            completedTrials:
+              Number(data.completedTrials ?? data.expiredTrials) || 0,
+            convertedTrials: Number(data.convertedTrials) || 0,
           });
         }
       } catch (error) {
@@ -72,8 +74,8 @@ const Card = () => {
       trend: "Currently trials",
     },
     {
-      title: "Expired Trials",
-      value: counts.expiredTrials,
+      title: "Completed Trials",
+      value: counts.completedTrials,
       icon: AiFillCloseCircle,
       iconBg: "bg-[#F8E4E4]",
       iconColor: "text-[#D34645]",
@@ -141,4 +143,4 @@ const Card = () => {
   );
 };
 
-export default Card
+export default Card;

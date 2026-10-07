@@ -34,7 +34,7 @@ const ToggleSwitch = ({
       className={`group relative justify-start h-5 w-9 rounded-full border transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#576CBC]/40 ${
         checked
           ? "border-[#576CBC] bg-gradient-to-r from-[#576CBC] to-[#6F85D6]"
-          : "border-[#D6DCEB] bg-[#EFF2F8]"
+          : "border-[#D6DCEB] bg-[#EFF2F8] dark:border-[#555] dark:bg-[#2C2C2C]"
       }`}
     >
       <span
@@ -46,16 +46,150 @@ const ToggleSwitch = ({
   );
 };
 
-// Backend stores features/allowedRoles keyed by these uppercase role codes.
-const roleCodeMap: Record<string, string> = {
-  Admin: "ADMIN",
-  Teacher: "TEACHER",
-  Student: "STUDENT",
+interface PortalOption {
+  _id: string;
+  portalName: string;
+  status?: string;
+}
+
+interface AllowedRole {
+  portalId: string;
+  portalName: string;
+}
+
+const isAllowedRole = (value: unknown): value is AllowedRole =>
+  typeof value === "object" &&
+  value !== null &&
+  "portalId" in value &&
+  typeof value.portalId === "string" &&
+  "portalName" in value &&
+  typeof value.portalName === "string";
+
+interface FeatureControlRow {
+  portal: string;
+  parentModuleId: string;
+  parentModuleName: string;
+  childModuleId: string | null;
+  childModuleName: string | null;
+  featureId: string | null;
+  featureName: string | null;
+  status: string;
+}
+
+interface PlanFeatureItem {
+  featureId?: string;
+  featureName?: string;
+  portalId?: string;
+  portalName?: string;
+}
+
+interface PlanChildModule {
+  childModuleId?: string;
+  childModuleName?: string;
+  order?: number;
+  portalId?: string;
+  portalName?: string;
+  features?: PlanFeatureItem[];
+}
+
+interface PlanModule {
+  moduleId?: string;
+  moduleName?: string;
+  order?: number;
+  portalId?: string;
+  portalName?: string;
+  features?: PlanFeatureItem[];
+  children?: PlanChildModule[];
+}
+
+const getPlanFeatureCount = (plan: Record<string, unknown>): number => {
+  if (Array.isArray(plan.modules)) {
+    return (plan.modules as PlanModule[]).reduce(
+      (count, module) =>
+        count +
+        (module.features?.length ?? 0) +
+        (module.children ?? []).reduce(
+          (childCount, child) => childCount + (child.features?.length ?? 0),
+          0,
+        ),
+      0,
+    );
+  }
+
+  const legacyFeatures = plan.features;
+  return legacyFeatures && typeof legacyFeatures === "object"
+    ? Object.values(legacyFeatures as Record<string, unknown[]>).reduce(
+        (count, items) => count + (Array.isArray(items) ? items.length : 0),
+        0,
+      )
+    : 0;
 };
 
-const roleLabelMap: Record<string, string> = Object.fromEntries(
-  Object.entries(roleCodeMap).map(([label, code]) => [code, label]),
-);
+const getModulesForPortal = (
+  portal: PortalOption,
+  rows: FeatureControlRow[],
+): PlanModule[] => {
+  const modules = new Map<string, PlanModule>();
+
+  rows
+    .filter(
+      (row) =>
+        row.portal?.trim().toLowerCase() === portal.portalName.trim().toLowerCase() &&
+        row.status?.toLowerCase() === "active",
+    )
+    .forEach((row) => {
+      if (!row.parentModuleId || !row.parentModuleName) return;
+
+      let parentModule = modules.get(row.parentModuleId);
+      if (!parentModule) {
+        parentModule = {
+          moduleId: row.parentModuleId,
+          moduleName: row.parentModuleName,
+          order: modules.size + 1,
+          portalId: portal._id,
+          portalName: portal.portalName,
+          features: [],
+          children: [],
+        };
+        modules.set(row.parentModuleId, parentModule);
+      }
+
+      if (row.childModuleId && row.childModuleName) {
+        let child = parentModule.children?.find(
+          (item) => item.childModuleId === row.childModuleId,
+        );
+        if (!child) {
+          child = {
+            childModuleId: row.childModuleId,
+            childModuleName: row.childModuleName,
+            order: (parentModule.children?.length ?? 0) + 1,
+            portalId: portal._id,
+            portalName: portal.portalName,
+            features: [],
+          };
+          parentModule.children?.push(child);
+        }
+
+        if (row.featureId && row.featureName) {
+          child.features?.push({
+            featureId: row.featureId,
+            featureName: row.featureName,
+            portalId: portal._id,
+            portalName: portal.portalName,
+          });
+        }
+      } else if (row.featureId && row.featureName) {
+        parentModule.features?.push({
+          featureId: row.featureId,
+          featureName: row.featureName,
+          portalId: portal._id,
+          portalName: portal.portalName,
+        });
+      }
+    });
+
+  return Array.from(modules.values());
+};
 
 const PlansTable = () => {
   type FilterState = {
@@ -80,6 +214,15 @@ const PlansTable = () => {
     Record<string, string>
   >({});
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [featureCountByPlan, setFeatureCountByPlan] = useState<
+    Record<string, number>
+  >({});
+  const [subscribedTenantCountByPlan, setSubscribedTenantCountByPlan] =
+    useState<Record<string, number>>({});
+  const [selectedPlanModules, setSelectedPlanModules] = useState<PlanModule[]>([]);
+  const [portalOptions, setPortalOptions] = useState<PortalOption[]>([]);
+  const [featureCatalog, setFeatureCatalog] = useState<FeatureControlRow[]>([]);
+  const [isLoadingModuleCatalog, setIsLoadingModuleCatalog] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [plans, setPlans] = useState<any[]>([]);
@@ -179,18 +322,18 @@ const PlansTable = () => {
     const name = planName.toLowerCase();
 
     if (name.includes("basic")) {
-      return "bg-[#DEF5FA] text-[#18BCDC]";
+      return "bg-[#DEF5FA] text-[#18BCDC] dark:bg-[#16414A] dark:text-[#65D8EB]";
     }
 
     if (name.includes("standard")) {
-      return "bg-[#DAE4F6] text-[#2668EF]";
+      return "bg-[#DAE4F6] text-[#2668EF] dark:bg-[#263B5A] dark:text-[#8DB5FF]";
     }
 
     if (name.includes("premium")) {
-      return "bg-[#E7E8FA] text-[#585BDC]";
+      return "bg-[#E7E8FA] text-[#585BDC] dark:bg-[#38395E] dark:text-[#A6A7FF]";
     }
 
-    return "bg-gray-100 text-gray-600";
+    return "bg-gray-100 text-gray-600 dark:bg-[#444] dark:text-gray-200";
   };
 
   const formatTableDate = (value?: string) => {
@@ -215,18 +358,18 @@ const PlansTable = () => {
     const normalized = String(status || "").toUpperCase();
 
     if (normalized === "ACTIVE") {
-      return "bg-[#EAF8EC] text-[#34A853]";
+      return "bg-[#EAF8EC] text-[#34A853] dark:bg-[#23452B] dark:text-[#72D889]";
     }
 
     if (normalized === "EXPIRED") {
-      return "bg-[#FDEAEA] text-[#E35D5D]";
+      return "bg-[#FDEAEA] text-[#E35D5D] dark:bg-[#512B2B] dark:text-[#FF8B8B]";
     }
 
     if (normalized === "EXPIRED_SOON" || normalized === "INACTIVE") {
-      return "bg-[#FFF7E8] text-[#F4A429]";
+      return "bg-[#FFF7E8] text-[#F4A429] dark:bg-[#4A3A1F] dark:text-[#FFD078]";
     }
 
-    return "bg-[#EEF3FF] text-[#4D74AE]";
+    return "bg-[#EEF3FF] text-[#4D74AE] dark:bg-[#29384F] dark:text-[#AFC2E4]";
   };
 
   const formatStatusLabel = (status?: string) => {
@@ -256,14 +399,107 @@ const PlansTable = () => {
         ? responseData
         : responseData?.plans ?? responseData?.items ?? [];
 
-      setPlans(plansArray);
       const payload =
         response.data?.data?.items ??
         response.data?.items ??
         response.data?.data ??
         response.data;
 
-      setPlans(Array.isArray(payload) ? payload : []);
+      const planRows = Array.isArray(payload) ? payload : plansArray;
+      setPlans(planRows);
+
+      const counts = await Promise.all(
+        planRows.map(async (plan: any) => {
+          const planId = plan.planId;
+          if (!planId) return null;
+
+          try {
+            const detailResponse = await axios.get(
+              `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace(
+                "${planId}",
+                planId,
+              ),
+            );
+            const detail = detailResponse.data?.data ?? detailResponse.data;
+            return [planId, getPlanFeatureCount(detail)] as const;
+          } catch (error) {
+            console.error(`Error fetching plan features for ${planId}:`, error);
+            return [planId, getPlanFeatureCount(plan)] as const;
+          }
+        }),
+      );
+
+      const countEntries = counts.filter(
+        (entry): entry is readonly [string, number] => entry !== null,
+      );
+      setFeatureCountByPlan((current) => ({
+        ...current,
+        ...Object.fromEntries(countEntries),
+      }));
+
+      try {
+        const firstPageResponse = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET}`,
+          { params: { page: 1, limit: 100 } },
+        );
+        const firstPageData = firstPageResponse.data?.data;
+        const subscriptions: any[] = Array.isArray(firstPageData?.tenants)
+          ? [...firstPageData.tenants]
+          : Array.isArray(firstPageData?.items)
+            ? [...firstPageData.items]
+            : Array.isArray(firstPageData)
+              ? [...firstPageData]
+              : [];
+        const totalPages = Number(
+          firstPageData?.pagination?.totalPages ??
+            firstPageResponse.data?.pagination?.totalPages ??
+            1,
+        );
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          const pageResponse = await axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_SUBSCRIPTION.GET}`,
+            { params: { page, limit: 100 } },
+          );
+          const pageTenants = pageResponse.data?.data?.tenants;
+          if (Array.isArray(pageTenants)) subscriptions.push(...pageTenants);
+        }
+
+        const tenantsByPlan = new Map<string, Set<string>>();
+        subscriptions.forEach((subscription) => {
+          const tenantKey = String(
+            subscription.tenantId ??
+              subscription.tenant?._id ??
+              subscription._id ??
+              "",
+          );
+          if (!tenantKey) return;
+
+          const planIdentifiers = new Set(
+            [
+              subscription.planId,
+              subscription.plan?._id,
+              subscription.plan?.planId,
+            ]
+              .filter(Boolean)
+              .map(String),
+          );
+
+          planIdentifiers.forEach((planIdentifier) => {
+            const tenantSet = tenantsByPlan.get(planIdentifier) ?? new Set<string>();
+            tenantSet.add(tenantKey);
+            tenantsByPlan.set(planIdentifier, tenantSet);
+          });
+        });
+
+        const tenantCounts: Record<string, number> = {};
+        tenantsByPlan.forEach((tenantIds, planIdentifier) => {
+          tenantCounts[planIdentifier] = tenantIds.size;
+        });
+        setSubscribedTenantCountByPlan(tenantCounts);
+      } catch (error) {
+        console.error("Error fetching tenant subscription counts:", error);
+      }
     } catch (error) {
       console.error("Error fetching plans:", error);
     } finally {
@@ -282,9 +518,18 @@ const PlansTable = () => {
     }
   };
 
-  const modules = selectedPlan
-    ? Object.values(selectedPlan.features as Record<string, string[]>).flat()
-    : [];
+  const modules = Array.isArray(selectedPlan?.modules)
+    ? selectedPlan.modules.flatMap((module: PlanModule) => [
+        module.moduleName,
+        ...(module.features ?? []).map((feature) => feature.featureName),
+        ...(module.children ?? []).flatMap((child) => [
+          child.childModuleName,
+          ...(child.features ?? []).map((feature) => feature.featureName),
+        ]),
+      ]).filter((name:any): name is string => Boolean(name))
+    : selectedPlan?.features && typeof selectedPlan.features === "object"
+      ? Object.values(selectedPlan.features as Record<string, string[]>).flat()
+      : [];
 
   const [formData, setFormData] = useState({
     planName: "",
@@ -297,8 +542,7 @@ const PlansTable = () => {
     userLimit: 0,
     storageLimit: 0,
     gstAndTax: 18,
-    allowedRoles: [] as string[],
-    features: {} as Record<string, string[]>,
+    allowedRoles: [] as AllowedRole[],
     canCreateCustomRole: false,
     customDomain: false,
     backup: false,
@@ -318,17 +562,6 @@ const PlansTable = () => {
     }>
   >([]);
 
-  const selectedModules: string[] = Object.values(
-    formData.features || {},
-  ).flat();
-  const roleTabs = ["Admin", "Teacher", "Student"] as const;
-  const [activeRoleTab, setActiveRoleTab] = useState<(typeof roleTabs)[number]>("Admin");
-
-  const activeRoleModules =
-    formData.features && Array.isArray(formData.features[activeRoleTab])
-      ? formData.features[activeRoleTab]
-      : [];
-
   const pricingRowsForTable =
     pricingRows.length > 0
       ? pricingRows
@@ -347,20 +580,211 @@ const PlansTable = () => {
     }
   }, [showUpdateModal, selectedPlan]);
 
+  useEffect(() => {
+    if (!showUpdateModal) return;
+
+    let isCurrent = true;
+    const fetchModuleCatalog = async () => {
+      setIsLoadingModuleCatalog(true);
+      try {
+        const [portalResponse, firstFeatureResponse] = await Promise.all([
+          axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}`,
+            { params: { page: 1, limit: 100 } },
+          ),
+          axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FEATURE_CONTROL.GET_ALL}`,
+            { params: { page: 1, limit: 100 } },
+          ),
+        ]);
+
+        const portalPayload = portalResponse.data?.data;
+        const portals: PortalOption[] = Array.isArray(portalPayload?.items)
+          ? portalPayload.items
+          : Array.isArray(portalPayload)
+            ? portalPayload
+            : [];
+        const featureRows: FeatureControlRow[] = Array.isArray(
+          firstFeatureResponse.data?.data,
+        )
+          ? [...firstFeatureResponse.data.data]
+          : [];
+        const totalPages = Number(
+          firstFeatureResponse.data?.pagination?.totalPages ?? 1,
+        );
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          const response = await axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FEATURE_CONTROL.GET_ALL}`,
+            { params: { page, limit: 100 } },
+          );
+          if (Array.isArray(response.data?.data)) {
+            featureRows.push(...response.data.data);
+          }
+        }
+
+        if (isCurrent) {
+          setPortalOptions(
+            portals.filter(
+              (portal) =>
+                portal._id &&
+                portal.portalName &&
+                portal.status?.toUpperCase() !== "INACTIVE",
+            ),
+          );
+          setFeatureCatalog(featureRows);
+        }
+      } catch (error) {
+        console.error("Error loading portal module catalog:", error);
+        if (isCurrent) toast.error("Failed to load portals and features");
+      } finally {
+        if (isCurrent) setIsLoadingModuleCatalog(false);
+      }
+    };
+
+    fetchModuleCatalog();
+    return () => {
+      isCurrent = false;
+    };
+  }, [showUpdateModal]);
+
+  const togglePlanModule = (
+    portal: PortalOption,
+    module: PlanModule,
+    child?: PlanChildModule,
+    feature?: PlanFeatureItem,
+  ) => {
+    if (!module.moduleId) return;
+
+    setSelectedPlanModules((current) => {
+      const moduleIndex = current.findIndex(
+        (item) =>
+          item.moduleId === module.moduleId && item.portalId === portal._id,
+      );
+      const existingModule = current[moduleIndex];
+
+      if (!child && !feature) {
+        return existingModule
+          ? current.filter((_, index) => index !== moduleIndex)
+          : [
+              ...current,
+              {
+                ...module,
+                portalId: portal._id,
+                portalName: portal.portalName,
+                features: [],
+                children: [],
+              },
+            ];
+      }
+
+      const baseModule: PlanModule = existingModule ?? {
+        ...module,
+        portalId: portal._id,
+        portalName: portal.portalName,
+        features: [],
+        children: [],
+      };
+
+      let updatedModule = baseModule;
+      if (feature && child) {
+        const children = baseModule.children ?? [];
+        const childIndex = children.findIndex(
+          (item) => item.childModuleId === child.childModuleId,
+        );
+        const existingChild = children[childIndex];
+        const baseChild = existingChild ?? {
+          ...child,
+          portalId: portal._id,
+          portalName: portal.portalName,
+          features: [],
+        };
+        const selectedFeatures = baseChild.features ?? [];
+        const featureSelected = selectedFeatures.some(
+          (item) => item.featureId === feature.featureId,
+        );
+        const updatedChild: PlanChildModule = {
+          ...baseChild,
+          features: featureSelected
+            ? selectedFeatures.filter(
+                (item) => item.featureId !== feature.featureId,
+              )
+            : [
+                ...selectedFeatures,
+                {
+                  ...feature,
+                  portalId: portal._id,
+                  portalName: portal.portalName,
+                },
+              ],
+        };
+        updatedModule = {
+          ...baseModule,
+          children:
+            childIndex >= 0
+              ? children.map((item, index) =>
+                  index === childIndex ? updatedChild : item,
+                )
+              : [...children, updatedChild],
+        };
+      } else if (feature) {
+        const selectedFeatures = baseModule.features ?? [];
+        const featureSelected = selectedFeatures.some(
+          (item) => item.featureId === feature.featureId,
+        );
+        updatedModule = {
+          ...baseModule,
+          features: featureSelected
+            ? selectedFeatures.filter(
+                (item) => item.featureId !== feature.featureId,
+              )
+            : [
+                ...selectedFeatures,
+                {
+                  ...feature,
+                  portalId: portal._id,
+                  portalName: portal.portalName,
+                },
+              ],
+        };
+      } else if (child) {
+        const children = baseModule.children ?? [];
+        const childSelected = children.some(
+          (item) => item.childModuleId === child.childModuleId,
+        );
+        updatedModule = {
+          ...baseModule,
+          children: childSelected
+            ? children.filter(
+                (item) => item.childModuleId !== child.childModuleId,
+              )
+            : [
+                ...children,
+                {
+                  ...child,
+                  portalId: portal._id,
+                  portalName: portal.portalName,
+                  features: [],
+                },
+              ],
+        };
+      }
+
+      return moduleIndex >= 0
+        ? current.map((item, index) =>
+            index === moduleIndex ? updatedModule : item,
+          )
+        : [...current, updatedModule];
+    });
+  };
+
   const getPlanById = async (planId: string) => {
     try {
       const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
 
       const plan = res.data.data;
-
-      // Backend's `planStatus` field is actually the display tag (MOST_POPULAR/
-      // NEW/FEATURED) and `status` is Active/Inactive — map them to the local
-      // fields the "Plan Tag" and "Status" dropdowns actually read from.
-      const normalizedFeatures: Record<string, string[]> = Object.fromEntries(
-        Object.entries(plan.features || {}).map(([role, modules]) => [
-          roleLabelMap[role] || role,
-          modules as string[],
-        ]),
+      setSelectedPlanModules(
+        Array.isArray(plan.modules) ? plan.modules : [],
       );
 
       setFormData({
@@ -374,8 +798,9 @@ const PlansTable = () => {
         userLimit: plan.userLimit || 0,
         storageLimit: plan.storageLimit || 0,
         gstAndTax: plan.gstAndTax || 18,
-        allowedRoles: plan.allowedRoles || [],
-        features: normalizedFeatures,
+        allowedRoles: Array.isArray(plan.allowedRoles)
+          ? plan.allowedRoles.filter(isAllowedRole)
+          : [],
         canCreateCustomRole: plan.canCreateCustomRole,
         customDomain: plan.customDomain,
         backup: plan.backup,
@@ -650,18 +1075,7 @@ const PlansTable = () => {
       return;
     }
 
-    const rolesFromFeatures = Object.keys(formData.features || {})
-      .filter((role) => (formData.features[role] || []).length > 0)
-      .map((role) => roleCodeMap[role] || role.toUpperCase());
-
-    const allowedRoles =
-      rolesFromFeatures.length > 0 ? rolesFromFeatures : formData.allowedRoles;
-
-    const featuresForPayload = Object.fromEntries(
-      Object.entries(formData.features || {})
-        .filter(([, modules]) => (modules || []).length > 0)
-        .map(([role, modules]) => [roleCodeMap[role] || role.toUpperCase(), modules]),
-    );
+    const allowedRoles = formData.allowedRoles;
 
     // Pricing is already saved per-row via handlePricingRowBlur — only resend the
     // billingPeriods array here if every row has a real id, so a still-loading /
@@ -698,9 +1112,9 @@ const PlansTable = () => {
       totalPrice: Number(selectedPlan.totalPrice ?? 0),
 
       allowedRoles,
-      features: featuresForPayload,
+      modules: selectedPlanModules,
 
-      canCreateCustomRole: allowedRoles.includes("ADMIN"),
+      canCreateCustomRole: Boolean(formData.canCreateCustomRole),
 
       lastUpdatedBy: "SUPER_ADMIN",
     };
@@ -752,23 +1166,23 @@ const PlansTable = () => {
   return (
     <div className="w-full">
       {/* Title */}
-      <h2 className="mb-0 text-[22px] p-2 font-semibold text-[#1F2A44]">
+      <h2 className="mb-0 text-[22px] p-2 font-semibold text-[#1F2A44] dark:text-white">
         Plan
       </h2>
 
       {/* Card */}
-      <div className="overflow-hidden rounded-lg border border-[#E6EAF2] bg-white">
+      <div className="overflow-hidden rounded-lg border border-[#E6EAF2] bg-white text-gray-800 dark:border-[#3F3F3F] dark:bg-[#343434] dark:text-gray-200">
         {/* Top Bar */}
-        <div className="grid grid-cols-3 border-b border-[#E6EAF2]">
+        <div className="grid grid-cols-3 border-b border-[#E6EAF2] dark:border-[#3F3F3F]">
           {/* Search */}
-          <div className="flex h-12 items-center border-r border-[#E6EAF2] px-4">
+          <div className="flex h-12 items-center border-r border-[#E6EAF2] px-4 dark:border-[#3F3F3F]">
             <Search size={17} className="text-[#A5AAB4]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by keyword"
-              className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4]"
+              className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4] dark:text-white dark:placeholder:text-gray-400"
             />
           </div>
 
@@ -778,7 +1192,7 @@ const PlansTable = () => {
               setDraftFilters(appliedFilters);
               setShowFilterPanel(true);
             }}
-            className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50"
+            className="flex h-12 items-center justify-between border-r border-[#E6EAF2] px-4 text-sm text-[#80848E] hover:bg-gray-50 dark:border-[#3F3F3F] dark:text-gray-300 dark:hover:bg-[#3A3A3A]"
           >
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={16} />
@@ -794,7 +1208,7 @@ const PlansTable = () => {
           </button>
 
           {/* Count */}
-          <div className="flex h-12 items-center px-4 text-sm text-[#80848E]">
+          <div className="flex h-12 items-center px-4 text-sm text-[#80848E] dark:text-gray-300">
             Showing {showingStart} - {showingEnd} of {filteredPlans.length}
           </div>
         </div>
@@ -804,9 +1218,9 @@ const PlansTable = () => {
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
-              <tr className="h-10 bg-[#496A96] text-left text-[14px] text-white">
+              <tr className="h-10 bg-[#496A96] text-left text-[14px] text-white dark:bg-[#344563]">
                 <th className="px-4 font-medium">Plan Name</th>
-                <th className="px-4 font-medium">Billing Cycle</th>
+                <th className="px-4 font-medium">Billing Period</th>
                 <th className="px-4 font-medium">Price</th>
                 <th className="px-4 font-medium">Created Date</th>
                 <th className="px-4 font-medium">Features</th>
@@ -819,13 +1233,13 @@ const PlansTable = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center">
+                  <td colSpan={8} className="p-8 text-center text-gray-700 dark:text-gray-200">
                     Loading...
                   </td>
                 </tr>
               ) : filteredPlans.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-[#6B7280]">
+                  <td colSpan={8} className="p-8 text-center text-[#6B7280] dark:text-gray-300">
                     No plans found.
                   </td>
                 </tr>
@@ -874,7 +1288,7 @@ const PlansTable = () => {
                               [rowKey]: e.target.value,
                             }))
                           }
-                          className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC]"
+                          className="h-7 rounded border border-[#E5E7EB] bg-white px-2 text-[11px] text-[#344054] outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                         >
                           {billingPeriods.map((bp: any, bpIndex: number) => (
                             <option
@@ -901,15 +1315,21 @@ const PlansTable = () => {
                         : item.monthlyPrice ?? 0}
                     </td>
 
-                    <td className="px-4 text-[#4D74AE]">
+                    <td className="px-4 text-[#4D74AE] dark:text-[#9CB8E0]">
                       {formatTableDate(item.createdDate)}
                     </td>
 
                     <td className="px-4">
-                      {Object.values(item.features || {}).flat().length}
+                      {featureCountByPlan[item.planId] ??
+                        getPlanFeatureCount(item)}
                     </td>
 
-                    <td className="px-4">{item.subscribedTenants || 0}</td>
+                    <td className="px-4">
+                      {subscribedTenantCountByPlan[item._id] ??
+                        subscribedTenantCountByPlan[item.planId] ??
+                        item.subscribedTenants ??
+                        0}
+                    </td>
 
                     <td className="px-4">
                       <span
@@ -924,7 +1344,7 @@ const PlansTable = () => {
                     <td className="px-4 py-4 relative">
                       <div className="flex justify-center">
                         <button
-                          className="rounded-md p-1 hover:bg-gray-100"
+                          className="rounded-md p-1 hover:bg-gray-100 dark:hover:bg-[#444]"
                           onClick={() =>
                             setOpenMenu(openMenu === index ? null : index)
                           }
@@ -933,9 +1353,9 @@ const PlansTable = () => {
                         </button>
 
                         {openMenu === index && (
-                          <div className="absolute right-4 top-12 z-50 w-36 bg-white rounded-lg shadow-lg border">
+                          <div className="absolute right-4 top-12 z-50 w-36 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-[#4A4A4A] dark:bg-[#343434] dark:text-gray-100">
                             <button
-                              className="w-full border-b text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              className="w-full border-b border-gray-200 px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-[#4A4A4A] dark:hover:bg-[#444]"
                               onClick={() => {
                                 handleViewPlan(item.planId);
                                 setSelectedPlan(item);
@@ -947,7 +1367,7 @@ const PlansTable = () => {
                             </button>
 
                             <button
-                              className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100"
+                              className="w-full px-4 py-2 text-left text-xs hover:bg-gray-100 dark:hover:bg-[#444]"
                               onClick={() => {
                                 setSelectedPlan(item);
                                 setShowUpdateModal(true);
@@ -970,17 +1390,17 @@ const PlansTable = () => {
       </div>
       {showFilterPanel && (
         <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-[360px] overflow-hidden rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-5 py-4">
+          <div className="w-full max-w-[360px] overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl dark:bg-[#343434] dark:text-white">
+            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-5 py-4 dark:border-[#4A4A4A]">
               <div>
-                <h3 className="text-lg font-semibold font-sans text-[#111827]">
+                <h3 className="text-lg font-semibold font-sans text-[#111827] dark:text-white">
                   Filter by
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowFilterPanel(false)}
-                className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100"
+                className="rounded-md p-2 text-[#6B7280] hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#444]"
               >
                 <X size={18} />
               </button>
@@ -989,7 +1409,7 @@ const PlansTable = () => {
             <div className="space-y-4 p-5">
               <div className="grid gap-4 md:grid-cols-1">
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Plan Name
                   </label>
                   <input
@@ -1002,13 +1422,13 @@ const PlansTable = () => {
                       }))
                     }
                     placeholder="Search plan name"
-                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
-                    Billing Cycle
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
+                    Billing Period
                   </label>
                   <select
                     value={draftFilters.billingCycle}
@@ -1018,7 +1438,7 @@ const PlansTable = () => {
                         billingCycle: e.target.value,
                       }))
                     }
-                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">All</option>
                     {billingOptions.map((option) => (
@@ -1032,7 +1452,7 @@ const PlansTable = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Status
                   </label>
                   <select
@@ -1043,7 +1463,7 @@ const PlansTable = () => {
                         status: e.target.value,
                       }))
                     }
-                    className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                    className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option value="All">All</option>
                     {statusOptions.map((option) => (
@@ -1055,7 +1475,7 @@ const PlansTable = () => {
                 </div>
 
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Created From
                   </label>
                   <div className="relative">
@@ -1068,7 +1488,7 @@ const PlansTable = () => {
                           fromDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                      className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
                 </div>
@@ -1076,7 +1496,7 @@ const PlansTable = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 text-sm font-medium text-[#101828]">
+                  <label className="mb-2 text-sm font-medium text-[#101828] dark:text-gray-200">
                     Created To
                   </label>
                   <div className="relative">
@@ -1089,18 +1509,18 @@ const PlansTable = () => {
                           toDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded border border-[#d5d5d5] px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500"
+                      className="h-8 w-full rounded border border-[#d5d5d5] bg-white px-3 text-xs outline-none focus:border-indigo-500 focus:ring-indigo-500 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] px-5 py-4 bg-[#F9FAFB]">
+            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] bg-[#F9FAFB] px-5 py-4 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]">
               <button
                 type="button"
                 onClick={() => setDraftFilters(INITIAL_FILTERS)}
-                className="rounded-md border border-[#d5d5d5] px-4 py-2 text-xs text-[#4B5563] hover:bg-gray-50"
+                className="rounded-md border border-[#d5d5d5] px-4 py-2 text-xs text-[#4B5563] hover:bg-gray-50 dark:border-[#555] dark:text-gray-200 dark:hover:bg-[#3A3A3A]"
               >
                 Reset
               </button>
@@ -1124,12 +1544,12 @@ const PlansTable = () => {
           type="button"
           onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={currentPageSafe === 1}
-          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#3A3A3A]"
         >
           <ChevronLeft size={18} />
         </button>
 
-        <div className="flex h-8 min-w-[44px] items-center justify-center rounded border border-[#496A96] bg-white px-3 text-sm font-medium text-[#496A96]">
+        <div className="flex h-8 min-w-[44px] items-center justify-center rounded border border-[#496A96] bg-white px-3 text-sm font-medium text-[#496A96] dark:bg-[#343434] dark:text-[#AFC2E4]">
           {currentPageSafe} / {totalPages}
         </div>
 
@@ -1139,7 +1559,7 @@ const PlansTable = () => {
             setCurrentPage((prev) => Math.min(prev + 1, totalPages))
           }
           disabled={currentPageSafe === totalPages}
-          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#3A3A3A]"
         >
           <ChevronRight size={18} />
         </button>
@@ -1149,18 +1569,18 @@ const PlansTable = () => {
       {showModal && selectedPlan && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-5">
           {/* Modal */}
-          <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden">
+          <div className="relative w-full max-w-4xl overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl dark:bg-[#343434] dark:text-gray-100">
             {/* Header */}
-            <div className="flex items-start justify-between px-5 py-4 border-b">
+            <div className="flex items-start justify-between border-b border-gray-200 px-5 py-4 dark:border-[#4A4A4A]">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#1F2937]">
+                <h2 className="text-[15px] font-semibold text-[#1F2937] dark:text-white">
                   Plan Details
                 </h2>
               </div>
 
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-700 transition"
+                className="text-gray-400 transition hover:text-gray-700 dark:hover:text-white"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1179,11 +1599,11 @@ const PlansTable = () => {
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] max-h-[85vh]">
+            <div className="max-h-[85vh] overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] dark:scrollbar-track-[#343434]">
               {/* Top Plan Card */}
               <div className="flex justify-between items-start mb-5">
                 <div className="flex gap-4">
-                  <div className="w-20 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                  <div className="flex h-16 w-20 items-center justify-center rounded-2xl bg-indigo-100 dark:bg-[#41466A]">
                     <Image
                       src="/assets/images/plandetails.svg"
                       alt="Plan Details"
@@ -1194,7 +1614,7 @@ const PlansTable = () => {
 
                   <div>
                     <div className="flex items-center gap-3 justify-between">
-                      <h3 className="text-lg font-semibold">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {selectedPlan.planName}
                       </h3>
 
@@ -1210,7 +1630,7 @@ ${
                       </span>
                     </div>
 
-                    <p className="text-gray-700 text-xs mt-1 font-medium">
+                    <p className="mt-1 text-xs font-medium text-gray-700 dark:text-gray-300">
                       Our most powerful subscription plan designed for large
                       organizations with advanced features, higher resource
                       limits and priority support.
@@ -1253,10 +1673,10 @@ ${
 
                   ["Created By", selectedPlan.createdBy],
                 ].map(([title, value]) => (
-                  <div key={title} className="bg-[#EEF1FF] rounded-md p-3">
-                    <p className="text-xs text-[#010E30]">{title}</p>
+                  <div key={title} className="rounded-md bg-[#EEF1FF] p-3 dark:bg-[#2C3344]">
+                    <p className="text-xs text-[#010E30] dark:text-gray-200">{title}</p>
 
-                    <p className="font-medium text-[#010e30a5] mt-1 text-[11px]">
+                    <p className="mt-1 text-[11px] font-medium text-[#010e30a5] dark:text-gray-300">
                       {value}
                     </p>
                   </div>
@@ -1296,7 +1716,7 @@ ${
 
                 {/* Statistics */}
 
-                <div className="border rounded-xl p-3">
+                <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                   <h4 className="font-medium text-base mb-2">
                     Plan Statistics
                   </h4>
@@ -1311,11 +1731,11 @@ ${
                     ["GST / Tax", `${selectedPlan.gstAndTax}%`],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-[5px]">
-                      <span className="text-[#010e30] text-[14px] font-normal">
+                      <span className="text-[14px] font-normal text-[#010e30] dark:text-gray-300">
                         {k}
                       </span>
 
-                      <span className="font-light text-[14px] text-[#010e30]">
+                      <span className="text-[14px] font-light text-[#010e30] dark:text-gray-200">
                         {v}
                       </span>
                     </div>
@@ -1326,9 +1746,9 @@ ${
               {/* Limits + Modules */}
 
               <div className="grid lg:grid-cols-2 gap-5 mb-5">
-                <div className="border rounded-xl p-3">
+                <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                   <h4 className="font-medium text-base mb-2">Plan Limits</h4>
-                  <div className="max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2">
+                  <div className="max-h-[180px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] dark:scrollbar-track-[#343434]">
                     {[
                       ["Maximum Students", selectedPlan.studentLimit],
 
@@ -1347,10 +1767,10 @@ ${
                       ["Domain", selectedPlan.domain || "-"],
                     ].map(([k, v]) => (
                       <div key={k} className="flex justify-between py-2">
-                        <span className="text-[#010e30] text-[14px] font-normal">
+                        <span className="text-[14px] font-normal text-[#010e30] dark:text-gray-300">
                           {k}
                         </span>
-                        <span className="font-light text-[14px] text-[#010e30]">
+                        <span className="text-[14px] font-light text-[#010e30] dark:text-gray-200">
                           {v}
                         </span>
                       </div>
@@ -1358,12 +1778,12 @@ ${
                   </div>
                 </div>
 
-                <div className="border rounded-xl p-3">
+                <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                   <h4 className="font-medium text-base mb-4">
                     Included Modules
                   </h4>
 
-                  <div className="grid grid-cols-2 gap-y-3 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] pr-2 text-[#010e30] text-[14px] font-normal">
+                  <div className="grid max-h-[180px] grid-cols-2 gap-y-3 overflow-y-auto pr-2 text-[14px] font-normal text-[#010e30] scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] dark:text-gray-200 dark:scrollbar-track-[#343434]">
                     {modules.map((item: string) => (
                       <div key={item}>{item}</div>
                     ))}
@@ -1373,7 +1793,7 @@ ${
 
               {/* Timeline */}
 
-              <div className="border rounded-xl p-3">
+              <div className="rounded-xl border border-gray-200 p-3 dark:border-[#4A4A4A]">
                 <h4 className="font-medium text-base mb-3">Timeline</h4>
 
                 {[
@@ -1404,11 +1824,11 @@ ${
                   ["Last Updated By", selectedPlan.lastUpdatedBy || "-"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between py-2">
-                    <span className="text-[#010e30] text-[14px] font-normal">
+                    <span className="text-[14px] font-normal text-[#010e30] dark:text-gray-300">
                       {k}
                     </span>
 
-                    <span className="font-light text-[13px] text-[#010e30]">
+                    <span className="text-[13px] font-light text-[#010e30] dark:text-gray-200">
                       {v}
                     </span>
                   </div>
@@ -1421,13 +1841,13 @@ ${
 
       {showUpdateModal && selectedPlan && (
         <div className="fixed inset-0 z-[9999] rounded-lg flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-lg border-2 border-[#3B82F6] bg-[#FBFDFF] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-3">
-              <h2 className="text-lg font-semibold text-[#1F2A44]">Update Plan</h2>
+          <div className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-lg border-2 border-[#3B82F6] bg-[#FBFDFF] text-gray-900 shadow-2xl dark:bg-[#2C2C2C] dark:text-gray-100">
+            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-3 dark:border-[#4A4A4A]">
+              <h2 className="text-lg font-semibold text-[#1F2A44] dark:text-white">Update Plan</h2>
 
               <button
                 onClick={() => setShowUpdateModal(false)}
-                className="rounded-md p-1 text-[#667085] transition hover:bg-gray-100"
+                className="rounded-md p-1 text-[#667085] transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#444]"
                 type="button"
               >
                 <X size={18} />
@@ -1435,14 +1855,14 @@ ${
             </div>
 
             <div className="space-y-4 px-4 py-3">
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                   Basic Information
                 </h3>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Plan Name
                     </label>
                     <input
@@ -1454,12 +1874,12 @@ ${
                           planName: e.target.value,
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Plan Tag
                     </label>
                     <select
@@ -1470,7 +1890,7 @@ ${
                           planTag: e.target.value,
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     >
                       <option>Most Popular</option>
                       <option>Growing</option>
@@ -1480,7 +1900,7 @@ ${
                 </div>
 
                 <div className="mt-4">
-                  <label className="mb-1 block text-xs font-medium text-[#344054]">
+                  <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                     Description
                   </label>
                   <textarea
@@ -1492,20 +1912,20 @@ ${
                         planDescription: e.target.value,
                       })
                     }
-                    className="w-full rounded border border-[#D0D5DD] p-3 text-xs outline-none focus:border-[#576CBC]"
+                    className="w-full rounded border border-[#D0D5DD] bg-white p-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     placeholder="Short explanation about the plan and its features."
                   />
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                   Plan Limits
                 </h3>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Students
                     </label>
                     <input
@@ -1517,12 +1937,12 @@ ${
                           studentLimit: Number(e.target.value),
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-[#344054]">
+                    <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                       Users
                     </label>
                     <input
@@ -1534,13 +1954,13 @@ ${
                           userLimit: Number(e.target.value),
                         })
                       }
-                      className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                      className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     />
                   </div>
 
                   <div className="flex items-end gap-8 md:col-span-2 lg:col-span-2">
                     <div className="flex flex-col">
-                      <span className="mb-2 text-xs font-medium text-[#344054]">
+                      <span className="mb-2 text-xs font-medium text-[#344054] dark:text-gray-300">
                         Custom Domain
                       </span>
                       <ToggleSwitch
@@ -1555,7 +1975,7 @@ ${
                     </div>
 
                     <div className="flex flex-col">
-                      <span className="mb-2 text-xs font-medium text-[#344054]">
+                      <span className="mb-2 text-xs font-medium text-[#344054] dark:text-gray-300">
                         Backup
                       </span>
                       <ToggleSwitch
@@ -1572,9 +1992,9 @@ ${
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-[15px] font-semibold text-[#1F2A44]">
+                  <h3 className="text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                     Pricing Configuration
                   </h3>
                   <button
@@ -1586,7 +2006,7 @@ ${
                   </button>
                 </div>
 
-                <div className="overflow-x-auto rounded border border-[#E6EAF2]">
+                <div className="overflow-x-auto rounded border border-[#E6EAF2] dark:border-[#4A4A4A]">
                   <table className="min-w-full text-[11px]">
                     <thead className="bg-[#576CBC] text-white">
                       <tr>
@@ -1609,7 +2029,7 @@ ${
                         return (
                           <tr
                             key={row.billingPeriodId ?? row.period}
-                            className="border-t border-[#EEF2F7] text-[#344054]"
+                            className="border-t border-[#EEF2F7] text-[#344054] dark:border-[#4A4A4A] dark:text-gray-200"
                           >
                             <td className="px-3 py-2">{String(row.period)}</td>
                             <td className="px-3 py-2">
@@ -1631,7 +2051,7 @@ ${
                                   )
                                 }
                                 onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
-                                className="h-7 w-[88px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 disabled:bg-[#F1F3F7]"
+                                className="h-7 w-[88px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 disabled:bg-[#F1F3F7] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white dark:disabled:bg-[#383838]"
                               />
                             </td>
                             <td className="px-3 py-2">
@@ -1649,7 +2069,7 @@ ${
                                   )
                                 }
                                 onBlur={() => handlePricingRowBlur(row.billingPeriodId)}
-                                className="h-7 w-[72px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2"
+                                className="h-7 w-[72px] rounded border border-[#D0D5DD] bg-[#F8FAFC] px-2 dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                               />
                             </td>
                             <td className="px-3 py-2">₹{gst.toFixed(2)}</td>
@@ -1662,7 +2082,7 @@ ${
                 </div>
 
                 <div className="mt-4">
-                  <label className="mb-1 block text-xs font-medium text-[#344054]">
+                  <label className="mb-1 block text-xs font-medium text-[#344054] dark:text-gray-300">
                     GST / Tax
                   </label>
                   <input
@@ -1674,90 +2094,217 @@ ${
                         gstAndTax: Number(e.target.value),
                       })
                     }
-                    className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                    className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-[15px] font-semibold text-[#1F2A44]">
+                  <h3 className="text-[15px] font-semibold text-[#1F2A44] dark:text-white">
                     Included Modules & Features
                   </h3>
-                  <button
-                    type="button"
-                    className="rounded border border-[#C9D3F9] bg-[#EEF2FF] px-3 py-1 text-[11px] font-medium text-[#3D56A8]"
-                  >
-                    Add
-                  </button>
                 </div>
 
-                <div className="mb-4 flex gap-3">
-                  {roleTabs.map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setActiveRoleTab(role)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                        activeRoleTab === role
-                          ? "bg-[#E5EDFF] text-[#3D56A8]"
-                          : "text-[#475467] hover:bg-[#F2F4F7]"
-                      }`}
-                    >
-                      {role}
-                    </button>
-                  ))}
+                <div className="mb-5">
+                  <p className="mb-2 text-xs font-medium text-[#344054] dark:text-gray-300">
+                    Allowed Portals
+                  </p>
+                  {isLoadingModuleCatalog ? (
+                    <p className="text-xs text-[#667085] dark:text-gray-400">Loading portal catalog...</p>
+                  ) : portalOptions.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      {portalOptions.map((portal) => {
+                        const isChecked = formData.allowedRoles.some(
+                          (role) => role.portalId === portal._id,
+                        );
+
+                        return (
+                          <label
+                            key={portal._id}
+                            className="flex cursor-pointer items-center gap-2 text-[13px] text-[#344054] dark:text-gray-300"
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-3.5 w-3.5 accent-[#576CBC]"
+                              checked={isChecked}
+                              onChange={(event) => {
+                                setFormData((current) => ({
+                                  ...current,
+                                  allowedRoles: event.target.checked
+                                    ? [
+                                        ...current.allowedRoles,
+                                        {
+                                          portalId: portal._id,
+                                          portalName: portal.portalName,
+                                        },
+                                      ]
+                                    : current.allowedRoles.filter(
+                                        (role) => role.portalId !== portal._id,
+                                      ),
+                                }));
+                                if (!event.target.checked) {
+                                  setSelectedPlanModules((current) =>
+                                    current.filter(
+                                      (module) => module.portalId !== portal._id,
+                                    ),
+                                  );
+                                }
+                              }}
+                            />
+                            {portal.portalName}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[#667085] dark:text-gray-400">No portals found.</p>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 text-[13px] text-[#1F2A44] md:grid-cols-2">
-                  {[
-                    "Student Management",
-                    "Staff Management",
-                    "Attendance",
-                    "Fees Management",
-                    "Examination",
-                    "Transport Management",
-                    "Library Management",
-                    "Hostel Management",
-                    "HR & Payroll",
-                    "Performance Analytics",
-                  ].map((item) => (
-                    <label
-                      key={item}
-                      className="flex cursor-pointer items-center gap-2"
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 accent-[#576CBC]"
-                        checked={activeRoleModules.includes(item) || selectedModules.includes(item)}
-                        onChange={(e) => {
-                          let modules = [...activeRoleModules];
+                <div className="space-y-4">
+                  {formData.allowedRoles.map((allowedRole) => {
+                    const portal = portalOptions.find(
+                      (item) => item._id === allowedRole.portalId,
+                    );
+                    if (!portal) return null;
 
-                          if (e.target.checked) {
-                            modules.push(item);
-                          } else {
-                            modules = modules.filter((m) => m !== item);
-                          }
+                    const portalModules = getModulesForPortal(
+                      portal,
+                      featureCatalog,
+                    );
 
-                          setFormData((prev) => ({
-                            ...prev,
-                            features: {
-                              ...prev.features,
-                              [activeRoleTab]: modules,
-                            },
-                          }));
-                        }}
-                      />
-                      {item}
-                    </label>
-                  ))}
+                    return (
+                      <section
+                        key={portal._id}
+                        className="rounded border border-[#E6EAF2] bg-[#F8FAFC] p-3 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]"
+                      >
+                        <h4 className="mb-3 text-xs font-semibold text-[#344054] dark:text-gray-200">
+                          {portal.portalName}
+                        </h4>
+                        {portalModules.length > 0 ? (
+                          <div className="space-y-3">
+                            {portalModules.map((module) => {
+                              const selectedModule = selectedPlanModules.find(
+                                (item) =>
+                                  item.portalId === portal._id &&
+                                  item.moduleId === module.moduleId,
+                              );
+
+                              return (
+                                <div
+                                  key={`${portal._id}-${module.moduleId}`}
+                                  className="rounded border border-[#E6EAF2] bg-white p-3 dark:border-[#4A4A4A] dark:bg-[#343434]"
+                                >
+                                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#1F2A44] dark:text-gray-200">
+                                    <input
+                                      type="checkbox"
+                                      className="h-3.5 w-3.5 accent-[#576CBC]"
+                                      checked={Boolean(selectedModule)}
+                                      onChange={() =>
+                                        togglePlanModule(portal, module)
+                                      }
+                                    />
+                                    {module.moduleName}
+                                  </label>
+
+                                  {module.features?.map((feature) => (
+                                    <label
+                                      key={feature.featureId}
+                                      className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#475467] dark:text-gray-300"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="h-3.5 w-3.5 accent-[#576CBC]"
+                                        checked={Boolean(
+                                          selectedModule?.features?.some(
+                                            (item) =>
+                                              item.featureId === feature.featureId,
+                                          ),
+                                        )}
+                                        onChange={() =>
+                                          togglePlanModule(portal, module, undefined, feature)
+                                        }
+                                      />
+                                      {feature.featureName}
+                                    </label>
+                                  ))}
+
+                                  {module.children?.map((child) => {
+                                    const selectedChild = selectedModule?.children?.find(
+                                      (item) =>
+                                        item.childModuleId === child.childModuleId,
+                                    );
+
+                                    return (
+                                      <div
+                                        key={child.childModuleId}
+                                        className="ml-6 mt-3 border-l border-[#D0D5DD] pl-3 dark:border-[#555]"
+                                      >
+                                        <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-[#344054] dark:text-gray-300">
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 accent-[#576CBC]"
+                                            checked={Boolean(selectedChild)}
+                                            onChange={() =>
+                                              togglePlanModule(portal, module, child)
+                                            }
+                                          />
+                                          {child.childModuleName}
+                                        </label>
+                                        {child.features?.map((feature) => (
+                                          <label
+                                            key={feature.featureId}
+                                            className="ml-6 mt-2 flex cursor-pointer items-center gap-2 text-xs text-[#667085] dark:text-gray-400"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              className="h-3.5 w-3.5 accent-[#576CBC]"
+                                              checked={Boolean(
+                                                selectedChild?.features?.some(
+                                                  (item) =>
+                                                    item.featureId === feature.featureId,
+                                                ),
+                                              )}
+                                              onChange={() =>
+                                                togglePlanModule(
+                                                  portal,
+                                                  module,
+                                                  child,
+                                                  feature,
+                                                )
+                                              }
+                                            />
+                                            {feature.featureName}
+                                          </label>
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[#667085] dark:text-gray-400">
+                            No active modules or features for this portal.
+                          </p>
+                        )}
+                      </section>
+                    );
+                  })}
+                  {formData.allowedRoles.length === 0 && (
+                    <p className="text-xs text-[#667085] dark:text-gray-400">
+                      Select a portal to choose its modules and features.
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="rounded-md border border-[#E5EAF3] bg-white p-4">
-                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44]">Status</h3>
+              <div className="rounded-md border border-[#E5EAF3] bg-white p-4 dark:border-[#4A4A4A] dark:bg-[#343434]">
+                <h3 className="mb-3 text-[15px] font-semibold text-[#1F2A44] dark:text-white">Status</h3>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-[140px_1fr] md:items-center">
-                  <label className="text-xs font-medium text-[#344054]">Plan Status</label>
+                  <label className="text-xs font-medium text-[#344054] dark:text-gray-300">Plan Status</label>
                   <select
                     value={formData.planStatus}
                     onChange={(e) =>
@@ -1766,7 +2313,7 @@ ${
                         planStatus: e.target.value,
                       })
                     }
-                    className="h-8 w-full rounded border border-[#D0D5DD] px-3 text-xs outline-none focus:border-[#576CBC]"
+                    className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                   >
                     <option>Active</option>
                     <option>Inactive</option>
@@ -1775,7 +2322,7 @@ ${
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] bg-[#F8FAFC] px-5 py-3">
+            <div className="flex items-center justify-end gap-3 border-t border-[#E6EAF2] bg-[#F8FAFC] px-5 py-3 dark:border-[#4A4A4A] dark:bg-[#2C2C2C]">
               <button
                 type="button"
                 onClick={() => {
@@ -1783,7 +2330,7 @@ ${
                     getPlanById(selectedPlan.planId);
                   }
                 }}
-                className="rounded border border-[#D0D5DD] bg-white px-4 py-1.5 text-xs font-medium text-[#475467]"
+                className="rounded border border-[#D0D5DD] bg-white px-4 py-1.5 text-xs font-medium text-[#475467] dark:border-[#555] dark:bg-[#343434] dark:text-gray-200"
               >
                 Reset
               </button>
@@ -1803,15 +2350,15 @@ ${
 
       {showAddBillingPeriodModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-5">
-          <div className="bg-white rounded-xl w-full max-w-sm shadow-xl p-5">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 text-gray-900 shadow-xl dark:bg-[#343434] dark:text-gray-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-[#010E30]">
+              <h3 className="text-base font-semibold text-[#010E30] dark:text-white">
                 Add Custom Billing Period
               </h3>
 
               <button
                 onClick={handleCancelAddBillingPeriod}
-                className="flex h-7 w-7 items-center justify-center text-gray-500 transition hover:bg-gray-100 hover:text-black rounded-md"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-black dark:text-gray-300 dark:hover:bg-[#444] dark:hover:text-white"
                 type="button"
               >
                 <X size={15} />
@@ -1820,7 +2367,7 @@ ${
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-[#010E30] font-medium mb-2">
+                <label className="mb-2 block text-sm font-medium text-[#010E30] dark:text-gray-200">
                   Billing Period
                 </label>
 
@@ -1834,7 +2381,7 @@ ${
                     }))
                   }
                   placeholder="Monthly"
-                  className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                  className="h-8 w-full rounded-sm border border-[#D4D4D4] px-2 text-xs outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white dark:placeholder:text-gray-400"
                 />
 
                 {billingPeriodFormErrors.billingPeriod && (
@@ -1845,7 +2392,7 @@ ${
               </div>
 
               <div>
-                <label className="block text-sm text-[#010E30] font-medium mb-2">
+                <label className="mb-2 block text-sm font-medium text-[#010E30] dark:text-gray-200">
                   Duration
                 </label>
 
@@ -1860,7 +2407,7 @@ ${
                     }))
                   }
                   placeholder="1"
-                  className="w-full h-8 text-xs rounded-sm border border-[#D4D4D4] px-2 outline-none focus:border-[#576CBC] placeholder:text-[#343e59]"
+                  className="h-8 w-full rounded-sm border border-[#D4D4D4] px-2 text-xs outline-none focus:border-[#576CBC] placeholder:text-[#343e59] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white dark:placeholder:text-gray-400"
                 />
 
                 {billingPeriodFormErrors.duration && (
@@ -1874,7 +2421,7 @@ ${
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={handleCancelAddBillingPeriod}
-                className="border border-gray-300 hover:bg-gray-50 px-4 text-xs py-2 rounded-md"
+                className="rounded-md border border-gray-300 px-4 py-2 text-xs hover:bg-gray-50 dark:border-[#555] dark:hover:bg-[#444]"
                 type="button"
               >
                 Cancel

@@ -71,7 +71,7 @@ export default function Tabs({ activeTab, onTabChange }: TabsProps) {
                 className={`
               whitespace-nowrap
               py-1
-              text-sm sm:text-base
+              text-sm sm:text-sm
               font-medium
               transition-colors
               border-b-[2.5px]

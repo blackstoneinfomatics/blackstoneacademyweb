@@ -7,16 +7,28 @@ import StatsCard from "../../../../components/StatsCard";
 import { FaClipboardCheck } from "react-icons/fa6";
 import { LuIndianRupee } from "react-icons/lu";
 
-// Define API response interface
+type TrendDirection = "up" | "down" | "same";
+
+interface FinanceMetric {
+  value: number;
+  comparison: number;
+  direction: TrendDirection;
+}
+
 interface FinanceCountApiResponse {
   success: boolean;
   message: string;
   data: {
     cards: {
-      totalRevenue: { value: number; percentageChange: number; trend: "UP" | "DOWN" };
-      collected: { value: number; percentageChange: number; trend: "UP" | "DOWN" };
-      pending: { value: number; percentageChange: number; trend: "UP" | "DOWN" };
-      refunded: { value: number; percentageChange: number; trend: "UP" | "DOWN" };
+      totalRevenue: FinanceMetric;
+      collected: FinanceMetric;
+      pending: FinanceMetric;
+      refunded: FinanceMetric;
+    };
+    summary: {
+      totalCollectionRate: FinanceMetric;
+      totalOverdueRate: FinanceMetric;
+      netRevenue: FinanceMetric;
     };
   };
 }
@@ -31,10 +43,10 @@ const AnalyticsOverviewCard = () => {
   });
   
   const [trends, setTrends] = useState({
-    totalRevenue: { isPositive: true, percentage: 0 },
-    collected: { isPositive: true, percentage: 0 },
-    pending: { isPositive: true, percentage: 0 },
-    refunded: { isPositive: true, percentage: 0 },
+    totalRevenue: { isPositive: true, isNeutral: false, percentage: 0 },
+    collected: { isPositive: true, isNeutral: false, percentage: 0 },
+    pending: { isPositive: true, isNeutral: false, percentage: 0 },
+    refunded: { isPositive: true, isNeutral: false, percentage: 0 },
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -60,20 +72,24 @@ const AnalyticsOverviewCard = () => {
 
           setTrends({
             totalRevenue: {
-              isPositive: apiData.totalRevenue.trend === "UP",
-              percentage: apiData.totalRevenue.percentageChange,
+              isPositive: apiData.totalRevenue.direction === "up",
+              isNeutral: apiData.totalRevenue.direction === "same",
+              percentage: apiData.totalRevenue.comparison,
             },
             collected: {
-              isPositive: apiData.collected.trend === "UP",
-              percentage: apiData.collected.percentageChange,
+              isPositive: apiData.collected.direction === "up",
+              isNeutral: apiData.collected.direction === "same",
+              percentage: apiData.collected.comparison,
             },
             pending: {
-              isPositive: apiData.pending.trend === "UP",
-              percentage: apiData.pending.percentageChange,
+              isPositive: apiData.pending.direction === "up",
+              isNeutral: apiData.pending.direction === "same",
+              percentage: apiData.pending.comparison,
             },
             refunded: {
-              isPositive: apiData.refunded.trend === "UP",
-              percentage: apiData.refunded.percentageChange,
+              isPositive: apiData.refunded.direction === "up",
+              isNeutral: apiData.refunded.direction === "same",
+              percentage: apiData.refunded.comparison,
             },
           });
         }
@@ -98,8 +114,13 @@ const AnalyticsOverviewCard = () => {
       titleColor: "text-[#5225FC]",
       trendValue: `${Math.abs(trends.totalRevenue.percentage)}%`,
       trendLabel: "vs last Month",
-      trendColor: trends.totalRevenue.isPositive ? "text-[#377E36]" : "text-[#D34645]",
+      trendColor: trends.totalRevenue.isNeutral
+        ? "text-gray-500"
+        : trends.totalRevenue.isPositive
+          ? "text-[#377E36]"
+          : "text-[#D34645]",
       isPositive: trends.totalRevenue.isPositive,
+      isNeutral: trends.totalRevenue.isNeutral,
     },
     {
       title: "Collected",
@@ -110,8 +131,13 @@ const AnalyticsOverviewCard = () => {
       titleColor: "text-[#40BD5F]",
       trendValue: `${Math.abs(trends.collected.percentage)}%`,
       trendLabel: "vs last Month",
-      trendColor: trends.collected.isPositive ? "text-[#377E36]" : "text-[#D34645]",
+      trendColor: trends.collected.isNeutral
+        ? "text-gray-500"
+        : trends.collected.isPositive
+          ? "text-[#377E36]"
+          : "text-[#D34645]",
       isPositive: trends.collected.isPositive,
+      isNeutral: trends.collected.isNeutral,
     },
     {
       title: "Pending",
@@ -122,8 +148,13 @@ const AnalyticsOverviewCard = () => {
       titleColor: "text-[#F59E0B]",
       trendValue: `${Math.abs(trends.pending.percentage)}%`,
       trendLabel: "vs last Month",
-      trendColor: trends.pending.isPositive ? "text-[#377E36]" : "text-[#D34645]",
+      trendColor: trends.pending.isNeutral
+        ? "text-gray-500"
+        : trends.pending.isPositive
+          ? "text-[#377E36]"
+          : "text-[#D34645]",
       isPositive: trends.pending.isPositive,
+      isNeutral: trends.pending.isNeutral,
     },
     {
       title: "Refunded",
@@ -134,8 +165,13 @@ const AnalyticsOverviewCard = () => {
       titleColor: "text-[#D34645]",
       trendValue: `${Math.abs(trends.refunded.percentage)}%`,
       trendLabel: "vs last Month",
-      trendColor: trends.refunded.isPositive ? "text-[#377E36]" : "text-[#D34645]",
+      trendColor: trends.refunded.isNeutral
+        ? "text-gray-500"
+        : trends.refunded.isPositive
+          ? "text-[#377E36]"
+          : "text-[#D34645]",
       isPositive: trends.refunded.isPositive,
+      isNeutral: trends.refunded.isNeutral,
     },
   ];
 
@@ -153,6 +189,7 @@ const AnalyticsOverviewCard = () => {
             value={card.value}
             percentage={card.percentage}
             isPositive={card.isPositive}
+            isNeutral={card.isNeutral}
             icon={card.icon}
             image={card.image}
             iconBg={card.iconBg}

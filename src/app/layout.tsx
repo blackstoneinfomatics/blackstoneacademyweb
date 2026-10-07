@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import ApiSetupInitializer from "@/app/_components/ApiSetupInitializer";
 import "../styles/globals.css";
 import ToastProvider from "@/app/_components/ToastProvider";
+import RouteChangeLoader from "./_components/RouteChangeLoader";
 const poppins = Poppins({
   subsets: ["latin"],
   display: "swap",
@@ -24,6 +25,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={poppins.className} suppressHydrationWarning>
+        <RouteChangeLoader />
+
         <ApiSetupInitializer />
         <ThemeProvider>
           <GoogleOAuthProvider clientId="808839308794-3eomcaalqhd64m3c0i2vn2m2jd35i6uv.apps.googleusercontent.com">

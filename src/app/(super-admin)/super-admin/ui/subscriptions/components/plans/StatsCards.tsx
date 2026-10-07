@@ -41,7 +41,7 @@ const StatsCards = () => {
       title: "Total Plans",
       value: dashboard.totalPlans,
       icon: TbBrandDatabricks,
-      iconBg: "bg-[#E5DFFD]",
+      iconBg: "bg-[#E5DFFD] dark:bg-[#493D70]",
       iconColor: "text-[#5225FC]",
       titleColor: "text-[#5225FC]",
       trend: "All Subscription Plans",
@@ -50,7 +50,7 @@ const StatsCards = () => {
       title: "Active Plan",
       value: dashboard.activePlans,
       icon: FaCircleCheck,
-      iconBg: "bg-[#E3F4E7]",
+      iconBg: "bg-[#E3F4E7] dark:bg-[#294A32]",
       iconColor: "text-[#40BD5F]",
       titleColor: "text-[#40BD5F]",
       trend: "Currently Active Plans",
@@ -59,7 +59,7 @@ const StatsCards = () => {
       title: "Total Tenants",
       value: dashboard.totalTenants,
       icon: Users,
-      iconBg: "bg-[#DEEEFD]",
+      iconBg: "bg-[#DEEEFD] dark:bg-[#244665]",
       iconColor: "text-[#1E92F8]",
       titleColor: "text-[#1E92F8]",
       trend: "Subscribed Tenants",
@@ -68,7 +68,7 @@ const StatsCards = () => {
       title: "Monthly Revenue",
       value: `₹${dashboard.monthlyRevenue.toLocaleString()}`,
       icon: IoWalletOutline,
-      iconBg: "bg-[#FCF0DC]",
+      iconBg: "bg-[#FCF0DC] dark:bg-[#594522]",
       iconColor: "text-[#F59E0B]",
       titleColor: "text-[#F59E0B]",
       trend: "vs Last Month",
@@ -81,7 +81,7 @@ const StatsCards = () => {
         {[1, 2, 3, 4].map((item) => (
           <div
             key={item}
-            className="h-36 rounded-2xl bg-gray-100 animate-pulse"
+            className="h-36 rounded-2xl bg-gray-100 dark:bg-[#343434] animate-pulse"
           />
         ))}
       </div>
@@ -96,7 +96,7 @@ const StatsCards = () => {
         return (
           <div
             key={index}
-            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] rounded-2xl px-4 py-3 shadow-lg"
+            className="bg-gradient-to-b from-[#ffffff] to-[#F6F6FF] dark:from-[#343434] dark:to-[#343434] rounded-2xl px-4 py-3 shadow-lg"
           >
             <div className="flex items-start gap-4">
               <div
@@ -110,13 +110,13 @@ const StatsCards = () => {
                   {card.title}
                 </p>
 
-                <h2 className="text-[25px] font-semibold text-gray-800">
+                <h2 className="text-[25px] font-semibold text-gray-800 dark:text-white">
                   {card.value}
                 </h2>
               </div>
             </div>
 
-            <p className="text-sm mt-3 ml-[70px] text-[#646464]">
+            <p className="text-sm mt-3 ml-[70px] text-[#646464] dark:text-gray-300">
               {card.trend}
             </p>
           </div>

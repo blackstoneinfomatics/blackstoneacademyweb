@@ -13,6 +13,9 @@ import AddTenantFeatureForm, {
   type TenantParentModuleOption,
   type TenantPortalOption,
 } from "../component/AddTenantFeatureForm";
+import FilterDrawer, {
+  type FilterField,
+} from "../../../components/FilterDrawer";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
@@ -40,6 +43,7 @@ interface ModuleListRow {
   order: number | string;
   description: string;
   addOn: string;
+  addOnDateValue: string;
   status: "Enable" | "Disable";
   isEnabled: boolean;
 }
@@ -53,6 +57,7 @@ interface FeatureListRow {
   childModule: string;
   description: string;
   addOn: string;
+  addOnDateValue: string;
   status: "Enable" | "Disable";
   isEnabled: boolean;
 }
@@ -66,6 +71,35 @@ const formatDate = (value?: string) =>
       })
     : "-";
 
+const isDateInRange = (
+  value: string,
+  from?: Date | string | null,
+  to?: Date | string | null,
+) => {
+  if (!from && !to) return true;
+
+  const itemDate = value ? new Date(value) : null;
+  const fromDate = from ? new Date(from) : null;
+  const toDate = to ? new Date(to) : null;
+
+  if (
+    !itemDate ||
+    Number.isNaN(itemDate.getTime()) ||
+    (fromDate && Number.isNaN(fromDate.getTime())) ||
+    (toDate && Number.isNaN(toDate.getTime()))
+  ) {
+    return false;
+  }
+
+  if (fromDate) fromDate.setHours(0, 0, 0, 0);
+  if (toDate) toDate.setHours(23, 59, 59, 999);
+
+  return (
+    (!fromDate || itemDate >= fromDate) &&
+    (!toDate || itemDate <= toDate)
+  );
+};
+
 /* Flattens tenant modules -> one row per parent module + one row per child module */
 const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
   const rows: ModuleListRow[] = [];
@@ -78,6 +112,7 @@ const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
       order: module.orderNo,
       description: module.description || "-",
       addOn: formatDate(module.createdAt),
+      addOnDateValue: module.createdAt || "",
       status: module.isEnabled ? "Enable" : "Disable",
       isEnabled: module.isEnabled,
     });
@@ -90,6 +125,7 @@ const buildModuleRows = (modules: TenantModule[]): ModuleListRow[] => {
         order: "-",
         description: child.description || "-",
         addOn: formatDate(child.createdAt),
+        addOnDateValue: child.createdAt || "",
         status: child.isEnabled ? "Enable" : "Disable",
         isEnabled: child.isEnabled,
       });
@@ -112,6 +148,7 @@ const buildFeatureRows = (modules: TenantModule[]): FeatureListRow[] => {
         childModule: "-",
         description: feature.description || "-",
         addOn: formatDate(feature.createdAt),
+        addOnDateValue: feature.createdAt || "",
         status: feature.isEnabled ? "Enable" : "Disable",
         isEnabled: feature.isEnabled,
       });
@@ -127,6 +164,7 @@ const buildFeatureRows = (modules: TenantModule[]): FeatureListRow[] => {
           childModule: child.childModuleName,
           description: feature.description || "-",
           addOn: formatDate(feature.createdAt),
+          addOnDateValue: feature.createdAt || "",
           status: feature.isEnabled ? "Enable" : "Disable",
           isEnabled: feature.isEnabled,
         });
@@ -179,6 +217,28 @@ interface TenantPortalListItem {
   portalName: string;
 }
 
+interface TenantConfigurationItem {
+  tenantId: string;
+  portalName: string;
+  modules: TenantModule[];
+  createdAt?: string;
+}
+
+interface TenantRecord {
+  tenantCode?: string;
+  tenantJobCode?: string;
+  tenantId?: string;
+  tenantName?: string;
+  organizationName?: string;
+  tenantLogo?: string | null;
+  domainName?: string | null;
+  emailId?: string;
+  phoneNumber?: string;
+  mobileNumber?: string;
+  plan?: string;
+  status?: string;
+}
+
 interface TenantDetails {
   tenantCode: string;
   tenantName: string;
@@ -214,7 +274,11 @@ const Usercards = () => {
   } | null>(null);
   const [activeTab, setActiveTab] = useState<"module" | "feature">("module");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [portalPage, setPortalPage] = useState(1);
   const [togglingModuleKey, setTogglingModuleKey] = useState<string | null>(
     null,
   );
@@ -255,6 +319,20 @@ const Usercards = () => {
   const [subscriptionDetails, setSubscriptionDetails] =
     useState<SubscriptionDetails | null>(null);
   const [configCreatedAt, setConfigCreatedAt] = useState<string | null>(null);
+  const portalTotalPages = Math.max(
+    1,
+    Math.ceil(portalOptions.length / PAGE_LIMIT),
+  );
+  const safePortalPage = Math.min(portalPage, portalTotalPages);
+  const pagedPortalOptions = paginate(
+    portalOptions,
+    safePortalPage,
+    PAGE_LIMIT,
+  );
+
+  useEffect(() => {
+    setPortalPage(1);
+  }, [tenantId]);
 
   /* ====== FORM STATE ====== */
   const [formData, setFormData] = useState<FormData>({
@@ -270,6 +348,17 @@ const Usercards = () => {
     description: "",
     status: "Active",
   });
+
+  useEffect(() => {
+    const selectedPortalIndex = portalOptions.findIndex(
+      (option) => option.id === formData.portal,
+    );
+    setPortalPage(
+      selectedPortalIndex === -1
+        ? 1
+        : Math.floor(selectedPortalIndex / PAGE_LIMIT) + 1,
+    );
+  }, [formData.portal, portalOptions]);
 
   const parentModuleOptions: TenantParentModuleOption[] = tenantModules.map(
     (module) => ({
@@ -342,6 +431,9 @@ const Usercards = () => {
 
   useEffect(() => {
     setSearchTerm("");
+    setFilterValues({});
+    setAppliedFilters({});
+    setShowFilter(false);
     setOpenMenu(null);
     setCurrentPage(1);
   }, [activeTab]);
@@ -393,28 +485,31 @@ const Usercards = () => {
 
         if (response.data.success) {
           const items: TenantPortalListItem[] = response.data.data?.items ?? [];
-
-          // Only keep the tenant's portals that have modules configured
-          // (a tenantPortalConfig exists for this tenant + portal).
-          const configured = await Promise.all(
-            items.map(async (item) => {
-              try {
-                const params = new URLSearchParams({
-                  tenantId,
-                  portalId: item.portalId,
-                });
-                const configResponse = await axios.get(
-                  `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
-                );
-                return configResponse.data.success;
-              } catch {
-                return false;
-              }
-            }),
+          const params = new URLSearchParams({ tenantId });
+          const configResponse = await axios.get<{
+            success: boolean;
+            message: string;
+            data: TenantConfigurationItem[];
+          }>(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
           );
+          if (!configResponse.data.success) {
+            throw new Error(
+              configResponse.data.message || "Failed to load tenant configs",
+            );
+          }
+          const configurations = Array.isArray(configResponse.data.data)
+            ? configResponse.data.data
+            : [];
 
           const options: TenantPortalOption[] = items
-            .filter((_, index) => configured[index])
+            .filter((item) =>
+              configurations.some(
+                (configuration) =>
+                  configuration.portalName.trim().toLowerCase() ===
+                  item.portalName.trim().toLowerCase(),
+              ),
+            )
             .map((item) => ({
               id: item.portalId,
               name: item.portalName,
@@ -426,6 +521,50 @@ const Usercards = () => {
               ? previous.portal
               : options[0]?.id || "",
           }));
+
+          try {
+            const tenantParams = new URLSearchParams({
+              page: "1",
+              limit: "1000",
+            });
+            const tenantResponse = await axios.get(
+              `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}?${tenantParams.toString()}`,
+            );
+            const tenantData = tenantResponse.data;
+            const tenants: TenantRecord[] = Array.isArray(tenantData?.tenants)
+              ? tenantData.tenants
+              : Array.isArray(tenantData?.data?.tenants)
+                ? tenantData.data.tenants
+                : Array.isArray(tenantData?.data?.items)
+                  ? tenantData.data.items
+                  : Array.isArray(tenantData?.data)
+                    ? tenantData.data
+                    : [];
+            const tenant = tenants.find(
+              (item) =>
+                (item.tenantCode || item.tenantJobCode || item.tenantId)
+                  ?.trim()
+                  .toLowerCase() === tenantId.trim().toLowerCase(),
+            );
+            if (tenant) {
+              setTenantDetails({
+                tenantCode:
+                  tenant.tenantCode || tenant.tenantJobCode || tenantId,
+                tenantName:
+                  tenant.tenantName || tenant.organizationName || "Tenant",
+                tenantLogo: tenant.tenantLogo ?? null,
+                domainName: tenant.domainName ?? null,
+                organizationName: tenant.organizationName ?? null,
+                emailId: tenant.emailId || "",
+                phoneNumber: tenant.phoneNumber || "",
+                mobileNumber: tenant.mobileNumber || "",
+                plan: tenant.plan || "",
+                status: tenant.status || "",
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching tenant details:", error);
+          }
         }
       } catch (error) {
         console.error("Error fetching tenant portal list:", error);
@@ -436,43 +575,55 @@ const Usercards = () => {
     loadTenantPortals();
   }, [tenantId]);
 
-  /* ====== LOAD TENANT CONFIG (modules, tenant details, subscription details) ====== */
+  /* ====== LOAD TENANT CONFIG FOR THE SELECTED PORTAL ====== */
   const loadTenantModules = async () => {
     if (!tenantId || !formData.portal) {
       setTenantModules([]);
       return;
     }
 
+    const selectedPortal = portalOptions.find(
+      (portal) => portal.id === formData.portal,
+    );
+    if (!selectedPortal) {
+      setTenantModules([]);
+      return;
+    }
+
     try {
-      const params = new URLSearchParams({
-        tenantId,
-        portalId: formData.portal,
-      });
-      const response = await axios.get(
+      const params = new URLSearchParams({ tenantId });
+      const response = await axios.get<{
+        success: boolean;
+        message: string;
+        data: TenantConfigurationItem[];
+      }>(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
       );
-
       if (!response.data.success) {
-        // Not every module/portal combination has a tenantPortalConfig yet -
-        // just show an empty module/feature list for this portal, keep
-        // showing the tenant's own details (name, plan, domain, ...) as-is.
-        setTenantModules([]);
-        return;
+        throw new Error(
+          response.data.message || "Failed to load tenant configuration",
+        );
       }
 
-      const data = response.data.data;
-      const modules: TenantModule[] = data?.modules ?? [];
+      const configurations = Array.isArray(response.data.data)
+        ? response.data.data
+        : [];
+      const configuration = configurations.find(
+        (item) =>
+          item.portalName.trim().toLowerCase() ===
+          selectedPortal.name.trim().toLowerCase(),
+      );
+      const modules = configuration?.modules ?? [];
 
       setTenantModules(modules);
-      setTenantDetails(data?.tenantDetails ?? null);
-      setSubscriptionDetails(data?.subscriptionDetails ?? null);
-      setConfigCreatedAt(data?.createdAt ?? null);
+      setSubscriptionDetails(null);
+      setConfigCreatedAt(configuration?.createdAt ?? null);
       setFormData((previous) => ({
         ...previous,
         parentNavigation: modules[0]?.moduleId || "",
         parentModule: modules[0]?.moduleId || "",
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching tenant config:", error);
       setTenantModules([]);
     }
@@ -481,7 +632,7 @@ const Usercards = () => {
   useEffect(() => {
     loadTenantModules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, formData.portal]);
+  }, [tenantId, formData.portal, portalOptions]);
 
   /* ====== TENANT PARENT/CHILD MODULE + FEATURE ENABLE-DISABLE (in-place, independent updates) ====== */
   const setModuleEnabled = (moduleId: string, isEnabled: boolean) => {
@@ -953,17 +1104,123 @@ const Usercards = () => {
   const featureListCount = featureRows.length;
 
   const filteredModules = moduleRows.filter(
-    (item) =>
-      item.moduleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.childModule.toLowerCase().includes(searchTerm.toLowerCase()),
+    (item) => {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        [
+          item.moduleName,
+          item.childModule,
+          String(item.order),
+          item.description,
+          item.addOn,
+          item.status,
+        ].some((value) => value.toLowerCase().includes(term));
+      const matchesText = (value: string, key: string) =>
+        !appliedFilters[key] ||
+        value.toLowerCase().includes(String(appliedFilters[key]).toLowerCase());
+      const matchesDate = isDateInRange(
+        item.addOnDateValue,
+        appliedFilters.addOnDateFrom,
+        appliedFilters.addOnDateTo,
+      );
+
+      return (
+        matchesSearch &&
+        matchesText(item.moduleName, "parentModule") &&
+        matchesText(item.childModule, "childModule") &&
+        matchesText(String(item.order), "order") &&
+        matchesText(item.description, "description") &&
+        (!appliedFilters.status || item.status === appliedFilters.status) &&
+        matchesDate
+      );
+    },
   );
 
   const filteredFeatures = featureRows.filter(
-    (item) =>
-      item.featureName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.parentModule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.childModule.toLowerCase().includes(searchTerm.toLowerCase()),
+    (item) => {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        [
+          item.featureName,
+          item.parentModule,
+          item.childModule,
+          item.description,
+          item.addOn,
+          item.status,
+        ].some((value) => value.toLowerCase().includes(term));
+      const matchesText = (value: string, key: string) =>
+        !appliedFilters[key] ||
+        value.toLowerCase().includes(String(appliedFilters[key]).toLowerCase());
+      const matchesDate = isDateInRange(
+        item.addOnDateValue,
+        appliedFilters.addOnDateFrom,
+        appliedFilters.addOnDateTo,
+      );
+
+      return (
+        matchesSearch &&
+        matchesText(item.parentModule, "parentModule") &&
+        matchesText(item.childModule, "childModule") &&
+        matchesText(item.description, "description") &&
+        (!appliedFilters.status || item.status === appliedFilters.status) &&
+        matchesDate
+      );
+    },
   );
+
+  const filterFields: FilterField[] = [
+    {
+      key: "parentModule",
+      label: "Parent Module",
+      type: "text",
+      placeholder: "All parent modules",
+    },
+    {
+      key: "childModule",
+      label: "Child Module",
+      type: "text",
+      placeholder: "All child modules",
+    },
+    ...(activeTab === "module"
+      ? [
+          {
+            key: "order",
+            label: "Order",
+            type: "text" as const,
+            placeholder: "Any order",
+          },
+        ]
+      : []),
+    {
+      key: "description",
+      label: "Description",
+      type: "text",
+      placeholder: "Any description",
+    },
+    {
+      key: "addOnDate",
+      label: "Add on",
+      type: "dateRange",
+    },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      placeholder: "All statuses",
+      options: [
+        { label: "Enable", value: "Enable" },
+        { label: "Disable", value: "Disable" },
+      ],
+    },
+  ];
+
+  const resetFilters = () => {
+    setFilterValues({});
+    setAppliedFilters({});
+    setCurrentPage(1);
+  };
 
   /* ================= PAGINATION ================= */
   const activeRowCount =
@@ -1281,7 +1538,7 @@ const Usercards = () => {
                   {tenantId ? "No portals configured" : "No tenant selected"}
                 </span>
               ) : (
-                portalOptions.map((option) => (
+                pagedPortalOptions.map((option) => (
                   <button
                     key={option.id}
                     onClick={() =>
@@ -1307,6 +1564,67 @@ const Usercards = () => {
                 ))
               )}
             </div>
+            {portalOptions.length > 0 && (
+              <div className="mt-3 border-t border-[#E7EAF3] pt-3 dark:border-gray-700">
+                <p className="mb-2 px-2 text-[10px] text-gray-500 dark:text-gray-400">
+                  Showing {pagedPortalOptions.length} of {portalOptions.length}
+                </p>
+                <div className="flex items-center justify-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPortalPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={safePortalPage === 1}
+                    aria-label="Previous portal page"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F5F5F2] text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-[#3A3A3A] dark:text-gray-300"
+                  >
+                    ‹
+                  </button>
+                  {getPageNumbers(safePortalPage, portalTotalPages).map(
+                    (page, index) =>
+                      page === "..." ? (
+                        <span
+                          key={`portal-ellipsis-${index}`}
+                          className="flex h-7 w-5 items-center justify-center text-[10px] text-gray-400"
+                        >
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setPortalPage(page)}
+                          aria-label={`Portal page ${page}`}
+                          aria-current={
+                            page === safePortalPage ? "page" : undefined
+                          }
+                          className={`h-7 min-w-7 rounded-md border px-1 text-[10px] ${
+                            page === safePortalPage
+                              ? "border-[#203F78] bg-[#FAFAFB] text-[#203F78] dark:border-[#8296E6] dark:bg-[#3A3A3A] dark:text-[#8296E6]"
+                              : "border-[#E6E7EA] bg-[#F5F5F2] text-gray-500 dark:border-gray-600 dark:bg-[#3A3A3A] dark:text-gray-300"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ),
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPortalPage((page) =>
+                        Math.min(portalTotalPages, page + 1),
+                      )
+                    }
+                    disabled={safePortalPage === portalTotalPages}
+                    aria-label="Next portal page"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#F5F5F2] text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-[#3A3A3A] dark:text-gray-300"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 bg-white dark:bg-[#343434] rounded-xl border border-[#E4E8EF] dark:border-gray-700 overflow-hidden">
@@ -1351,13 +1669,20 @@ const Usercards = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between px-3 h-10 border-r border-[#E7EAF3] dark:border-gray-700 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setShowFilter(true)}
+                className="flex items-center justify-between px-3 h-10 border-r border-[#E7EAF3] dark:border-gray-700 cursor-pointer"
+              >
                 <div className="flex items-center">
-                  <MdTune className="text-gray-400 mr-2 text-[16px]" />
-                  <span className="text-[12px] text-gray-500">Filter</span>
+                  <MdTune className="mr-2 text-[16px] text-gray-400" />
+                  <span className="text-[12px] text-gray-500">
+                    Filter
+                    {Object.values(appliedFilters).some(Boolean) ? " •" : ""}
+                  </span>
                 </div>
                 <FiChevronDown className="text-gray-400 text-[14px]" />
-              </div>
+              </button>
 
               <div className="flex items-center px-4 h-10">
                 <span className="text-[12px] text-gray-500">
@@ -1365,6 +1690,22 @@ const Usercards = () => {
                 </span>
               </div>
             </div>
+
+            <FilterDrawer
+              open={showFilter}
+              title={`Filter ${activeTab === "module" ? "Modules" : "Features"}`}
+              fields={filterFields}
+              values={filterValues}
+              resultCount={activeTab === "module" ? filteredModules.length : filteredFeatures.length}
+              onClose={() => setShowFilter(false)}
+              onApply={(values) => {
+                setFilterValues(values);
+                setAppliedFilters(values);
+                setCurrentPage(1);
+                setShowFilter(false);
+              }}
+              onReset={resetFilters}
+            />
 
             <div className="overflow-x-auto">
               {activeTab === "module" ? (

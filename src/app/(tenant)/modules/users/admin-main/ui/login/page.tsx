@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import CryptoJS from "crypto-js";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -12,6 +13,8 @@ import axios from "axios";
 import { AlertCircle, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+
+const secretKey = "my-secret-key";
 
 export interface RoleModuleAccess {
   read: boolean;
@@ -133,10 +136,14 @@ const SignIn: React.FC = () => {
   }, [error]);
 
   const signIn = async (username: string, password: string) => {
-    return axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.ADMIN_LOGIN}`, {
+    const encrypted = CryptoJS.AES.encrypt(password, secretKey).toString();
+    console.log("Admin login: submitting encrypted password");
+    const response = await axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.LOGIN}`, {
       username,
-      password,
+      password: encrypted,
     });
+    console.log("Admin login response status:", response.status);
+    return response;
   };
 
   const fetchrolebasedaccesscontrol = async (id: string, token: string, role?: string) => {
@@ -354,7 +361,6 @@ const SignIn: React.FC = () => {
               width={150}
               height={160}
               priority
-              style={{ height: 'auto' }}
               className='justify-left ml-0 sm:ml-[38px] mt-4 sm:mt-5 p-0'
             />
           </div>

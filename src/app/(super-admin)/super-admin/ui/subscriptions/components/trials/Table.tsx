@@ -211,7 +211,33 @@ const createEditFormFromTrial = (item: TrialItem | null): TrialEditForm => ({
   status: item?.status || "",
 });
 
+/**
+ * Compare original vs form and return an object containing ONLY the changed
+ * fields. Returns null if nothing changed.
+ */
+const buildChangedPayload = (
+  original: TrialItem | null,
+  form: TrialEditForm,
+): { status?: string; trialEndDate?: string } | null => {
+  if (!original) return null;
 
+  const payload: { status?: string; trialEndDate?: string } = {};
+
+  const originalStatus = (original.status || "").trim();
+  const formStatus = (form.status || "").trim();
+  const originalEndDate = toDateInputValue(original.trialEndDate);
+  const formEndDate = form.trialEndDate || "";
+
+  if (originalStatus !== formStatus) {
+    payload.status = formStatus;
+  }
+
+  if (originalEndDate !== formEndDate) {
+    payload.trialEndDate = formEndDate;
+  }
+
+  return Object.keys(payload).length > 0 ? payload : null;
+};
 
 const Table = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -263,14 +289,12 @@ const Table = () => {
   const showingStart = filteredItems.length === 0 ? 0 : startIndex + 1;
 
   useEffect(() => {
-   
     setCurrentPage(1);
     setOpenMenu(null);
   }, [search, appliedFilters]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
-      
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
@@ -307,13 +331,11 @@ const Table = () => {
   }, [showTrialModal, selectedTrial]);
 
   const handleResetEdit = () => {
-  
     setEditForm(createEditFormFromTrial(selectedTrial));
   };
 
   const handleSaveTrial = async () => {
     const trialIdentifier = getTrialIdentifier(selectedTrial);
-   
 
     if (!trialIdentifier) {
       toast.error("Trial id is missing.");
@@ -330,8 +352,16 @@ const Table = () => {
       editForm.trialEndDate &&
       new Date(editForm.trialEndDate) < new Date(editForm.trialStartDate)
     ) {
-     
       toast.error("Trial end date cannot be before trial start date.");
+      return;
+    }
+
+    // Build the payload from ONLY the fields that actually changed
+    const changedFields = buildChangedPayload(selectedTrial, editForm);
+
+    if (!changedFields) {
+      toast.info("No changes to save.");
+      setShowTrialModal(false);
       return;
     }
 
@@ -342,17 +372,15 @@ const Table = () => {
         typeof window !== "undefined"
           ? localStorage.getItem("SuperAdminAuthToken")
           : null;
-      
 
       const headers = token
         ? {
-            Authorization: `Bearer ${token}`,
-          }
+          Authorization: `Bearer ${token}`,
+        }
         : undefined;
 
       const payload = {
-        status: editForm.status,
-        trialEndDate: editForm.trialEndDate || undefined,
+        ...changedFields,
         updatedBy: "system",
       };
 
@@ -361,14 +389,11 @@ const Table = () => {
 
       try {
         response = await axios.put(updateUrl, payload, { headers });
-      
       } catch (error: any) {
         const statusCode = error?.response?.status;
-       
 
         if (statusCode === 404 || statusCode === 405) {
           response = await axios.put(updateUrl, payload, { headers });
-         
         } else {
           throw error;
         }
@@ -403,11 +428,9 @@ const Table = () => {
           getTrialIdentifier(item) === updatedId ? nextTrial : item,
         ),
       );
-      
 
       setSelectedTrial(nextTrial);
       setShowTrialModal(false);
-      
       toast.success("Trial updated successfully.");
     } catch (error: any) {
       const message =
@@ -592,11 +615,10 @@ const Table = () => {
           <button
             key={page}
             onClick={() => setCurrentPage(page)}
-            className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${
-              currentPageSafe === page
-                ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
-                : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
-            }`}
+            className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${currentPageSafe === page
+              ? "border-[#496A96] bg-white text-[#496A96] dark:bg-[#343434]"
+              : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
+              }`}
           >
             {page}
           </button>

@@ -10,7 +10,7 @@ import OrganizationHeader, { OrganizationTab } from "../../components/Organizati
 const Page = () => {
   const [tab, setTab] = useState<OrganizationTab>("All");
   return (
-    <BaseSuperLayout>
+    <>
       <SuperAdminHeader currentSection="Analytics" />
       <div>
         <OrganizationHeader
@@ -33,7 +33,7 @@ const Page = () => {
         <AnalyticsSection />
         <BottomSection />
       </div>
-    </BaseSuperLayout>
+    </>
   );
 };
 

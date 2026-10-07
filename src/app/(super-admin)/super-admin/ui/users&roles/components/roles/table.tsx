@@ -52,6 +52,12 @@ interface TableProps {
   onPortalCreated?: () => void;
 }
 
+const EMPTY_FILTERS: PortalListFilterValues = {
+  portalName: "",
+  portalType: "",
+  status: "",
+};
+
 const Table = forwardRef<TableHandle, TableProps>(
   ({ onPortalCreated }, ref) => {
     const [openMenu, setOpenMenu] = useState<number | null>(null);
@@ -74,6 +80,10 @@ const Table = forwardRef<TableHandle, TableProps>(
     const openMenuRef = useRef<HTMLTableCellElement | null>(null);
     const router = useRouter();
 
+    // Keep a client-side cache of ALL portals so search + filter can
+    // work across every field (the API only supports a few query params).
+    const allPortalsRef = useRef<PortalItem[]>([]);
+
     const fetchDashboardStats = async () => {
       try {
         const response = await axios.get(
@@ -88,6 +98,79 @@ const Table = forwardRef<TableHandle, TableProps>(
       }
     };
 
+    // Load the full list once, then filter locally
+    const loadAllPortals = async () => {
+      try {
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}?page=1&limit=1000`,
+        );
+
+        if (response.data.success) {
+          allPortalsRef.current = response.data.data.items ?? [];
+        }
+      } catch (error) {
+        console.error("Error loading all portals:", error);
+        allPortalsRef.current = [];
+      }
+    };
+
+    const applyFiltersAndPaginate = (
+      page: number = 1,
+      search: string = searchTerm,
+      portalType: string = portalTypeFilter,
+      status: string = statusFilter,
+    ) => {
+      const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+      const term = norm(search);
+      const typeTerm = norm(portalType);
+      const statusTerm = norm(status);
+
+      const filtered = allPortalsRef.current.filter((item) => {
+        // Search across all visible fields
+        const haystack = [
+          item.portalName,
+          item.portalType,
+          item.roleType,
+          item.description,
+          item.status,
+          item.portalId,
+          item._id,
+          item.createdAt,
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        const matchesSearch = !term || haystack.includes(term);
+        const matchesType = !typeTerm || norm(item.portalType) === typeTerm;
+        const matchesStatus =
+          !statusTerm || norm(item.status) === statusTerm;
+
+        return matchesSearch && matchesType && matchesStatus;
+      });
+
+      const pageSize = 5;
+      const computedTotalPages = Math.max(
+        1,
+        Math.ceil(filtered.length / pageSize),
+      );
+      const safePage = Math.min(Math.max(page, 1), computedTotalPages);
+      const startIdx = (safePage - 1) * pageSize;
+      const pageItems = filtered.slice(startIdx, startIdx + pageSize);
+
+      setPortalItems(pageItems);
+      setTotalRecords(filtered.length);
+      setTotalPages(computedTotalPages);
+      setCurrentPage(safePage);
+      setPagination({
+        page: safePage,
+        limit: pageSize,
+        totalRecords: filtered.length,
+        totalPages: computedTotalPages,
+        hasNext: safePage < computedTotalPages,
+        hasPrevious: safePage > 1,
+      });
+    };
+
     const fetchPortalList = async (
       page: number = 1,
       search: string = searchTerm,
@@ -96,37 +179,13 @@ const Table = forwardRef<TableHandle, TableProps>(
     ) => {
       try {
         setLoading(true);
-        const params = new URLSearchParams({
-          page: String(page),
-          limit: "5",
-        });
 
-        if (search.trim()) params.set("search", search.trim());
-        if (portalType.trim()) {
-          params.set("portalType", portalType.trim().toUpperCase());
+        // Refresh cache only on first call / explicit refresh
+        if (allPortalsRef.current.length === 0) {
+          await loadAllPortals();
         }
-        if (status.trim()) params.set("status", status.trim().toUpperCase());
 
-        const response = await axios.get(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}?${params.toString()}`,
-        );
-
-        if (response.data.success) {
-          const items = response.data.data.items ?? [];
-          const normalizedPortalType = portalType.trim().toUpperCase();
-          const filteredItems = normalizedPortalType
-            ? items.filter(
-                (item: PortalItem) =>
-                  item.portalType?.toUpperCase() === normalizedPortalType,
-              )
-            : items;
-
-          setPortalItems(filteredItems);
-          setPagination(response.data.data.pagination);
-          setTotalPages(response.data.data.pagination.totalPages);
-          setTotalRecords(response.data.data.pagination.totalRecords);
-          setCurrentPage(response.data.data.pagination.page);
-        }
+        applyFiltersAndPaginate(page, search, portalType, status);
       } catch (error) {
         console.error("Error fetching portal list:", error);
         setPortalItems([]);
@@ -138,7 +197,8 @@ const Table = forwardRef<TableHandle, TableProps>(
     useImperativeHandle(ref, () => ({
       refreshData: () => {
         fetchDashboardStats();
-        fetchPortalList(1, searchTerm, portalTypeFilter, statusFilter);
+        allPortalsRef.current = [];
+        fetchPortalList(1, "", "", "");
       },
     }));
 
@@ -148,15 +208,20 @@ const Table = forwardRef<TableHandle, TableProps>(
     }, []);
 
     const handleSearch = () => {
-      fetchPortalList(1, searchTerm, portalTypeFilter, statusFilter);
+      applyFiltersAndPaginate(1, searchTerm, portalTypeFilter, statusFilter);
     };
 
     const handleFilterApply = (values: PortalListFilterValues) => {
-      setSearchTerm(values.portalName);
-      setPortalTypeFilter(values.portalType);
-      setStatusFilter(values.status);
+      setSearchTerm("");
+      setPortalTypeFilter(values.portalType || "");
+      setStatusFilter(values.status || "");
       setShowFilterForm(false);
-      fetchPortalList(1, values.portalName, values.portalType, values.status);
+      applyFiltersAndPaginate(
+        1,
+        "",
+        values.portalType || "",
+        values.status || "",
+      );
     };
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -167,7 +232,12 @@ const Table = forwardRef<TableHandle, TableProps>(
 
     const handlePageChange = (page: number) => {
       if (page >= 1 && page <= totalPages) {
-        fetchPortalList(page, searchTerm, portalTypeFilter, statusFilter);
+        applyFiltersAndPaginate(
+          page,
+          searchTerm,
+          portalTypeFilter,
+          statusFilter,
+        );
       }
     };
 
@@ -210,7 +280,6 @@ const Table = forwardRef<TableHandle, TableProps>(
 
     return (
       <div className="min-h-screen bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
-        {/* Main Container */}
         <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
           {showFilterForm && (
             <PortalListFilterForm
@@ -249,30 +318,9 @@ const Table = forwardRef<TableHandle, TableProps>(
             </div>
 
             {/* Active Portal */}
-            <div
-              className="
-              bg-white
-              dark:bg-[#343434]
-              rounded-xl
-              shadow-[0_4px_15px_rgba(0,0,0,0.06)]
-              px-4
-              py-4
-              min-h-[102px]
-            "
-            >
+            <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.06)] px-4 py-4 min-h-[102px]">
               <div className="flex items-start gap-3">
-                <div
-                  className="
-                  w-11
-                  h-11
-                  rounded-full
-                  bg-[#E4F7EA]
-                  flex
-                  items-center
-                  justify-center
-                  shrink-0
-                "
-                >
+                <div className="w-11 h-11 rounded-full bg-[#E4F7EA] flex items-center justify-center shrink-0">
                   <MdCheckCircle className="text-[#45BD67] text-[23px]" />
                 </div>
 
@@ -295,30 +343,9 @@ const Table = forwardRef<TableHandle, TableProps>(
             </div>
 
             {/* Inactive Portal */}
-            <div
-              className="
-              bg-white
-              dark:bg-[#343434]
-              rounded-xl
-              shadow-[0_4px_15px_rgba(0,0,0,0.06)]
-              px-4
-              py-4
-              min-h-[102px]
-            "
-            >
+            <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.06)] px-4 py-4 min-h-[102px]">
               <div className="flex items-start gap-3">
-                <div
-                  className="
-                  w-11
-                  h-11
-                  rounded-full
-                  bg-[#FCE6E6]
-                  flex
-                  items-center
-                  justify-center
-                  shrink-0
-                "
-                >
+                <div className="w-11 h-11 rounded-full bg-[#FCE6E6] flex items-center justify-center shrink-0">
                   <MdCancel className="text-[#E53935] text-[23px]" />
                 </div>
 
@@ -341,17 +368,7 @@ const Table = forwardRef<TableHandle, TableProps>(
             </div>
           </div>
 
-          <div
-            className="
-            bg-white
-            dark:bg-[#343434]
-            rounded-xl
-            shadow-[0_4px_15px_rgba(0,0,0,0.05)]
-            mt-3
-            overflow-hidden
-            mx-2
-          "
-          >
+          <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] mt-3 overflow-hidden mx-2">
             {/* Section Title */}
             <div className="px-3 pt-3 pb-2">
               <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
@@ -359,42 +376,17 @@ const Table = forwardRef<TableHandle, TableProps>(
               </h2>
             </div>
 
-            <div
-              className="
-              grid
-              grid-cols-1
-              md:grid-cols-3
-              bg-[#FAFAFB]
-              dark:bg-[#2E2E2E]
-            "
-            >
+            <div className="grid grid-cols-1 md:grid-cols-3 bg-[#FAFAFB] dark:bg-[#2E2E2E]">
               {/* Search */}
-              <div
-                className="
-                flex
-                items-center
-                px-3
-                h-10
-                border-r
-                border-[#E7EAF3]
-              "
-              >
+              <div className="flex items-center px-3 h-10 border-r border-[#E7EAF3]">
                 <FiSearch className="text-gray-400 mr-2 text-[15px]" />
 
                 <input
                   placeholder="Search by keyword"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="
-                  w-full
-                  outline-none
-                  bg-transparent
-                  text-[11px]
-                  text-gray-600
-                  dark:text-gray-200
-                  placeholder:text-gray-400
-                "
+                  onKeyDown={handleKeyPress}
+                  className="w-full outline-none bg-transparent text-[11px] text-gray-600 dark:text-gray-200 placeholder:text-gray-400"
                 />
               </div>
 
@@ -423,15 +415,7 @@ const Table = forwardRef<TableHandle, TableProps>(
 
             <div className="overflow-x-auto">
               <table className="w-full min-w-[750px] text-xs border-collapse">
-                {/* Table Header */}
-                <thead
-                  className="
-                  bg-[#4C6993]
-                  text-white
-                  text-[13px]
-                  dark:bg-[#44699D]
-                "
-                >
+                <thead className="bg-[#4C6993] text-white text-[13px] dark:bg-[#44699D]">
                   <tr>
                     {[
                       "Portal Name",
@@ -442,16 +426,7 @@ const Table = forwardRef<TableHandle, TableProps>(
                     ].map((header) => (
                       <th
                         key={header}
-                        className="
-                        py-3
-                        px-3
-                        whitespace-nowrap
-                        font-medium
-                        text-left
-                        text-[11px]
-                        border-r
-                        border-[#466993]
-                      "
+                        className="py-3 px-3 whitespace-nowrap font-medium text-left text-[11px] border-r border-[#466993]"
                       >
                         {header}
                       </th>
@@ -459,7 +434,6 @@ const Table = forwardRef<TableHandle, TableProps>(
                   </tr>
                 </thead>
 
-                {/* Table Body */}
                 <tbody>
                   {loading ? (
                     <tr>
@@ -471,50 +445,30 @@ const Table = forwardRef<TableHandle, TableProps>(
                     portalItems.map((item, index) => (
                       <tr
                         key={index}
-                        className="
-                        text-[11px]
-                        odd:bg-[#F8F8F8]
-                        even:bg-white
-                        dark:odd:bg-[#2C2C2C]
-                        dark:even:bg-[#303030]
-                      "
+                        className="text-[11px] odd:bg-[#F8F8F8] even:bg-white dark:odd:bg-[#2C2C2C] dark:even:bg-[#303030]"
                       >
-                        {/* Portal Name */}
                         <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
                           {item.portalName}
                         </td>
 
-                        {/* Portal Type */}
                         <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                           {item.portalType.charAt(0).toUpperCase() +
                             item.portalType.slice(1).toLowerCase()}
                         </td>
 
-                        {/* Description */}
                         <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                           {item.description}
                         </td>
 
-                        {/* Status */}
                         <td className="py-3 px-3">
                           <span
-                            className={`
-                            inline-flex
-                            items-center
-                            px-3
-                            py-1
-                            rounded-md
-                            text-[9px]
-                            font-medium
-                            ${getStatusBadgeStyles(item.status)}
-                          `}
+                            className={`inline-flex items-center px-3 py-1 rounded-md text-[9px] font-medium ${getStatusBadgeStyles(item.status)}`}
                           >
                             {item.status.charAt(0).toUpperCase() +
                               item.status.slice(1).toLowerCase()}
                           </span>
                         </td>
 
-                        {/* Created Date */}
                         <td className="py-3 px-3 whitespace-nowrap text-[#24324B] dark:text-gray-200">
                           {formatDate(item.createdAt)}
                         </td>
@@ -533,129 +487,75 @@ const Table = forwardRef<TableHandle, TableProps>(
 
             {/* Pagination */}
             <div className="flex justify-end items-center gap-1 px-3 py-4">
-              {/* Previous */}
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={!pagination?.hasPrevious}
-                className={`
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E5E7EB]
-                flex
-                items-center
-                justify-center
-                text-gray-400
-                bg-[#F5F5F2]
-                ${!pagination?.hasPrevious ? "opacity-50 cursor-not-allowed" : ""}
-              `}
+                className={`w-7 h-7 rounded-md border border-[#E5E7EB] flex items-center justify-center text-gray-400 bg-[#F5F5F2] ${!pagination?.hasPrevious ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
               >
                 <span className="text-[23px] color-[#999FAC]">‹</span>
               </button>
 
-              {/* Page 1 */}
               <button
                 onClick={() => handlePageChange(1)}
-                className={`
-                w-7
-                h-7
-                rounded-md
-                border
-                ${currentPage === 1 ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
-                text-[11px]
-              `}
+                className={`w-7 h-7 rounded-md border ${currentPage === 1
+                  ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]"
+                  : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"
+                  } text-[11px]`}
               >
                 1
               </button>
 
-              {/* Page 2 */}
               {totalPages >= 2 && (
                 <button
                   onClick={() => handlePageChange(2)}
-                  className={`
-                  w-7
-                  h-7
-                  rounded-md
-                  border
-                  ${currentPage === 2 ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
-                  text-[11px]
-                `}
+                  className={`w-7 h-7 rounded-md border ${currentPage === 2
+                    ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]"
+                    : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"
+                    } text-[11px]`}
                 >
                   2
                 </button>
               )}
 
-              {/* Page 3 */}
               {totalPages >= 3 && (
                 <button
                   onClick={() => handlePageChange(3)}
-                  className={`
-                  w-7
-                  h-7
-                  rounded-md
-                  border
-                  ${currentPage === 3 ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
-                  text-[11px]
-                `}
+                  className={`w-7 h-7 rounded-md border ${currentPage === 3
+                    ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]"
+                    : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"
+                    } text-[11px]`}
                 >
                   3
                 </button>
               )}
 
-              {/* Dots */}
               {totalPages > 3 && currentPage < totalPages - 1 && (
                 <button
-                  className="
-                  w-7
-                  h-7
-                  rounded-md
-                  border
-                  border-[#E6E7EA]
-                  text-gray-400
-                  bg-[#F5F5F2]
-                  text-[11px]
-                "
+                  className="w-7 h-7 rounded-md border border-[#E6E7EA] text-gray-400 bg-[#F5F5F2] text-[11px]"
                   disabled
                 >
                   ...
                 </button>
               )}
 
-              {/* Last Page */}
               {totalPages > 3 && (
                 <button
                   onClick={() => handlePageChange(totalPages)}
-                  className={`
-                  w-7
-                  h-7
-                  rounded-md
-                  border
-                  ${currentPage === totalPages ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]" : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"}
-                  text-[11px]
-                `}
+                  className={`w-7 h-7 rounded-md border ${currentPage === totalPages
+                    ? "border-[#203F78] text-[#203F78] bg-[#FAFAFB]"
+                    : "border-[#E6E7EA] text-gray-400 bg-[#F5F5F2]"
+                    } text-[11px]`}
                 >
                   {totalPages}
                 </button>
               )}
 
-              {/* Next */}
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={!pagination?.hasNext}
-                className={`
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E5E7EB]
-                flex
-                items-center
-                justify-center
-                text-gray-400
-                bg-[#F5F5F2]
-                ${!pagination?.hasNext ? "opacity-50 cursor-not-allowed" : ""}
-              `}
+                className={`w-7 h-7 rounded-md border border-[#E5E7EB] flex items-center justify-center text-gray-400 bg-[#F5F5F2] ${!pagination?.hasNext ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
               >
                 <span className="text-[23px] color-[#999FAC]">›</span>
               </button>

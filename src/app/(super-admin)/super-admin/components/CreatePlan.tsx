@@ -17,6 +17,28 @@ type Props = {
   readonly onClose: () => void;
 };
 
+interface PortalOption {
+  _id: string;
+  portalName: string;
+  status: string;
+}
+
+interface AllowedRole {
+  portalId: string;
+  portalName: string;
+}
+
+interface FeatureControlRow {
+  portal: string;
+  parentModuleId: string;
+  parentModuleName: string;
+  childModuleId: string | null;
+  childModuleName: string | null;
+  featureId: string | null;
+  featureName: string | null;
+  status?: string;
+}
+
 interface PlanPayload {
   totalPrice: number;
   planName: string;
@@ -30,8 +52,7 @@ interface PlanPayload {
   setupFee: number;
   trialDays: number;
   gstAndTax: number;
-  allowedRoles: string[];
-  features: Record<string, string[]>;
+  allowedRoles: AllowedRole[];
   canCreateCustomRole: boolean;
   status: string;
   createdBy: string;
@@ -44,117 +65,63 @@ interface BillingPeriod {
   duration: number;
   price?: number;
   discount?: number;
+  discountAmount?: number;
   gstRate?: number;
+  gstAmount?: number;
   taxAmount?: number;
   totalAmount?: number;
 }
 
-// Single source of truth for GST + Total calculation across the billing-period table.
+// GST is calculated on the undiscounted plan price.
 const calculateBillingAmounts = (
-  price: number,
-  discount: number,
-  gstRate: number,
+  baseAmount: number,
+  discountPercentage: number,
+  gstPercentage: number,
 ) => {
-  const safePrice = Number.isFinite(price) ? price : 0;
-  const safeDiscount = Number.isFinite(discount) ? discount : 0;
-  const safeGstRate = Number.isFinite(gstRate) ? gstRate : 0;
-
-  const discountedPrice = safePrice - (safePrice * safeDiscount) / 100;
-  const taxAmount = (discountedPrice * safeGstRate) / 100;
-  const totalAmount = discountedPrice + taxAmount;
+  const roundCurrency = (amount: number) =>
+    Math.round((amount + Number.EPSILON) * 100) / 100;
+  const safeBaseAmount = Number.isFinite(baseAmount)
+    ? roundCurrency(baseAmount)
+    : 0;
+  const safeDiscountPercentage = Number.isFinite(discountPercentage)
+    ? discountPercentage
+    : 0;
+  const safeGstPercentage = Number.isFinite(gstPercentage)
+    ? gstPercentage
+    : 0;
+  const discountAmount = roundCurrency(
+    (safeBaseAmount * safeDiscountPercentage) / 100,
+  );
+  const gstAmount = roundCurrency((safeBaseAmount * safeGstPercentage) / 100);
 
   return {
-    taxAmount: Number(taxAmount.toFixed(2)),
-    totalAmount: Number(totalAmount.toFixed(2)),
+    baseAmount: safeBaseAmount,
+    discountAmount,
+    gstAmount,
+    taxAmount: gstAmount,
+    totalAmount: roundCurrency(safeBaseAmount - discountAmount + gstAmount),
   };
 };
 
-const persistBillingPeriodPricing = (planId: string, row: BillingPeriod) =>
-  axios.put(
-    `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_BILLING_PERIOD}`
-      .replace("${planId}", planId)
-      .replace("${billingPeriodId}", row.billingPeriodId),
-    {
-      price: row.price ?? 0,
-      discount: row.discount ?? 0,
-      gstRate: row.gstRate ?? 0,
-      taxAmount: row.taxAmount ?? 0,
-      totalAmount: row.totalAmount ?? 0,
-    },
+const persistBillingPeriodPricing = (planId: string, row: BillingPeriod) => {
+  const price = row.price ?? 0;
+  const discount = row.discount ?? 0;
+  const gstRate = row.gstRate ?? 0;
+
+  return axios.put(
+      `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.UPDATE_BILLING_PERIOD}`
+        .replace("${planId}", planId)
+        .replace("${billingPeriodId}", row.billingPeriodId),
+      {
+        price,
+        discount,
+        gstRate,
+        ...calculateBillingAmounts(price, discount, gstRate),
+      },
   );
+};
 
 const steps = [1, 2, 3, 4];
-
-const roles = [
-  "Admin",
-  "Supervisor",
-  "Academic Coach",
-  "Teacher",
-  "Student",
-] as const;
-
-type Role = (typeof roles)[number];
-
-const roleMap: Record<Role, string> = {
-  Admin: "ADMIN",
-  Supervisor: "SUPERVISOR",
-  "Academic Coach": "ACADEMIC_COACH",
-  Teacher: "TEACHER",
-  Student: "STUDENT",
-};
-
-const permissions = [
-  "Attendance",
-  "Dashboard",
-  "Reports",
-  "Fees",
-  "Exams",
-  "Library",
-  "Transport",
-  "Student Management",
-  "Staff",
-  "Parent Portal",
-  "Notification",
-  "Inventory",
-];
-
-const permissionsByRole: Record<Role, string[]> = {
-  Admin: permissions,
-  Supervisor: [
-    "Attendance",
-    "Dashboard",
-    "Reports",
-    "Fees",
-    "Exams",
-    "Student Management",
-    "Staff",
-    "Notification",
-  ],
-  "Academic Coach": [
-    "Attendance",
-    "Dashboard",
-    "Reports",
-    "Exams",
-    "Student Management",
-    "Notification",
-  ],
-  Teacher: [
-    "Attendance",
-    "Dashboard",
-    "Exams",
-    "Library",
-    "Student Management",
-    "Notification",
-  ],
-  Student: [
-    "Dashboard",
-    "Exams",
-    "Library",
-    "Transport",
-    "Parent Portal",
-    "Notification",
-  ],
-};
 
 const variants = {
   initial: (direction: number) => ({
@@ -188,7 +155,17 @@ const CreatePlan = ({ onClose }: Props) => {
   const [, setFailedMessage] = useState("");
   const [, setSuccess] = useState(false);
   const [, setFailed] = useState(false);
-  const [activeRole, setActiveRole] = useState<Role>("Admin");
+  const [portals, setPortals] = useState<PortalOption[]>([]);
+  const [selectedPortalIds, setSelectedPortalIds] = useState<string[]>([]);
+  const [isLoadingPortals, setIsLoadingPortals] = useState(true);
+  const [featureCatalog, setFeatureCatalog] = useState<FeatureControlRow[]>([]);
+  const [isLoadingFeatureCatalog, setIsLoadingFeatureCatalog] =
+    useState(true);
+  const [selectedModuleKeys, setSelectedModuleKeys] = useState<string[]>([]);
+  const [selectedChildModuleKeys, setSelectedChildModuleKeys] = useState<
+    string[]
+  >([]);
+  const [selectedFeatureKeys, setSelectedFeatureKeys] = useState<string[]>([]);
   const [planData, setPlanData] = useState<PlanPayload>({
     planName: "",
     studentLimit: 0,
@@ -204,8 +181,6 @@ const CreatePlan = ({ onClose }: Props) => {
     gstAndTax: 0,
 
     allowedRoles: [],
-
-    features: {},
 
     canCreateCustomRole: false,
     status: "Active",
@@ -230,21 +205,191 @@ const CreatePlan = ({ onClose }: Props) => {
     duration?: string;
   }>({});
 
-  const buildDraftPlanPayload = () => {
-    const rolesFromPermissions = Object.keys(selectedPermissions)
-      .filter((role) => selectedPermissions[role as Role].length > 0)
-      .map((role) => roleMap[role as Role]);
+  useEffect(() => {
+    const fetchPortals = async () => {
+      try {
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PORTAL.GET_ALL}?page=1&limit=100`,
+        );
+        const items = response.data?.data?.items ?? [];
 
-    const allowedRolesForPayload =
-      rolesFromPermissions.length > 0
-        ? rolesFromPermissions
-        : [roleMap[activeRole]];
+        setPortals(
+          items.filter(
+            (portal: PortalOption) =>
+              portal.status?.toUpperCase() === "ACTIVE" &&
+              Boolean(portal._id && portal.portalName),
+          ),
+        );
+      } catch (error) {
+        console.error("Error fetching portals for plan:", error);
+        toast.error("Failed to load portals");
+      } finally {
+        setIsLoadingPortals(false);
+      }
+    };
 
-    const featuresForPayload = Object.fromEntries(
-      Object.entries(selectedPermissions)
-        .filter(([, value]) => value.length > 0)
-        .map(([key, value]) => [roleMap[key as Role], value]),
+    fetchPortals();
+  }, []);
+
+  useEffect(() => {
+    const fetchFeatureCatalog = async () => {
+      try {
+        const rows: FeatureControlRow[] = [];
+        let page = 1;
+        let totalPages = 1;
+
+        do {
+          const response = await axios.get(
+            `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FEATURE_CONTROL.GET_ALL}`,
+            { params: { page, limit: 100 } },
+          );
+
+          if (!response.data?.success) break;
+
+          if (Array.isArray(response.data.data)) {
+            rows.push(...response.data.data);
+          }
+          totalPages = response.data.pagination?.totalPages ?? page;
+          page += 1;
+        } while (page <= totalPages);
+
+        setFeatureCatalog(
+          rows.filter((row) => row.status?.toUpperCase() === "ACTIVE"),
+        );
+      } catch (error) {
+        console.error("Error fetching feature catalog for plan:", error);
+        toast.error("Failed to load modules and features");
+      } finally {
+        setIsLoadingFeatureCatalog(false);
+      }
+    };
+
+    fetchFeatureCatalog();
+  }, []);
+
+  const selectedPortals = portals.filter((portal) =>
+    selectedPortalIds.includes(portal._id),
+  );
+
+  const moduleGroups = selectedPortals.flatMap((portal) => {
+    const portalRows = featureCatalog.filter(
+      (row) => row.portal.toLowerCase() === portal.portalName.toLowerCase(),
     );
+    const parentModules = Array.from(
+      new Map(
+        portalRows.map((row) => [row.parentModuleId, row.parentModuleName]),
+      ),
+    );
+
+    return parentModules.map(([parentModuleId, parentModuleName]) => {
+      const parentRows = portalRows.filter(
+        (row) => row.parentModuleId === parentModuleId,
+      );
+      const children = Array.from(
+        new Map(
+          parentRows
+            .filter((row) => row.childModuleId && row.childModuleName)
+            .map((row) => [row.childModuleId as string, row.childModuleName as string]),
+        ),
+      ).map(([childModuleId, childModuleName]) => ({
+        childModuleId,
+        childModuleName,
+        features: parentRows.filter(
+          (row) =>
+            row.childModuleId === childModuleId &&
+            row.featureId &&
+            row.featureName,
+        ),
+      }));
+
+      return {
+        portal,
+        parentModuleId,
+        parentModuleName,
+        features: parentRows.filter(
+          (row) => !row.childModuleId && row.featureId && row.featureName,
+        ),
+        children,
+      };
+    });
+  });
+
+  const buildSelectedModulesPayload = () =>
+    moduleGroups.flatMap((group, moduleIndex) => {
+      const moduleKey = `${group.portal._id}:${group.parentModuleId}`;
+      const selectedFeatures = group.features
+        .filter((feature) =>
+          selectedFeatureKeys.includes(
+            `${group.portal._id}:${feature.featureId}`,
+          ),
+        )
+        .map((feature) => ({
+          featureId: feature.featureId as string,
+          featureName: feature.featureName as string,
+          portalId: group.portal._id,
+          portalName: group.portal.portalName,
+        }));
+      const children = group.children.flatMap((child, childIndex) => {
+        const childKey = `${group.portal._id}:${child.childModuleId}`;
+        const childFeatures = child.features
+          .filter((feature) =>
+            selectedFeatureKeys.includes(
+              `${group.portal._id}:${feature.featureId}`,
+            ),
+          )
+          .map((feature) => ({
+            featureId: feature.featureId as string,
+            featureName: feature.featureName as string,
+            portalId: group.portal._id,
+            portalName: group.portal.portalName,
+          }));
+
+        if (
+          !selectedChildModuleKeys.includes(childKey) &&
+          childFeatures.length === 0
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            childModuleId: child.childModuleId,
+            childModuleName: child.childModuleName,
+            order: childIndex + 1,
+            portalId: group.portal._id,
+            portalName: group.portal.portalName,
+            ...(childFeatures.length > 0 ? { features: childFeatures } : {}),
+          },
+        ];
+      });
+
+      if (
+        !selectedModuleKeys.includes(moduleKey) &&
+        selectedFeatures.length === 0 &&
+        children.length === 0
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          moduleId: group.parentModuleId,
+          moduleName: group.parentModuleName,
+          order: moduleIndex + 1,
+          portalId: group.portal._id,
+          portalName: group.portal.portalName,
+          ...(selectedFeatures.length > 0
+            ? { features: selectedFeatures }
+            : {}),
+          ...(children.length > 0 ? { children } : {}),
+        },
+      ];
+    });
+
+  const buildDraftPlanPayload = () => {
+    const allowedRoles = portals
+      .filter((portal) => selectedPortalIds.includes(portal._id))
+      .map((portal) => ({ portalId: portal._id, portalName: portal.portalName }));
 
     return {
       planName: planData.planName,
@@ -261,10 +406,10 @@ const CreatePlan = ({ onClose }: Props) => {
       gstAndTax: Number(planData.gstAndTax),
       totalPrice: Number(planData.totalPrice),
 
-      allowedRoles: allowedRolesForPayload,
-      features: featuresForPayload,
+      allowedRoles,
+      modules: buildSelectedModulesPayload(),
 
-      canCreateCustomRole: allowedRolesForPayload.includes("ADMIN"),
+      canCreateCustomRole: planData.canCreateCustomRole,
 
       status: "Draft",
       createdBy: planData.createdBy,
@@ -311,13 +456,13 @@ const CreatePlan = ({ onClose }: Props) => {
     const gstRate = Number(planData.gstAndTax) || 0;
 
     const recalculatedBillingPeriods = billingPeriods.map((row) => {
-      const { taxAmount, totalAmount } = calculateBillingAmounts(
+      const amounts = calculateBillingAmounts(
         row.price ?? 0,
         row.discount ?? 0,
         gstRate,
       );
 
-      return { ...row, gstRate, taxAmount, totalAmount };
+      return { ...row, ...amounts, gstRate };
     });
 
     try {
@@ -444,11 +589,14 @@ const CreatePlan = ({ onClose }: Props) => {
         billingPeriodId: savedBillingPeriodId,
         billingPeriod,
         duration,
-        price: record?.price,
-        discount: record?.discount,
-        gstRate: record?.gstRate ?? Number(planData.gstAndTax),
-        taxAmount: record?.taxAmount,
-        totalAmount: record?.totalAmount,
+        price: Number(record?.price ?? 0),
+        discount: Number(record?.discount ?? 0),
+        gstRate: Number(record?.gstRate ?? Number(planData.gstAndTax) ?? 0),
+        ...calculateBillingAmounts(
+          Number(record?.price ?? 0),
+          Number(record?.discount ?? 0),
+          Number(record?.gstRate ?? Number(planData.gstAndTax) ?? 0),
+        ),
       };
 
       setBillingPeriods((prev) => [...prev, newRow]);
@@ -471,42 +619,60 @@ const CreatePlan = ({ onClose }: Props) => {
     field: "price" | "discount",
     rawValue: string,
   ) => {
-    setBillingPeriods((prev) =>
-      prev.map((row) => {
-        if (row.billingPeriodId !== billingPeriodId) {
-          return row;
-        }
+    const nextBillingPeriods = billingPeriods.map((row) => {
+      if (row.billingPeriodId !== billingPeriodId) {
+        return row;
+      }
 
-        const numericValue = rawValue === "" ? 0 : Number(rawValue);
+      const numericValue = rawValue === "" ? 0 : Number(rawValue);
 
-        if (Number.isNaN(numericValue) || numericValue < 0) {
-          return row;
-        }
+      if (Number.isNaN(numericValue) || numericValue < 0) {
+        return row;
+      }
 
-        if (field === "discount" && numericValue > 100) {
-          return row;
-        }
+      if (field === "discount" && numericValue > 100) {
+        return row;
+      }
 
-        const nextPrice = field === "price" ? numericValue : (row.price ?? 0);
-        const nextDiscount =
-          field === "discount" ? numericValue : (row.discount ?? 0);
-        const gstRate = Number(planData.gstAndTax) || row.gstRate || 0;
+      const nextPrice = field === "price" ? numericValue : (row.price ?? 0);
+      const nextDiscount =
+        field === "discount" ? numericValue : (row.discount ?? 0);
+      const gstRate = Number(planData.gstAndTax);
 
-        const { taxAmount, totalAmount } = calculateBillingAmounts(
-          nextPrice,
-          nextDiscount,
-          gstRate,
-        );
+      const amounts = calculateBillingAmounts(
+        nextPrice,
+        nextDiscount,
+        gstRate,
+      );
 
-        return {
-          ...row,
-          [field]: numericValue,
-          gstRate,
-          taxAmount,
-          totalAmount,
-        };
-      }),
+      return {
+        ...row,
+        [field]: numericValue,
+        gstRate,
+        ...amounts,
+      };
+    });
+
+    setBillingPeriods(nextBillingPeriods);
+
+    const rowToPersist = nextBillingPeriods.find(
+      (item) => item.billingPeriodId === billingPeriodId,
     );
+
+    if (!rowToPersist || !planId) {
+      return;
+    }
+
+    persistBillingPeriodPricing(planId, {
+      ...rowToPersist,
+      gstRate: rowToPersist.gstRate ?? Number(planData.gstAndTax),
+    }).catch((err: any) => {
+      const message =
+        err.response?.data?.message ||
+        AppFailureToastMessages.UPDATE_BILLING_PERIOD_FAILED;
+
+      toast.error(message);
+    });
   };
 
   const handleBillingPeriodBlur = async (billingPeriodId: string) => {
@@ -534,20 +700,30 @@ const CreatePlan = ({ onClose }: Props) => {
 
   const handleSubmit = async () => {
     try {
-      const rolesFromPermissions = Object.keys(selectedPermissions)
-        .filter((role) => selectedPermissions[role as Role].length > 0)
-        .map((role) => roleMap[role as Role]);
+      const allowedRoles = portals
+        .filter((portal) => selectedPortalIds.includes(portal._id))
+        .map((portal) => ({
+          portalId: portal._id,
+          portalName: portal.portalName,
+        }));
 
-      const allowedRoles =
-        rolesFromPermissions.length > 0
-          ? rolesFromPermissions
-          : [roleMap[activeRole]];
+      const billingPeriodsForPayload = billingPeriods
+        .filter((row) => row.billingPeriodId && row.billingPeriod)
+        .map((row) => {
+          const price = Number(row.price ?? 0);
+          const discount = Number(row.discount ?? 0);
+          const gstRate = Number(row.gstRate ?? planData.gstAndTax ?? 0);
 
-      const features = Object.fromEntries(
-        Object.entries(selectedPermissions)
-          .filter(([, value]) => value.length > 0)
-          .map(([key, value]) => [roleMap[key as Role], value]),
-      );
+          return {
+            billingPeriodId: row.billingPeriodId,
+            billingPeriod: row.billingPeriod,
+            duration: Number(row.duration ?? 0),
+            price,
+            discount,
+            gstRate,
+            ...calculateBillingAmounts(price, discount, gstRate),
+          };
+        });
 
       const payload = {
         planName: planData.planName,
@@ -565,11 +741,11 @@ const CreatePlan = ({ onClose }: Props) => {
         totalPrice: Number(planData.totalPrice),
 
         allowedRoles,
-        features,
+        modules: buildSelectedModulesPayload(),
 
-        billingPeriods,
+        billingPeriods: billingPeriodsForPayload,
 
-        canCreateCustomRole: allowedRoles.includes("ADMIN"),
+        canCreateCustomRole: planData.canCreateCustomRole,
 
         status: planId ? "Active" : planData.status,
         createdBy: planData.createdBy,
@@ -671,52 +847,10 @@ const CreatePlan = ({ onClose }: Props) => {
     }));
   };
 
-  const [selectedPermissions, setSelectedPermissions] = useState<
-    Record<Role, string[]>
-  >({
-    Admin: [],
-    Supervisor: [],
-    "Academic Coach": [],
-    Teacher: [],
-    Student: [],
-  });
   const [customDomainEnabled, setCustomDomainEnabled] = useState(true);
   const [backupEnabled, setBackupEnabled] = useState(true);
 
-  const togglePermission = (permission: string) => {
-    setSelectedPermissions((prev) => {
-      const current = prev[activeRole];
-
-      return {
-        ...prev,
-        [activeRole]: current.includes(permission)
-          ? current.filter((p) => p !== permission)
-          : [...current, permission],
-      };
-    });
-  };
-
-  const toggleSelectAll = () => {
-    setSelectedPermissions((prev) => ({
-      ...prev,
-      [activeRole]:
-        prev[activeRole].length === permissionsByRole[activeRole].length
-          ? []
-          : permissionsByRole[activeRole],
-    }));
-  };
-
-  const activePermissions = permissionsByRole[activeRole];
-
-  const allowedRoles = Object.keys(selectedPermissions)
-    .filter((role) => selectedPermissions[role as Role].length > 0)
-    .map((role) => roleMap[role as Role]);
-
-  const featureAccessByRole: Record<string, string[]> = Object.fromEntries(
-    Object.entries(selectedPermissions)
-      .filter(([, perms]) => perms.length > 0)
-      .map(([role, perms]) => [roleMap[role as Role], perms]),
-  );
+  const selectedModules = buildSelectedModulesPayload();
 
   const next = () => {
     // Draft Plan is created once on Step 1 -> Step 2; every later "Next" is pure navigation.
@@ -1014,7 +1148,7 @@ const CreatePlan = ({ onClose }: Props) => {
 
                   <div className="overflow-hidden rounded-[12px] border border-[#D9DDE8] bg-[#F4F6FB] dark:border-[#5c5c5c] dark:bg-[#2d2d2d]">
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[560px] text-left text-[12px]">
+                      <table className="w-full min-w-[640px] text-left text-[12px]">
                         <thead>
                           <tr className="bg-[#EAEFFF] text-[#0f172a] dark:bg-[#343434] dark:text-[#f4f4f5]">
                             <th className="px-3 py-3 font-semibold">
@@ -1030,6 +1164,9 @@ const CreatePlan = ({ onClose }: Props) => {
                               Discount (%)
                             </th>
                             <th className="px-3 py-3 font-semibold">
+                              Discount (₹)
+                            </th>
+                            <th className="px-3 py-3 font-semibold">
                               GST ({Number(planData.gstAndTax) || 0}%)
                             </th>
                             <th className="px-3 py-3 font-semibold">
@@ -1042,7 +1179,7 @@ const CreatePlan = ({ onClose }: Props) => {
                           {billingPeriods.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={6}
+                                colSpan={7}
                                 className="px-3 py-8 text-center text-[#80848E] dark:text-[#a2a2a2]"
                               >
                                 No billing periods added yet
@@ -1104,6 +1241,9 @@ const CreatePlan = ({ onClose }: Props) => {
                                   />
                                 </td>
                                 <td className="px-3 py-3">
+                                  {(row.discountAmount ?? 0).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-3">
                                   {row.taxAmount !== undefined
                                     ? row.taxAmount.toFixed(2)
                                     : "-"}
@@ -1134,90 +1274,169 @@ const CreatePlan = ({ onClose }: Props) => {
               {step === 3 && (
                 <div className="w-full">
                   <h2 className="py-4">Features</h2>
-                  <div className="mb-5 flex items-center justify-between">
-                    <div className="flex flex-wrap gap-2 rounded-none bg-transparent">
-                      {roles.map((role) => (
-                        <button
-                          key={role}
-                          onClick={() => setActiveRole(role)}
-                          className={`h-10 rounded-[10px] px-4 text-[13px] font-medium transition-all ${
-                            activeRole === role
-                              ? "bg-[#E9EDFF] text-[#576CBC] shadow-sm dark:bg-[#343434]"
-                              : "bg-[#F4F6FB] text-[#0f172a] dark:bg-[#2d2d2d] dark:text-[#f3f4f6]"
-                          }`}
-                        >
-                          {role}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[12px] border border-[#D9DDE8] bg-[#F4F6FB] p-4 dark:border-[#5c5c5c] dark:bg-[#2d2d2d]">
-                    <label className="mb-5 flex items-center gap-2 cursor-pointer text-[13px] text-[#0f172a] dark:text-[#f3f4f6]">
-                      <span className="relative flex h-4 w-4 items-center justify-center">
-                        <input
-                          type="checkbox"
-                          checked={
-                            selectedPermissions[activeRole].length ===
-                            activePermissions.length
-                          }
-                          onChange={toggleSelectAll}
-                          className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
-                        />
-                        <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white dark:bg-[#d6d6d6]">
-                          <svg
-                            viewBox="0 0 16 16"
-                            className="h-3 w-3"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
+                  <section className="mb-5 rounded-[12px] border border-[#D9DDE8] bg-[#F4F6FB] p-4 dark:border-[#5c5c5c] dark:bg-[#2d2d2d]">
+                    <h3 className="mb-3 text-[13px] font-semibold text-[#010E30] dark:text-[#f4f4f5]">
+                      Allowed Portals
+                    </h3>
+                    {isLoadingPortals ? (
+                      <p className="text-[13px] text-[#667085]">Loading portals...</p>
+                    ) : portals.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {portals.map((portal) => (
+                          <label
+                            key={portal._id}
+                            className="flex cursor-pointer items-center gap-2 text-[13px] text-[#0f172a] dark:text-[#f3f4f6]"
                           >
-                            <path
-                              d="M3.5 8.5L6.5 11.5L12.5 4.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </span>
-                      </span>
-                      Select All
-                    </label>
-
-                    <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3">
-                      {activePermissions.map((permission) => (
-                        <label
-                          key={permission}
-                          className="flex items-center gap-2 cursor-pointer text-[13px] text-[#0f172a] dark:text-[#f3f4f6]"
-                        >
-                          <span className="relative flex h-4 w-4 items-center justify-center">
                             <input
                               type="checkbox"
-                              checked={selectedPermissions[activeRole].includes(
-                                permission,
-                              )}
-                              onChange={() => togglePermission(permission)}
-                              className="peer absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+                              checked={selectedPortalIds.includes(portal._id)}
+                              onChange={() =>
+                                setSelectedPortalIds((current) =>
+                                  current.includes(portal._id)
+                                    ? current.filter((id) => id !== portal._id)
+                                    : [...current, portal._id],
+                                )
+                              }
+                              className="h-4 w-4 accent-[#576CBC]"
                             />
-                            <span className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-[#576CBC] bg-white text-transparent peer-checked:bg-[#576CBC] peer-checked:text-white dark:bg-[#d6d6d6]">
-                              <svg
-                                viewBox="0 0 16 16"
-                                className="h-3 w-3"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  d="M3.5 8.5L6.5 11.5L12.5 4.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </span>
-                          </span>
-                          {permission}
-                        </label>
-                      ))}
-                    </div>
+                            {portal.portalName}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[13px] text-[#667085]">
+                        No active portals found.
+                      </p>
+                    )}
+                  </section>
+                  <div className="space-y-4">
+                    {selectedPortals.length === 0 ? (
+                      <p className="text-[13px] text-[#667085]">
+                        Select a portal to see its modules and features.
+                      </p>
+                    ) : isLoadingFeatureCatalog ? (
+                      <p className="text-[13px] text-[#667085]">
+                        Loading modules and features...
+                      </p>
+                    ) : moduleGroups.length === 0 ? (
+                      <p className="text-[13px] text-[#667085]">
+                        No active modules found for the selected portals.
+                      </p>
+                    ) : (
+                      moduleGroups.map((group) => {
+                        const moduleKey = `${group.portal._id}:${group.parentModuleId}`;
+
+                        return (
+                          <section
+                            key={moduleKey}
+                            className="rounded-[10px] border border-[#D9DDE8] p-4 dark:border-[#5c5c5c]"
+                          >
+                            <label className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold text-[#0f172a] dark:text-[#f3f4f6]">
+                              <input
+                                type="checkbox"
+                                checked={selectedModuleKeys.includes(moduleKey)}
+                                onChange={() =>
+                                  setSelectedModuleKeys((current) =>
+                                    current.includes(moduleKey)
+                                      ? current.filter((key) => key !== moduleKey)
+                                      : [...current, moduleKey],
+                                  )
+                                }
+                                className="h-4 w-4 accent-[#576CBC]"
+                              />
+                              {group.parentModuleName}
+                              <span className="text-[11px] font-normal text-[#667085]">
+                                {group.portal.portalName}
+                              </span>
+                            </label>
+
+                            {group.features.length > 0 && (
+                              <div className="mt-3 grid grid-cols-1 gap-2 pl-6 sm:grid-cols-2">
+                                {group.features.map((feature) => {
+                                  const featureKey = `${group.portal._id}:${feature.featureId}`;
+
+                                  return (
+                                    <label
+                                      key={featureKey}
+                                      className="flex cursor-pointer items-center gap-2 text-[13px] text-[#344054] dark:text-[#d0d5dd]"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedFeatureKeys.includes(featureKey)}
+                                        onChange={() =>
+                                          setSelectedFeatureKeys((current) =>
+                                            current.includes(featureKey)
+                                              ? current.filter((key) => key !== featureKey)
+                                              : [...current, featureKey],
+                                          )
+                                        }
+                                        className="h-4 w-4 accent-[#576CBC]"
+                                      />
+                                      {feature.featureName}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {group.children.map((child) => {
+                              const childKey = `${group.portal._id}:${child.childModuleId}`;
+
+                              return (
+                                <div
+                                  key={childKey}
+                                  className="mt-3 border-l border-[#D9DDE8] pl-4 dark:border-[#5c5c5c]"
+                                >
+                                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-[#344054] dark:text-[#d0d5dd]">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedChildModuleKeys.includes(childKey)}
+                                      onChange={() =>
+                                        setSelectedChildModuleKeys((current) =>
+                                          current.includes(childKey)
+                                            ? current.filter((key) => key !== childKey)
+                                            : [...current, childKey],
+                                        )
+                                      }
+                                      className="h-4 w-4 accent-[#576CBC]"
+                                    />
+                                    {child.childModuleName}
+                                  </label>
+                                  {child.features.length > 0 && (
+                                    <div className="mt-2 grid grid-cols-1 gap-2 pl-6 sm:grid-cols-2">
+                                      {child.features.map((feature) => {
+                                        const featureKey = `${group.portal._id}:${feature.featureId}`;
+
+                                        return (
+                                          <label
+                                            key={featureKey}
+                                            className="flex cursor-pointer items-center gap-2 text-[13px] text-[#667085] dark:text-[#d0d5dd]"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={selectedFeatureKeys.includes(featureKey)}
+                                              onChange={() =>
+                                                setSelectedFeatureKeys((current) =>
+                                                  current.includes(featureKey)
+                                                    ? current.filter((key) => key !== featureKey)
+                                                    : [...current, featureKey],
+                                                )
+                                              }
+                                              className="h-4 w-4 accent-[#576CBC]"
+                                            />
+                                            {feature.featureName}
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </section>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}
@@ -1338,27 +1557,44 @@ const CreatePlan = ({ onClose }: Props) => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-x-8 gap-y-4 text-[12px] text-[#0f172a] dark:text-[#f4f4f5] sm:grid-cols-2">
-                      {allowedRoles.length > 0 ? (
-                        allowedRoles.map((role) => (
-                          <div key={role}>
+                      {selectedModules.length > 0 ? (
+                        selectedModules.map((module) => (
+                          <div key={`${module.portalId}:${module.moduleId}`}>
                             <div className="mb-2 inline-flex rounded-[6px] bg-[#E9EDFF] px-2 py-1 text-[11px] font-medium text-[#576CBC]">
-                              {role.replaceAll("_", " ")}
+                              {module.portalName}
                             </div>
                             <ul className="space-y-1.5 text-[#0f172a] dark:text-[#f4f4f5]">
-                              {(featureAccessByRole[role] || []).map(
-                                (permission) => (
-                                  <li
-                                    key={permission}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <Check
-                                      size={14}
-                                      className="text-[#16a34a]"
-                                    />
-                                    <span>{permission}</span>
-                                  </li>
-                                ),
-                              )}
+                              <li className="font-medium">{module.moduleName}</li>
+                              {module.features?.map((feature) => (
+                                <li
+                                  key={feature.featureId}
+                                  className="flex items-center gap-2 pl-3"
+                                >
+                                  <Check size={14} className="text-[#16a34a]" />
+                                  <span>{feature.featureName}</span>
+                                </li>
+                              ))}
+                              {module.children?.map((child) => (
+                                <li key={child.childModuleId}>
+                                  <span className="font-medium">
+                                    {child.childModuleName}
+                                  </span>
+                                  <ul>
+                                    {child.features?.map((feature) => (
+                                      <li
+                                        key={feature.featureId}
+                                        className="flex items-center gap-2 pl-3"
+                                      >
+                                        <Check
+                                          size={14}
+                                          className="text-[#16a34a]"
+                                        />
+                                        <span>{feature.featureName}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </li>
+                              ))}
                             </ul>
                           </div>
                         ))

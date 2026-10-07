@@ -234,7 +234,7 @@ export default async function Page({ params }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-3">
               <div className="px-5 py-4 border-b sm:border-b-0 sm:border-r border-slate-200">
                 <p className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">
-                  Billing Cycle
+                  Billing Period
                 </p>
 
                 <p className="text-sm font-bold text-slate-800 mt-1">

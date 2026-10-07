@@ -6,12 +6,14 @@ interface PaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  disabled?: boolean;
 }
 
 export default function Pagination({
   currentPage,
   totalPages,
   onPageChange,
+  disabled = false,
 }: PaginationProps) {
   const getPages = (): (number | string)[] => {
     const pages: (number | string)[] = [];
@@ -52,7 +54,7 @@ export default function Pagination({
       {/* Previous */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
+        disabled={disabled || currentPage === 1}
         className="flex items-center justify-center rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-[#98A2B3] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:bg-[#343434] dark:text-[#AEB6C5] dark:hover:bg-[#414141]"
         style={{
           width: "clamp(34px,2.3vw,40px)",
@@ -84,6 +86,7 @@ export default function Pagination({
           <button
             key={`page-${page}`}
             onClick={() => onPageChange(Number(page))}
+            disabled={disabled}
             className={`rounded-lg border transition ${
               currentPage === page
                 ? "border-[#0B3B8F] bg-[#F8FAFF] text-[#0B3B8F] dark:border-[#8FA4FF] dark:bg-[#40386B] dark:text-[#D7D4FF]"
@@ -104,7 +107,7 @@ export default function Pagination({
       {/* Next */}
       <button
         onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
+        disabled={disabled || currentPage === totalPages}
         className="flex items-center justify-center rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] text-[#98A2B3] transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:bg-[#343434] dark:text-[#AEB6C5] dark:hover:bg-[#414141]"
         style={{
           width: "clamp(34px,2.3vw,40px)",

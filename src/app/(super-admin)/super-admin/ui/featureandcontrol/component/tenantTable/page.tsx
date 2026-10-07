@@ -13,7 +13,6 @@ import FilterDrawer, {
 
 interface TenantConfigRow {
   tenantId: string;
-  portalId: string;
   tenantName: string;
   domain: string;
   phoneNumber: string;
@@ -47,11 +46,46 @@ interface TenantAnalyticsCardsResponse {
   data: TenantAnalyticsCards;
 }
 
-// TODO: replace with a real tenant/portal list once a "list all tenants" API
-// is available - /modules/tenant/config is scoped to a single tenant+portal.
-const KNOWN_TENANT_PORTALS = [
-  { tenantId: "TEN000010", portalId: "6aa002bb4afeaa160576aeec" },
-];
+const PAGE_LIMIT = 10;
+
+const getPageNumbers = (current: number, total: number): (number | "...")[] => {
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+  if (current <= 3) return [1, 2, 3, "...", total];
+  if (current >= total - 2) {
+    return [1, "...", total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
+};
+
+interface TenantListItem {
+  _id?: string;
+  tenantCode?: string;
+  tenantJobCode?: string;
+  tenantId?: string;
+  tenantName?: string;
+  organizationName?: string;
+  domainName?: string;
+  domain?: string;
+  website?: string;
+  phoneNumber?: string;
+  mobileNumber?: string;
+  emailId?: string;
+  email?: string;
+  createdDate?: string;
+  createdAt?: string;
+  startDate?: string;
+  plan?: string;
+  planName?: string;
+  renewalDate?: string;
+  status?: string;
+}
+
+interface TenantConfigurationItem {
+  tenantId: string;
+  portalName: string;
+}
 
 const formatDate = (value?: string) =>
   value
@@ -89,6 +123,7 @@ const Usertable = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
+  const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
 
   useEffect(() => {
@@ -111,43 +146,120 @@ const Usertable = () => {
 
   useEffect(() => {
     const loadTenantConfigs = async () => {
-      const rows = await Promise.all(
-        KNOWN_TENANT_PORTALS.map(async ({ tenantId, portalId }) => {
-          try {
-            const params = new URLSearchParams({ tenantId, portalId });
-            const response = await axios.get(
-              `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
+      try {
+        const tenantParams = new URLSearchParams({
+          page: "1",
+          limit: "1000",
+        });
+        const tenantResponse = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}?${tenantParams.toString()}`,
+        );
+        const tenantData = tenantResponse.data;
+        if (tenantData?.success === false) {
+          throw new Error(tenantData.message || "Tenant list request failed");
+        }
+        let tenants: TenantListItem[] = [];
+        if (Array.isArray(tenantData?.tenants)) {
+          tenants = tenantData.tenants;
+        } else if (Array.isArray(tenantData?.data?.tenants)) {
+          tenants = tenantData.data.tenants;
+        } else if (Array.isArray(tenantData?.data?.items)) {
+          tenants = tenantData.data.items;
+        } else if (Array.isArray(tenantData)) {
+          tenants = tenantData;
+        } else if (Array.isArray(tenantData?.data)) {
+          tenants = tenantData.data;
+        } else if (tenantData?.data) {
+          tenants = [tenantData.data];
+        }
+
+        const uniqueTenants = new Map<
+          string,
+          { tenant: TenantListItem; tenantId: string }
+        >();
+        tenants.forEach((tenant) => {
+          const tenantId =
+            tenant.tenantCode || tenant.tenantJobCode || tenant.tenantId;
+          if (!tenantId) {
+            console.error(
+              "Skipping tenant without a tenant identifier:",
+              tenant,
             );
-
-            if (!response.data.success) return null;
-
-            const data = response.data.data;
-            const tenantDetails = data?.tenantDetails ?? {};
-            const subscriptionDetails = data?.subscriptionDetails ?? {};
-
-            const row: TenantConfigRow = {
-              tenantId: data?.tenantId ?? tenantId,
-              portalId: data?.portalId ?? portalId,
-              tenantName: tenantDetails.tenantName ?? "-",
-              domain: tenantDetails.domainName ?? "-",
-              phoneNumber: tenantDetails.phoneNumber ?? "-",
-              email: tenantDetails.emailId ?? "-",
-              startDate: formatDate(subscriptionDetails.startDate),
-              plan: subscriptionDetails.planName ?? "-",
-              renewalDate: formatDate(subscriptionDetails.nextRenewalDate),
-              status: tenantDetails.status ?? "-",
-              startDateValue: subscriptionDetails.startDate ?? "",
-              renewalDateValue: subscriptionDetails.nextRenewalDate ?? "",
-            };
-            return row;
-          } catch (error) {
-            console.error("Error fetching tenant config:", error);
-            return null;
+            return;
           }
-        }),
-      );
 
-      setUserItems(rows.filter((row): row is TenantConfigRow => row !== null));
+          const key = tenantId.trim().toLowerCase();
+          if (!uniqueTenants.has(key)) {
+            uniqueTenants.set(key, { tenant, tenantId });
+          }
+        });
+
+        const rows = await Promise.all(
+          Array.from(uniqueTenants.values()).map(async ({ tenant, tenantId }) => {
+            try {
+              const params = new URLSearchParams({ tenantId });
+              const response = await axios.get<{
+                success: boolean;
+                message: string;
+                data: TenantConfigurationItem[];
+              }>(
+                `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MODULE_TENANT.GET_CONFIG}?${params.toString()}`,
+              );
+              if (!response.data.success) {
+                throw new Error(
+                  response.data.message ||
+                    `Tenant config request failed for ${tenantId}`,
+                );
+              }
+
+              const configurations = Array.isArray(response.data.data)
+                ? response.data.data
+                : [];
+              if (
+                !configurations.some(
+                  (configuration) =>
+                    configuration.tenantId?.trim().toLowerCase() ===
+                    tenantId.trim().toLowerCase(),
+                )
+              ) {
+                return null;
+              }
+
+              const startDate =
+                tenant.startDate ||
+                tenant.createdDate ||
+                tenant.createdAt ||
+                "";
+              const renewalDate = tenant.renewalDate || "";
+              return {
+                tenantId,
+                tenantName: tenant.tenantName || tenant.organizationName || "-",
+                domain:
+                  tenant.domainName || tenant.domain || tenant.website || "-",
+                phoneNumber: tenant.phoneNumber || tenant.mobileNumber || "-",
+                email: tenant.emailId || tenant.email || "-",
+                startDate: formatDate(startDate),
+                plan: tenant.plan || tenant.planName || "-",
+                renewalDate: formatDate(renewalDate),
+                status: tenant.status || "-",
+                startDateValue: startDate,
+                renewalDateValue: renewalDate,
+              } satisfies TenantConfigRow;
+            } catch (error) {
+              console.error(
+                `Error fetching tenant config for ${tenantId}:`,
+                error,
+              );
+              return null;
+            }
+          }),
+        );
+
+        setUserItems(rows.filter((row): row is TenantConfigRow => row !== null));
+      } catch (error) {
+        console.error("Error fetching tenant list:", error);
+        setUserItems([]);
+      }
     };
 
     loadTenantConfigs();
@@ -186,6 +298,28 @@ const Usertable = () => {
     });
   }, [appliedFilters, searchTerm, userItems]);
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredUserItems.length / PAGE_LIMIT),
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedUserItems = useMemo(
+    () =>
+      filteredUserItems.slice(
+        (safeCurrentPage - 1) * PAGE_LIMIT,
+        safeCurrentPage * PAGE_LIMIT,
+      ),
+    [filteredUserItems, safeCurrentPage],
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, appliedFilters]);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.min(Math.max(page, 1), totalPages));
+  };
+
   const filterFields: FilterField[] = [
     {
       key: "tenantName",
@@ -222,6 +356,7 @@ const Usertable = () => {
   const resetFilters = () => {
     setFilterValues({});
     setAppliedFilters({});
+    setCurrentPage(1);
   };
 
   return (
@@ -464,7 +599,7 @@ const Usertable = () => {
             {/* Count */}
             <div className="flex items-center px-4 h-10">
               <span className="text-[11px] text-gray-400">
-                Showing {filteredUserItems.length} Of {userItems.length}
+                Showing {pagedUserItems.length} Of {filteredUserItems.length}
               </span>
             </div>
           </div>
@@ -479,6 +614,7 @@ const Usertable = () => {
             onApply={(values) => {
               setFilterValues(values);
               setAppliedFilters(values);
+              setCurrentPage(1);
               setShowFilter(false);
             }}
             onReset={resetFilters}
@@ -530,10 +666,10 @@ const Usertable = () => {
 
               {/* Table Body */}
               <tbody>
-                {filteredUserItems.length > 0 ? (
-                  filteredUserItems.map((item, index) => (
+                {pagedUserItems.length > 0 ? (
+                  pagedUserItems.map((item) => (
                     <tr
-                      key={index}
+                      key={item.tenantId}
                       className="
                         text-[11px]
                         odd:bg-[#F8F8F8]
@@ -623,8 +759,6 @@ const Usertable = () => {
                                 router.push(
                                   `/super-admin/ui/featureandcontrol/featureandtenant?tenantId=${encodeURIComponent(
                                     row.tenantId,
-                                  )}&portalId=${encodeURIComponent(
-                                    row.portalId,
                                   )}`,
                                 ),
                             },
@@ -644,121 +778,78 @@ const Usertable = () => {
             </table>
           </div>
 
-          <div className="flex justify-end items-center gap-1 px-3 py-4">
-            {/* Previous */}
+          <div className="flex items-center justify-end gap-1 px-3 py-4">
             <button
+              type="button"
+              onClick={() => goToPage(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
               className="
                 w-7
                 h-7
                 rounded-md
                 border
                 border-[#E5E7EB]
+                dark:border-gray-600
                 flex
                 items-center
                 justify-center
                 text-gray-400
                 bg-[#F5F5F2]
+                dark:bg-[#3A3A3A]
+                disabled:cursor-not-allowed
+                disabled:opacity-50
               "
             >
-              <span className="text-[23px] color-[#999FAC]">‹</span>
+              <span className="text-[23px]">‹</span>
             </button>
 
-            {/* Page 1 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#203F78]
-                text-[#203F78]
-                bg-[#FAFAFB]
-                text-[11px]
-              "
-            >
-              1
-            </button>
+            {getPageNumbers(safeCurrentPage, totalPages).map((page, index) =>
+              page === "..." ? (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="flex h-7 w-7 items-center justify-center text-[11px] text-gray-400"
+                >
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => goToPage(page)}
+                  aria-current={page === safeCurrentPage ? "page" : undefined}
+                  className={`h-7 w-7 rounded-md border text-[11px] ${
+                    page === safeCurrentPage
+                      ? "border-[#203F78] bg-[#FAFAFB] text-[#203F78] dark:border-[#8296E6] dark:bg-[#3A3A3A] dark:text-[#8296E6]"
+                      : "border-[#E6E7EA] bg-[#F5F5F2] text-gray-400 dark:border-gray-600 dark:bg-[#3A3A3A]"
+                  }`}
+                >
+                  {page}
+                </button>
+              ),
+            )}
 
-            {/* Page 2 */}
             <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              3
-            </button>
-
-            {/* Dots */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              ...
-            </button>
-
-            {/* Page 10 */}
-            <button
-              className="
-                w-7
-                h-7
-                rounded-md
-                border
-                border-[#E6E7EA]
-                text-gray-400
-                bg-[#F5F5F2]
-                text-[11px]
-              "
-            >
-              10
-            </button>
-
-            {/* Next */}
-            <button
+              type="button"
+              onClick={() => goToPage(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages}
               className="
                 w-7
                 h-7
                 rounded-md
                 border
                 border-[#E5E7EB]
+                dark:border-gray-600
                 flex
                 items-center
                 justify-center
                 text-gray-400
                 bg-[#F5F5F2]
+                dark:bg-[#3A3A3A]
+                disabled:cursor-not-allowed
+                disabled:opacity-50
               "
             >
-              <span className="text-[23px] color-[#999FAC]">›</span>
+              <span className="text-[23px]">›</span>
             </button>
           </div>
         </div>

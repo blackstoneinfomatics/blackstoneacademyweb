@@ -6,9 +6,6 @@ import { MdTune } from "react-icons/md";
 import { FiDownload } from "react-icons/fi";
 import { Search, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 interface Backup {
     id: string;
     tenant: string;
@@ -23,9 +20,6 @@ interface Filters {
     status: string;
 }
 
-// ─────────────────────────────────────────────
-// Mock data
-// ─────────────────────────────────────────────
 const MOCK_BACKUPS: Backup[] = [
     { id: "1", tenant: "Blackstone Academy", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
     { id: "2", tenant: "Alfurqan School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
@@ -40,9 +34,7 @@ const MOCK_BACKUPS: Backup[] = [
     { id: "11", tenant: "Global School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Inactive" },
 ];
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
+
 const AllBackupsTable = () => {
     const [searchKeyword, setSearchKeyword] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
@@ -50,7 +42,6 @@ const AllBackupsTable = () => {
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [viewDetailsId, setViewDetailsId] = useState<string | null>(null);
 
-    // ── Filter state ──
     const [filters, setFilters] = useState<Filters>({
         tenantName: "",
         status: "",
@@ -58,7 +49,6 @@ const AllBackupsTable = () => {
 
     const itemsPerPage = 10;
 
-    // ── Filtered data ──
     const filteredBackups = useMemo(() => {
         return MOCK_BACKUPS.filter((b) => {
             const matchesSearch = b.tenant
@@ -75,7 +65,6 @@ const AllBackupsTable = () => {
         });
     }, [searchKeyword, filters]);
 
-    // ── Pagination ──
     const totalPages = Math.ceil(filteredBackups.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedBackups = filteredBackups.slice(
@@ -90,7 +79,6 @@ const AllBackupsTable = () => {
     );
     const totalCount = filteredBackups.length;
 
-    // ── Live count for filter modal ──
     const liveFilteredCount = useMemo(() => {
         return MOCK_BACKUPS.filter((b) => {
             const tenantFilter =
@@ -111,7 +99,6 @@ const AllBackupsTable = () => {
         setCurrentPage(1);
     };
 
-    // ── The currently viewed backup ──
     const viewedBackup = MOCK_BACKUPS.find((b) => b.id === viewDetailsId) || null;
 
     return (
@@ -322,9 +309,6 @@ const AllBackupsTable = () => {
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════ */}
-            {/* Filter Modal */}
-            {/* ═══════════════════════════════════════════ */}
             {showFilter && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
@@ -421,9 +405,6 @@ const AllBackupsTable = () => {
                 </div>
             )}
 
-            {/* ═══════════════════════════════════════════ */}
-            {/* View Details Modal — matches reference image */}
-            {/* ═══════════════════════════════════════════ */}
             {viewedBackup && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"

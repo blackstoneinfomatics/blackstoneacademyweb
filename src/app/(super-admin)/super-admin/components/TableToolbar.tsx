@@ -20,10 +20,10 @@ export default function TableToolbar({
   onFilterClick,
 }: TableToolbarProps) {
   return (
-    <div className="grid grid-cols-1 overflow-hidden rounded-t-lg border border-[#E8E8E8] bg-white dark:border-[#454545] dark:bg-[#343434] md:grid-cols-3">
+    <div className="grid grid-cols-1 overflow-hidden border border-[#E8E8E8] bg-white dark:border-[#454545] dark:bg-[#343434] md:grid-cols-3">
       {/* Search */}
       <div
-        className="flex items-center border-b border-[#E8E8E8] dark:border-[#454545] md:border-b-0 md:border-r"
+        className="flex items-center shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-xl"
         style={{
           height: "clamp(36px, 4vw, 42px)",
           paddingInline: "clamp(12px, 1vw, 16px)",

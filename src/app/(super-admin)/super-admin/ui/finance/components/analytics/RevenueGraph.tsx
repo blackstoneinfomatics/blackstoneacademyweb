@@ -4,12 +4,11 @@ import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-// 1. Define API Response for Graph
 interface GraphApiResponse {
   success: boolean;
   message: string;
   data: {
-    view: string;
+    view: "monthly" | "yearly";
     year: number;
     data: Array<{
       month?: number;
@@ -20,17 +19,22 @@ interface GraphApiResponse {
   };
 }
 
-// 2. Define API Response for Counts (Right Boxes)
 interface CountApiResponse {
   success: boolean;
   message: string;
   data: {
     summary: {
-      totalCollectionRate: { value: number; trend: "UP" | "DOWN" };
-      totalOverdueRate: { value: number; trend: "UP" | "DOWN" };
-      netRevenue: { value: number };
+      totalCollectionRate: SummaryMetric;
+      totalOverdueRate: SummaryMetric;
+      netRevenue: SummaryMetric;
     };
   };
+}
+
+interface SummaryMetric {
+  value: number;
+  comparison: number;
+  direction: "up" | "down" | "same";
 }
 
 // Helper to format numbers
@@ -40,34 +44,32 @@ const formatNumber = (num: number) => num.toLocaleString("en-IN");
 const formatCurrency = (num: number) => `₹${num.toLocaleString("en-IN")}`;
 
 const RevenueOverview = () => {
-  // ================= STATE FOR GRAPH =================
+
   const [viewMode, setViewMode] = useState<"yearly" | "monthly">("monthly");
   const [graphData, setGraphData] = useState<{ label: string; value: number }[]>([]);
   const [graphLoading, setGraphLoading] = useState(true);
 
-  // ================= STATE FOR RIGHT BOXES =================
-  const [cardData, setCardData] = useState({
-    collectionRate: 0,
-    overdueRate: 0,
-    netRevenue: 0,
+  const [cardData, setCardData] = useState<{
+    collectionRate: SummaryMetric;
+    overdueRate: SummaryMetric;
+    netRevenue: SummaryMetric;
+  }>({
+    collectionRate: { value: 0, comparison: 0, direction: "same" as const },
+    overdueRate: { value: 0, comparison: 0, direction: "same" as const },
+    netRevenue: { value: 0, comparison: 0, direction: "same" as const },
   });
   const [countLoading, setCountLoading] = useState(true);
 
-  // ================= STATE FOR HOVER TOOLTIP =================
   const [tooltip, setTooltip] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  // ================= FETCH GRAPH DATA (Real-time API) =================
-  const fetchGraphData = async (view: string) => {
+  const fetchGraphData = async (view: "monthly" | "yearly") => {
     try {
       setGraphLoading(true);
 
-      // Build query parameters
-      const params = new URLSearchParams();
-      params.append("view", view);
-
       const response = await axios.get<GraphApiResponse>(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FINANCE.GET_GRAPH_DATA}?${params.toString()}`
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.FINANCE.GET_REVENUE_GRAPH}`,
+        { params: { view } },
       );
 
       if (response.data.success) {
@@ -75,15 +77,15 @@ const RevenueOverview = () => {
 
         // Map API data to chart format (Handles both Monthly and Yearly)
         const mappedData = apiData.data.map((item) => {
-          if (view === "monthly" || item.monthName) {
+          if (apiData.view === "monthly") {
             return {
               label: item.monthName || `Month ${item.month}`,
-              value: item.amount || 0,
+              value: item.amount ?? 0,
             };
           } else {
             return {
               label: item.year?.toString() || "",
-              value: item.amount || 0,
+              value: item.amount ?? 0,
             };
           }
         });
@@ -102,7 +104,6 @@ const RevenueOverview = () => {
     fetchGraphData(viewMode);
   }, []);
 
-  // ================= FETCH COUNT DATA (RIGHT BOXES) =================
   useEffect(() => {
     const fetchCountData = async () => {
       try {
@@ -115,9 +116,21 @@ const RevenueOverview = () => {
           const apiData = response.data.data;
 
           setCardData({
-            collectionRate: apiData.summary.totalCollectionRate.value,
-            overdueRate: apiData.summary.totalOverdueRate.value,
-            netRevenue: apiData.summary.netRevenue.value,
+            collectionRate: {
+              value: apiData.summary.totalCollectionRate.value,
+              comparison: apiData.summary.totalCollectionRate.comparison,
+              direction: apiData.summary.totalCollectionRate.direction,
+            },
+            overdueRate: {
+              value: apiData.summary.totalOverdueRate.value,
+              comparison: apiData.summary.totalOverdueRate.comparison,
+              direction: apiData.summary.totalOverdueRate.direction,
+            },
+            netRevenue: {
+              value: apiData.summary.netRevenue.value,
+              comparison: apiData.summary.netRevenue.comparison,
+              direction: apiData.summary.netRevenue.direction,
+            },
           });
         }
       } catch (error) {
@@ -130,14 +143,38 @@ const RevenueOverview = () => {
     fetchCountData();
   }, []);
 
-  // ================= DYNAMIC DROPDOWN HANDLER =================
   const handleViewChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newView = e.target.value as "yearly" | "monthly";
     setViewMode(newView);
     await fetchGraphData(newView);
   };
 
-  // ================= CHART CALCULATIONS =================
+const renderTrendBadge = (item: {
+  value: number;
+  comparison: number;
+  direction: string;
+}, p0?: string) => {
+  const percentage = Math.abs(Number(item.comparison || 0));
+
+  const isPositive = item.direction === "up";
+  const isNegative = item.direction === "down";
+
+  return (
+    <span
+      className={`text-[12px] px-2 py-1 rounded-md ${
+        isPositive
+          ? "text-green-600 bg-green-50"
+          : isNegative
+            ? "text-red-500 bg-red-50"
+            : "text-gray-600 bg-gray-100"
+      }`}
+    >
+      {isPositive ? "+" : isNegative ? "-" : ""}
+      {percentage.toFixed(0)}%
+    </span>
+  );
+};
+
   const chartWidth = 520;
   const chartHeight = 190;
 
@@ -173,7 +210,6 @@ const RevenueOverview = () => {
     ${miniWidth},${miniHeight}
   `;
 
-  // ================= HOVER HANDLERS =================
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!chartContainerRef.current || graphData.length === 0) return;
 
@@ -198,23 +234,8 @@ const RevenueOverview = () => {
     setTooltip(null);
   };
 
-  const getTrendBadge = (isPositive: boolean, value: number) => {
-    const sign = isPositive ? "+" : "-";
-    return (
-      <span
-        className={`text-[10px] font-medium px-1.5 py-1 rounded-[3px] ${isPositive
-            ? "text-[#3C8D48] bg-[#E4F2E5] dark:bg-[#294D32] dark:text-[#A7E3B0]"
-            : "text-[#D34645] bg-[#FDEAEA] dark:bg-[#5A3030] dark:text-[#FFB4B4]"
-          }`}
-      >
-        {sign}{Math.abs(value)}%
-      </span>
-    );
-  };
-
   return (
     <div className="w-full grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4 mt-4">
-      {/* ================= LEFT : REVENUE GROWTH (DYNAMIC GRAPH) ================= */}
       <div className="bg-white dark:bg-[#343434] rounded-[18px] p-4 sm:p-5 shadow-sm min-w-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -222,7 +243,6 @@ const RevenueOverview = () => {
             Revenue Growth
           </h2>
 
-          {/* View Selector (No Year Dropdown) */}
           <select
             value={viewMode}
             onChange={handleViewChange}
@@ -279,9 +299,9 @@ const RevenueOverview = () => {
                     </linearGradient>
                   </defs>
 
-                  {/* Horizontal grid lines */}
                   {[0, 1, 2, 3, 4].map((line) => {
                     const y = (chartHeight / 4) * line;
+
                     return (
                       <line
                         key={line}
@@ -295,7 +315,6 @@ const RevenueOverview = () => {
                     );
                   })}
 
-                  {/* Vertical grid lines */}
                   {graphData.map((_, index) => {
                     const x = getX(index);
                     return (
@@ -330,16 +349,31 @@ const RevenueOverview = () => {
                 </svg>
 
                 {/* X Axis */}
-                <div className="grid grid-cols-12 mt-[-3px]">
-                  {graphData.map((item) => (
-                    <span
-                      key={item.label}
-                      className="text-[9px] text-[#777] text-center dark:text-[#AEB6C5]"
-                    >
-                      {item.label}
-                    </span>
-                  ))}
-                </div>
+<div className="relative h-[18px] mt-[-3px] w-full">
+  {graphData.map((item, index) => {
+    const left = getX(index);
+
+    const isFirst = index === 0;
+    const isLast = index === graphData.length - 1;
+
+    return (
+      <span
+        key={item.label}
+        className="absolute text-[9px] text-[#777] dark:text-[#AEB6C5] whitespace-nowrap"
+        style={{
+          left: `${(left / chartWidth) * 100}%`,
+          transform: isFirst
+            ? "translateX(0)"
+            : isLast
+              ? "translateX(-100%)"
+              : "translateX(-50%)",
+        }}
+      >
+        {item.label}
+      </span>
+    );
+  })}
+</div>
               </div>
             </div>
 
@@ -377,12 +411,12 @@ const RevenueOverview = () => {
 
             <div className="flex items-center gap-2">
               <span className="text-[25px] leading-none font-semibold text-[#292929] dark:text-white">
-                {countLoading ? "..." : formatNumber(cardData.collectionRate)}
+                {countLoading
+                  ? "..."
+                  : `${formatNumber(cardData.collectionRate.value)}%`}
               </span>
 
-              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px] dark:bg-[#294D32] dark:text-[#A7E3B0]">
-                +14%
-              </span>
+              {renderTrendBadge(cardData.collectionRate)}
             </div>
           </div>
 
@@ -394,12 +428,12 @@ const RevenueOverview = () => {
 
             <div className="flex items-center gap-2">
               <span className="text-[25px] leading-none font-semibold text-[#292929] dark:text-white">
-                {countLoading ? "..." : formatNumber(cardData.overdueRate)}
+                {countLoading
+                  ? "..."
+                  : `${formatNumber(cardData.overdueRate.value)}%`}
               </span>
 
-              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px] dark:bg-[#294D32] dark:text-[#A7E3B0]">
-                +14%
-              </span>
+              {renderTrendBadge(cardData.overdueRate, "DOWN")}
             </div>
           </div>
         </div>
@@ -414,12 +448,10 @@ const RevenueOverview = () => {
 
             <div className="flex items-center gap-2">
               <span className="text-[25px] leading-none font-semibold text-[#292929] dark:text-white">
-                {countLoading ? "..." : formatNumber(cardData.netRevenue)}
+                {countLoading ? "..." : formatNumber(cardData.netRevenue.value)}
               </span>
 
-              <span className="text-[10px] font-medium text-[#3C8D48] bg-[#E4F2E5] px-1.5 py-1 rounded-[3px] dark:bg-[#294D32] dark:text-[#A7E3B0]">
-                +3.4%
-              </span>
+              {renderTrendBadge(cardData.netRevenue)}
             </div>
           </div>
 

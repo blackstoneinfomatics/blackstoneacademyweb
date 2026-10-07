@@ -31,7 +31,7 @@ const Page = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showFailure, setShowFailure] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [tab, setTab] = useState<OrganizationTab>("All");
+  const [tab, setTab] = useState<OrganizationTab>("All"); 3
   const [formData, setFormData] = useState<FormData>({
     portalRoles: "",
     description: "",
@@ -133,10 +133,10 @@ const Page = () => {
     });
   };
 
-  const refreshPortalList = () => {};
+  const refreshPortalList = () => { };
 
   return (
-    <BaseSuperLayout>
+    <>
       <div className="flex flex-col gap-4">
         <SuperAdminHeader currentSection="Users & Roles" />
         <div>
@@ -177,11 +177,10 @@ const Page = () => {
           <div className="flex items-center gap-6 px-5 mt-1">
             <button
               onClick={() => setActiveTab("portal")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${
-                activeTab === "portal"
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "portal"
                   ? "text-[#5872C5]"
                   : "text-[#24324B] dark:text-gray-300"
-              }`}
+                }`}
             >
               Portal
               {activeTab === "portal" && (
@@ -191,11 +190,10 @@ const Page = () => {
 
             <button
               onClick={() => setActiveTab("tenants")}
-              className={`relative text-[13px] font-medium pb-2 transition-colors ${
-                activeTab === "tenants"
+              className={`relative text-[13px] font-medium pb-2 transition-colors ${activeTab === "tenants"
                   ? "text-[#5872C5]"
                   : "text-[#24324B] dark:text-gray-300"
-              }`}
+                }`}
             >
               Tenants
               {activeTab === "tenants" && (
@@ -391,7 +389,7 @@ const Page = () => {
           </div>
         </div>
       )}
-    </BaseSuperLayout>
+    </>
   );
 };
 

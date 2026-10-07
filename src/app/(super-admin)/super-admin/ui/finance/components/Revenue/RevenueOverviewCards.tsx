@@ -74,6 +74,23 @@ const defaultCards: RevenueCard[] = [
   },
 ];
 
+const formatRoundedAmount = (amount: string, formattedAmount: string) => {
+  const parseAmount = (value: string) => {
+    const normalizedValue = value.replace(/[^\d.-]/g, "");
+    return normalizedValue ? Number(normalizedValue) : Number.NaN;
+  };
+  const numericAmount = [amount, formattedAmount]
+    .map(parseAmount)
+    .find(Number.isFinite);
+
+  if (numericAmount === undefined) return formattedAmount;
+
+  const currencyPrefix = formattedAmount.match(/^[^\d-]*/)?.[0] ?? "";
+  const roundedAmount = Math.round(numericAmount).toLocaleString("en-IN");
+
+  return `${currencyPrefix}${roundedAmount}`;
+};
+
 const RevenueOverviewCards = () => {
   const [cards, setCards] = useState<RevenueCard[]>(defaultCards);
 
@@ -107,8 +124,7 @@ const RevenueOverviewCards = () => {
 
             return {
               ...card,
-              value: stat.amount,
-              valueTooltip: `Amount: ${stat.rawAmount}`,
+              value: formatRoundedAmount(stat.rawAmount, stat.amount),
               percentage: stat.percentageChange,
               isPositive: stat.trend === "UP",
             };

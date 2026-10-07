@@ -1,9 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 type CardType = "totalBackups" | "currentMonthBackups" | "backupsDelivered";
 
 interface BackupCardProps {
@@ -23,9 +20,6 @@ interface BackupCardsData {
     backupsDelivered: BackupStatData;
 }
 
-// ─────────────────────────────────────────────
-// 🧪 MOCK DATA — replace with real API later
-// ─────────────────────────────────────────────
 const MOCK_DATA: BackupCardsData = {
     totalBackups: {
         count: 28,
@@ -47,64 +41,27 @@ const MOCK_DATA: BackupCardsData = {
     },
 };
 
-// ─────────────────────────────────────────────
-// 🔌 FUTURE API — uncomment when you have an endpoint
-// ─────────────────────────────────────────────
-// let cache: BackupCardsData | null = null;
-// let inflight: Promise<BackupCardsData> | null = null;
-// const API_URL = "http://localhost:5001/dashboard/backup-cards";
-//
-// async function fetchCards(): Promise<BackupCardsData> {
-//     if (cache) return cache;
-//     if (inflight) return inflight;
-//
-//     inflight = fetch(API_URL)
-//         .then((res) => {
-//             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-//             return res.json();
-//         })
-//         .then((json) => {
-//             if (!json?.success) throw new Error(json?.message || "API failed");
-//             const data: BackupCardsData = json.data;
-//             cache = data;
-//             inflight = null;
-//             return data;
-//         })
-//         .catch((err) => {
-//             inflight = null;
-//             throw err;
-//         });
-//
-//     return inflight;
-// }
-
-// ─────────────────────────────────────────────
-// Static config — colors, icons, titles
-// ─────────────────────────────────────────────
 const cardConfig = {
     totalBackups: {
         image: "/assets/images/superadmin-backup-totalbackups.svg",
-        iconBg: "bg-[#e5dffd] dark:bg-[#e5dffd]",
+        iconBg: "bg-[#e5dffd] dark:bg-[#493D70]",
         title: "Total Backups",
-        titleColor: "text-[#5225fc] dark:text-[#5225fc]",
+        titleColor: "text-[#5225fc] dark:text-[#B9A6FF]",
     },
     currentMonthBackups: {
         image: "/assets/images/superadmin-backup-currentmonthbackups.svg",
-        iconBg: "bg-[#e3eefb] dark:bg-[#e3eefb]",
+        iconBg: "bg-[#e3eefb] dark:bg-[#263F5B]",
         title: "Current Month Backups",
-        titleColor: "text-[#3B82F6] dark:text-[#3B82F6]",
+        titleColor: "text-[#3B82F6] dark:text-[#82B6FF]",
     },
     backupsDelivered: {
         image: "/assets/images/superadmin-backup-backupsdelivered.svg",
-        iconBg: "bg-[#e3f4e7] dark:bg-[#e3f4e7]",
+        iconBg: "bg-[#e3f4e7] dark:bg-[#294A32]",
         title: "Backups Delivered",
-        titleColor: "text-[#40BD5F] dark:text-[#40BD5F]",
+        titleColor: "text-[#40BD5F] dark:text-[#72D889]",
     },
 };
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 const formatValue = (num: number): string => {
     return num.toLocaleString("en-IN");
 };
@@ -113,23 +70,18 @@ const getTrendInfo = (trend: "up" | "down", percentage: number) => ({
     label: `${trend === "up" ? "↑" : "↓"} ${percentage.toFixed(0)}%`,
     color:
         trend === "up"
-            ? "text-[#E53E3E] dark:text-[#FC8181]" // red (matches reference)
+            ? "text-[#E53E3E] dark:text-[#FC8181]" 
             : "text-[#38A169] dark:text-[#68D391]",
 });
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
 const BackupCard = ({ type }: BackupCardProps) => {
-    // ✅ Safe lookup — never crashes
+
     const config = cardConfig[type] ?? cardConfig.totalBackups;
 
-    // ── Mock data → ready immediately ──
     const [data, setData] = useState<BackupCardsData | null>(MOCK_DATA);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // ─────────────────────────────────────────
     // 🔌 When API is ready, replace the useEffect above with:
     // ─────────────────────────────────────────
     // useEffect(() => {
@@ -162,7 +114,7 @@ const BackupCard = ({ type }: BackupCardProps) => {
 
     // Resolve value + trend per card type
     let value = "—";
-    let trend = { label: "—", color: "text-gray-400" };
+    let trend = { label: "—", color: "text-gray-400 dark:text-gray-300" };
 
     if (data) {
         if (type === "totalBackups") {

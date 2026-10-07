@@ -18,7 +18,7 @@ const page = () => {
   const [tab, setTab] = useState<OrganizationTab>("All");
 
   return (
-    <BaseSuperLayout>
+    <>
 
       <SuperAdminHeader currentSection="Subscriptions" tenantActiveTab={activeTab} />   
          <div>
@@ -30,10 +30,13 @@ const page = () => {
 
       </div>
 
-      <div className="pt-4">
+      <div className="p-4 bg-[#F7F8FE] dark:bg-[#2E2E2E] rounded-lg">              
+                    <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white pb-4">
+              Institute Subscription
+            </h2>
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
-    </BaseSuperLayout>
+    </>
   );
 };
 

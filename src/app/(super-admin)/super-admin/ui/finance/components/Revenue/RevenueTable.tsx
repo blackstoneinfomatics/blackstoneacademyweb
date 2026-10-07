@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { downloadPdf } from "../downloadCsv";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import FilterDrawer, {
+  type FilterField,
+} from "@/app/(super-admin)/super-admin/components/FilterDrawer";
 
 interface MonthlyRevenueItem {
   month: string;
@@ -48,6 +57,43 @@ const headers = [
   "Growth",
 ];
 
+const revenueFilterFields: FilterField[] = [
+  {
+    key: "period",
+    label: "Period",
+    type: "select",
+    placeholder: "Select Period",
+  },
+  {
+    key: "grossRevenue",
+    label: "Gross Revenue",
+    type: "text",
+    placeholder: "Enter amount",
+  },
+  {
+    key: "netRevenue",
+    label: "Net Revenue",
+    type: "text",
+    placeholder: "Enter amount",
+  },
+  {
+    key: "collectedRevenue",
+    label: "Collected Revenue",
+    type: "text",
+    placeholder: "Enter amount",
+  },
+];
+
+const EMPTY_FILTERS: Record<string, string> = {
+  period: "",
+  grossRevenue: "",
+  discount: "",
+  refund: "",
+  netRevenue: "",
+  collectedRevenue: "",
+  pendingRevenue: "",
+};
+
 const formatAmount = (amount: number) =>
   `₹ ${amount.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
@@ -89,6 +135,9 @@ const getTrendSymbol = (trend: MonthlyRevenueItem["trend"]) => {
 const RevenueTable = () => {
   const [items, setItems] = useState<MonthlyRevenueItem[]>([]);
   const [search, setSearch] = useState("");
+  const [filters, setFilters] =
+    useState<Record<string, string>>(EMPTY_FILTERS);
+  const [showFilter, setShowFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
@@ -119,8 +168,63 @@ const RevenueTable = () => {
     fetchMonthlyRevenue();
   }, []);
 
-  const filteredItems = items.filter((item) =>
-    item.month.toLowerCase().includes(search.toLowerCase().trim()),
+  const normalizeSearchValue = (value: string | number) =>
+    String(value).toLowerCase().replace(/[₹,\s]/g, "");
+  const searchTerm = normalizeSearchValue(search.trim());
+  const filteredItems = items.filter((item) => {
+    const searchableValues = [
+      item.month,
+      formatPeriod(item.month),
+      item.grossRevenue,
+      item.discount,
+      item.refund,
+      item.netRevenue,
+      item.collectedRevenue,
+      item.pendingRevenue,
+    ];
+
+    if (
+      searchTerm &&
+      !searchableValues.some((value) =>
+        normalizeSearchValue(value).includes(searchTerm),
+      )
+    ) {
+      return false;
+    }
+
+    if (filters.period && item.month !== filters.period) {
+      return false;
+    }
+
+    const amountFilters: (keyof MonthlyRevenueItem)[] = [
+      "grossRevenue",
+      "discount",
+      "refund",
+      "netRevenue",
+      "collectedRevenue",
+      "pendingRevenue",
+    ];
+
+    return amountFilters.every((key) => {
+      const filterValue = normalizeSearchValue(filters[key] ?? "");
+      return (
+        !filterValue ||
+        normalizeSearchValue(item[key]).includes(filterValue)
+      );
+    });
+  });
+  const filterFields = revenueFilterFields.map((field) =>
+    field.key === "period"
+      ? {
+          ...field,
+          options: Array.from(new Set(items.map((item) => item.month)))
+            .sort((first, second) => second.localeCompare(first))
+            .map((month) => ({
+              label: formatPeriod(month),
+              value: month,
+            })),
+        }
+      : field,
   );
   const totalPages = Math.max(
     1,
@@ -142,6 +246,27 @@ const RevenueTable = () => {
 
   const handleSearch = (value: string) => {
     setSearch(value);
+    setCurrentPage(1);
+    setSelectedRows([]);
+  };
+
+  const handleApplyFilters = (values: Record<string, unknown>) => {
+    setFilters({
+      ...EMPTY_FILTERS,
+      ...Object.fromEntries(
+        Object.entries(values).map(([key, value]) => [
+          key,
+          typeof value === "string" ? value : "",
+        ]),
+      ),
+    });
+    setCurrentPage(1);
+    setSelectedRows([]);
+    setShowFilter(false);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(EMPTY_FILTERS);
     setCurrentPage(1);
     setSelectedRows([]);
   };
@@ -184,18 +309,31 @@ const RevenueTable = () => {
       </div>
 
       <div className="overflow-hidden rounded-xl border-t border-[#E6EAF2] bg-white shadow-lg dark:border-[#3F3F3F] dark:bg-[#343434]">
-        <div className="flex h-12 items-center justify-between border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F]">
-          <div className="flex w-full max-w-md items-center">
+        <div className="grid min-h-12 grid-cols-1 items-center gap-2 border-b border-[#E6EAF2] px-4 py-2 dark:border-[#3F3F3F] md:grid-cols-3 md:gap-4 md:py-0">
+          <div className="flex min-w-0 w-full max-w-md items-center md:justify-self-start">
             <Search size={17} className="text-[#A5AAB4]" />
             <input
               type="text"
               value={search}
               onChange={(event) => handleSearch(event.target.value)}
-              placeholder="Search by month"
+              placeholder="Search revenue"
               className="ml-2 w-full bg-transparent text-sm text-[#444] outline-none placeholder:text-[#A5AAB4] dark:text-[#E2E2E2]"
             />
           </div>
-          <span className="whitespace-nowrap text-sm text-[#80848E] dark:text-[#B5B5B5]">
+          <button
+            type="button"
+            onClick={() => setShowFilter(true)}
+            className="flex w-fit items-center gap-2 rounded-md px-2 py-1 text-sm text-[#757575] transition hover:bg-gray-50 dark:text-[#CBD5E1] dark:hover:bg-[#3B3B3B] md:justify-self-center"
+          >
+            <SlidersHorizontal size={16} />
+            Filter
+            {Object.values(filters).filter(Boolean).length > 0 && (
+              <span className="rounded-full bg-[#576CBC] px-2 py-[2px] text-[11px] text-white">
+                {Object.values(filters).filter(Boolean).length}
+              </span>
+            )}
+          </button>
+          <span className="whitespace-nowrap text-sm text-[#80848E] dark:text-[#B5B5B5] md:justify-self-end">
             Showing {filteredItems.length === 0 ? 0 : startIndex + 1} of{" "}
             {filteredItems.length}
           </span>
@@ -288,6 +426,17 @@ const RevenueTable = () => {
           </table>
         </div>
       </div>
+
+      <FilterDrawer
+        open={showFilter}
+        title="Filter by"
+        fields={filterFields}
+        values={filters}
+        resultCount={filteredItems.length}
+        onClose={() => setShowFilter(false)}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+      />
 
       <div className="flex justify-end gap-2 border-t border-[#E6EAF2] px-4 py-3 dark:border-[#3F3F3F]">
         <button

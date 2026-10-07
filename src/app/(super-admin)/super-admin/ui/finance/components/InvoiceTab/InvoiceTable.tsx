@@ -89,27 +89,10 @@ const transactionFields: FilterField[] = [
     type: "dateRange",
   },
   {
-    key: "invoiceStatus",
-    label: "Invoice Status",
+    key: "status",
+    label: "Status",
     type: "select",
     placeholder: "Select Status",
-    options: [
-      { label: "Pending", value: "PENDING" },
-      { label: "Paid", value: "PAID" },
-      { label: "Overdue", value: "OVERDUE" },
-      { label: "Cancelled", value: "CANCELLED" },
-    ],
-  },
-  {
-    key: "paymentStatus",
-    label: "Payment Status",
-    type: "select",
-    placeholder: "Select Payment Status",
-    options: [
-      { label: "Pending", value: "PENDING" },
-      { label: "Paid", value: "PAID" },
-      { label: "Failed", value: "FAILED" },
-    ],
   },
 ];
 
@@ -129,8 +112,7 @@ export default function TransactionTable() {
     invoiceDateTo: null as string | null,
     dueDateFrom: null as string | null,
     dueDateTo: null as string | null,
-    invoiceStatus: "",
-    paymentStatus: "",
+    status: "",
   });
 
   // Fetch invoices from API
@@ -251,11 +233,27 @@ export default function TransactionTable() {
     if (filters.invoiceDateTo && new Date(item.invoiceDate) > new Date(filters.invoiceDateTo)) return false;
     if (filters.dueDateFrom && new Date(item.dueDate) < new Date(filters.dueDateFrom)) return false;
     if (filters.dueDateTo && new Date(item.dueDate) > new Date(filters.dueDateTo)) return false;
-    if (filters.invoiceStatus && item.invoiceStatus !== filters.invoiceStatus) return false;
-    if (filters.paymentStatus && item.paymentStatus !== filters.paymentStatus) return false;
+    if (filters.status && item.paymentStatus !== filters.status) return false;
 
     return true;
   });
+
+  const filterFields = transactionFields.map((field) =>
+    field.key === "status"
+      ? {
+          ...field,
+          options: Array.from(
+            new Set(
+              invoices
+                .map((invoice) => invoice.paymentStatus?.trim())
+                .filter((status): status is string => Boolean(status)),
+            ),
+          )
+            .sort((first, second) => first.localeCompare(second))
+            .map((status) => ({ label: status, value: status })),
+        }
+      : field,
+  );
 
   // Get selected items
   const selectedItems = invoices.filter((item) => selectedIds.has(item._id));
@@ -400,11 +398,10 @@ export default function TransactionTable() {
                 <th className="px-3 py-3 font-medium">Due Date</th>
                 <th className="px-3 py-3 font-medium text-right">Amount</th>
                 <th className="px-3 py-3 font-medium">Status</th>
-                <th className="px-3 py-3 font-medium">Payment</th>
                 <th className="px-3 py-3 font-medium rounded-tr-md">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700 bg-[#e2e2e23c]">
+            <tbody className="divide-y divide-slate-100 bg-[#e2e2e23c] text-slate-700 dark:divide-[#454545] dark:bg-[#343434] dark:text-[#E2E6EE]">
               {filteredData.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-3 py-8 text-center text-sm text-slate-500">
@@ -412,8 +409,15 @@ export default function TransactionTable() {
                   </td>
                 </tr>
               ) : (
-                filteredData.map((row) => (
-                  <tr key={row._id} className="bg-gray-50">
+                filteredData.map((row, index) => (
+                  <tr
+                    key={row._id}
+                    className={`transition-colors hover:bg-slate-100 dark:hover:bg-[#414141] ${
+                      index % 2 === 0
+                        ? "bg-white dark:bg-[#343434]"
+                        : "bg-gray-50 dark:bg-[#2F2F2F]"
+                    }`}
+                  >
                     <td className="px-3 py-3">
                       <input
                         type="checkbox"
@@ -425,13 +429,13 @@ export default function TransactionTable() {
                     <td className="px-3 py-3 font-medium text-[#2E62B8] whitespace-nowrap">
                       {row.invoiceNumber}
                     </td>
-                    <td className="px-3 py-3 text-slate-700 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap text-slate-700 dark:text-[#E2E6EE]">
                       {row.tenantId}
                     </td>
-                    <td className="px-3 py-3 text-slate-700">
+                    <td className="px-3 py-3 text-slate-700 dark:text-[#E2E6EE]">
                       {row.items.map(item => item.service).join(", ")}
                     </td>
-                    <td className="px-3 py-3 text-slate-700">
+                    <td className="px-3 py-3 text-slate-700 dark:text-[#E2E6EE]">
                       {row.items.map(item => item.category).join(", ")}
                     </td>
                     <td className="px-3 py-3 text-[#2E62B8] whitespace-nowrap">
@@ -448,30 +452,16 @@ export default function TransactionTable() {
                         year: "numeric",
                       })}
                     </td>
-                    <td className="px-3 py-3 text-right font-medium text-[#344054] whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap text-right font-medium text-[#344054] dark:text-[#E2E6EE]">
                       ₹ {row.totalAmount.toLocaleString()}
                     </td>
                     <td className="px-3 py-3">
                       <span
-                        className={`inline-flex min-w-[70px] justify-center rounded-md px-2.5 py-1 text-xs font-medium ${row.invoiceStatus === "PAID"
-                          ? "bg-[#E8F8EC] text-[#2E9E44]"
-                          : row.invoiceStatus === "OVERDUE"
-                            ? "bg-[#FEE2E2] text-[#DC2626]"
-                            : row.invoiceStatus === "CANCELLED"
-                              ? "bg-[#F3F4F6] text-[#6B7280]"
-                              : "bg-[#FFF4DE] text-[#F59E0B]"
-                          }`}
-                      >
-                        {row.invoiceStatus}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span
                         className={`inline-flex min-w-[70px] justify-center rounded-md px-2.5 py-1 text-xs font-medium ${row.paymentStatus === "PAID"
-                          ? "bg-[#E8F8EC] text-[#2E9E44]"
+                          ? "bg-[#E8F8EC] text-[#2E9E44] dark:bg-green-900/30 dark:text-green-400"
                           : row.paymentStatus === "FAILED"
-                            ? "bg-[#FEE2E2] text-[#DC2626]"
-                            : "bg-[#FFF4DE] text-[#F59E0B]"
+                            ? "bg-[#FEE2E2] text-[#DC2626] dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-[#FFF4DE] text-[#F59E0B] dark:bg-amber-900/30 dark:text-amber-400"
                           }`}
                       >
                         {row.paymentStatus}
@@ -499,7 +489,7 @@ export default function TransactionTable() {
       <FilterDrawer
         open={openFilter}
         title="Filter by"
-        fields={transactionFields}
+        fields={filterFields}
         values={filters}
         resultCount={invoices.length}
         onClose={() => setOpenFilter(false)}
@@ -511,8 +501,7 @@ export default function TransactionTable() {
             invoiceDateTo: null,
             dueDateFrom: null,
             dueDateTo: null,
-            invoiceStatus: "",
-            paymentStatus: "",
+            status: "",
           })
         }
         onApply={(values: any) => {

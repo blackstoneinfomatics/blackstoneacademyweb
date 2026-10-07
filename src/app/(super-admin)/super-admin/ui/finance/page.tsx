@@ -4,7 +4,9 @@ import React, { useEffect, useState } from "react";
 import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import Tabs from "./components/Tabs";
-import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
+import OrganizationHeader, {
+  OrganizationTab,
+} from "../../components/OrganizationHeader";
 // import { useRouter, useSearchParams } from "next/navigation";
 
 type FinanceTab =
@@ -36,20 +38,23 @@ const page = () => {
   // };
 
   return (
-    <BaseSuperLayout>
+    <>
       <SuperAdminHeader currentSection="Finance" tenantActiveTab={activeTab} />
       <div>
         <OrganizationHeader
-
           showTabs
           activeTab={tab}
-          onTabChange={setTab} currentSection={""} />
-
+          onTabChange={setTab}
+          currentSection={""}
+        />
       </div>
-      <div className="">
+      <div className="p-4 bg-[#F7F8FE] dark:bg-[#2e2e2e] rounded-xl">
+        <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white pb-4">
+          Institute Finance
+        </h2>
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
-    </BaseSuperLayout>
+    </>
   );
 };
 

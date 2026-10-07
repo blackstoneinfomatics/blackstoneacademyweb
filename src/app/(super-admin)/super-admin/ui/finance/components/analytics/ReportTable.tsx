@@ -110,7 +110,7 @@ export default function ReportTable() {
   };
 
   return (
-    <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-sm py-4">
+    <div className="bg-white dark:bg-[#343434] rounded-2xl shadow-sm py-4 h-full">
       <div className="mb-4 flex items-center justify-between px-3">
         <h2
           className="mb-4 font-medium text-[#010E30E5]/90 dark:text-[#fff]"
@@ -143,7 +143,7 @@ export default function ReportTable() {
                   aria-label="Select all reports"
                 />
               </th>
-              {["Date & Time", "ROLE", "Activity", "Details", "Action"].map(
+              {["Date & Time", "ROLE", "Activity", "Details"].map(
                 (item) => (
                   <th
                     key={item}
@@ -199,38 +199,6 @@ export default function ReportTable() {
 
                     <td className="px-5 py-4 text-[12px] text-[#1E293B] dark:text-white">
                       {row.details}
-                    </td>
-
-                    <td className="px-5 py-4 relative">
-                      <button
-                        onClick={() => toggleDropdown(row.id)}
-                        className="text-[#6B7280] hover:text-[#576CBC]"
-                      >
-                        <BsThreeDotsVertical size={15} />
-                      </button>
-                      {openDropdownId === row.id && (
-                        <div className="absolute right-0 top-8 w-40 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
-                          <button
-                            className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-                            onClick={() => {
-                              setSelectedActivity(row);
-                              setShowViewModal(true);
-                              setOpenDropdownId(null);
-                            }}
-                          >
-                            View Details
-                          </button>
-
-                          <button
-                            className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-                            onClick={() => {
-                              setOpenDropdownId(null);
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 );

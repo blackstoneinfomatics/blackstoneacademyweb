@@ -1,7 +1,7 @@
-export type UpdatePriority = "High" | "Medium" | "Low";
+export type UpdatePriority = "Low" | "Medium" | "High";
 export type UpdateStatus = "Draft" | "Scheduled" | "Published" | "Archived";
 
-export type ProductUpdate = {
+export interface ProductUpdate {
   updateId: string;
   title: string;
   description: string;
@@ -10,22 +10,25 @@ export type ProductUpdate = {
   audience: string;
   releaseDate: string;
   status: UpdateStatus;
-  // Extended field shown on the details view - optional until the API
-  // provides it, so dummy data doesn't need to fill every field.
   affectedTenants?: number;
-};
+  rawAudience?: string[];
+  rawSelectedTenants?: string[];
+  attachments?: string[];
+  sendNotification?: { email: boolean; inApp: boolean };
+  publishDate?: string;
+}
 
-export type Plan = {
+export interface Plan {
   planId: string;
   planName: string;
-};
+}
 
-export type Tenant = {
+export interface Tenant {
   tenantId: string;
   tenantName: string;
-};
+}
 
-export type UpdateFeaturePayload = {
+export interface UpdateFeaturePayload {
   updateId: string;
   title: string;
   category: string;
@@ -35,4 +38,4 @@ export type UpdateFeaturePayload = {
   audience: string;
   sendEmail: boolean;
   sendInApp: boolean;
-};
+}

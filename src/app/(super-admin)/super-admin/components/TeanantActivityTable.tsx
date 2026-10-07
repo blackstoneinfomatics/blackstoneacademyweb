@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface Activity {
   dateTime: string;
@@ -62,7 +63,7 @@ export default function ActivityTable({
         setError(null);
 
         const response = await fetch(
-          `http://localhost:5001/tenant/analytics/dashboard/activity?tenantId=${encodeURIComponent(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.ANALYTICS.TENANT_DASHBOARD_ACTIVITY}?tenantId=${encodeURIComponent(
             tenantId,
           )}&page=${pagination.page}&limit=${pagination.limit}`,
         );

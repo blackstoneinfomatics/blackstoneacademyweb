@@ -26,6 +26,15 @@ if (typeof window !== "undefined") {
 
     axios.interceptors.request.use(
       (config) => {
+        const requestPath = new URL(
+          config.url ?? "",
+          config.baseURL ?? window.location.origin,
+        ).pathname.replace(/\/+$/, "");
+
+        if (requestPath === "/signin") {
+          return config;
+        }
+
         const { tenantId, tenantCode } = getTenantHeaders();
 
         if (tenantId) {

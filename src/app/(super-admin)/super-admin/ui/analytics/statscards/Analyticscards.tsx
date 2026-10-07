@@ -75,22 +75,22 @@ async function fetchCards(): Promise<DashboardCardsData> {
 const cardConfig = {
     tenant: {
         image: "/assets/images/superadmin-analytics-totaltenants.svg",
-        iconBg: "bg-[#e5dffd] dark:bg-[#e5dffd]",
+        iconBg: "bg-[#e5dffd] dark:bg-[#493D70]",
         title: "Total Tenants",
-        titleColor: "text-[#5225fc] dark:text-[#5225fc]",
+        titleColor: "text-[#5225fc] dark:text-[#B9A6FF]",
     },
     subscription: {
         image: "/assets/images/superadmin-analytics-totalsubscriptions.svg",
-        iconBg: "bg-[#e3f4e7] dark:bg-[#e3f4e7]",
+        iconBg: "bg-[#e3f4e7] dark:bg-[#294A32]",
         title: "Total Subscriptions",
-        titleColor: "text-[#40BD5F] dark:text-[#40BD5F]",
+        titleColor: "text-[#40BD5F] dark:text-[#72D889]",
     },
     revenue: {
         icon: IndianRupee,
-        iconBg: "bg-[#fdf2df] dark:bg-[#fdf2df]",
+        iconBg: "bg-[#fdf2df] dark:bg-[#514126]",
         iconColor: "text-[#FCAA25] dark:text-[#FCAA25]",
         title: "Total Revenue",
-        titleColor: "text-[#FCAA25] dark:text-[#FCAA25]",
+        titleColor: "text-[#FCAA25] dark:text-[#FFC66D]",
     },
 };
 
@@ -152,7 +152,7 @@ const AnalyticsCard = ({ type }: AnalyticsCardProps) => {
 
     // Resolve value + trend per card type
     let value = "—";
-    let trend = { label: "—", color: "text-gray-400" };
+    let trend = { label: "—", color: "text-gray-400 dark:text-gray-300" };
 
     if (data) {
         if (type === "tenant") {

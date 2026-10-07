@@ -49,7 +49,7 @@ const insights: Array<{
 
 export default function QuickInsights() {
   return (
-    <div className="h-full rounded-2xl border border-transparent bg-white shadow-sm dark:border-[#454545] dark:bg-[#343434]">
+    <div className="h-full rounded-2xl shadow-sm dark:border-[#454545] dark:bg-[#343434]">
       {/* Header */}
 
       <div className="px-5 pt-5 pb-2">

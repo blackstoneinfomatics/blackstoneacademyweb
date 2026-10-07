@@ -50,7 +50,6 @@ export type RefundRow = {
   paymentStatus: string;
   refundStatus: string;
   status: string;
-  payment: string;
 };
 
 type FilterState = {
@@ -63,7 +62,7 @@ type FilterState = {
   amount: string;
   paymentStatus: string;
   status: string;
-  payment: string;
+  paymentMethod: string;
 };
 
 const INITIAL_FILTERS: FilterState = {
@@ -76,7 +75,7 @@ const INITIAL_FILTERS: FilterState = {
   amount: "",
   paymentStatus: "",
   status: "All",
-  payment: "All",
+  paymentMethod: "All",
 };
 
 const applyFilters = (
@@ -119,8 +118,10 @@ const applyFilters = (
       item.paymentDate === filters.paymentDate;
     const matchesStatus =
       filters.status === "All" || item.status === filters.status;
-    const matchesPayment =
-      filters.payment === "All" || item.payment === filters.payment;
+    const matchesPaymentMethod =
+      filters.paymentMethod === "All" ||
+      item.paymentMethod.trim().toLowerCase() ===
+        filters.paymentMethod.trim().toLowerCase();
 
     const rowPaymentDate = new Date(item.paymentDate);
     const rowRequestDate = new Date(item.requestDate);
@@ -150,7 +151,7 @@ const applyFilters = (
       matchesTenant &&
       matchesPaymentDate &&
       matchesStatus &&
-      matchesPayment &&
+      matchesPaymentMethod &&
       matchesDate
     );
   });
@@ -179,8 +180,12 @@ const RefundTable = () => {
     new Set(refundItems.map((item) => item.status)),
   );
   const paymentOptions = Array.from(
-    new Set(refundItems.map((item) => item.payment)),
-  );
+    new Set(
+      refundItems
+        .map((item) => item.paymentMethod.trim())
+        .filter((paymentMethod) => paymentMethod && paymentMethod !== "-"),
+    ),
+  ).sort((first, second) => first.localeCompare(second));
   const [showViewDetails, setShowViewDetails] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<RefundRow | null>(
     null,
@@ -220,7 +225,6 @@ const RefundTable = () => {
             paymentStatus: item.refundStatus || "-",
             refundStatus: item.refundStatus || "-",
             status: item.status || "-",
-            payment: item.status || "-",
           })),
         );
       } catch (error) {
@@ -373,7 +377,7 @@ const RefundTable = () => {
         <div className="h-full overflow-x-auto scrollbar-none">
           <div className="h-[380px] scrollbar-none">
             <table className="min-w-full table-fixed border-collapse text-xs">
-              <thead className="bg-[#4C6993] text-[14px] text-white dark:bg-[#44699d]">
+              <thead className="bg-[#4C6993] text-[13px] text-white dark:bg-[#44699d]">
                 <tr>
                   <th className="border border-[#466993] px-2 py-4 text-left font-medium">
                     <input
@@ -429,7 +433,7 @@ const RefundTable = () => {
                     return (
                       <tr
                         key={rowId}
-                        className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]"
+                        className="text-[11px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]"
                       >
                         <td className="px-2 py-4">
                           <input
@@ -451,7 +455,7 @@ const RefundTable = () => {
                         <td className="px-2 py-4">{item.paymentDate}</td>
                         <td className="px-2 py-4">{item.requestDate}</td>
                         <td className="px-2 py-4">{item.refundWindow}</td>
-                        <td className="px-2 py-4">{item.amount}</td>
+                        <td className="px-2 py-4">₹{item.amount}</td>
                         <td className="px-2 py-4">{item.paymentMethod}</td>
                         <td className="px-2 py-4">
                           <span
@@ -566,9 +570,9 @@ const RefundTable = () => {
 
       {showFilterPanel && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] bg-white p-5 shadow-2xl">
+          <div className="w-full max-w-[360px] rounded-xl bg-white dark:bg-[#343434] p-5 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[#101B41]">
+              <h3 className="text-base font-semibold text-[#101B41] dark:text-[#e6e6e6]">
                 Filter by
               </h3>
               <button
@@ -581,7 +585,7 @@ const RefundTable = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
+                <label className="mb-2 block text-sm text-[#101B41] dark:text-[#e6e6e6]">
                   Refund Id
                 </label>
                 <input
@@ -593,12 +597,25 @@ const RefundTable = () => {
                     }))
                   }
                   placeholder="Refund Id"
-                  className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                  className="            h-8
+            w-full
+            rounded-lg
+            border
+            border-[#d5d5d5]
+            px-4
+            text-xs
+            text-[#010E30CC]/80
+            outline-none
+            transition
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
+                <label className="mb-2 block text-sm text-[#101B41] dark:text-[#e6e6e6]">
                   Tenant
                 </label>
                 <input
@@ -610,11 +627,24 @@ const RefundTable = () => {
                     }))
                   }
                   placeholder="Tenant name"
-                  className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                  className="            h-8
+            w-full
+            rounded-lg
+            border
+            border-[#d5d5d5]
+            px-4
+            text-xs
+            text-[#010E30CC]/80
+            outline-none
+            transition
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
+                <label className="mb-2 block text-sm text-[#101B41] dark:text-[#e6e6e6]">
                   Invoice Id
                 </label>
                 <input
@@ -626,12 +656,25 @@ const RefundTable = () => {
                     }))
                   }
                   placeholder="Invoice Id"
-                  className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 text-xs text-[#38486A] outline-none placeholder:text-[#8693AE]"
+                  className="            h-8
+            w-full
+            rounded-lg
+            border
+            border-[#d5d5d5]
+            px-4
+            text-xs
+            text-[#010E30CC]/80
+            outline-none
+            transition
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
+                <label className="mb-2 block text-sm text-[#101B41] dark:text-[#e6e6e6]">
                   Date
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -645,7 +688,20 @@ const RefundTable = () => {
                           paymentDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                      className="            h-8
+            w-full
+            rounded-lg
+            border
+            border-[#d5d5d5]
+            px-4
+            text-xs
+            text-[#010E30CC]/80
+            outline-none
+            transition
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]"
                     />
                     <CalendarDays
                       size={17}
@@ -663,7 +719,20 @@ const RefundTable = () => {
                           requestDate: e.target.value,
                         }))
                       }
-                      className="h-8 w-full rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                      className="            h-8
+            w-full
+            rounded-lg
+            border
+            border-[#d5d5d5]
+            px-4
+            text-xs
+            text-[#010E30CC]/80
+            outline-none
+            transition
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]"
                     />
                     <CalendarDays
                       size={17}
@@ -674,7 +743,7 @@ const RefundTable = () => {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
+                <label className="mb-2 block text-sm text-[#101B41] dark:text-[#e6e6e6]">
                   Status
                 </label>
                 <div className="relative">
@@ -686,7 +755,20 @@ const RefundTable = () => {
                         status: e.target.value,
                       }))
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="            h-8
+            w-full
+            rounded-lg
+            border
+            border-[#d5d5d5]
+            px-4
+            text-xs
+            text-[#010E30CC]/80
+            outline-none
+            transition
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]"
                   >
                     <option value="All">Select Status</option>
                     {statusOptions.map((option) => (
@@ -695,27 +777,36 @@ const RefundTable = () => {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-[#101B41]">
-                  Payment
+                <label className="mb-2 block text-sm text-[#101B41] dark:text-[#e6e6e6]">
+                  Payment Method
                 </label>
                 <div className="relative">
                   <select
-                    value={draftFilters.payment}
+                    value={draftFilters.paymentMethod}
                     onChange={(e) =>
                       setDraftFilters((prev) => ({
                         ...prev,
-                        payment: e.target.value,
+                        paymentMethod: e.target.value,
                       }))
                     }
-                    className="h-8 w-full appearance-none rounded-md border border-[#D8DDE8] px-3 pr-9 text-xs text-[#38486A] outline-none"
+                    className="            h-8
+            w-full
+            rounded-lg
+            border
+            border-[#d5d5d5]
+            px-4
+            text-xs
+            text-[#010E30CC]/80
+            outline-none
+            transition
+            dark:border-[#8e8e8e]
+            dark:bg-[#2F2F2F]
+            dark:text-[#E2E6EE]
+            dark:placeholder:text-[#8F98A8]"
                   >
                     <option value="All">Select Payment</option>
                     {paymentOptions.map((option) => (
@@ -724,17 +815,12 @@ const RefundTable = () => {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F]"
-                  />
                 </div>
               </div>
             </div>
 
-            <div className="my-5 h-px bg-[#E4E8F1]" />
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mt-4">
               <button
                 onClick={() => setDraftFilters(INITIAL_FILTERS)}
                 className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"

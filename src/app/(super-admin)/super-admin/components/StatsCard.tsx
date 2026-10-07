@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowDown, ArrowUp, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, type LucideIcon } from "lucide-react";
 
 interface StatsCardProps {
   title: string;
@@ -10,6 +10,7 @@ interface StatsCardProps {
   comparisonLabel?: string;
   percentage: number;
   isPositive?: boolean;
+  isNeutral?: boolean;
   image?: string;
   icon?: string | LucideIcon | React.ComponentType<any>;
   imageAlt?: string;
@@ -24,6 +25,7 @@ const StatsCard = ({
   comparisonLabel = "vs last Month",
   percentage,
   isPositive = true,
+  isNeutral = false,
   image,
   icon: Icon,
   imageAlt,
@@ -32,10 +34,9 @@ const StatsCard = ({
 }: StatsCardProps) => {
   return (
     <div
-      className="w-full rounded-2xl border border-transparent bg-white transition-all duration-300 hover:shadow-lg dark:border-[#454545] dark:bg-[#343434]"
+      className="w-full rounded-xl bg-white dark:bg-[#343434] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-xl"
       style={{
         padding: "clamp(14px, 1.2vw, 20px)",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
       }}
     >
       <div
@@ -106,10 +107,18 @@ const StatsCard = ({
           >
             <span
               className={`flex items-center font-semibold ${
-                isPositive ? "text-[#2E9E44]" : "text-[#EF4444]"
+                isNeutral ? "text-gray-500" : isPositive ? "text-[#2E9E44]" : "text-[#EF4444]"
               }`}
             >
-              {isPositive ? (
+              {isNeutral ? (
+                <Minus
+                  style={{
+                    width: "clamp(12px,1vw,16px)",
+                    height: "clamp(12px,1vw,16px)",
+                    marginRight: "4px",
+                  }}
+                />
+              ) : isPositive ? (
                 <ArrowUp
                   style={{
                     width: "clamp(12px,1vw,16px)",

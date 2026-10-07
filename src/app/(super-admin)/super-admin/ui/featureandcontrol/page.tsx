@@ -82,17 +82,15 @@ const Page = () => {
     status: "Active",
   });
 
+  const availableParentModules = parentModules.filter(
+    (module) => module.portal === formData.portal,
+  );
+
   /* ====== LOAD PARENT MODULES (for Navigation Menu + Feature dropdowns) ====== */
   const loadParentModules = async () => {
     try {
       const modules = await getParentModules();
       setParentModules(modules);
-      setFormData((previous) => ({
-        ...previous,
-        parentNavigation:
-          previous.parentNavigation || modules[0]?.parentModuleId || "",
-        parentModule: previous.parentModule || modules[0]?.parentModuleId || "",
-      }));
     } catch (error: any) {
       toast.error(error?.message || "Failed to load parent navigations");
     }
@@ -143,7 +141,15 @@ const Page = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-      ...(name === "parentModule" ? { childNavigations: [] } : {}),
+      ...(name === "portal"
+        ? {
+            parentNavigation: "",
+            parentModule: "",
+            childNavigations: [],
+          }
+        : name === "parentModule"
+          ? { childNavigations: [] }
+          : {}),
     }));
   };
 
@@ -167,13 +173,13 @@ const Page = () => {
       portal: portals[0]?.portalName ?? "",
       category: "Module",
       navigationType: "child",
-      parentNavigation: parentModules[0]?.parentModuleId ?? "",
+      parentNavigation: "",
       parentNavigationName: "",
       childNavigationName: "",
       childNavigations: [],
       featureName: "",
       moduleType: "child",
-      parentModule: parentModules[0]?.parentModuleId ?? "",
+      parentModule: "",
       childModuleName: "",
       description: "",
       status: "Active",
@@ -195,7 +201,10 @@ const Page = () => {
   };
 
   const createdItemType =
-    formData.category === "Module" ? "Navigation" : "Feature";
+    formData.category === "Module" &&
+    !(formData.navigationType === "parent" && formData.featureName.trim())
+      ? "Navigation"
+      : "Feature";
   const successTitle = `${createdItemType} Added Successfully!`;
   const successMessage = `The ${createdFeatureName || createdItemType} ${createdItemType.toLowerCase()} has been added successfully.`;
   const failureTitle = `${createdItemType} Added Failed`;
@@ -210,15 +219,7 @@ const Page = () => {
       return;
     }
 
-    if (!formData.parentModule) {
-      toast.error("Select the parent module");
-      return;
-    }
-
-    if (formData.category === "Feature" && formData.childNavigations.length === 0) {
-      toast.error("Select the child module");
-      return;
-    }
+   
 
     setIsLoading(true);
 
@@ -228,26 +229,43 @@ const Page = () => {
     try {
       if (formData.category === "Module") {
         if (formData.navigationType === "parent") {
-          const selectedPortal = portals.find(
-            (portal) => portal.portalName === formData.portal,
-          );
-          if (!selectedPortal) {
-            throw new Error("Select a valid portal first");
+          if (formData.featureName.trim()) {
+            const parent = availableParentModules.find(
+              (module) => module.parentModuleId === formData.parentModule,
+            );
+            if (!parent) {
+              throw new Error("Select an existing parent module first");
+            }
+            await createParentFeature(parent.parentModuleId, {
+              featureName: formData.featureName.trim(),
+              description: formData.description,
+              status,
+              isEnabled,
+              createdBy: "SUPER_ADMIN",
+            });
+            setCreatedFeatureName(formData.featureName.trim());
+          } else {
+            const selectedPortal = portals.find(
+              (portal) => portal.portalName === formData.portal,
+            );
+            if (!selectedPortal) {
+              throw new Error("Select a valid portal first");
+            }
+            await createParentModule({
+              portal: formData.portal,
+              portalId: selectedPortal._id,
+              parentModuleName: formData.parentNavigationName,
+              description: formData.description,
+              status,
+              isEnabled,
+              createdBy: "SUPER_ADMIN",
+            });
+            setCreatedFeatureName(
+              formData.parentNavigationName || "Parent Navigation",
+            );
           }
-          await createParentModule({
-            portal: formData.portal,
-            portalId: selectedPortal._id,
-            parentModuleName: formData.parentNavigationName,
-            description: formData.description,
-            status,
-            isEnabled,
-            createdBy: "SUPER_ADMIN",
-          });
-          setCreatedFeatureName(
-            formData.parentNavigationName || "Parent Navigation",
-          );
         } else {
-          const parent = parentModules.find(
+          const parent = availableParentModules.find(
             (module) => module.parentModuleId === formData.parentNavigation,
           );
           if (!parent) {
@@ -267,10 +285,14 @@ const Page = () => {
         await loadParentModules();
         setShowSuccess(true);
         setShowAddFeatureModal(false);
-        toast.success("Navigation added successfully!");
+        toast.success(
+          formData.navigationType === "parent" && formData.featureName.trim()
+            ? "Feature added successfully!"
+            : "Navigation added successfully!",
+        );
         resetForm();
       } else {
-        const parent = parentModules.find(
+        const parent = availableParentModules.find(
           (module) => module.parentModuleId === formData.parentModule,
         );
         if (!parent) {
@@ -323,7 +345,7 @@ const Page = () => {
   };
 
   return (
-    <BaseSuperLayout>
+    <>
       <div className="flex flex-col gap-4">
         <SuperAdminHeader currentSection="Feature & Control" />
         <div>
@@ -409,7 +431,7 @@ const Page = () => {
             id: portal._id,
             name: portal.portalName,
           }))}
-          parentModuleOptions={parentModules.map((module) => ({
+          parentModuleOptions={availableParentModules.map((module) => ({
             id: module.parentModuleId,
             name: module.parentModuleName,
             children: module.children.map((child) => ({
@@ -763,7 +785,7 @@ const Page = () => {
           </div>
         </div>
       )}
-    </BaseSuperLayout>
+    </>
   );
 };
 

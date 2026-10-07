@@ -92,6 +92,7 @@ const page = () => {
   const searchParams = useSearchParams();
   searchParams.get("tenantCode");
   const [showAddTenant, setAddTenant] = useState(false);
+  const [tenantRefreshKey, setTenantRefreshKey] = useState(0);
 
   const [tenants, setTenants] = useState<TenantType[]>([]);
   useEffect(() => {
@@ -119,7 +120,7 @@ const page = () => {
             const isNew =
               !Number.isNaN(createdTime) &&
               Date.now() - createdTime <=
-                NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+              NEW_TENANT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
             return {
               tenantId: getObjectId(item._id) || item.tenantId || "",
@@ -165,7 +166,7 @@ const page = () => {
     };
 
     fetchTenants();
-  }, []);
+  }, [tenantRefreshKey]);
 
   const [openDropdowntenantCode, setOpenDropdowntenantCode] = useState<
     string | null
@@ -204,10 +205,43 @@ const page = () => {
   };
 
   const filteredTenants = tenants.filter((tenant) => {
-    const search =
-      tenant.tenantName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      tenant.domain.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(searchKeyword.toLowerCase());
+    const term = searchKeyword.toLowerCase().trim();
+
+    // Build a searchable string from EVERY field on the tenant object
+    // (including nested values, dates formatted both ways, and numbers)
+    const searchableFields = [
+      tenant.tenantId,
+      tenant.tenantCode,
+      tenant.tenantName,
+      tenant.domain,
+      tenant.phoneNumber,
+      tenant.gstNo,
+      tenant.panNo,
+      tenant.faxNo,
+      tenant.website,
+      tenant.email,
+      tenant.startDate,
+      tenant.timeZone,
+      tenant.planId,
+      tenant.plan,
+      tenant.currency,
+      String(tenant.users ?? ""),
+      tenant.renewalDate,
+      tenant.status,
+      tenant.state,
+      tenant.country,
+      tenant.city,
+      tenant.street,
+      tenant.landMark,
+      tenant.pincode,
+      tenant.companyRegistrationCertificate,
+      tenant.isNew ? "new" : "old",
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const search = !term || searchableFields.includes(term);
 
     const tenantFilter =
       !filters.tenantName ||
@@ -237,7 +271,8 @@ const page = () => {
       renewalDate >= new Date(filters.renewalFromDate);
 
     const renewalToFilter =
-      !filters.renewalToDate || renewalDate <= new Date(filters.renewalToDate);
+      !filters.renewalToDate ||
+      renewalDate <= new Date(filters.renewalToDate);
 
     const tabFilter = activeTab === "All" || tenant.isNew;
 
@@ -304,8 +339,8 @@ const page = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
-      <BaseSuperLayout>
+    <div className="min-h-screen w-full max-w-[1300px] bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
+      <>
         <SuperAdminHeader currentSection="Tenant Management" />
         <div>
           <OrganizationHeader
@@ -315,7 +350,7 @@ const page = () => {
             currentSection={""}
           />
         </div>
-        <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] px-3 py-2">
+        <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#2e2e2e] px-3 py-2">
           <div className="flex items-center justify-between mt-2 py-2">
             <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
               Institute Feature Control
@@ -339,7 +374,7 @@ const page = () => {
           </div>{" "}
           <TenantStats />
           <br />
-          <div className="md:p-0 mx-auto w-full">
+          <div className="md:p-3 mx-auto w-full shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-xl rounded-xl bg-white dark:bg-[#343434]">
             <div className="flex flex-col h-full w-full justify-between">
               <div className="flex flex-col">
                 {/* Tabs */}
@@ -357,8 +392,8 @@ const page = () => {
                         style={
                           activeTab === type
                             ? {
-                                position: "relative",
-                              }
+                              position: "relative",
+                            }
                             : {}
                         }
                       >
@@ -372,8 +407,8 @@ const page = () => {
                 </div>
 
                 {/* Search + Filter */}
-                <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
+                <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg">
+                  <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#3b3b3b]">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                       <input
@@ -744,30 +779,30 @@ const page = () => {
                 prev.map((item) =>
                   item.tenantCode === selectedTenant.tenantCode
                     ? {
-                        ...item,
-                        tenantName: formData.tenantName || item.tenantName,
-                        domain: formData.domain || item.domain,
-                        email: formData.email || item.email,
-                        phoneNumber: formData.phoneNumber || item.phoneNumber,
-                        gstNo: formData.gstNo || item.gstNo,
-                        panNo: formData.panNo || item.panNo,
-                        faxNo: formData.faxNo || item.faxNo,
-                        website: formData.website || item.website,
-                        status: formData.status || item.status,
-                        timeZone: formData.timeZone || item.timeZone,
-                        planId: formData.planId || item.planId,
-                        plan: formData.plan || item.plan,
-                        currency: formData.currency || item.currency,
-                        country: formData.country || item.country,
-                        state: formData.state || item.state,
-                        city: formData.city || item.city,
-                        street: formData.street || item.street,
-                        landMark: formData.landMark || item.landMark,
-                        pincode: formData.pincode || item.pincode,
-                        companyRegistrationCertificate:
-                          formData.companyRegistrationCertificate ||
-                          item.companyRegistrationCertificate,
-                      }
+                      ...item,
+                      tenantName: formData.tenantName || item.tenantName,
+                      domain: formData.domain || item.domain,
+                      email: formData.email || item.email,
+                      phoneNumber: formData.phoneNumber || item.phoneNumber,
+                      gstNo: formData.gstNo || item.gstNo,
+                      panNo: formData.panNo || item.panNo,
+                      faxNo: formData.faxNo || item.faxNo,
+                      website: formData.website || item.website,
+                      status: formData.status || item.status,
+                      timeZone: formData.timeZone || item.timeZone,
+                      planId: formData.planId || item.planId,
+                      plan: formData.plan || item.plan,
+                      currency: formData.currency || item.currency,
+                      country: formData.country || item.country,
+                      state: formData.state || item.state,
+                      city: formData.city || item.city,
+                      street: formData.street || item.street,
+                      landMark: formData.landMark || item.landMark,
+                      pincode: formData.pincode || item.pincode,
+                      companyRegistrationCertificate:
+                        formData.companyRegistrationCertificate ||
+                        item.companyRegistrationCertificate,
+                    }
                     : item,
                 ),
               );
@@ -776,8 +811,13 @@ const page = () => {
           />
         )}
 
-        {showAddTenant && <AddNewTenant onClose={() => setAddTenant(false)} />}
-      </BaseSuperLayout>
+        {showAddTenant && (
+          <AddNewTenant
+            onClose={() => setAddTenant(false)}
+            onSuccess={() => setTenantRefreshKey((key) => key + 1)}
+          />
+        )}
+      </>
     </div>
   );
 };

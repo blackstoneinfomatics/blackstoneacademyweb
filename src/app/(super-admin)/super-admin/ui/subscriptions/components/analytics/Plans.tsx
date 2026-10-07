@@ -3,34 +3,20 @@ import { Star, Gem, Crown } from "lucide-react";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 // Types based on your actual API response
-interface DashboardResponse {
+interface PlanAnalyticsItem {
+  planId: string;
+  planName: string;
+  revenue: number;
+  percentage: number;
+}
+
+interface PlanAnalyticsResponse {
   success: boolean;
   message: string;
   data: {
-    totalPlans: number;
-    activePlans: number;
-    inactivePlans: number;
-    totalTenants: number;
-    monthlyRevenue: number;
-    planSummary: {
-      active: {
-        count: number;
-        percentage: number;
-      };
-      trial: {
-        count: number;
-        percentage: number;
-      };
-      expired: {
-        count: number;
-        percentage: number;
-      };
-    };
-    topPerformingPlan: {
-      planName: string;
-      subscribedTenants: number;
-      revenue: number;
-    };
+    period: string;
+    plans: PlanAnalyticsItem[];
+    popularPlan: PlanAnalyticsItem;
   };
 }
 
@@ -41,25 +27,41 @@ const iconMap = {
   Crown: Crown,
 };
 
-// Color mapping based on plan type
-const colorMap = {
-  Basic: {
+// Color palette applied by index — works for any plan name
+const colorMap = [
+  {
     color: "text-cyan-500 dark:text-cyan-400",
     bg: "bg-cyan-100 dark:bg-cyan-900/30",
     bar: "bg-cyan-500 dark:bg-cyan-400",
   },
-  Standard: {
+  {
     color: "text-green-500 dark:text-green-400",
     bg: "bg-green-100 dark:bg-green-900/30",
     bar: "bg-green-500 dark:bg-green-400",
   },
-  Premium: {
+  {
     color: "text-indigo-500 dark:text-indigo-400",
     bg: "bg-indigo-100 dark:bg-indigo-900/30",
     bar: "bg-indigo-500 dark:bg-indigo-400",
   },
-};
+  {
+    color: "text-amber-500 dark:text-amber-400",
+    bg: "bg-amber-100 dark:bg-amber-900/30",
+    bar: "bg-amber-500 dark:bg-amber-400",
+  },
+  {
+    color: "text-pink-500 dark:text-pink-400",
+    bg: "bg-pink-100 dark:bg-pink-900/30",
+    bar: "bg-pink-500 dark:bg-pink-400",
+  },
+  {
+    color: "text-purple-500 dark:text-purple-400",
+    bg: "bg-purple-100 dark:bg-purple-900/30",
+    bar: "bg-purple-500 dark:bg-purple-400",
+  },
+];
 
+const iconCycle = ["Star", "Gem", "Crown"];
 
 const Plans = () => {
   const [plans, setPlans] = useState<any[]>([]);
@@ -68,74 +70,56 @@ const Plans = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("Yearly");
 
   useEffect(() => {
-    fetchPlanData();
-  }, []);
+    fetchPlanData(selectedPeriod);
+  }, [selectedPeriod]);
 
-  const fetchPlanData = async () => {
+  const fetchPlanData = async (period: string) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_CARD_COUNT}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.PLAN_ANALYTICS}?period=${period.toLowerCase()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
-      
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      const result: DashboardResponse = await response.json();
-      
-      if (result.success && result.data) {
-        const totalTenants = result.data.totalTenants || 0;
-        const activeCount = result.data.planSummary?.active?.count || 0;
-        const trialCount = result.data.planSummary?.trial?.count || 0;
-        const expiredCount = result.data.planSummary?.expired?.count || 0;
-        
-        const basicCount = activeCount;
-        const standardCount = trialCount;
-        const premiumCount = expiredCount;
-        
-        const formattedPlans = [
-          {
-            name: "Basic",
-            icon: "Star",
-            currentUsers: basicCount,
-            totalUsers: totalTenants,
-            percentage: totalTenants > 0 ? Math.round((basicCount / totalTenants) * 100) : 0,
-            progress: totalTenants > 0 ? `${Math.round((basicCount / totalTenants) * 100)}%` : "0%",
-            color: "text-cyan-500 dark:text-cyan-400",
-            bg: "bg-cyan-100 dark:bg-cyan-900/30",
-            bar: "bg-cyan-500 dark:bg-cyan-400",
-          },
-          {
-            name: "Standard",
-            icon: "Gem",
-            currentUsers: standardCount,
-            totalUsers: totalTenants,
-            percentage: totalTenants > 0 ? Math.round((standardCount / totalTenants) * 100) : 0,
-            progress: totalTenants > 0 ? `${Math.round((standardCount / totalTenants) * 100)}%` : "0%",
-            color: "text-green-500 dark:text-green-400",
-            bg: "bg-green-100 dark:bg-green-900/30",
-            bar: "bg-green-500 dark:bg-green-400",
-          },
-          {
-            name: "Premium",
-            icon: "Crown",
-            currentUsers: premiumCount,
-            totalUsers: totalTenants,
-            percentage: totalTenants > 0 ? Math.round((premiumCount / totalTenants) * 100) : 0,
-            progress: totalTenants > 0 ? `${Math.round((premiumCount / totalTenants) * 100)}%` : "0%",
-            color: "text-indigo-500 dark:text-indigo-400",
-            bg: "bg-indigo-100 dark:bg-indigo-900/30",
-            bar: "bg-indigo-500 dark:bg-indigo-400",
-          },
-        ];
-        
+
+      const result: PlanAnalyticsResponse = await response.json();
+
+      const apiPlans = Array.isArray(result?.data?.plans)
+        ? result.data.plans
+        : [];
+
+      if (result.success && apiPlans.length > 0) {
+        const formattedPlans = apiPlans.map((plan, index) => {
+          const palette = colorMap[index % colorMap.length];
+          const iconName = iconCycle[index % iconCycle.length];
+          const percentage = Math.round(plan.percentage || 0);
+
+          return {
+            planId: plan.planId,
+            name: plan.planName,
+            icon: iconName,
+            currentUsers: plan.revenue || 0,
+            percentage,
+            progress: `${percentage}%`,
+            color: palette.color,
+            bg: palette.bg,
+            bar: palette.bar,
+          };
+        });
+
         setPlans(formattedPlans);
+      } else if (result.success && apiPlans.length === 0) {
+        setPlans([]);
       } else {
         setError(result.message || "Failed to fetch plan data");
       }
@@ -148,7 +132,7 @@ const Plans = () => {
   };
 
   const handleRetry = () => {
-    fetchPlanData();
+    fetchPlanData(selectedPeriod);
   };
 
   // Loading state
@@ -199,14 +183,13 @@ const Plans = () => {
           Plans
         </h2>
 
-        <select 
+        <select
           className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-2 py-1 rounded-md outline-none text-xs border-0 dark:border-gray-600"
           value={selectedPeriod}
           onChange={(e) => setSelectedPeriod(e.target.value)}
         >
           <option value="Yearly">Yearly</option>
           <option value="Monthly">Monthly</option>
-          <option value="Quarterly">Quarterly</option>
         </select>
       </div>
 
@@ -216,7 +199,7 @@ const Plans = () => {
           const Icon = iconMap[plan.icon as keyof typeof iconMap] || Star;
 
           return (
-            <div key={index} className="flex items-center justify-between gap-4">
+            <div key={plan.planId ?? index} className="flex items-center justify-between gap-4">
               {/* Left */}
               <div className="flex items-center gap-4 min-w-[140px]">
                 <div

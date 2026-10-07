@@ -28,6 +28,7 @@ import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type Props = {
   readonly onClose: () => void;
+  readonly onSuccess?: () => void;
 };
 
 type TenantFormData = {
@@ -360,7 +361,7 @@ function DocumentRow({ file }: { file: File | null }) {
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 
-export default function AddNewTenant({ onClose }: Props) {
+export default function AddNewTenant({ onClose, onSuccess }: Props) {
   const [currentStep, setCurrentStep] = useState(1);
   const [success, setSuccess] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -1080,7 +1081,11 @@ export default function AddNewTenant({ onClose }: Props) {
 
         {success && (
           <SuccessPopup
-            onClose={() => setSuccess(false)}
+            onClose={() => {
+              setSuccess(false);
+              onSuccess?.();
+              onClose();
+            }}
             title={successMessage}
           />
         )}
