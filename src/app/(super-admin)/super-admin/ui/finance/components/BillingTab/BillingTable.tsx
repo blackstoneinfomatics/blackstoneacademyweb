@@ -73,7 +73,7 @@ const transactionFields: FilterField[] = [
 ];
 
 export default function BillingTable() {
-  const [ setSelectedTransaction] = useState<any | null>(
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(
     null,
   );
   const [openFilter, setOpenFilter] = useState(false);
@@ -96,12 +96,13 @@ export default function BillingTable() {
     paymentMethod: "",
     paymentDateFrom: "",
     paymentDateTo: "",
+    category: "",
     dueDateFrom: "",
     dueDateTo: "",
     status: "",
   });
 
-  const [ setOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const fetchBillings = useCallback(async (page: number) => {
     const requestId = ++latestRequestId.current;
@@ -360,6 +361,7 @@ export default function BillingTable() {
             paymentDateFrom: "",
             paymentDateTo: "",
             dueDateFrom: "",
+            category: "",
             dueDateTo: "",
             status: "",
           })
