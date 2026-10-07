@@ -28,6 +28,14 @@
   }
 }
 
+.Toastify__toast-container {
+  z-index: 999999 !important;
+}
+
+.Toastify__toast {
+  font-family: "Poppins", system-ui;
+}
+
 .layout {
   display: flex;
   height: 100vh;

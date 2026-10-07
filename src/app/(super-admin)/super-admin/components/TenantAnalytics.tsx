@@ -1,255 +1,188 @@
 "use client";
-import { Users, CheckCircle, XCircle } from "lucide-react";
-import React, { useState } from "react";
-const TenantAnalytics = () => {
-  const [hoveredRole, setHoveredRole] = useState<string | null>(null);
+import axios from "axios";
+import React, { useEffect, useState } from "react";
+import { FaUsers } from "react-icons/fa";
+import { MdCancel } from "react-icons/md";
+import { IoMdCheckmarkCircle } from "react-icons/io";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-  const dashboardData = {
-    roleDistribution: [
-      {
-        roleName: "Admin",
-        count: 4,
-        percentage: 20.1,
-      },
-      {
-        roleName: "Supervisor",
-        count: 4,
-        percentage: 20.1,
-      },
-      {
-        roleName: "Academic Coach",
-        count: 4,
-        percentage: 20.1,
-      },
-      {
-        roleName: "Teachers",
-        count: 4,
-        percentage: 20.1,
-      },
-      {
-        roleName: "Student",
-        count: 4,
-        percentage: 20.1,
-      },
-    ],
+type TenantAnalyticsProps = {
+  readonly tenantCode: string;
+};
 
-    stats: {
-      totalUsers: 28,
-      activeUsers: 24,
-      inactiveUsers: 4,
-    },
-
-    activeRole: {
-      role: "Teachers",
-      count: 670,
-    },
+type TenantDashboardData = {
+  userStatistics: {
+    totalUsers: number;
+    roles: Array<{ role: string; count: number }>;
   };
+  portalStatistics: {
+    totalPortals: number;
+    enabledPortals: number;
+    disabledPortals: number;
+    usedPortals: number;
+    remainingPortals: number;
+    portals: Array<{ portalName: string; isEnabled: boolean }>;
+  };
+  mostActivePortal: {
+    portalName: string;
+    activeUsers: number;
+    percentage: number;
+  };
+};
+
+type TenantDashboardResponse = {
+  data: TenantDashboardData;
+};
+
+const TenantAnalytics = ({ tenantCode }: TenantAnalyticsProps) => {
+  const [hoveredRole, setHoveredRole] = useState<string | null>(null);
+  const [dashboardData, setDashboardData] =
+    useState<TenantDashboardData | null>(null);
+
+  useEffect(() => {
+    if (!tenantCode) return;
+
+    const fetchDashboard = async () => {
+      try {
+        const response = await axios.get<TenantDashboardResponse>(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.TENANT_PORTAL_DASHBOARD.replace(
+            "{tenantCode}",
+            tenantCode,
+          )}`,
+        );
+        setDashboardData(
+          response.data?.data ??
+            (response.data as unknown as TenantDashboardData),
+        );
+      } catch (error) {
+        console.error("Failed to fetch tenant portal dashboard:", error);
+      }
+    };
+
+    fetchDashboard();
+  }, [tenantCode]);
 
   const roleColors: Record<string, string> = {
-    Admin: "#22C55E",
+    Admin: "#5B4CFF",
     Supervisor: "#8B5CF6",
     "Academic Coach": "#3B82F6",
-    Teachers: "#F97316",
+    Teachers: "#39B54A",
     Student: "#FBBF24",
   };
-  const totalUsersFromRoles = dashboardData.roleDistribution.reduce(
-    (total, role) => total + role.count,
-    0,
-  );
+
+  const roleBgColors: Record<string, string> = {
+    Admin: "#EDE9FE",
+    Supervisor: "#EDE9FE",
+    "Academic Coach": "#E0E7FF",
+    Teachers: "#DCFCE7",
+    Student: "#FEF3C7",
+  };
+
+  if (!dashboardData) {
+    return (
+      <div className="rounded-xl bg-white p-5 text-sm text-gray-500 dark:bg-[#343434] dark:text-gray-400">
+        Loading analytics...
+      </div>
+    );
+  }
+
+  const totalUsersFromRoles = dashboardData.userStatistics.totalUsers;
+  const roleDistribution = dashboardData.userStatistics.roles.map((role) => ({
+    roleName: role.role,
+    count: role.count,
+    percentage:
+      totalUsersFromRoles > 0 ? (role.count / totalUsersFromRoles) * 100 : 0,
+  }));
+  const mostActivePortal = dashboardData.mostActivePortal;
+
   return (
     <div className="grid grid-cols-12 gap-4 items-stretch auto-rows-fr">
-      {" "}
-      {/* Left Card */}
-      <div className="col-span-12 lg:col-span-5 xl:col-span-5 bg-white rounded-xl p-5 border border-[#ECECEC] h-full min-h-full">
-        <div className="flex flex-col xl:flex-row items-center xl:items-start justify-between gap-4 h-full">
-          {" "}
-          {/* Donut Chart */}
-          <div
-            className="relative w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] rounded-full flex-shrink-0 mt-3"
-            style={{
-              background:
-                "conic-gradient(#7C5CFA 0deg 72deg,#3B82F6 72deg 144deg,#22C55E 144deg 216deg,#EAB308 216deg 288deg,#F2994A 288deg 360deg)",
-            }}
-          >
-            <div className="absolute inset-[28px] sm:inset-[28px] bg-white rounded-full flex flex-col items-center justify-center">
-              <h2 className="text-[48px] font-bold text-[#111827] leading-none">
-                {totalUsersFromRoles}
-              </h2>
-
-              <p className="text-[14px] text-[#6B7280] mt-1">Teachers</p>
-            </div>
-          </div>
-          {/* Legend */}
-          <div className="flex-1 min-w-0 w-full">
-            {dashboardData.roleDistribution.map((role) => (
-              <div
-                key={role.roleName}
-                className={`flex items-center justify-between rounded-md px-2 py-1 cursor-pointer transition-all duration-200 whitespace-nowrap ${
-                  hoveredRole === role.roleName ? "bg-[#F5F7FF]" : ""
-                }`}
-                onMouseEnter={() => setHoveredRole(role.roleName)}
-                onMouseLeave={() => setHoveredRole(null)}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                      hoveredRole === role.roleName ? "scale-150" : ""
-                    }`}
-                    style={{
-                      backgroundColor: roleColors[role.roleName] || "#9CA3AF",
-                    }}
-                  />
-
-                  <span className="text-[13px] text-[#111827] truncate">
-                    {role.roleName}
-                  </span>
-                </div>
-
-                <div className="relative gap-3">
-                  <span className="text-[13px] text-[#111827] font-medium gap-3">
-                    {role.count} ({role.percentage}%)
-                  </span>
-
-                  {hoveredRole === role.roleName && (
-                    <div className="absolute right-0 top-6 z-20 bg-[#111827] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                      {role.roleName}: {role.count} Users
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      {/* Right Section */}
-      <div className="col-span-12 lg:col-span-7 xl:col-span-7 min-w-0 h-full flex flex-col gap-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {" "}
-          {/* Total User */}
-          <div className="bg-white rounded-xl px-4 py-4 border border-[#ECECEC]">
+      {/* Portal Statistics */}
+      <div className="col-span-12 min-w-0 h-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 h-full">
+          {/* Enabled Portal */}
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-5 py-4 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] h-full flex flex-col justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#C7CEFC24] flex items-center justify-center">
-                <Users size={22} className="text-[#5B4CFF]" />
+              <div className="w-12 h-12 rounded-full bg-[#DFF5E3] dark:bg-[#2E4A3A] flex items-center justify-center flex-shrink-0">
+                <IoMdCheckmarkCircle
+                  size={22}
+                  className="text-[#39B54A] dark:text-[#6EE07A]"
+                />
               </div>
 
               <div>
-                <p className="text-[14px] font-medium text-[#5B4CFF] mt-1">
-                  {" "}
-                  Total User
+                <p className="text-[14px] font-medium text-[#39B54A] dark:text-[#6EE07A]">
+                  Enabled Portal
                 </p>
-                <h3 className="text-[18px] font-semibold">
-                  {dashboardData.stats.totalUsers}
+
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                  {dashboardData.portalStatistics.enabledPortals}
                 </h3>
               </div>
             </div>
 
-            <div className="flex items-center gap-6 mt-3">
-              <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap">
-                ↑ 8 (14%)
-              </span>
-
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap">
-                vs last Month
+            <div className="text-end mt-3">
+              <span className="text-[#646464] font-medium text-[12px] dark:text-gray-400">
+                Portals Currently Enabled
               </span>
             </div>
           </div>
-          {/* Active User */}
-          <div className="bg-white rounded-xl px-4 py-4 border border-[#ECECEC] h-full">
+
+          {/* Disabled Portal */}
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-5 py-4 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] h-full flex flex-col justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#DFF5E3] flex items-center justify-center">
-                <CheckCircle size={22} className="text-[#39B54A]" />
+              <div className="w-12 h-12 rounded-full bg-[#FBE3E3] dark:bg-[#4A2E2E] flex items-center justify-center flex-shrink-0">
+                <MdCancel
+                  size={22}
+                  className="text-[#E05353] dark:text-[#FF7474]"
+                />
               </div>
 
               <div>
-                <p className="text-[14px] font-medium text-[#39B54A] mt-1">
-                  Active User
+                <p className="text-[14px] font-medium text-[#E05353] dark:text-[#FF7474]">
+                  Disabled Portal
                 </p>
 
-                <h3 className="text-xl font-semibold">
-                  {dashboardData.stats.activeUsers}
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                  {dashboardData.portalStatistics.disabledPortals}
                 </h3>
               </div>
             </div>
 
-            <div className="flex items-center gap-6 mt-3">
-              <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap">
-                ↑ 8 (14%)
-              </span>
-
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap">
-                vs last Month
-              </span>
-            </div>
-          </div>
-          {/* Inactive User */}
-          <div className="bg-white rounded-xl p-4 shadow-sm h-full">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#FBE3E3] flex items-center justify-center">
-                <XCircle size={22} className="text-[#E05353]" />
-              </div>
-
-              <div>
-                <p className="text-[14px] font-medium text-[#E05353] mt-1">
-                  Inactive User
-                </p>
-
-                <h3 className="text-xl font-semibold">
-                  {dashboardData.stats.inactiveUsers}
-                </h3>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6 mt-3">
-              <span className="text-[#2E9E44] text-[12px] font-medium whitespace-nowrap">
-                ↑ 8 (14%)
-              </span>
-
-              <span className="text-[#6B7280] text-[12px] whitespace-nowrap">
-                vs last Month
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Cards */}
-        <div className="grid md:grid-cols-[2fr_1fr] gap-4 items-stretch">
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-[#7A7A7A]">Total User</p>
-
-            <div className="flex items-center gap-2 mt-3">
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-gray-300" />
-              <div className="w-7 h-7 rounded-full bg-[#576CBC] text-white text-xs flex items-center justify-center">
-                +5
-              </div>
-
-              <span className="text-xs text-[#7A7A7A] ml-2">
-                124+ users added in the last 7 days
+            <div className="text-end mt-3">
+              <span className="text-[#646464] font-medium text-[12px] dark:text-gray-400">
+                Portals Currently Disabled
               </span>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-[#ECECEC] px-4 py-3">
-            <p className="text-[14px] font-semibold text-[#1E293B]">
-              Most Active Role
+          {/* Total Portals */}
+          <div className="bg-white dark:bg-[#343434] rounded-xl px-5 py-4 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] h-full flex flex-col justify-between">
+            <p className="text-sm font-semibold text-slate-800 dark:text-gray-300">
+              Total Portals
             </p>
 
-            <div className="flex items-center gap-3 ">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] flex items-center justify-center">
-                <Users size={20} className="text-[#576CBC]" />
+            <div className="flex items-center mt-3">
+              <div className="flex -space-x-2">
+                {dashboardData.portalStatistics.portals.map((portal) => (
+                  <div
+                    key={portal.portalName}
+                    title={portal.portalName}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center border-2 border-white dark:border-[#343434] text-[10px] font-medium ${
+                      portal.isEnabled
+                        ? "bg-[#DCFCE7] text-[#16803A]"
+                        : "bg-[#FEE2E2] text-[#B42318]"
+                    }`}
+                  >
+                    {portal.portalName.slice(0, 2).toUpperCase()}
+                  </div>
+                ))}
               </div>
 
-              <div>
-                <h3 className="text-[14px] font-semibold leading-none text-[#111827]">
-                  {dashboardData.activeRole.role}
-                </h3>
-
-                <p className="text-[11px] text-[#6B7280] mt-1 whitespace-nowrap">
-                  {dashboardData.activeRole.count} total active users
-                </p>
-              </div>
+              <span className="text-[12px] text-[#646464] font-medium  dark:text-gray-400 ml-4 whitespace-nowrap">
+                {dashboardData.portalStatistics.usedPortals} Portals Used ·{" "}
+                {dashboardData.portalStatistics.remainingPortals} Left
+              </span>
             </div>
           </div>
         </div>

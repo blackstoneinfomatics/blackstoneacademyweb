@@ -7,6 +7,7 @@ import { Country, State, City, ICountry, ICity } from "country-state-city";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { AppValidationMessages } from "@/app/_components/contents/validation_message";
 import { AppFailureToastMessages, appSuccessToastMessages } from "@/app/_components/contents/toast_message";
+import { toast } from "react-toastify";
 
 interface EmployeeFormData {
   firstName: string;
@@ -236,7 +237,7 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSuccess }) => {
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setImageError(AppFailureToastMessages.IMAGE_TOO_LARGE);
+      setImageError(AppFailureToastMessages.UPLOAD_FILE_TOO_LARGE);
       return;
     }
   };

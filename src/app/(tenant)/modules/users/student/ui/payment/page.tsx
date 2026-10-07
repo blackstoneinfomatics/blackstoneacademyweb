@@ -23,9 +23,15 @@ import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { AppFailureToastMessages } from "@/app/_components/contents/toast_message";
 import { AppValidationMessages } from "@/app/_components/contents/validation_message";
 
-const stripePromise = loadStripe(
-  "pk_test_51LilJwCsMeuBsi2YvvK4gor68JPLEOcF2KIt1GuO8qplGSzCSjKTI2BYZ7Z7XLKD1VA8riExXLOT73YHQIA8wbUJ000VrpQkNE"
-);
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+
+if (!stripePublishableKey) {
+  console.warn(
+    'Missing NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY environment variable. Set it in your .env.local or environment.'
+  );
+}
+
+const stripePromise = loadStripe(stripePublishableKey);
 
 
 interface Student {

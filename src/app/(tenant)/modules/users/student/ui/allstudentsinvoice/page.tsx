@@ -145,7 +145,6 @@ const Invoice = () => {
     const evaluationid = selectedInvoice._id;
     const totalprice = totalPrice;
 
-    const paymentDate = new Date().toISOString();
 
     // Set paymentDate to current date/time in ISO format
     const paymentDate = new Date().toISOString();

@@ -15,6 +15,21 @@ export const AppValidationMessages = Object.freeze({
     INVALID_DATE_RANGE: "From Date cannot be greater than To Date",
   },
 
+  LEAVE:{
+ LEAVE_TYPE_REQUIRED: "Leave type is required.",
+    FROM_DATE_REQUIRED: "Start date is required.",
+    TO_DATE_REQUIRED: "End date is required.",
+    REASON_REQUIRED: "Reason is required.",
+    REASON_MIN_LENGTH: "Reason must be at least 5 characters.",
+    INVALID_DATE_RANGE: "End date must be greater than or equal to start date.",
+      INVALID_INPUTS: "Invalid input data. Please check your entries.",
+      
+    LOGIN_REQUIRED: "Session expired. Please log in again.",
+    ACCESS_DENIED: "You do not have permission to perform this action.",
+    SERVER_ERROR: "Something went wrong on the server. Please try again later.",
+    UNEXPECTED_ERROR: "An unexpected error occurred. Please try again.",
+  },
+
   MEETING: {
     NO_MEETING_FOUND: "No upcoming meetings available",
     INVALID_MEETING_ID: "Meeting information is unavailable",

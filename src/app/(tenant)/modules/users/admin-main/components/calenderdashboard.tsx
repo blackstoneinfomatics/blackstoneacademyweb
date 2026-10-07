@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { AppApiEndpoints } from '@/app/_components/contents/api-endpoints';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { AppValidationMessages } from '@/app/_components/contents/validation_message';
 
 interface Event {
   title: string;

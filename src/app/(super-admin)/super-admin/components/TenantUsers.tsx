@@ -1,437 +1,661 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import SupervisorHeader from "@/app/(tenant)/modules/users/supervisor/components/supervisorHeader";
-import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
 import { MdTune } from "react-icons/md";
 import { Search } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Pagination from "@/components/Pagination";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-interface TenantType {
+interface TenantUser {
   id: string;
-  tenantName: string;
-  domain: string;
-  phoneNumber: string;
+  userName: string;
   email: string;
-  startDate: string;
-  plan: string;
-  users: number;
-  renewalDate: string;
+  role: string;
+  department: string;
   status: string;
+  createdDate: string;
+  phoneNumber?: string;
+  designation?: string;
+  reportingTo?: string;
+  accessLevel?: string;
 }
 
+const normalizeStatus = (value?: string) => {
+  const sanitized = (value ?? "").toUpperCase();
+
+  if (sanitized === "ACTIVE") return "Active";
+  if (sanitized === "INACTIVE") return "Inactive";
+  if (sanitized === "TRIAL") return "Trial";
+
+  return value || "Inactive";
+};
+
+const normalizeRole = (value?: string) => {
+  const sanitized = (value ?? "").toUpperCase();
+
+  if (sanitized === "ACADEMIC") return "Academic";
+  if (sanitized === "FINANCE") return "Finance";
+  if (sanitized === "ADMIN") return "Admin";
+  if (sanitized === "CUSTOM") return "Custom";
+  if (sanitized === "DEFAULT") return "Default";
+
+  return value || "N/A";
+};
+
+const formatPortalDate = (value?: string) => {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
 const TenantUserTable = () => {
-  const router = useRouter();
-const [tenants, setTenants] = useState([
-  {
-    id: "TEN001",
-    tenantName: "Blackstone Academy",
-    domain: "blackstoneacademy.com",
-    phoneNumber: "1234567890",
-    email: "blackstone@gmail.com",
-    startDate: "Sep 12, 2023",
-    plan: "Standard",
-    users: 570,
-    renewalDate: "Sep 12, 2026",
-    status: "Active",
-  },
-  {
-    id: "TEN002",
-    tenantName: "Blackstone Institute",
-    domain: "blackstone.com",
-    phoneNumber: "1234567890",
-    email: "blackstone@gmail.com",
-    startDate: "Sep 12, 2023",
-    plan: "Premium",
-    users: 345,
-    renewalDate: "Sep 12, 2026",
-    status: "Trial",
-  },
-  {
-    id: "TEN003",
-    tenantName: "Future Academy",
-    domain: "future.com",
-    phoneNumber: "1234567890",
-    email: "future@gmail.com",
-    startDate: "Sep 12, 2023",
-    plan: "Basic",
-    users: 420,
-    renewalDate: "Sep 12, 2026",
-    status: "Inactive",
-  },
-]);
-const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-const [searchKeyword, setSearchKeyword] = useState("");
-const [showFilter, setShowFilter] = useState(false);
-const [currentPage, setCurrentPage] = useState(1);
-const [activeTab, setActiveTab] = useState<"All" | "New">("All");
-const [filters, setFilters] = useState({
-  tenantName: "",
-  plan: "",
-  status: "",
-});
+  const searchParams = useSearchParams();
+  const tenantCode =
+    searchParams.get("tenantCode") ??
+    (typeof window !== "undefined"
+      ? (localStorage.getItem("tenantCode") ?? "")
+      : "");
 
-const itemsPerPage = 10;
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-const toggleDropdown = (id: string) => {
-  setOpenDropdownId((prev) =>
-    prev === id ? null : id
-  );
-}; 
+  const [selectedUser, setSelectedUser] = useState<TenantUser | null>(null);
+  const [originalUser, setOriginalUser] = useState<TenantUser | null>(null);
 
-const filteredTenants = tenants.filter((tenant) => {
-  const search =
-    tenant.tenantName
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase()) ||
-    tenant.domain
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase()) ||
-    tenant.email
-      .toLowerCase()
-      .includes(searchKeyword.toLowerCase());
+  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState({
+    portalName: "",
+    role: "",
+    department: "",
+    status: "",
+    fromDate: "",
+    toDate: "",
+  });
 
-  const tenantFilter =
-    !filters.tenantName ||
-    tenant.tenantName
-      .toLowerCase()
-      .includes(filters.tenantName.toLowerCase());
+  useEffect(() => {
+    if (!tenantCode) {
+      setUsers([]);
+      return;
+    }
 
-  const planFilter =
-    !filters.plan ||
-    tenant.plan === filters.plan;
+    const fetchTenantPortals = async () => {
+      try {
+        const portalEndpoint = AppApiEndpoints.PORTAL.GET_BY_TENANT.replace(
+          "{tenantId}",
+          encodeURIComponent(tenantCode),
+        );
 
-  const statusFilter =
-    !filters.status ||
-    tenant.status === filters.status;
+        const response = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${portalEndpoint}`,
+        );
 
-  return (
-    search &&
-    tenantFilter &&
-    planFilter &&
-    statusFilter
-  );
-});
+        const portalItems = response.data?.data?.items ?? [];
+        const tenantEmail = response.data?.data?.tenantEmail ?? "";
 
-const paginatedTenants = filteredTenants.slice(
-  (currentPage - 1) * itemsPerPage,
-  currentPage * itemsPerPage
-);
+        const mappedUsers: TenantUser[] = portalItems.map((portal: any) => ({
+          id: portal.portalId || portal._id || portal.portalCode || "N/A",
+          userName: portal.portalName || "Untitled Portal",
+          email: tenantEmail || "tenant@unknown.com",
+          role: normalizeRole(portal.roleType || portal.portalType),
+          department: portal.portalType || "N/A",
+          status: normalizeStatus(portal.status),
+          createdDate: formatPortalDate(portal.createdAt),
+          phoneNumber: "",
+          designation: portal.portalCode || portal.portalId || "—",
+          reportingTo: portal.portalType || "N/A",
+          accessLevel: portal.isEnabled ? "Enabled" : "Disabled",
+        }));
 
-const totalPages = Math.ceil(
-  filteredTenants.length / itemsPerPage
-);
+        setUsers(mappedUsers);
+      } catch (error) {
+        console.error("Failed to fetch tenant portal list:", error);
+        setUsers([]);
+      }
+    };
 
-const tabOptions = [
-  {
-    type: "All" as const,
-    label: "All Tenants",
-    count: tenants.length,
-  },
-  {
-    type: "New" as const,
-    label: "New Tenants",
-    count: 5,
-  },
-];
-const getStatusStyle = (status: string) => {
-  switch (status) {
-    case "Active":
-      return "bg-green-100 text-green-600";
-    case "Trial":
-      return "bg-blue-100 text-blue-600";
-    case "Inactive":
-      return "bg-red-100 text-red-600";
-    default:
-      return "bg-yellow-100 text-yellow-600";
-  }
-};
+    fetchTenantPortals();
+  }, [tenantCode]);
 
-const getPlanStyle = (plan: string) => {
-  switch (plan) {
-    case "Premium":
-      return "bg-purple-100 text-purple-600";
+  const itemsPerPage = 10;
 
-    case "Standard":
-      return "bg-blue-100 text-blue-600";
+  const toggleDropdown = (id: string) => {
+    setOpenDropdownId((prev) => (prev === id ? null : id));
+  };
 
-    case "Basic":
-      return "bg-cyan-100 text-cyan-600";
+  const filteredUsers = users.filter((user) => {
+    const search =
+      user.userName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      user.department.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+      user.role.toLowerCase().includes(searchKeyword.toLowerCase());
 
-    default:
-      return "bg-gray-100 text-gray-600";
-  }
-};
-  return (
-    <div>
-      
+    const portalNameFilter =
+      !filters.portalName ||
+      user.userName.toLowerCase().includes(filters.portalName.toLowerCase());
 
-<br />
+    const roleFilter = !filters.role || user.role === filters.role;
 
-        <div className="md:p-0 mx-auto w-full">
-          <div className="flex flex-col h-full w-full justify-between">
-            <div className="flex flex-col">
-              {/* Tabs */}
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 space-y-4 md:space-y-0">
-                <div className="flex flex-wrap gap-4 font-semibold">
-  Blackstone Academy Users
-</div>
-              </div>
+    const departmentFilter =
+      !filters.department || user.department === filters.department;
 
-              {/* Search + Filter */}
-              <div className="w-full bg-[#FAFAFB] dark:bg-[#343434] rounded-lg">
-                <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#343434]">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by keyword"
-                      className="bg-transparent outline-none text-[15px] w-52 py-3"
-                      value={searchKeyword}
-                      onChange={(e) => setSearchKeyword(e.target.value)}
-                    />
-                  </div>
+    const statusFilter = !filters.status || user.status === filters.status;
 
-                  <div
-                    onClick={() => setShowFilter(true)}
-                    className="flex items-center gap-2 text-sm text-gray-400 dark:border-[#606060] py-2 border-r-2 border-l-2 px-48 -ml-60 cursor-pointer"
-                  >
-                    <MdTune className="w-4 h-4" />
-                    <span>Filter</span>
-                  </div>
+    const loginDate = new Date(user.createdDate);
 
-                  <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
-                   <span className="text-left -ml-60">
-  Showing {filteredTenants.length} of {tenants.length}
-</span>
-                  </div>
-                </div>
+    const fromDateFilter =
+      !filters.fromDate || loginDate >= new Date(filters.fromDate);
 
-                {/* Table */}
-                <table className="table-fixed w-full">
-                  <thead className="text-[13px] bg-[#4C6993] text-white">
-                    <tr>
-                      {[
-                        "Users",
-                        "Email Id",
-                        "Role",
-                        "Department",
-                        "Status",
-                        "Created Date",
-                        
-                        "Action",
-                      ].map((header, idx) => (
-                        <th
-                          key={idx}
-                          className="px-2 py-1 border border-[#4C6993] text-left text-wrap break-words"
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-  {paginatedTenants.map((tenant, index) => {
-    const rowBgClass =
-      index % 2 === 0
-        ? "bg-[#fff] dark:bg-[#2C2C2C]"
-        : "bg-[#F8F8F8] dark:bg-[#303030]";
+    const toDateFilter =
+      !filters.toDate || loginDate <= new Date(filters.toDate);
 
     return (
-      <tr
-        key={tenant.id}
-        className={`text-[10px] ${rowBgClass}`}
-      >
-        <td className="px-3 py-3 break-words text-[11px]">
-          {tenant.tenantName}
-        </td>
-
-        <td className="px-3 py-3 break-words text-[11px] text-left">
-          {tenant.email}
-        </td>
-
-        <td className="px-3 py-3 break-words text-[11px] text-left">
-          {tenant.startDate}
-        </td>
-
-
-        <td className="px-3 py-3 break-words text-left">
-  <span
-    className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${getStatusStyle(
-      tenant.status
-    )}`}
-  >
-    {tenant.status}
-  </span>
-        </td>
-         <td className="px-3 py-3 break-words text-[11px] text-left">
-          {tenant.renewalDate}
-        </td>
-
-       <td className="px-3 py-3 text-left relative text-[12px]">
-  <button
-    onClick={() => toggleDropdown(tenant.id)}
-    className="text-gray-500 hover:text-gray-700"
-  >
-    <BsThreeDotsVertical />
-  </button>
-
-  {openDropdownId === tenant.id && (
-    <div className="absolute right-0 top-8 w-32 bg-white dark:bg-[#343434] border rounded-md shadow-lg z-50">
-      <button
-        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444]"
-         onClick={() => {
-    console.log("View", tenant.id);
-    setOpenDropdownId(null);
-    router.push(
-      "/super-admin/ui/tenants/tenants_management"
+      search &&
+      portalNameFilter &&
+      roleFilter &&
+      departmentFilter &&
+      statusFilter &&
+      fromDateFilter &&
+      toDateFilter
     );
-  }}
-      >
-        View
-      </button>
-      <button
-        className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-        onClick={() => {
-          setOpenDropdownId(null);
-        }}
-      >
-        Cancel
-      </button>
-    </div>
-  )}
-</td>
-      </tr>
-    );
-  })}
-</tbody>
-                </table>
+  });
+
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+  // --- UPDATED: Status and Role Badge Styles with Dark Mode ---
+  const getStatusStyle = (status: string) => {
+    const normalized = status.toUpperCase();
+
+    switch (normalized) {
+      case "ACTIVE":
+      case "Active":
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+      case "ADMIN":
+      case "Admin":
+      case "ACADEMIC":
+      case "Academic":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+      case "FINANCE":
+      case "Finance":
+        return "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400";
+      case "DEFAULT":
+      case "Default":
+      case "CUSTOM":
+      case "Custom":
+        return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+      case "TRIAL":
+      case "Trial":
+        return "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400";
+      case "INACTIVE":
+      case "Inactive":
+        return "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400";
+      default:
+        return "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400";
+    }
+  };
+
+  // Helper to count active filters
+  const activeFilterCount = Object.values(filters).filter(
+    (val) => val !== "",
+  ).length;
+
+  const roleOptions = Array.from(
+    new Set(users.map((user) => user.role)),
+  ).sort();
+  const departmentOptions = Array.from(
+    new Set(users.map((user) => user.department)),
+  ).sort();
+  const statusOptions = Array.from(
+    new Set(users.map((user) => user.status)),
+  ).sort();
+
+  return (
+    <div className="dark:text-white">
+      <br />
+
+      <div className="md:p-0 mx-auto w-full shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)]">
+        <div className="flex flex-col h-full w-full justify-between">
+          <div className="flex flex-col bg-white dark:bg-[#343434]  rounded-xl p-3 ">
+            {/* Tabs */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+              <h2 className=" gap-2 text-[#010E30] dark:text-[#fff] font-medium p-3">
+                Smart Institute Users
+              </h2>
+            </div>
+
+            {/* Search + Filter */}
+            <div className="w-full bg-[#FAFAFB] dark:bg-[#1F1F1F] rounded-lg">
+              <div className="flex justify-between bg-[#FAFAFB] items-center px-4 py-0 rounded-md dark:bg-[#1F1F1F]">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by keyword"
+                    className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-400"
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                  />
+                </div>
+
+                {/* --- UPDATED: Active Filter Indicator Button --- */}
+                <div
+                  onClick={() => setShowFilter(true)}
+                  className={`flex items-center gap-2 text-sm py-2 border-r-2 border-l-2 px-48 -ml-60 cursor-pointer transition-colors ${
+                    activeFilterCount > 0
+                      ? "text-blue-600 font-medium italic dark:text-blue-400"
+                      : "text-gray-400 dark:border-[#606060] dark:text-gray-400"
+                  }`}
+                >
+                  <MdTune className="w-4 h-4" />
+                  <span>Filter</span>
+                  {activeFilterCount > 0 && (
+                    <span className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
+                  <span className="text-left -ml-60">
+                    Showing {filteredUsers.length} of {users.length}
+                  </span>
+                </div>
               </div>
-        <Pagination
-  currentPage={currentPage}
-  totalPages={totalPages}
-  onPageChange={setCurrentPage}
-/>
+
+              {/* Table */}
+              <table className="table-fixed w-full border-collapse">
+                <thead className="text-[13px] bg-[#4C6993] text-white">
+                  <tr>
+                    {[
+                      "Portals",
+                      "Email Id",
+                      "Role",
+                      "Department",
+                      "Status",
+                      "Created Date",
+                      "Action",
+                    ].map((header, idx) => (
+                      <th
+                        key={idx}
+                        className="px-2 py-2 text-left text-wrap break-words font-medium"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedUsers.map((user, index) => {
+                    const rowBgClass =
+                      index % 2 === 0
+                        ? "bg-[#fff] dark:bg-[#2C2C2C]"
+                        : "bg-[#F8F8F8] dark:bg-[#383838]";
+
+                    return (
+                      <tr key={user.id} className={`text-[10px] ${rowBgClass}`}>
+                        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                          {user.userName}
+                        </td>
+
+                        <td className="px-3 py-3 break-words text-[11px] text-left text-[#3D8FDE] dark:text-sky-300">
+                          {user.email}
+                        </td>
+
+                        {/* --- UPDATED: Applied getStatusStyle to Role (Admin/Teacher) --- */}
+                        <td className="px-3 py-3 break-words text-left">
+                          <span
+                            className={`inline-flex items-center justify-center w-[90px] h-6 rounded-md text-xs font-medium ${getStatusStyle(
+                              user.role,
+                            )}`}
+                          >
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                          {user.department}
+                        </td>
+
+                        {/* --- UPDATED: Applied getStatusStyle to Status (Active) --- */}
+                        <td className="px-3 py-3 break-words text-[11px] text-left">
+                          <span
+                            className={`inline-flex items-center justify-center px-3 py-1 rounded-md text-xs font-medium ${getStatusStyle(
+                              user.status,
+                            )}`}
+                          >
+                            {user.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 break-words text-[11px] text-left dark:text-white">
+                          {user.createdDate}
+                        </td>
+
+                        <td className="px-3 py-3 text-left relative text-[12px]">
+                          <button
+                            onClick={() => toggleDropdown(user.id)}
+                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+                          >
+                            <BsThreeDotsVertical />
+                          </button>
+
+                          {openDropdownId === user.id && (
+                            <div className="absolute right-4 top-8 w-28 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+                              <button
+                                className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setShowViewModal(true);
+                                  setOpenDropdownId(null);
+                                }}
+                              >
+                                View Details
+                              </button>
+                              <button
+                                className="block w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
+                                onClick={() => {
+                                  setOpenDropdownId(null);
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* --- Filter Modal --- */}
+      {showFilter && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <form
+            className="bg-white dark:bg-[#2C2C2C] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setShowFilter(false);
+            }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-semibold text-base dark:text-white">
+                Filter by
+              </h2>
+              <button
+                type="button"
+                className="text-gray-400 text-2xl font-semibold cursor-pointer dark:text-gray-300"
+                onClick={() => setShowFilter(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+              Portals
+            </label>
+            <input
+              type="text"
+              value={filters.portalName}
+              onChange={(e) =>
+                setFilters((f) => ({
+                  ...f,
+                  portalName: e.target.value,
+                }))
+              }
+              className="w-full text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+              placeholder="Enter Portal Name"
+            />
+
+            <div className="mb-4 mt-4">
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Role
+              </label>
+              <select
+                value={filters.role}
+                onChange={(e) =>
+                  setFilters((f) => ({
+                    ...f,
+                    role: e.target.value,
+                  }))
+                }
+                className="w-full text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+              >
+                <option value="">Select Role</option>
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Department
+              </label>
+              <select
+                value={filters.department}
+                onChange={(e) =>
+                  setFilters((f) => ({
+                    ...f,
+                    department: e.target.value,
+                  }))
+                }
+                className="w-full text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+              >
+                <option value="">Select Department</option>
+                {departmentOptions.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Status
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) =>
+                  setFilters((f) => ({
+                    ...f,
+                    status: e.target.value,
+                  }))
+                }
+                className="w-full text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+              >
+                <option value="">Select Status</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Created Date
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="date"
+                  value={filters.fromDate}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      fromDate: e.target.value,
+                    }))
+                  }
+                  className="border text-xs border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                />
+                <input
+                  type="date"
+                  value={filters.toDate}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      toDate: e.target.value,
+                    }))
+                  }
+                  className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-[#2C2C2C] dark:text-white focus:outline-none focus:border-[#576CBC] dark:focus:border-[#8296E6]"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-auto justify-end">
+              <button
+                type="button"
+                className="border border-[#576CBC] bg-white dark:bg-transparent text-[#576CBC] dark:text-[#8296E6] rounded-lg px-4 py-2 font-semibold hover:bg-gray-50 dark:hover:bg-[#444] transition-colors text-sm"
+                onClick={() =>
+                  setFilters({
+                    portalName: "",
+                    role: "",
+                    department: "",
+                    status: "",
+                    fromDate: "",
+                    toDate: "",
+                  })
+                }
+              >
+                Reset
+              </button>
+
+              <button
+                type="submit"
+                className="bg-[#576CBC] text-white rounded-lg px-4 py-2 font-semibold hover:bg-[#465a9e] dark:hover:bg-[#6A80D1] transition-colors text-sm"
+                onClick={() => setShowFilter(false)}
+              >
+                Show Results
+              </button>
+            </div>
+          </form>
+
+          <div className="fixed inset-0" onClick={() => setShowFilter(false)} />
+        </div>
+      )}
+
+      {/* --- View Modal --- */}
+      {showViewModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-[#2C2C2C] rounded-2xl w-[600px] p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold dark:text-white">
+                User Details
+              </h2>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-3xl text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-5">
+              <div>
+                <label className="dark:text-gray-200 text-sm">Name</label>
+                <input
+                  readOnly
+                  value={selectedUser.userName}
+                  className="w-full border border-gray-300 text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="dark:text-gray-200 text-sm">Email</label>
+                <input
+                  readOnly
+                  value={selectedUser.email}
+                  className="w-full border border-gray-300 text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="dark:text-gray-200 text-sm">Role</label>
+                <input
+                  readOnly
+                  value={selectedUser.role}
+                  className="w-full border border-gray-300 text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="dark:text-gray-200  text-sm">
+                  Department
+                </label>
+                <input
+                  readOnly
+                  value={selectedUser.department}
+                  className="w-full border border-gray-300 text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="dark:text-gray-200  text-sm">
+                  Designation
+                </label>
+                <input
+                  readOnly
+                  value={selectedUser.designation}
+                  className="w-full border border-gray-300 text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="dark:text-gray-200  text-sm">Status</label>
+                <input
+                  readOnly
+                  value={selectedUser.status}
+                  className="w-full border border-gray-300 text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="dark:text-gray-200  text-sm">
+                  Created On
+                </label>
+                <input
+                  readOnly
+                  value={selectedUser.createdDate}
+                  className="w-full border border-gray-300 text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="dark:text-gray-200  text-sm">
+                  Access Level
+                </label>
+                <input
+                  readOnly
+                  value={selectedUser.accessLevel}
+                  className="w-full border border-gray-300  text-xs dark:border-gray-600 rounded-lg px-4 py-2 mt-2 bg-[#F9FAFB] dark:bg-[#2C2C2C] dark:text-white"
+                />
+              </div>
             </div>
           </div>
         </div>
-        {showFilter && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-    <form
-      className="bg-white dark:bg-[#232323] p-6 rounded-2xl shadow-lg w-[500px] flex flex-col z-50"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setShowFilter(false);
-      }}
-    >
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="font-bold text-lg">Filter by</h2>
-        <button
-          type="button"
-          className="text-gray-400 text-2xl font-bold cursor-pointer"
-          onClick={() => setShowFilter(false)}
-        >
-          ×
-        </button>
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
-          Tenant Name
-        </label>
-        <input
-          type="text"
-          value={filters.tenantName}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              tenantName: e.target.value,
-            }))
-          }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
-          placeholder="Enter tenant name..."
-        />
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">
-          Plan
-        </label>
-
-        <select
-          value={filters.plan}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              plan: e.target.value,
-            }))
-          }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
-        >
-          <option value="">Select Plan</option>
-          <option value="Basic">Basic</option>
-          <option value="Standard">Standard</option>
-          <option value="Premium">Premium</option>
-        </select>
-      </div>
-
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-1">
-          Status
-        </label>
-
-        <select
-          value={filters.status}
-          onChange={(e) =>
-            setFilters((f) => ({
-              ...f,
-              status: e.target.value,
-            }))
-          }
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 bg-gray-50 dark:bg-[#23272f] text-[15px]"
-        >
-          <option value="">Select Status</option>
-          <option value="Active">Active</option>
-          <option value="Trial">Trial</option>
-          <option value="Inactive">Inactive</option>
-          <option value="Expiring Soon">Expiring Soon</option>
-        </select>
-      </div>
-
-      <div className="flex gap-4 mt-auto justify-end">
-        <button
-          type="button"
-          className="border border-[#576CBC] bg-white text-[#576CBC] rounded-lg px-6 py-2 font-semibold"
-          onClick={() =>
-            setFilters({
-              tenantName: "",
-              plan: "",
-              status: "",
-            })
-          }
-        >
-          Reset
-        </button>
-
-        <button
-          type="submit"
-          className="bg-[#576CBC] text-white rounded-lg px-6 py-2 font-semibold"
-          onClick={() => setShowFilter(false)}
-        >
-          Show Results
-        </button>
-      </div>
-    </form>
-
-    <div
-      className="fixed inset-0"
-      onClick={() => setShowFilter(false)}
-    />
-  </div>
-)}
-    
+      )}
     </div>
   );
 };
