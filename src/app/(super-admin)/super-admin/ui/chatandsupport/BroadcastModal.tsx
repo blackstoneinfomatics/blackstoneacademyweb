@@ -9,7 +9,7 @@ export interface BroadcastData {
   attachment: File | null;
 }
 
-const GLOBAL_ROOM_ID = "6abcf6069c158042d7a51acd";
+const GLOBAL_ROOM_ID = "6ac637fb48f166c74a8d701b";
 
 
 export function BroadcastModal({
