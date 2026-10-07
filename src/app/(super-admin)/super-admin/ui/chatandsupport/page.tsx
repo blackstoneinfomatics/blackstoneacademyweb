@@ -13,9 +13,6 @@ import { BroadcastModal, type BroadcastData } from "./BroadcastModal";
 import { GroupDetailsModal } from "./GroupDetailsModal";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-// ─────────────────────────────────────────────
-// API Endpoints
-// ─────────────────────────────────────────────
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
 const API_ACTIVE_PLANS = `${API_BASE}${AppApiEndpoints.CHAT.GET_ACTIVE_PLANS}`;
@@ -35,11 +32,33 @@ const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
 
 const API_UPDATE_CHAT_ROOM = (roomId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
- const API_DELETE_MESSAGE_FOR_EVERYONE =(messageId: string , userId :string) =>
+const API_GET_GROUP_DETAILS = (roomId: string) =>
+  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
+const API_DELETE_MESSAGE_FOR_EVERYONE = (messageId: string, userId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`;
 
 const ROOMS_PAGE_LIMIT = 100;
 const DEFAULT_CREATOR_ID = "6aba4e3ee619505595695943";
+
+const extractList = <T = any>(json: any, ...keys: string[]): T[] => {
+  if (!json) return [];
+  if (Array.isArray(json)) return json as T[];
+
+  if (Array.isArray(json.data)) return json.data as T[];
+
+  if (json.data && typeof json.data === "object") {
+    for (const key of keys) {
+      if (Array.isArray(json.data[key])) return json.data[key] as T[];
+    }
+    if (Array.isArray(json.data.data)) return json.data.data as T[];
+  }
+
+  for (const key of keys) {
+    if (Array.isArray(json[key])) return json[key] as T[];
+  }
+
+  return [];
+};
 
 // ─────────────────────────────────────────────
 // localStorage helpers
@@ -100,7 +119,6 @@ const removeFromRemovedTenant = (roomId: string, tenantId: string) => {
   );
 };
 
-// 🔑 Per-room full member snapshot
 interface StoredMember {
   tenantId: string;
   tenantName: string;
@@ -126,7 +144,6 @@ const setRoomMembersCache = (roomId: string, members: StoredMember[]) => {
   } catch { }
 };
 
-// Merge new members into the stored snapshot (never lose existing entries)
 const mergeIntoRoomMembersCache = (
   roomId: string,
   newMembers: StoredMember[]
@@ -138,13 +155,9 @@ const mergeIntoRoomMembersCache = (
       map.set(m.tenantId, m);
     }
   });
-  // ✅ Array.from for TS compatibility
   setRoomMembersCache(roomId, Array.from(map.values()));
 };
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 type RoomType = "TENANT" | "SEGMENT" | "GLOBAL";
 
 interface IMessage {
@@ -161,9 +174,14 @@ interface IMessage {
   isRead: boolean;
   status: "Active" | "Inactive";
   deliveredAt?: string;
-  isDeleted : boolean;
+  isDeleted: boolean;
   seenAt?: string;
-  replyTo?: { messageId: string; messages: string; senderName: string; senderId : string; };
+  replyTo?: {
+    messageId: string;
+    messages: string;
+    senderName: string;
+    senderId: string;
+  };
   attachment?: { name: string; size: number; type: string; url?: string };
   side?: "left" | "right";
   canReply?: boolean;
@@ -265,9 +283,6 @@ interface IPlanTenant {
   planName?: string;
 }
 
-// ─────────────────────────────────────────────
-// Plan colors
-// ─────────────────────────────────────────────
 const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   Premium: {
     bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]",
@@ -322,9 +337,6 @@ const getPlanColor = (plan?: string) => {
   return FALLBACK_COLORS[hashString(plan) % FALLBACK_COLORS.length];
 };
 
-// ─────────────────────────────────────────────
-// ID helpers
-// ─────────────────────────────────────────────
 const extractTenantId = (t: any): string => {
   const raw =
     t?._id ??
@@ -385,9 +397,6 @@ const formatMessageTime = (iso?: string) => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-// ─────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────
 const ReceiptDots = ({
   delivered,
   seen,
@@ -638,37 +647,21 @@ const MessageInfoModal = ({
               </p>
             ) : seenUsers.length === 0 ? (
               <p className="py-2 text-[11px] text-[#9299A5]">Not seen yet</p>
-            )
-            : (
+            ) : (
               <div className="divide-y divide-[#ECEEF2] dark:divide-[#3B4048]">
-                {seenUsers.map((user) => {
-                  const seenAt = new Date(user.seenAt);
-                  const seenTime = Number.isNaN(seenAt.getTime())
-                    ? user.seenAt
-                    : seenAt.toLocaleString([], {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      });
-
-                  return (
-                    <div
-                      key={user.userId}
-                      className="flex items-center gap-3 py-2.5"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9EEF8] text-[11px] font-semibold text-[#4863A8] dark:bg-[#343D50] dark:text-[#B5C5F1]">
-                        {user.name.trim().charAt(0).toUpperCase() || "?"}
-                      </div>
-                      <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">
-                        {user.name}
-                      </span>
-                      {/* <span className="shrink-0 text-[10px] text-[#8992A0]">
-                        {seenTime}
-                      </span> */}
+                {seenUsers.map((user) => (
+                  <div
+                    key={user.userId}
+                    className="flex items-center gap-3 py-2.5"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9EEF8] text-[11px] font-semibold text-[#4863A8] dark:bg-[#343D50] dark:text-[#B5C5F1]">
+                      {user.name.trim().charAt(0).toUpperCase() || "?"}
                     </div>
-                  );
-                })}
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">
+                      {user.name}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -678,9 +671,6 @@ const MessageInfoModal = ({
   );
 };
 
-// ─────────────────────────────────────────────
-// Main Component
-// ─────────────────────────────────────────────
 const Message = () => {
   const currentUser = {
     userId: DEFAULT_CREATOR_ID,
@@ -693,10 +683,10 @@ const Message = () => {
   const [groupRooms, setGroupRooms] = useState<IUser[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({
-  all: 0,
-  unread: 0,
-  group: 0,
-});
+    all: 0,
+    unread: 0,
+    group: 0,
+  });
 
   const [allMessages, setAllMessages] = useState<IMessageData[]>([]);
 
@@ -744,10 +734,6 @@ const Message = () => {
   const [replyTo, setReplyTo] = useState<IMessage | null>(null);
   const [infoMessage, setInfoMessage] = useState<IMessage | null>(null);
 
-  // ─────────────────────────────────────────────
-  // Map raw room → IUser
-  // ✅ Merges API tenantIds + cached snapshot
-  // ─────────────────────────────────────────────
   const mapRoomToUser = (r: any): IUser => {
     const id = extractRoomId(r);
     const roomType = normalizeRoomType(r?.type);
@@ -795,7 +781,6 @@ const Message = () => {
       };
     });
 
-    // ✅ Merge cached members NOT in API response
     const activeIds = new Set(activeMembers.map((m) => m.tenantId));
     const cachedOnlyMembers = cachedMembers
       .filter((cm) => !activeIds.has(cm.tenantId))
@@ -837,7 +822,7 @@ const Message = () => {
       roomId: id,
       roomCode: r?.roomCode ?? "",
       unreadCount: r?.unreadCount ?? 0,
-      isUnread:r?.isUnread ?? false,
+      isUnread: r?.isUnread ?? false,
       description: r?.description ?? "",
       planName: r?.planName ?? "",
       planId: r?.planId ?? "",
@@ -848,183 +833,134 @@ const Message = () => {
     };
   };
 
-  // ─────────────────────────────────────────────
-  // Fetch rooms
-  // ✅ Saves full member snapshot per room
-  // ─────────────────────────────────────────────
-const fetchRooms = async () => {
-  setRoomsLoading(true);
+  const fetchRooms = async () => {
+    setRoomsLoading(true);
 
-  try {
-    const fetchTab = async (tab: "ALL" | "UNREAD" | "GROUP") => {
+    try {
+      const fetchTab = async (tab: "ALL" | "UNREAD" | "GROUP") => {
+        const userId = localStorage.getItem("SuperAdminUserId") || "";
+        const tenantId = localStorage.getItem("tenantId") || "";
+        const token = localStorage.getItem("SuperAdminAuthToken");
 
-      const userId = localStorage.getItem("SuperAdminUserId") || "";
-      const tenantId = localStorage.getItem("tenantId") || "";
-      const res = await fetch(
-        `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}&tab=${tab}&userId=${userId}&tenantId=${tenantId}`,
-        { cache: "no-store" }
-      );
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error(
-          `GET /chat-room?tab=${tab} failed: ${res.status}`,
-          errText
+        const res = await fetch(
+          `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}&tab=${tab}&userId=${userId}&tenantId=${tenantId}`,
+          {
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
         );
 
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error(
+            `GET /chat-room?tab=${tab} failed: ${res.status}`,
+            errText
+          );
+
+          return {
+            rooms: [],
+            counts: { all: 0, unread: 0, group: 0 },
+          };
+        }
+
+        const json = await res.json();
+        const data = json?.data ?? {};
+
         return {
-          rooms: [],
-          counts: {
-            all: 0,
-            unread: 0,
-            group: 0,
-          },
+          rooms: Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.items)
+              ? data.items
+              : Array.isArray(json?.data?.data)
+                ? json.data.data
+                : [],
+          counts: data?.counts ?? { all: 0, unread: 0, group: 0 },
         };
-      }
-
-      const json = await res.json();
-
-      const data = json?.data ?? {};
-
-      return {
-        rooms: Array.isArray(data?.data) ? data.data : [],
-        counts: data?.counts ?? {
-          all: 0,
-          unread: 0,
-          group: 0,
-        },
       };
-    };
 
-    // Fetch all three tabs
-    const [allResponse, unreadResponse, groupResponse] =
-      await Promise.all([
-        fetchTab("ALL"),
-        fetchTab("UNREAD"),
-        fetchTab("GROUP"),
-      ]);
+      const [allResponse, unreadResponse, groupResponse] =
+        await Promise.all([
+          fetchTab("ALL"),
+          fetchTab("UNREAD"),
+          fetchTab("GROUP"),
+        ]);
 
-    // --------------------------------------------------
-    // ALL
-    // --------------------------------------------------
+      const mappedAll = allResponse.rooms
+        .map(mapRoomToUser)
+        .filter((r: any) => r._id);
 
-    const mappedAll = allResponse.rooms
-      .map(mapRoomToUser)
-      .filter((r:any) => r._id);
+      const mappedUnread = unreadResponse.rooms
+        .map(mapRoomToUser)
+        .filter((r: any) => r._id);
 
-    // --------------------------------------------------
-    // UNREAD
-    // --------------------------------------------------
+      const mappedGroup = groupResponse.rooms
+        .map(mapRoomToUser)
+        .filter((r: any) => r._id);
 
-    const mappedUnread = unreadResponse.rooms
-      .map(mapRoomToUser)
-      .filter((r:any) => r._id);
+      setAllRooms(mappedAll);
+      setUnreadRooms(mappedUnread);
+      setGroupRooms(mappedGroup);
 
-    // --------------------------------------------------
-    // GROUP
-    // --------------------------------------------------
+      const counts = allResponse.counts;
+      setUnreadCounts({
+        all: counts?.all ?? 0,
+        unread: counts?.unread ?? 0,
+        group: counts?.group ?? 0,
+      });
 
-    const mappedGroup = groupResponse.rooms
-      .map(mapRoomToUser)
-      .filter((r:any) => r._id);
+      const allRoomResponses = [
+        ...allResponse.rooms,
+        ...unreadResponse.rooms,
+        ...groupResponse.rooms,
+      ];
 
-    // --------------------------------------------------
-    // Save rooms
-    // --------------------------------------------------
+      allRoomResponses.forEach((r: any) => {
+        const roomId = extractRoomId(r);
+        if (!roomId) return;
 
-    setAllRooms(mappedAll);
-    setUnreadRooms(mappedUnread);
-    setGroupRooms(mappedGroup);
-
-    // --------------------------------------------------
-    // Save unread counts
-    // --------------------------------------------------
-
-    const counts = allResponse.counts;
-
-    setUnreadCounts({
-      all: counts?.all ?? 0,
-      unread: counts?.unread ?? 0,
-      group: counts?.group ?? 0,
-    });
-
-    // --------------------------------------------------
-    // Save member snapshot
-    // --------------------------------------------------
-
-    const allRoomResponses = [
-      ...allResponse.rooms,
-      ...unreadResponse.rooms,
-      ...groupResponse.rooms,
-    ];
-
-    allRoomResponses.forEach((r: any) => {
-      const roomId = extractRoomId(r);
-
-      if (!roomId) return;
-
-      const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
-        ? r.tenantIds.filter(
-            (x: any) =>
-              typeof x === "string" && x.trim()
+        const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
+          ? r.tenantIds.filter(
+            (x: any) => typeof x === "string" && x.trim()
           )
-        : [];
+          : [];
 
-      if (rawTenantIds.length === 0) return;
+        if (rawTenantIds.length === 0) return;
 
-      const rawMembers = Array.isArray(r?.members)
-        ? r.members
-        : [];
+        const rawMembers = Array.isArray(r?.members) ? r.members : [];
 
-      const snapshot: StoredMember[] = rawTenantIds.map(
-        (tid) => {
+        const snapshot: StoredMember[] = rawTenantIds.map((tid) => {
           const found = rawMembers.find(
-            (m: any) =>
-              (m.tenantId || m._id || m.id) === tid
+            (m: any) => (m.tenantId || m._id || m.id) === tid
           );
 
           return {
             tenantId: tid,
-            tenantName:
-              found?.tenantName ||
-              found?.name ||
-              tid,
+            tenantName: found?.tenantName || found?.name || tid,
           };
-        }
-      );
+        });
 
-      mergeIntoRoomMembersCache(roomId, snapshot);
-    });
-  } catch (err) {
-    console.error("❌ fetchRooms failed:", err);
+        mergeIntoRoomMembersCache(roomId, snapshot);
+      });
+    } catch (err) {
+      console.error("❌ fetchRooms failed:", err);
 
-    setAllRooms([]);
-    setUnreadRooms([]);
-    setGroupRooms([]);
+      setAllRooms([]);
+      setUnreadRooms([]);
+      setGroupRooms([]);
 
-    setUnreadCounts({
-      all: 0,
-      unread: 0,
-      group: 0,
-    });
-  } finally {
-    setRoomsLoading(false);
-  }
-};
+      setUnreadCounts({ all: 0, unread: 0, group: 0 });
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchRooms();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
 
-  // const tabCounts = useMemo(
-  //   () => ({
-  //     all: allRooms.length,
-  //     unread: unreadRooms.length,
-  //     groups: groupRooms.length,
-  //   }),
-  //   [allRooms, unreadRooms, groupRooms]
-  // );
+  }, [activeTab]);
 
   const visibleRooms = useMemo(() => {
     const source: IUser[] =
@@ -1062,7 +998,6 @@ const fetchRooms = async () => {
     });
   };
 
-  // Fetch plans when AddGroup opens
   useEffect(() => {
     if (!showAddGroup) return;
     let cancelled = false;
@@ -1070,27 +1005,46 @@ const fetchRooms = async () => {
     (async () => {
       setPlansLoading(true);
       try {
-        const res = await fetch(API_ACTIVE_PLANS, { cache: "no-store" });
+        const token = localStorage.getItem("SuperAdminAuthToken");
+
+        const res = await fetch(API_ACTIVE_PLANS, {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        console.log("[plans] status:", res.status);
+
+        if (!res.ok) {
+          const errorBody = await res.text();
+          console.error("[plans] request failed:", res.status, errorBody);
+          return;
+        }
+
         const json = await res.json();
+        console.log("[plans] raw response:", json);
 
-        if (!cancelled && json?.success && Array.isArray(json.data)) {
-          const list: IPlan[] = json.data
-            .map((p: any) => ({
-              _id: p?._id ?? p?.id ?? "",
-              planName: p?.planName ?? p?.name ?? "",
-              status: p?.status ?? "Active",
-            }))
-            .filter((p: IPlan) => p._id && p.planName);
+        const raw = extractList<any>(json, "plans", "items", "data");
 
+        const list: IPlan[] = raw
+          .map((p: any) => ({
+            _id: p?._id ?? p?.id ?? p?.planId ?? "",
+            planName: p?.planName ?? p?.name ?? p?.title ?? "",
+            status: p?.status ?? "Active",
+          }))
+          .filter((p: IPlan) => Boolean(p._id) && Boolean(p.planName));
+
+        if (!cancelled) {
           setPlans(list);
 
           if (list.length > 0) {
             const first = list[0];
             setAddGroupData((prev) => ({
               ...prev,
-              planId: first._id,
-              planName: first.planName,
-              selectedPeople: [],
+              planId: prev.planId || first._id,
+              planName: prev.planName || first.planName,
             }));
           }
         }
@@ -1106,7 +1060,6 @@ const fetchRooms = async () => {
     };
   }, [showAddGroup]);
 
-  // Fetch tenants when AddGroup opens
   useEffect(() => {
     if (!showAddGroup) return;
     if (!addGroupData.planId) {
@@ -1119,18 +1072,38 @@ const fetchRooms = async () => {
     (async () => {
       setPlanTenantsLoading(true);
       try {
+        const token = localStorage.getItem("SuperAdminAuthToken");
+
         const res = await fetch(API_TENANTS_BY_PLAN(addGroupData.planId), {
           cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
-        const json = await res.json();
 
-        const rawList: any[] = Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json?.data?.tenants)
-            ? json.data.tenants
-            : Array.isArray(json?.tenants)
-              ? json.tenants
-              : [];
+        console.log("[plan tenants / add group] status:", res.status);
+
+        if (!res.ok) {
+          const errorBody = await res.text();
+          console.error(
+            "[plan tenants / add group] request failed:",
+            res.status,
+            errorBody
+          );
+          return;
+        }
+
+        const json = await res.json();
+        console.log("[plan tenants / add group] raw response:", json);
+
+        const rawList = extractList<any>(
+          json,
+          "tenants",
+          "items",
+          "members",
+          "data"
+        );
 
         const normalized: IPlanTenant[] = rawList
           .map((t: any) => ({
@@ -1160,32 +1133,206 @@ const fetchRooms = async () => {
     };
   }, [showAddGroup, addGroupData.planId]);
 
-  // ✅ Fetch tenants when Group Details opens AND save snapshot
+  useEffect(() => {
+    if (!selectedUser) return;
+    if (!selectedUser.isGroup && !selectedUser.role.includes("Group")) return;
+
+    const roomId = selectedUser.roomId || selectedUser._id;
+    const token = localStorage.getItem("SuperAdminAuthToken");
+    const currentSelectedId = selectedUser._id;
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const url = API_GET_GROUP_DETAILS(roomId);
+        console.log("🟣 [prefetch members] →", url);
+
+        const res = await fetch(url, {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        console.log("🟣 [prefetch members] status:", res.status);
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("❌ [prefetch members] failed:", res.status, errText);
+          return;
+        }
+
+        const json = await res.json();
+        console.log(
+          "🟣 [prefetch members] raw response:",
+          JSON.stringify(json, null, 2)
+        );
+
+        const groupData = json?.data ?? json;
+        const rawMembers: any[] = Array.isArray(groupData?.members)
+          ? groupData.members
+          : [];
+
+        console.log(
+          "🟣 [prefetch members] count=" + rawMembers.length,
+          rawMembers
+        );
+
+        if (controller.signal.aborted) return;
+        if (rawMembers.length === 0) return;
+
+        const removedIds = getRemovedTenants(roomId);
+
+        const freshMembers = rawMembers.map((m: any) => ({
+          name: m.tenantName || m.name || m.tenantId || "Unknown",
+          plan: groupData?.planName ?? selectedUser.planName ?? "",
+          tenantId: m.tenantId || m._id || "",
+          isSelected: removedIds.includes(m.tenantId || m._id)
+            ? false
+            : m.isSelected !== undefined
+              ? m.isSelected
+              : true,
+        }));
+
+        mergeIntoRoomMembersCache(
+          roomId,
+          freshMembers.map((m) => ({
+            tenantId: m.tenantId,
+            tenantName: m.name,
+          }))
+        );
+
+        setSelectedUser((prev) => {
+          if (!prev) return prev;
+          if (prev._id !== currentSelectedId) return prev;
+          return { ...prev, members: freshMembers };
+        });
+
+        setAllRooms((prev) =>
+          prev.map((r) =>
+            r._id === currentSelectedId ? { ...r, members: freshMembers } : r
+          )
+        );
+        setGroupRooms((prev) =>
+          prev.map((r) =>
+            r._id === currentSelectedId ? { ...r, members: freshMembers } : r
+          )
+        );
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          console.error("❌ [prefetch members] unexpected error:", err);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUser?._id, selectedUser?.isGroup]);
+
+  // ─────────────────────────────────────────────
+  // Fetch group details when Group Details modal opens
+  // ─────────────────────────────────────────────
   useEffect(() => {
     if (!showGroupDetails || !selectedUser) return;
 
     const planId = selectedUser.planId;
-    if (!planId) {
-      console.warn("No planId on selectedUser — cannot fetch tenants");
-      return;
-    }
+    const roomId = selectedUser.roomId || selectedUser._id;
+    const token = localStorage.getItem("SuperAdminAuthToken");
+
+    console.log("🟡 [Step 0] Group Details modal opened", { roomId, planId });
 
     let cancelled = false;
 
     (async () => {
       try {
-        const res = await fetch(API_TENANTS_BY_PLAN(planId), {
-          cache: "no-store",
-        });
-        const json = await res.json();
+        const url = API_GET_GROUP_DETAILS(roomId);
+        console.log("🟡 [Step 1] Fetching group details →", url);
 
-        const rawList: any[] = Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json?.data?.tenants)
-            ? json.data.tenants
-            : Array.isArray(json?.tenants)
-              ? json.tenants
-              : [];
+        const groupRes = await fetch(url, {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        console.log("🟡 [Step 2] Response status:", groupRes.status, groupRes.ok ? "✅ OK" : "❌ FAILED");
+
+        if (!groupRes.ok) {
+          const errText = await groupRes.text();
+          console.error("❌ [Step 2] Group details fetch failed:", groupRes.status, errText);
+        } else {
+          const groupJson = await groupRes.json();
+          console.log("🟡 [Step 3] Raw response body:", JSON.stringify(groupJson, null, 2));
+
+          const groupData = groupJson?.data ?? groupJson;
+          console.log("🟡 [Step 4] Parsed groupData:", groupData);
+
+          const rawMembers: any[] = Array.isArray(groupData?.members) ? groupData.members : [];
+          console.log("🟡 [Step 5] members array (length=" + rawMembers.length + "):", rawMembers);
+
+          if (!cancelled && rawMembers.length > 0) {
+            const removedIds = getRemovedTenants(roomId);
+            console.log("🟡 [Step 6] removedIds from localStorage:", removedIds);
+
+            const freshMembers = rawMembers.map((m: any) => ({
+              name: m.tenantName || m.name || m.tenantId || "Unknown",
+              plan: groupData?.planName ?? "",
+              tenantId: m.tenantId || m._id || "",
+              isSelected: removedIds.includes(m.tenantId || m._id)
+                ? false
+                : (m.isSelected !== undefined ? m.isSelected : true),
+            }));
+
+            console.log("✅ [Step 7] Final freshMembers to display:", freshMembers);
+
+            mergeIntoRoomMembersCache(
+              roomId,
+              freshMembers.map((m) => ({ tenantId: m.tenantId, tenantName: m.name }))
+            );
+
+            setSelectedUser((prev) => {
+              if (!prev) return prev;
+              return { ...prev, members: freshMembers };
+            });
+          } else if (rawMembers.length === 0) {
+            console.warn("⚠️ [Step 5] members array is empty — no members to show");
+          }
+        }
+
+        if (cancelled) return;
+
+        if (!planId) {
+          console.warn("⚠️ [Step 8] No planId — skipping plan-tenants fetch (Add Member dropdown will be empty)");
+          return;
+        }
+
+        const tenantsUrl = API_TENANTS_BY_PLAN(planId);
+        console.log("🟡 [Step 8] Fetching plan tenants for dropdown →", tenantsUrl);
+
+        const tenantsRes = await fetch(tenantsUrl, {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        console.log("🟡 [Step 9] Plan tenants response status:", tenantsRes.status, tenantsRes.ok ? "✅ OK" : "❌ FAILED");
+
+        if (!tenantsRes.ok) {
+          const errText = await tenantsRes.text();
+          console.error("❌ [Step 9] Plan tenants fetch failed:", tenantsRes.status, errText);
+          return;
+        }
+
+        const tenantsJson = await tenantsRes.json();
+        console.log("🟡 [Step 10] Plan tenants raw response:", JSON.stringify(tenantsJson, null, 2));
+
+        const rawList = extractList<any>(tenantsJson, "tenants", "items", "members", "data");
+        console.log("🟡 [Step 11] Extracted tenants list (length=" + rawList.length + "):", rawList);
 
         const normalized: IPlanTenant[] = rawList
           .map((t: any) => ({
@@ -1196,49 +1343,25 @@ const fetchRooms = async () => {
           }))
           .filter((t) => t._id && t._id.trim().length > 0);
 
-        if (cancelled) return;
+        console.log("✅ [Step 12] Normalized plan tenants:", normalized);
 
-        setPlanTenants(normalized);
-
-        // 🔑 Save plan tenants snapshot for this room
-        const roomId = selectedUser.roomId || selectedUser._id;
-        mergeIntoRoomMembersCache(
-          roomId,
-          normalized.map((t) => ({
-            tenantId: t._id,
-            tenantName: t.tenantName || t.name || "Unnamed Tenant",
-          }))
-        );
-
-        // Merge missing members into selectedUser
-        setSelectedUser((prev) => {
-          if (!prev) return prev;
-          const existingIds = new Set(
-            (prev.members ?? []).map((m: any) => m.tenantId)
+        if (!cancelled) {
+          setPlanTenants(normalized);
+          mergeIntoRoomMembersCache(
+            roomId,
+            normalized.map((t) => ({ tenantId: t._id, tenantName: t.tenantName || "Unnamed Tenant" }))
           );
-          const missingFromPlan = normalized
-            .filter((t) => !existingIds.has(t._id))
-            .map((t) => ({
-              name: t.tenantName || t.name || "Unnamed Tenant",
-              plan: prev.planName ?? "",
-              tenantId: t._id,
-              isSelected: false,
-            }));
-          if (missingFromPlan.length === 0) return prev;
-          return {
-            ...prev,
-            members: [...(prev.members ?? []), ...missingFromPlan],
-          };
-        });
+        }
       } catch (err) {
-        console.error("Failed to fetch plan tenants for modal:", err);
+        console.error("❌ [Group Details] Unexpected error:", err);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [showGroupDetails, selectedUser]);
+ 
+  }, [showGroupDetails, selectedUser?._id, selectedUser?.planId]);
 
   const memberOptions = useMemo(
     () =>
@@ -1305,9 +1428,9 @@ const fetchRooms = async () => {
               time: Number.isNaN(date.getTime())
                 ? ""
                 : date.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
               notificationStatus: "Unseen",
               isRead: false,
               status: "Active",
@@ -1315,19 +1438,19 @@ const fetchRooms = async () => {
               side: message.side,
               replyTo: message.replyTo
                 ? {
-                    messageId: message.replyTo.messageId ?? "",
-                    messages: message.replyTo.message ?? "",
-                    senderName: message.replyTo.senderName ?? "",
-                    senderId: message.replyTo.senderId ?? "",
-                  }
+                  messageId: message.replyTo.messageId ?? "",
+                  messages: message.replyTo.message ?? "",
+                  senderName: message.replyTo.senderName ?? "",
+                  senderId: message.replyTo.senderId ?? "",
+                }
                 : undefined,
               attachment: attachment
                 ? {
-                    name: attachment.name ?? "Attachment",
-                    size: attachment.size ?? 0,
-                    type: attachment.type ?? "application/octet-stream",
-                    url: attachment.url,
-                  }
+                  name: attachment.name ?? "Attachment",
+                  size: attachment.size ?? 0,
+                  type: attachment.type ?? "application/octet-stream",
+                  url: attachment.url,
+                }
                 : undefined,
             };
           }
@@ -1353,7 +1476,7 @@ const fetchRooms = async () => {
               if (!seenResponse.ok || seenResult?.success === false) {
                 throw new Error(
                   seenResult?.message ||
-                    `Mark message as seen failed: HTTP ${seenResponse.status}`
+                  `Mark message as seen failed: HTTP ${seenResponse.status}`
                 );
               }
             })
@@ -1385,8 +1508,6 @@ const fetchRooms = async () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedMessages]);
 
-
-  
   const handleSendMessage = async (
     text: string,
     pendingAttachment: File | null,
@@ -1400,14 +1521,6 @@ const fetchRooms = async () => {
     const senderName =
       localStorage.getItem("SuperAdminPortalName") || currentUser.userName;
 
-    // if (!token || !senderId) {
-    //   const errorMessage = !token
-    //     ? "Your session is missing or expired. Sign in again."
-    //     : "Your account is missing the room membership user ID. Sign in again or ask the backend to include userId in the login response.";
-    //   console.error(errorMessage);
-    //   return errorMessage;
-    // }
-
     const payload = {
       roomId: selectedUser._id,
       senderId,
@@ -1417,17 +1530,17 @@ const fetchRooms = async () => {
       message: text.trim(),
       ...(replyTo
         ? {
-            replyTo: {
-              messageId: replyTo._id,
-              message: replyTo.messages,
-              senderId: replyTo.senderId,
-              senderName: replyTo.senderName,
-            },
-          }
+          replyTo: {
+            messageId: replyTo._id,
+            message: replyTo.messages,
+            senderId: replyTo.senderId,
+            senderName: replyTo.senderName,
+          },
+        }
         : {}),
     };
 
-      let createdMessageId: string | undefined;
+    let createdMessageId: string | undefined;
 
     try {
       console.log("[chat/message] request", {
@@ -1531,7 +1644,7 @@ const fetchRooms = async () => {
       canReply: Boolean(createdMessageId),
       replyTo: replyTo
         ? {
-          messageId : replyTo._id,
+          messageId: replyTo._id,
           messages: replyTo.messages,
           senderName: replyTo.senderName,
           senderId: replyTo.senderId,
@@ -1551,8 +1664,7 @@ const fetchRooms = async () => {
       const existing = prev.find((g) => g._id === selectedUser._id);
       if (existing) {
         return prev.map((g) =>
-          g._id === selectedUser._id ? { ...g, messages: [...g.messages, newMessage] }
-            : g
+          g._id === selectedUser._id ? { ...g, messages: [...g.messages, newMessage] } : g
         );
       }
       return [...prev, { _id: selectedUser._id, messages: [newMessage] }];
@@ -1698,8 +1810,8 @@ const fetchRooms = async () => {
     const clearRoomPreview = (rooms: IUser[]) =>
       rooms.map((room) =>
         room._id === selectedUser._id ||
-        room._id === roomId ||
-        room.roomId === roomId
+          room._id === roomId ||
+          room.roomId === roomId
           ? { ...room, lastMessage: { text: "", time: "" }, lastSeen: "" }
           : room
       );
@@ -1717,40 +1829,30 @@ const fetchRooms = async () => {
     setSelectedUser(null);
   };
 
- const handleDeleteMessage = async (
-  messageId: string
-) => {
-  try {
-    const userId = localStorage.getItem("SuperAdminUserId") || "";
-    const res = await fetch(
-      `${API_DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`,
-      {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      }
-    );
-
-    const json = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        json?.message || "Failed to delete message"
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const userId = localStorage.getItem("SuperAdminUserId") || "";
+      const res = await fetch(
+        `${API_DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        }
       );
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.message || "Failed to delete message");
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error("deleteMessageForEveryone failed:", error);
+      throw error;
     }
-
-    return json;
-  } catch (error: any) {
-    console.error(
-      "deleteMessageForEveryone failed:",
-      error
-    );
-
-    throw error;
-  }
-};
+  };
 
   const handleCreateGroup = async () => {
     if (!addGroupData.groupName.trim()) {
@@ -1879,7 +1981,7 @@ const fetchRooms = async () => {
   };
 
   return (
-    <BaseLayout3>
+    <>
       <SuperAdminHeader currentSection="Chats" />
       <div className="min-h-screen rounded-2xl bg-[#F5F7FC] dark:bg-[#1F1F1F] p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
@@ -1981,107 +2083,99 @@ const fetchRooms = async () => {
                     const planColor = getPlanColor(room.plan);
 
                     return (
-                     <motion.button
-  key={room._id}
-  initial={{ opacity: 0 }}
-  animate={{ opacity: 1 }}
-  className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left transition-colors
-    ${
-      selectedUser?._id === room._id
-        ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]"
-        : room.isUnread
-          ? "bg-[#FAFBFF] dark:bg-[#292929] hover:bg-[#F4F6FF] dark:hover:bg-[#303030]"
-          : "hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F]"
-    }`}
-  onClick={() => setSelectedUser(room)}
->
-  <div className="relative flex-shrink-0">
-    <div
-      className={`w-8 h-8 rounded-md flex items-center justify-center overflow-hidden
-        ${
-          room.isUnread
-            ? "bg-[#E1E7FF] dark:bg-[#343A55]"
-            : "bg-[#E7E8EC] dark:bg-[#242424]"
-        }`}
-    >
-      {room.profileImage ? (
-        <img
-          src={room.profileImage}
-          alt={room.userName}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <span
-          className={`text-[12px] font-medium ${
-            room.isUnread
-              ? "text-[#4F46E5]"
-              : "text-[#9297A2] dark:text-[#B5B5B5]"
-          }`}
-        >
-          {room.userName?.charAt(0)?.toUpperCase() ?? "B"}
-        </span>
-      )}
-    </div>
+                      <motion.button
+                        key={room._id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left transition-colors
+    ${selectedUser?._id === room._id
+                            ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]"
+                            : room.isUnread
+                              ? "bg-[#FAFBFF] dark:bg-[#292929] hover:bg-[#F4F6FF] dark:hover:bg-[#303030]"
+                              : "hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F]"
+                          }`}
+                        onClick={() => setSelectedUser(room)}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <div
+                            className={`w-8 h-8 rounded-md flex items-center justify-center overflow-hidden
+        ${room.isUnread
+                                ? "bg-[#E1E7FF] dark:bg-[#343A55]"
+                                : "bg-[#E7E8EC] dark:bg-[#242424]"
+                              }`}
+                          >
+                            {room.profileImage ? (
+                              <img
+                                src={room.profileImage}
+                                alt={room.userName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span
+                                className={`text-[12px] font-medium ${room.isUnread
+                                  ? "text-[#4F46E5]"
+                                  : "text-[#9297A2] dark:text-[#B5B5B5]"
+                                  }`}
+                              >
+                                {room.userName?.charAt(0)?.toUpperCase() ?? "B"}
+                              </span>
+                            )}
+                          </div>
 
-    <span
-      className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
-        room.status
-      )}`}
-    />
-  </div>
+                          <span
+                            className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full border border-white dark:border-[#343434] ${getStatusColor(
+                              room.status
+                            )}`}
+                          />
+                        </div>
 
-  <div className="flex-1 min-w-0">
-    <div className="flex items-center gap-1">
-      <span
-        className={`text-[12px] truncate ${
-          room.isUnread
-            ? "font-bold text-[#171B26] dark:text-white"
-            : "font-semibold text-[#252B3A] dark:text-white"
-        }`}
-      >
-        {room.userName}
-      </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`text-[12px] truncate ${room.isUnread
+                                ? "font-bold text-[#171B26] dark:text-white"
+                                : "font-semibold text-[#252B3A] dark:text-white"
+                                }`}
+                            >
+                              {room.userName}
+                            </span>
 
-      {room.plan && (
-        <span
-          className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}
-        >
-          {room.plan}
-        </span>
-      )}
-    </div>
+                            {room.plan && (
+                              <span
+                                className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}
+                              >
+                                {room.plan}
+                              </span>
+                            )}
+                          </div>
 
-    <p
-      className={`text-[12px] truncate mt-[2px] ${
-        room.isUnread
-          ? "text-[#555D70] dark:text-[#C5C7CE] font-medium"
-          : "text-[#989DA8] dark:text-[#8a8a8a]"
-      }`}
-    >
-      {room.lastMessage?.text || "No messages yet"}
-    </p>
-  </div>
+                          <p
+                            className={`text-[12px] truncate mt-[2px] ${room.isUnread
+                              ? "text-[#555D70] dark:text-[#C5C7CE] font-medium"
+                              : "text-[#989DA8] dark:text-[#8a8a8a]"
+                              }`}
+                          >
+                            {room.lastMessage?.text || "No messages yet"}
+                          </p>
+                        </div>
 
-  {/* Right side */}
-  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-    <span
-      className={`text-[10px] ${
-        room.isUnread
-          ? "text-[#4F46E5] dark:text-[#8B93FF] font-semibold"
-          : "text-[#A2A6AF] dark:text-[#8a8a8a]"
-      }`}
-    >
-      {room.lastMessage?.time || room.lastSeen}
-    </span>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span
+                            className={`text-[10px] ${room.isUnread
+                              ? "text-[#4F46E5] dark:text-[#8B93FF] font-semibold"
+                              : "text-[#A2A6AF] dark:text-[#8a8a8a]"
+                              }`}
+                          >
+                            {room.lastMessage?.time || room.lastSeen}
+                          </span>
 
-    {/* Unread count */}
-    {room.isUnread && (room.unreadCount ?? 0) > 0 && (
-      <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#4F46E5] text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-sm">
-        {room.unreadCount > 99 ? "99+" : room.unreadCount}
-      </span>
-    )}
-  </div>
-</motion.button>
+                          {room.isUnread && (room.unreadCount ?? 0) > 0 && (
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#4F46E5] text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-sm">
+                              {room.unreadCount > 99 ? "99+" : room.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </motion.button>
                     );
                   })}
                 </AnimatePresence>
@@ -2148,13 +2242,13 @@ const fetchRooms = async () => {
                       <div className="absolute right-0 top-10 z-40 w-[100px] bg-white dark:bg-[#2c2c2c] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
                         {(selectedUser.isGroup ||
                           selectedUser.role.includes("Group")) && (
-                          <button
-                            className="block w-full text-left px-2 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
-                            onClick={handleOpenGroupDetails}
-                          >
-                            Group Details
-                          </button>
-                        )}
+                            <button
+                              className="block w-full text-left px-2 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
+                              onClick={handleOpenGroupDetails}
+                            >
+                              Group Details
+                            </button>
+                          )}
                         <button
                           className="block w-full text-left px-2 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
                           onClick={handleClearChat}
@@ -2163,13 +2257,13 @@ const fetchRooms = async () => {
                         </button>
                         {(selectedUser.isGroup ||
                           selectedUser.role.includes("Group")) && (
-                          <button
-                            className="block w-full text-left px-2 py-2 text-[12px] text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
-                            onClick={handleDeleteChat}
-                          >
-                            Delete
-                          </button>
-                        )}
+                            <button
+                              className="block w-full text-left px-2 py-2 text-[12px] text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]"
+                              onClick={handleDeleteChat}
+                            >
+                              Delete
+                            </button>
+                          )}
                       </div>
                     )}
                   </div>
@@ -2182,111 +2276,111 @@ const fetchRooms = async () => {
                     </p>
                   ) : (
                     Object.entries(groupedMessages).map(([date, msgs]) => (
-                    <div key={date}>
-                      <div className="text-center mb-4">
-                        <span className="text-[10px] text-[#A3A7B0] dark:text-[#8a8a8a]">
-                          {date}
-                        </span>
-                      </div>
-                      {msgs.map((msg) => {
-                        const isMine = msg.side
-                          ? msg.side === "right"
-                          : msg.senderId === currentUser.userId;
-                        return (
-                          <div
-                            key={msg._id}
-                            className={`group flex mb-3 ${isMine ? "justify-end" : "justify-start"
-                              }`}
-                          >
-                            <div className="relative max-w-[240px]">
-                              <div
-                                className={`px-3 py-2 rounded-lg ${isMine
-                                  ? msg.isDeleted
-                                    ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-br-sm"
-                                    : "bg-[#576CBC] text-white rounded-br-sm"
-                                  : msg.isDeleted
-                                    ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-bl-sm"
-                                    : "bg-[#F0F1F3] dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] rounded-bl-sm"
-                                  }`}
-                              >
-                                {msg.replyTo && (
-                                  <div
-                                    className={`mb-1 rounded border-l-2 px-2 py-1 text-[10px] ${isMine
-                                      ? "border-white/60 bg-white/10 text-white/90"
-                                      : "border-[#576CBC] bg-white/60 text-[#576CBC] dark:bg-[#2A2A2A] dark:text-[#A8B7E8]"
-                                      }`}
-                                  >
-                                    <p className="font-semibold">
-                                      {msg.replyTo.senderName}
-                                    </p>
-                                    <p className="truncate">
-                                      {msg.replyTo.messages}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {msg.attachment && (
-                                  <div
-                                    className={`mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 ${isMine
-                                      ? "bg-white/15 text-white"
-                                      : "bg-white text-[#252B3A] dark:bg-[#2A2A2A] dark:text-white"
-                                      }`}
-                                  >
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-[10px] font-medium">
-                                        {msg.attachment.name}
-                                      </p>
-                                      <p
-                                        className={`text-[9px] ${isMine
-                                          ? "text-white/70"
-                                          : "text-gray-500 dark:text-gray-400"
-                                          }`}
-                                      >
-                                        {formatFileSize(msg.attachment.size)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {msg.messages && (
-                                  <p className="text-[11px] leading-4 break-words">
-                                    {msg.messages}
-                                  </p>
-                                )}
-
+                      <div key={date}>
+                        <div className="text-center mb-4">
+                          <span className="text-[10px] text-[#A3A7B0] dark:text-[#8a8a8a]">
+                            {date}
+                          </span>
+                        </div>
+                        {msgs.map((msg) => {
+                          const isMine = msg.side
+                            ? msg.side === "right"
+                            : msg.senderId === currentUser.userId;
+                          return (
+                            <div
+                              key={msg._id}
+                              className={`group flex mb-3 ${isMine ? "justify-end" : "justify-start"
+                                }`}
+                            >
+                              <div className="relative max-w-[240px]">
                                 <div
-                                  className={`mt-1 flex items-center justify-end text-[7px] ${isMine
-                                    ? "text-white/70"
-                                    : "text-[#9B9FA8] dark:text-[#8a8a8a]"
+                                  className={`px-3 py-2 rounded-lg ${isMine
+                                    ? msg.isDeleted
+                                      ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-br-sm"
+                                      : "bg-[#576CBC] text-white rounded-br-sm"
+                                    : msg.isDeleted
+                                      ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-bl-sm"
+                                      : "bg-[#F0F1F3] dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] rounded-bl-sm"
                                     }`}
                                 >
-                                  <span>{msg.time}</span>
-                                  {isMine && (
-                                    <ReceiptDots
-                                      delivered={!!msg.deliveredAt}
-                                      seen={!!msg.seenAt}
+                                  {msg.replyTo && (
+                                    <div
+                                      className={`mb-1 rounded border-l-2 px-2 py-1 text-[10px] ${isMine
+                                        ? "border-white/60 bg-white/10 text-white/90"
+                                        : "border-[#576CBC] bg-white/60 text-[#576CBC] dark:bg-[#2A2A2A] dark:text-[#A8B7E8]"
+                                        }`}
+                                    >
+                                      <p className="font-semibold">
+                                        {msg.replyTo.senderName}
+                                      </p>
+                                      <p className="truncate">
+                                        {msg.replyTo.messages}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {msg.attachment && (
+                                    <div
+                                      className={`mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 ${isMine
+                                        ? "bg-white/15 text-white"
+                                        : "bg-white text-[#252B3A] dark:bg-[#2A2A2A] dark:text-white"
+                                        }`}
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[10px] font-medium">
+                                          {msg.attachment.name}
+                                        </p>
+                                        <p
+                                          className={`text-[9px] ${isMine
+                                            ? "text-white/70"
+                                            : "text-gray-500 dark:text-gray-400"
+                                            }`}
+                                        >
+                                          {formatFileSize(msg.attachment.size)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {msg.messages && (
+                                    <p className="text-[11px] leading-4 break-words">
+                                      {msg.messages}
+                                    </p>
+                                  )}
+
+                                  <div
+                                    className={`mt-1 flex items-center justify-end text-[7px] ${isMine
+                                      ? "text-white/70"
+                                      : "text-[#9B9FA8] dark:text-[#8a8a8a]"
+                                      }`}
+                                  >
+                                    <span>{msg.time}</span>
+                                    {isMine && (
+                                      <ReceiptDots
+                                        delivered={!!msg.deliveredAt}
+                                        seen={!!msg.seenAt}
+                                      />
+                                    )}
+                                  </div>
+                                  {!msg.isDeleted && (
+                                    <MessageMenu
+                                      showInfo={isMine}
+                                      showReply={
+                                        msg.canReply !== false &&
+                                        /^[a-f\d]{24}$/i.test(msg._id)
+                                      }
+                                      showDelete={isMine}
+                                      onInfo={() => setInfoMessage(msg)}
+                                      onReply={() => setReplyTo(msg)}
+                                      onDelete={() => handleDeleteMessage(msg._id)}
                                     />
                                   )}
                                 </div>
-                                {!msg.isDeleted && (
-                                <MessageMenu
-                                  showInfo={isMine}
-                                  showReply={
-                                    msg.canReply !== false &&
-                                    /^[a-f\d]{24}$/i.test(msg._id)
-                                  }
-                                  showDelete={isMine}
-                                  onInfo={() => setInfoMessage(msg)}
-                                  onReply={() => setReplyTo(msg)}
-                                  onDelete={() => handleDeleteMessage(msg._id)}
-                                />
-                      )}
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
                     ))
                   )}
                   <div ref={messagesEndRef} />
@@ -2461,7 +2555,6 @@ const fetchRooms = async () => {
                   removeFromRemovedTenant(roomId, nm.tenantId)
                 );
 
-                // 🔑 Save new members to snapshot too
                 mergeIntoRoomMembersCache(roomId, newMembers);
 
                 setSelectedUser((prev) => {
@@ -2515,7 +2608,7 @@ const fetchRooms = async () => {
           />
         )}
       </div>
-    </BaseLayout3>
+    </>
   );
 };
 

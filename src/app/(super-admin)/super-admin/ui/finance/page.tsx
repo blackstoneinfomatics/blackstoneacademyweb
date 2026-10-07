@@ -38,7 +38,7 @@ const page = () => {
   // };
 
   return (
-    <BaseSuperLayout>
+    <>
       <SuperAdminHeader currentSection="Finance" tenantActiveTab={activeTab} />
       <div>
         <OrganizationHeader
@@ -54,7 +54,7 @@ const page = () => {
         </h2>
         <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
-    </BaseSuperLayout>
+    </>
   );
 };
 

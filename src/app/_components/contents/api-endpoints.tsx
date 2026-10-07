@@ -262,6 +262,7 @@ export const AppApiEndpoints = {
       `/api/tenant-subscriptions/tenantsbyplan/${planId}`,
     ROOM: "/chat-room",
     ROOM_BY_ID: (roomId: string) => `/chat-room/${roomId}`,
+    GET_GROUP_DETAILS: (roomId: string) => `/chat/groups/${roomId}`,
     MESSAGE: "/chat/message",
     CLEAR: "/chat/clear",
     SEEN: "/chat/seen",

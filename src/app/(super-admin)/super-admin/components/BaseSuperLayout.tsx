@@ -32,7 +32,7 @@ const SuperSidebarItems = [
   { name: "Tenants Management", href: "/super-admin/ui/tenants", icon: IoPeopleSharp },
   { name: "Subscriptions", href: "/super-admin/ui/subscriptions", icon: MdCurrencyExchange },
   { name: "Finance", href: "/super-admin/ui/finance", icon: BsGraphUpArrow },
-  { name: "Users & Roles", href: "/super-admin/ui/users&roles", icon: FaUsers },
+  { name: "Portals & Roles", href: "/super-admin/ui/users&roles", icon: FaUsers },
   { name: "Feature Control", href: "/super-admin/ui/featureandcontrol", icon: AiFillControl },
   { name: "Analytics", href: "/super-admin/ui/analytics", icon: SiSimpleanalytics },
   {

@@ -7,6 +7,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import { MdTune } from "react-icons/md";
 import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
+import { FaArrowLeft } from "react-icons/fa6";
 import axios from "axios";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import AddPortalForm, { PortalFormData } from "./AddPortalForm";
@@ -26,6 +27,20 @@ interface PortalItem {
   status: string;
   isEnabled: boolean;
   createdAt: string;
+}
+
+interface TenantDetailsHeader {
+  tenantCode: string;
+  tenantName: string;
+  tenantLogo?: string;
+  domain?: string;
+  createdDate?: string;
+  planName?: string;
+  status?: string;
+  portalUsage?: {
+    current: number;
+    total: number;
+  };
 }
 
 const initialPortalForm: PortalFormData = {
@@ -65,6 +80,11 @@ const Usercards = () => {
     useState<PortalStatusFormData>({
       isEnabled: "true",
     });
+
+  const [tenantHeader, setTenantHeader] = useState<TenantDetailsHeader | null>(
+    null,
+  );
+
   const openMenuRef = useRef<HTMLTableCellElement | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -89,6 +109,53 @@ const Usercards = () => {
     FINANCE: "Finance",
     TRANSPORT: "Transport",
     HOSTEL: "Hostel",
+  };
+
+  /* =========================================================
+     Fetch tenant details (for header card)
+  ========================================================= */
+  const fetchTenantDetails = async () => {
+    if (!tenantId) return;
+
+    try {
+      const endpoint = AppApiEndpoints.TENANT.TENANT_DETAILS.replace(
+        "{tenantCode}",
+        encodeURIComponent(tenantId),
+      );
+
+      const response = await axios.get(
+        `${AppApiEndpoints.API_END_POINT}${endpoint}`,
+      );
+
+      const details = response.data?.data ?? response.data;
+
+      setTenantHeader({
+        tenantCode: details?.tenantCode ?? tenantId,
+        tenantName:
+          details?.companyInformation?.companyName ??
+          details?.tenantName ??
+          "—",
+        tenantLogo: details?.tenantLogo ?? "",
+        domain:
+          details?.domain ?? details?.companyInformation?.website ?? "",
+        createdDate:
+          details?.createdAt ??
+          details?.companyInformation?.createdDate ??
+          "",
+        planName: details?.subscription?.planName ?? "Basic",
+        status: details?.subscription?.status ?? "Active",
+        portalUsage: {
+          current:
+            details?.portalUsage?.current ?? details?.stats?.portals ?? 0,
+          total:
+            details?.portalUsage?.total ??
+            details?.subscription?.portalLimit ??
+            0,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching tenant details:", error);
+    }
   };
 
   const handleAddPortal = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -126,11 +193,14 @@ const Usercards = () => {
       setShowAddPortal(false);
       setShowSuccess(true);
       resetPortalForm();
-      setTableItems((previous) => {
-        const createdItem = response.data.data?.item ?? response.data.data;
-        return createdItem?._id ? [createdItem, ...previous] : previous;
+
+      // Refetch list so pagination counts stay correct
+      await fetchTenantPortals(1, "", "", {
+        portalType: "",
+        roleType: "",
+        status: "",
+        isEnabled: "",
       });
-      setTotalRecords((previous) => previous + 1);
     } catch (error) {
       console.error("Error creating tenant portal:", error);
       setCreatedPortalName(portalForm.portalName);
@@ -179,9 +249,9 @@ const Usercards = () => {
         previous.map((item) =>
           item._id === portalToUpdate._id
             ? {
-                ...item,
-                isEnabled: updatePortalForm.isEnabled === "true",
-              }
+              ...item,
+              isEnabled: updatePortalForm.isEnabled === "true",
+            }
             : item,
         ),
       );
@@ -193,6 +263,9 @@ const Usercards = () => {
     }
   };
 
+  /* =========================================================
+     Fetch tenant portals (list + pagination)
+  ========================================================= */
   const fetchTenantPortals = async (
     page = 1,
     search = searchTerm,
@@ -227,14 +300,42 @@ const Usercards = () => {
       );
 
       if (response.data.success) {
-        const items = response.data.data.items ?? [];
+        const items: PortalItem[] = response.data.data.items ?? [];
         const pagination = response.data.data.pagination;
+
+        // Pagination fields — normalize with fallbacks so counts
+        // reflect the real filtered total, not just what the API
+        // happens to return.
+        const resolvedTotal =
+          pagination?.totalRecords ??
+          pagination?.total ??
+          response.data.data.total ??
+          items.length;
+
+        const resolvedPageSize =
+          pagination?.limit ?? pagination?.perPage ?? 5;
+
+        const resolvedTotalPages = Math.max(
+          1,
+          pagination?.totalPages ??
+          Math.ceil(resolvedTotal / resolvedPageSize),
+        );
+
+        const resolvedPage = Math.min(
+          Math.max(pagination?.page ?? page, 1),
+          resolvedTotalPages,
+        );
+
         setTableItems(items);
-        setTotalRecords(pagination?.totalRecords ?? items.length);
-        setCurrentPage(pagination?.page ?? page);
-        setTotalPages(pagination?.totalPages ?? 1);
-        setHasNextPage(Boolean(pagination?.hasNext));
-        setHasPreviousPage(Boolean(pagination?.hasPrevious));
+        setTotalRecords(resolvedTotal);
+        setCurrentPage(resolvedPage);
+        setTotalPages(resolvedTotalPages);
+        setHasNextPage(
+          pagination?.hasNext ?? resolvedPage < resolvedTotalPages,
+        );
+        setHasPreviousPage(
+          pagination?.hasPrevious ?? resolvedPage > 1,
+        );
       }
     } catch (error) {
       console.error("Error fetching tenant portal list:", error);
@@ -249,13 +350,13 @@ const Usercards = () => {
   };
 
   useEffect(() => {
+    fetchTenantDetails();
     fetchTenantPortals(1, "", "", {
       portalType: "",
       roleType: "",
       status: "",
       isEnabled: "",
     });
-    // The initial request should run when the selected tenant changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
@@ -277,11 +378,53 @@ const Usercards = () => {
     };
   }, [openMenu]);
 
+  /* =========================================================
+     Helpers for header card
+  ========================================================= */
+  const formatHeaderDate = (value?: string) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const usageCurrent = tenantHeader?.portalUsage?.current ?? 0;
+  const usageTotal = tenantHeader?.portalUsage?.total ?? 0;
+  const usageAvailable = Math.max(usageTotal - usageCurrent, 0);
+
+  /* =========================================================
+     Pagination display helpers
+     "Showing X to Y of Z"
+  ========================================================= */
+  const pageSize = 5;
+  const showingStart =
+    totalRecords === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingEnd = Math.min(currentPage * pageSize, totalRecords);
+
   return (
     <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F]">
-      <div className="flex items-center justify-between mt-2 px-4 py-2">
+      {/* =====================================================
+          BACK BUTTON + TITLE — same as tenant management page
+      ===================================================== */}
+      <div className="pb-2 pt-2 px-4 flex items-center gap-3 text-[#010E30] dark:text-[#ffffff] font-medium">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="Go back"
+          className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+        >
+          <FaArrowLeft className="text-base" />
+        </button>
+        <h2>Institute Portal & Roles</h2>
+      </div>
+
+      <div className="flex items-center justify-between mt-1 px-4 py-2">
         <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
-          Institute Portal & Roles
+          Portals
         </h2>
 
         <button
@@ -290,17 +433,7 @@ const Usercards = () => {
             resetPortalForm();
             setShowAddPortal(true);
           }}
-          className="
-            bg-[#5872C5]
-            hover:bg-[#4D66B3]
-            text-white
-            text-[12px]
-            font-medium
-            px-4
-            py-3
-            rounded-lg
-            transition
-          "
+          className="bg-[#5872C5] hover:bg-[#4D66B3] text-white text-[12px] font-medium px-4 py-3 rounded-lg transition"
         >
           Add Portal
         </button>
@@ -398,125 +531,62 @@ const Usercards = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 px-4 gap-3">
-        <div
-          className="
-            lg:col-span-2
-            bg-white
-            dark:bg-[#343434]
-            rounded-xl
-            shadow-[0_3px_12px_rgba(0,0,0,0.05)]
-            border border-[#F0F1F5]
-            px-5
-            py-3
-            h-[96px]
-          "
-        >
+        {/* Tenant Info Card */}
+        <div className="lg:col-span-2 bg-white dark:bg-[#343434] rounded-xl shadow-[0_3px_12px_rgba(0,0,0,0.05)] border border-[#F0F1F5] px-5 py-3 h-[96px]">
           <div className="flex items-center justify-between h-full">
-            {/* LEFT CONTENT */}
             <div className="flex items-center gap-4">
-              {/* Tenant Logo */}
-              <div
-                className="
-                  w-[60px]
-                  h-[60px]
-                  rounded-full
-                  bg-[#EEEEEE]
-                  flex
-                  items-center
-                  justify-center
-                  overflow-hidden
-                  shrink-0
-                "
-              >
+              <div className="w-[60px] h-[60px] rounded-full bg-[#EEEEEE] flex items-center justify-center overflow-hidden shrink-0">
                 <img
-                  src="/assets/images/bsicon.png"
+                  src={
+                    tenantHeader?.tenantLogo || "/assets/images/bsicon.png"
+                  }
                   alt="Tenant Logo"
                   className="w-[55px] h-[55px] object-contain"
                 />
               </div>
 
-              {/* Tenant Details */}
               <div>
-                {/* Name + Status */}
                 <div className="flex items-center gap-2">
                   <h2 className="text-[16px] font-semibold text-[#1B1B1B] dark:text-white">
-                    Blackstone Academy
+                    {tenantHeader?.tenantName ?? "—"}
                   </h2>
 
                   <span className="text-[11px] font-medium text-[#2FB344]">
-                    Active
+                    {tenantHeader?.status ?? "—"}
                   </span>
                 </div>
 
-                {/* Domain */}
                 <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-[3px]">
-                  blackstoneacademy.com
+                  {tenantHeader?.domain || "—"}
                 </p>
 
-                {/* Created + ID */}
                 <div className="flex items-center gap-1 mt-[3px] text-[10px]">
                   <span className="text-gray-400 text-[11px]">
-                    Created on : 02,July,2000 |
+                    Created on : {formatHeaderDate(tenantHeader?.createdDate)} |
                   </span>
 
                   <span className="font-medium text-[10px] text-[#576CBC]">
-                    ID: TEN 22001
+                    ID: {tenantHeader?.tenantCode ?? "—"}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* PLAN BADGE */}
             <div className="self-start mt-2">
-              <span
-                className="
-                  inline-flex
-                  items-center
-                  px-2
-                  py-[4px]
-                  rounded-[4px]
-                  bg-[#E9F1FF]
-                  text-[#4F7DF3]
-                  text-[10px]
-                  font-medium
-                "
-              >
-                Standard
+              <span className="inline-flex items-center px-2 py-[4px] rounded-[4px] bg-[#E9F1FF] text-[#4F7DF3] text-[10px] font-medium">
+                {tenantHeader?.planName ?? "—"}
               </span>
             </div>
           </div>
         </div>
 
-        <div
-          className="
-            bg-white
-            dark:bg-[#343434]
-            rounded-xl
-            shadow-[0_3px_12px_rgba(0,0,0,0.05)]
-            border border-[#F0F1F5]
-            px-4
-            py-3
-            h-[96px]
-          "
-        >
+        {/* Portal Usage Card */}
+        <div className="bg-white dark:bg-[#343434] rounded-xl shadow-[0_3px_12px_rgba(0,0,0,0.05)] border border-[#F0F1F5] px-4 py-3 h-[96px]">
           <div className="flex items-center gap-3">
-            {/* Icon */}
-            <div
-              className="
-                w-[45px]
-                h-[45px]
-                rounded-full
-                bg-[#E8F1FF]
-                flex
-                items-center
-                justify-center
-                shrink-0
-              "
-            >
+            <div className="w-[45px] h-[45px] rounded-full bg-[#E8F1FF] flex items-center justify-center shrink-0">
               <HiUserGroup className="text-[#3B82F6] text-[22px]" />
             </div>
 
-            {/* Usage Details */}
             <div>
               <p className="text-[12px] font-medium text-[#3B82F6]">
                 Portal Usage
@@ -524,53 +594,31 @@ const Usercards = () => {
 
               <div className="flex items-center gap-1 mt-[2px]">
                 <span className="text-[16px] font-semibold text-[#222222] dark:text-white">
-                  8
+                  {usageCurrent}
                 </span>
 
                 <span className="text-[14px] font-medium text-[#222222] dark:text-gray-300">
-                  / 10
+                  / {usageTotal}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Available Slots */}
           <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-[5px] ml-[57px]">
-            2 user slots available
+            {usageAvailable} user slots available
           </div>
         </div>
       </div>
 
       {/* Section Title */}
-      <div
-        className="
-          bg-white
-          dark:bg-[#343434]
-          rounded-xl
-          border border-[#F0F1F5]
-          shadow-[0_4px_15px_rgba(0,0,0,0.05)]
-          mt-3
-          overflow-hidden
-          mx-4
-        "
-      >
-        {/* Section Title */}
+      <div className="bg-white dark:bg-[#343434] rounded-xl border border-[#F0F1F5] shadow-[0_4px_15px_rgba(0,0,0,0.05)] mt-3 overflow-hidden mx-4">
         <div className="px-3 pt-3 pb-2">
           <h2 className="text-[16px] font-semibold text-[#24324B] dark:text-white">
             All Tenants Portals
           </h2>
         </div>
 
-        <div
-          className="
-            grid
-            grid-cols-2
-            md:grid-cols-3
-            bg-[#FAFAFB]
-            dark:bg-[#2E2E2E]
-          "
-        >
-          {/* Search */}
+        <div className="grid grid-cols-2 md:grid-cols-3 bg-[#FAFAFB] dark:bg-[#2E2E2E]">
           <div className="flex items-center px-3 h-10 border-r border-[#E7EAF3]">
             <FiSearch className="text-gray-400 mr-2 text-[15px]" />
 
@@ -583,19 +631,10 @@ const Usercards = () => {
                   fetchTenantPortals(1, searchTerm, statusFilter, filterValues);
                 }
               }}
-              className="
-                w-full
-                outline-none
-                bg-transparent
-                text-[11px]
-                text-gray-600
-                dark:text-gray-200
-                placeholder:text-gray-400
-              "
+              className="w-full outline-none bg-transparent text-[11px] text-gray-600 dark:text-gray-200 placeholder:text-gray-400"
             />
           </div>
 
-          {/* Filter */}
           <button
             type="button"
             onClick={() => setShowFilterForm(true)}
@@ -608,10 +647,12 @@ const Usercards = () => {
             <FiChevronDown className="pointer-events-none text-gray-400 text-[14px]" />
           </button>
 
-          {/* Count */}
+          {/* =====================================================
+              COUNT — now shows "Showing X to Y of Z"
+          ===================================================== */}
           <div className="flex items-center px-4 h-10">
             <span className="text-[11px] text-gray-400">
-              Showing {tableItems.length} Of {totalRecords}
+              Showing {showingStart}-{showingEnd} of {totalRecords}
             </span>
           </div>
         </div>
@@ -619,7 +660,6 @@ const Usercards = () => {
         {/* TABLE */}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[750px] text-xs border-collapse">
-            {/* Table Header */}
             <thead className="bg-[#4C6993] text-white text-[13px] dark:bg-[#44699D]">
               <tr>
                 {[
@@ -641,7 +681,6 @@ const Usercards = () => {
               </tr>
             </thead>
 
-            {/* Table Body */}
             <tbody>
               {loading ? (
                 <tr>
@@ -653,48 +692,36 @@ const Usercards = () => {
                 tableItems.map((item, index) => (
                   <tr
                     key={index}
-                    className="
-                      text-[11px]
-                      odd:bg-[#F8F8F8]
-                      even:bg-white
-                      dark:odd:bg-[#2C2C2C]
-                      dark:even:bg-[#303030]
-                    "
+                    className="text-[11px] odd:bg-[#F8F8F8] even:bg-white dark:odd:bg-[#2C2C2C] dark:even:bg-[#303030]"
                   >
-                    {/* Portal Name */}
                     <td className="py-3 px-3 font-medium text-[#24324B] dark:text-white whitespace-nowrap">
                       {item.portalName}
                     </td>
 
-                    {/* Portal Type */}
                     <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                       {item.portalType === "DEFAULT" ? "Default" : "Custom"}
                     </td>
-                    {/* Role Type */}
+
                     <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                       {roleTypeLabels[item.roleType] || "-"}
                     </td>
 
-                    {/* User Limit */}
                     <td className="py-3 px-3 text-[#24324B] dark:text-gray-200 whitespace-nowrap">
                       {item.userLimit > 0 ? `${item.userLimit} Users` : "-"}
                     </td>
 
-                    {/* Portal Status */}
                     <td className="py-3 px-3">
                       <span className="inline-flex items-center px-3 py-1 rounded-md text-[9px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
                         {item.status === "ACTIVE" ? "Active" : item.status}
                       </span>
                     </td>
 
-                    {/* Access */}
                     <td className="py-3 px-3">
                       <span className="inline-flex items-center px-3 py-1 rounded-md text-[9px] font-medium bg-[#E8F5E9] text-[#2E7D32]">
                         {item.isEnabled ? "Enable" : "Disable"}
                       </span>
                     </td>
 
-                    {/* Action */}
                     <td
                       className="py-3 px-3 relative"
                       ref={openMenu === index ? openMenuRef : null}
@@ -709,22 +736,7 @@ const Usercards = () => {
                       </button>
 
                       {openMenu === index && (
-                        <div
-                          className="
-                            absolute
-                            right-4
-                            top-12
-                            w-28
-                            bg-white
-                            dark:bg-[#2C2C2C]
-                            rounded-lg
-                            shadow-lg
-                            border
-                            border-gray-100
-                            dark:border-gray-700
-                            z-50
-                          "
-                        >
+                        <div className="absolute right-4 top-12 w-28 bg-white dark:bg-[#2C2C2C] rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 z-50">
                           <button
                             className="w-full text-center px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700"
                             onClick={() => {
@@ -757,21 +769,15 @@ const Usercards = () => {
           <button
             type="button"
             disabled={!hasPreviousPage || loading}
-            onClick={() => fetchTenantPortals(currentPage - 1)}
-            className="
-              w-7
-              h-7
-              rounded-md
-              border
-              border-[#E5E7EB]
-              flex
-              items-center
-              justify-center
-              text-gray-400
-              bg-[#F5F5F2]
-              disabled:cursor-not-allowed
-              disabled:opacity-50
-            "
+            onClick={() =>
+              fetchTenantPortals(
+                currentPage - 1,
+                searchTerm,
+                statusFilter,
+                filterValues,
+              )
+            }
+            className="w-7 h-7 rounded-md border border-[#E5E7EB] flex items-center justify-center text-gray-400 bg-[#F5F5F2] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="text-[23px] color-[#999FAC]">‹</span>
           </button>
@@ -781,21 +787,15 @@ const Usercards = () => {
           <button
             type="button"
             disabled={!hasNextPage || loading}
-            onClick={() => fetchTenantPortals(currentPage + 1)}
-            className="
-              w-7
-              h-7
-              rounded-md
-              border
-              border-[#E5E7EB]
-              flex
-              items-center
-              justify-center
-              text-gray-400
-              bg-[#F5F5F2]
-              disabled:cursor-not-allowed
-              disabled:opacity-50
-            "
+            onClick={() =>
+              fetchTenantPortals(
+                currentPage + 1,
+                searchTerm,
+                statusFilter,
+                filterValues,
+              )
+            }
+            className="w-7 h-7 rounded-md border border-[#E5E7EB] flex items-center justify-center text-gray-400 bg-[#F5F5F2] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="text-[23px] color-[#999FAC]">›</span>
           </button>

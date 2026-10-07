@@ -14,7 +14,7 @@ const Page = () => {
     const [tab, setTab] = useState<OrganizationTab>("All");
 
     return (
-        <BaseSuperLayout>
+        <>
             <SuperAdminHeader currentSection="Audit Logs" />
 
             <div>
@@ -40,7 +40,7 @@ const Page = () => {
                 </div>
 
             </div>
-        </BaseSuperLayout>
+        </>
     );
 };
 

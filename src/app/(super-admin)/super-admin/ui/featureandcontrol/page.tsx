@@ -345,7 +345,7 @@ const Page = () => {
   };
 
   return (
-    <BaseSuperLayout>
+    <>
       <div className="flex flex-col gap-4">
         <SuperAdminHeader currentSection="Feature & Control" />
         <div>
@@ -785,7 +785,7 @@ const Page = () => {
           </div>
         </div>
       )}
-    </BaseSuperLayout>
+    </>
   );
 };
 

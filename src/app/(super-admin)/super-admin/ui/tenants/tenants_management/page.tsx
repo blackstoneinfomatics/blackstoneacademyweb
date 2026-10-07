@@ -75,10 +75,10 @@ const formatSubscriptionDate = (value?: string) => {
   return Number.isNaN(date.getTime())
     ? value
     : date.toLocaleDateString("en-US", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
 };
 
 const tabs = [
@@ -187,7 +187,7 @@ const Page = () => {
   };
 
   return (
-    <BaseSuperLayout>
+    <>
       <SuperAdminHeader currentSection="Tenant Management" />
       <div>
         <OrganizationHeader
@@ -216,11 +216,10 @@ const Page = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-1 font-medium text-sm transition-colors ${
-                activeTab === tab
-                  ? "text-[#576CBC] dark:text-[#8296E6] border-b-4 border-[#576CBC] dark:border-[#8296E6]"
-                  : "text-[010e30] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              }`}
+              className={`pb-1 font-medium text-sm transition-colors ${activeTab === tab
+                ? "text-[#576CBC] dark:text-[#8296E6] border-b-4 border-[#576CBC] dark:border-[#8296E6]"
+                : "text-[010e30] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                }`}
             >
               {tab}
             </button>
@@ -414,11 +413,10 @@ const Page = () => {
                       </div>
 
                       <span
-                        className={`inline-flex items-center justify-center h-6 rounded-md text-[11px] font-medium transition-colors ${
-                          item.status === "Enabled"
-                            ? "bg-[#DCFCE7] dark:bg-green-900/30 text-[#16A34A] dark:text-green-400"
-                            : "bg-[#FEE2E2] dark:bg-red-900/30 text-[#EF4444] dark:text-red-400"
-                        }`}
+                        className={`inline-flex items-center justify-center h-6 rounded-md text-[11px] font-medium transition-colors ${item.status === "Enabled"
+                          ? "bg-[#DCFCE7] dark:bg-green-900/30 text-[#16A34A] dark:text-green-400"
+                          : "bg-[#FEE2E2] dark:bg-red-900/30 text-[#EF4444] dark:text-red-400"
+                          }`}
                       >
                         {item.status}
                       </span>
@@ -484,7 +482,7 @@ const Page = () => {
         {activeTab === "Features" && (
           <div className="rounded-xl space-y-4">
             <FeatureSummaryCards tenantId={tenantDetails.tenantId} />
-            <FeaturesTable tenantId={tenantDetails.tenantId}/>
+            <FeaturesTable tenantId={tenantDetails.tenantId} />
           </div>
         )}
 
@@ -514,7 +512,7 @@ const Page = () => {
               </div>
 
               <div className="col-span-12 xl:col-span-4">
-                <ModuleGrowth tenantId={tenantDetails.tenantId}/>
+                <ModuleGrowth tenantId={tenantDetails.tenantId} />
               </div>
 
               <div className="col-span-12 xl:col-span-3">
@@ -525,7 +523,7 @@ const Page = () => {
             {/* Bottom */}
             <div className="grid grid-cols-12 gap-5 mt-5">
               <div className="col-span-12 lg:col-span-8">
-                <ActivityTable tenantId={tenantDetails.tenantId}/>
+                <ActivityTable tenantId={tenantDetails.tenantId} />
               </div>
 
               <div className="col-span-12 lg:col-span-4">
@@ -535,7 +533,7 @@ const Page = () => {
           </div>
         )}
       </div>
-    </BaseSuperLayout>
+    </>
   );
 };
 

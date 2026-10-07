@@ -15,7 +15,7 @@ import ExpiringTenants from "./components/ExpiringTenants";
 const Page = () => {
   const [tab, setTab] = useState<OrganizationTab>("Institute");
   return (
-    <BaseSuperLayout>
+    <>
       <SuperAdminHeader currentSection="Dashboard" />
       <div className="min-w-0">
         <OrganizationHeader
@@ -50,7 +50,7 @@ const Page = () => {
           </aside>
         </div>
       </div>
-    </BaseSuperLayout>
+    </>
   );
 };
 

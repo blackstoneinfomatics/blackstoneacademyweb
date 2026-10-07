@@ -365,7 +365,7 @@ const page = () => {
   }, [currentPage, totalPages]);
 
   return (
-    <BaseLayout3>
+    <>
       <SuperAdminHeader currentSection='Tickets' />
 
        <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] px-4">
@@ -854,7 +854,7 @@ const page = () => {
         )}
       </div>
        </div>
-    </BaseLayout3>
+    </>
   )
 }
 

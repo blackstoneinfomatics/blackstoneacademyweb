@@ -153,7 +153,7 @@ const renderTrendBadge = (item: {
   value: number;
   comparison: number;
   direction: string;
-}) => {
+}, p0?: string) => {
   const percentage = Math.abs(Number(item.comparison || 0));
 
   const isPositive = item.direction === "up";

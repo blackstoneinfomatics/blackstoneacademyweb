@@ -339,8 +339,8 @@ const page = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
-      <BaseSuperLayout>
+    <div className="min-h-screen w-full max-w-[1300px] bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
+      <>
         <SuperAdminHeader currentSection="Tenant Management" />
         <div>
           <OrganizationHeader
@@ -817,7 +817,7 @@ const page = () => {
             onSuccess={() => setTenantRefreshKey((key) => key + 1)}
           />
         )}
-      </BaseSuperLayout>
+      </>
     </div>
   );
 };

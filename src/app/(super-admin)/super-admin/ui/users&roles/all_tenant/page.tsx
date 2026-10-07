@@ -5,7 +5,7 @@ import Usercards from "../components/users/usercards";
 
 const Page = () => {
   return (
-    <BaseSuperLayout>
+    <>
       <div className="flex flex-col gap-4">
         <SuperAdminHeader
           currentSection=" Portal & Roles"
@@ -13,7 +13,7 @@ const Page = () => {
         />
         <Usercards />
       </div>
-    </BaseSuperLayout>
+    </>
   );
 };
 
