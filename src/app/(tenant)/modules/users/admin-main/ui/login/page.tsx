@@ -111,6 +111,8 @@ export interface AccessApiResponse {
   data: EmployeeAccessData;
 }
 
+
+
 const SignIn: React.FC = () => {
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -137,7 +139,7 @@ const SignIn: React.FC = () => {
 
   const signIn = async (username: string, password: string) => {
     const encrypted = CryptoJS.AES.encrypt(password, secretKey).toString();
-    console.log("Admin login: submitting encrypted password");
+    console.log("Admin login: submitting encrypted password",encrypted);
     const response = await axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.LOGIN}`, {
       username,
       password: encrypted,
@@ -146,42 +148,56 @@ const SignIn: React.FC = () => {
     return response;
   };
 
-  const fetchrolebasedaccesscontrol = async (id: string, token: string, role?: string) => {
-    try {
-      const response = await axios.get<AccessApiResponse>(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.RBAC.UPDATE_ACCESS}/${id}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+
+const fetchRoleBasedAccessControl = async (
+  tenantId: string,
+  token: string,
+  roleName: string,
+) => {
+  try {
+    console.log("Fetching role-based access control for tenant:", tenantId, "with role:", roleName);
+    const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANTACCESS.GET_ACCESS(tenantId)}`, {
+        params: {
+          roleName : "Admin",
+        },
+        headers: {
+          "Content-Type": "application/json",
+          // Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (response.status === 200 && response.data.success) {
+      const portalAccess = response.data.data;
+
+      console.log("Tenant Portal Access:", portalAccess);
+
+// When the tenant has a regular/paid subscription
+localStorage.setItem("TenantAccessMode", response.data.data.accessMode);
+
+      // Store the complete portal access response
+      localStorage.setItem(
+        "TenantPortalAccess",
+        JSON.stringify(portalAccess),
       );
 
-      if (response.status === 200) {
-        const roleAccess = response.data.data.roleAccess;
+      // Store modules separately if needed for sidebar rendering
+      localStorage.setItem(
+        "TenantPortalModules",
+        JSON.stringify(portalAccess.modules ?? []),
+      );
 
-        console.log("Original Role Access from backend:", roleAccess);
+      console.log("Tenant portal access stored successfully");
 
-        if (role?.includes("ADMIN")) {
-          roleAccess.admin = true;
-
-          localStorage.setItem(
-            "AdminRolePermission",
-            JSON.stringify(roleAccess.adminmodules)
-          );
-
-          console.log("Stored adminmodules for admin user");
-        } else {
-          console.warn("User is not an Admin. Ignoring adminmodules.");
-        }
-      } else {
-        throw new Error("Failed to fetch role-based access control");
-      }
-    } catch (error) {
-      console.log("Error fetching role-based access:", error);
+      return portalAccess;
     }
-  };
+
+    throw new Error("Failed to fetch tenant portal access");
+  } catch (error) {
+    console.error("Error fetching tenant portal access:", error);
+    throw error;
+  }
+};
 
   const setLoginError = (message: string) => {
     setError(message);
@@ -195,7 +211,8 @@ const SignIn: React.FC = () => {
     try {
       const response = await signIn(username, password);
       const data = response.data;
-      const { accessToken, role, _id, userName } = data;
+      console.log("Admin login successful:", data);
+      const { accessToken, role, _id, userName,tenantId } = data;
       const userEmail: string = data.email ?? data.userEmail ?? "";
 
       if (!role?.includes("ADMIN")) {
@@ -208,8 +225,9 @@ const SignIn: React.FC = () => {
       localStorage.setItem("AdminPortalName", userName);
       localStorage.setItem("AdminPortalEmail", userEmail);
       localStorage.setItem("AdminPortalRole", role);
+      localStorage.setItem("tenantId",tenantId);
 
-      await fetchrolebasedaccesscontrol(_id, accessToken, role);
+      await fetchRoleBasedAccessControl(tenantId, accessToken, role);
 
       router.push("/modules/users/admin-main/ui/dashboard");
     } catch (error: any) {

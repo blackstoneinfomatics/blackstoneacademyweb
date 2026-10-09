@@ -9,6 +9,10 @@ export const AppApiEndpoints = {
     STUDENTS_SIGNIN: "/studentsignin",
   },
 
+  TENANTACCESS: {
+    GET_ACCESS:(tenantId : string)=> `/tenant-portal/${tenantId}/access`,
+  },
+
   USER: {
     GET: "/users",
     CREATE: "/users",
