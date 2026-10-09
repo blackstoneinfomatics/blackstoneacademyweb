@@ -1776,7 +1776,7 @@ const Message = () => {
 
     try {
       const response = await fetch(API_CLEAR_CHAT, {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
