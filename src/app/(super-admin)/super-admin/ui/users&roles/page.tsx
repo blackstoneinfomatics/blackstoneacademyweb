@@ -271,11 +271,11 @@ const Page = () => {
                   required
                   className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#5872C5] focus:border-transparent dark:bg-[#1F1F1F] dark:text-white text-sm"
                 >
-                  <option value="Academic">Academic</option>
-                  <option value="Finance">Supervisor</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Teacher">Teacher</option>
-                  <option value="Student">Student</option>
+                  <option value="ACADEMIC">Academic</option>
+                  <option value="FINANCE">Finance</option>
+                  <option value="ADMINISTRATION">Admin</option>
+                  <option value="TRANSPORT">Transport</option>
+                  <option value="HOSTEL">Hostel</option>
                 </select>
               </div>
 
