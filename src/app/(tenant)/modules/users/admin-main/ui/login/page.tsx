@@ -173,7 +173,7 @@ const fetchRoleBasedAccessControl = async (
       console.log("Tenant Portal Access:", portalAccess);
 
 // When the tenant has a regular/paid subscription
-localStorage.setItem("TenantAccessMode", response.data.data.accessMode);
+      localStorage.setItem("TenantAccessMode", response.data.data.accessMode);
 
       // Store the complete portal access response
       localStorage.setItem(
@@ -186,6 +186,9 @@ localStorage.setItem("TenantAccessMode", response.data.data.accessMode);
         "TenantPortalModules",
         JSON.stringify(portalAccess.modules ?? []),
       );
+
+      // Refresh the sidebar in the current tab as well, since storage events do not fire here.
+      window.dispatchEvent(new Event("tenant-access-updated"));
 
       console.log("Tenant portal access stored successfully");
 

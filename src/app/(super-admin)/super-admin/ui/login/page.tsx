@@ -1,129 +1,160 @@
+
 "use client";
+
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import CryptoJS from "crypto-js";
-import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
-import axios from "axios";
 import { toast } from "react-toastify";
-import { AlertCircle, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Building2,
+  ShieldCheck,
+  FileText,
+  Wallet,
+  BarChart3,
+  LoaderCircle,
+} from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { AppFailureToastMessages } from "@/app/_components/contents/toast_message";
 import { AppValidationMessages } from "@/app/_components/contents/validation_message";
 
-const slides = [
-  {
-    text: "Start your Super Admin journey with a single secure sign-in.",
-  },
-  {
-    text: "Manage tenants, users, and insights from one powerful dashboard.",
-  },
-  {
-    text: "Take control of your platform and lead with confidence.",
-  },
-];
 const secretKey = "my-secret-key";
 
+const slides = [
+  "Complete Control. Total Visibility.",
+  "Manage your platform from one secure hub.",
+  "Simplify administration with confidence.",
+];
+
+
 const SignIn: React.FC = () => {
-  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const router = useRouter();
+  const googleLoginRef = useRef<HTMLDivElement>(null);
+
+  const [showPassword, setShowPassword] = useState(false);
   const [username1, setUsername1] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [showError, setShowError] = useState(false);
-  const router = useRouter();
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
-  const googleLoginRef = React.useRef<HTMLDivElement>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % slides.length);
+      setCurrentIndex((prev) => (prev + 1) % slides.length);
     }, 5000);
+
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    if (error) {
-      setShowError(true);
-      setTimeout(() => {
-        setShowError(false);
-      }, 5000);
-    }
+    if (!error) return;
+
+    setShowError(true);
+
+    const timeout = setTimeout(() => {
+      setShowError(false);
+    }, 5000);
+
+    return () => clearTimeout(timeout);
   }, [error]);
 
   const signIn = async (username: string, password: string) => {
     const url = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.LOGIN}`;
-     const encrypted = CryptoJS.AES.encrypt(password, secretKey).toString();
-    const payload = {
-      username,
-      password:encrypted,
-    };
-   console.log("password",encrypted)
-    const response = await axios.post(url, payload);
-    console.log("data",response.data);
-    return response.data;
+    const encrypted = CryptoJS.AES.encrypt(password, secretKey).toString();
 
+    const response = await axios.post(url, {
+      username,
+      password: encrypted,
+    });
+
+    return response.data;
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
+  const saveSession = (data: any) => {
+    const {
+      accessToken,
+      role,
+      _id,
+      tenantId,
+      tenantJobCode,
+      tenantCode,
+    } = data;
+
+    const userId = data.userId ?? data.user?.userId ?? data.user?.id;
+    const portalName = data.userName ?? data.username ?? "";
+    const email = data.email ?? data.userEmail ?? "";
+
+    localStorage.setItem("SuperAdminAuthToken", accessToken);
+    localStorage.setItem("SuperAdminPortalId", _id ?? data.id ?? "");
+    localStorage.setItem("SuperAdminPortalName", portalName);
+    localStorage.setItem("SuperAdminPortalEmail", email);
+    localStorage.setItem("SuperAdminRole", role ?? "");
+
+    if (userId) {
+      localStorage.setItem("SuperAdminUserId", userId);
+    } else {
+      localStorage.removeItem("SuperAdminUserId");
+    }
+
+    if (tenantId) {
+      localStorage.setItem("tenantId", tenantId);
+    }
+
+    const code = tenantJobCode ?? tenantCode;
+
+    if (code) {
+      localStorage.setItem("tenantCode", code);
+    }
+
+    if (!/SUPER[\s_-]*ADMIN/i.test(String(role ?? ""))) {
+      const message = "Only Super Admin users are allowed to log in.";
+      toast.error(message);
+      setError(message);
+      return false;
+    }
+
+    router.push(
+      tenantId
+        ? `/super-admin/ui/dashboard?tenantId=${tenantId}`
+        : "/super-admin/ui/dashboard"
+    );
+
+    return true;
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
       const data = await signIn(username1, password);
-      const { accessToken, role, _id } = data;
-      const superAdminUserId =
-        data.userId ?? data.user?.userId ?? data.user?.id;
-      const portalName: string = data.userName ?? data.username ?? "";
-      const userEmail: string = data.email ?? data.userEmail ?? "";
-      const tenantId: string | null = data.tenantId ?? null;
-      const tenantCode: string | null = data.tenantJobCode ?? data.tenantCode ?? null;
+      saveSession(data);
+    } catch (err: any) {
+      if (err.response) {
+        const message =
+          err.response.status === 404
+            ? AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL
+            : err.response.data?.message ??
+              AppValidationMessages.ERROR_MESSAGES.LOGIN_FAILED;
 
-      localStorage.setItem("SuperAdminAuthToken", accessToken);
-      localStorage.setItem("SuperAdminPortalId", _id);
-      if (superAdminUserId) {
-        localStorage.setItem("SuperAdminUserId", superAdminUserId);
+        setError(message);
+        toast.error(message);
       } else {
-        localStorage.removeItem("SuperAdminUserId");
-      }
-      localStorage.setItem("SuperAdminPortalName", portalName);
-      localStorage.setItem("SuperAdminPortalEmail", userEmail);
-      localStorage.setItem("SuperAdminRole", role);
-      if (!/SUPER[_\s-]*ADMIN/i.test(String(role ?? ""))) {
-        const permissionMessage = "Only Super Admin users are allowed to log in.";
-        toast.error(permissionMessage);
-        setError(permissionMessage);
-        return;
-      }
-      if (tenantId) {
-        localStorage.setItem("tenantId", tenantId);
-      }
-      if (tenantCode) {
-        localStorage.setItem("tenantCode", tenantCode);
-      }
-      // localStorage saved for authenticated session.
-      router.push(
-        tenantId
-          ? `/super-admin/ui/dashboard?tenantId=${tenantId}`
-          : "/super-admin/ui/dashboard"
-      );
-    } catch (error: any) {
-      if (error.response) {
-        const { status, data } = error.response;
-        if (status === 404) {
-          toast.error(AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL);
-          setError(AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL);
-        } else {
-          const msg = data.message || AppValidationMessages.ERROR_MESSAGES.LOGIN_FAILED;
-          console.log("error ",msg);
-          setError(msg);
-          toast.error(msg);
-        }
-      } else {
-        toast.error(AppValidationMessages.ERROR_MESSAGES.LOGIN_FAILED);
-        setError(AppValidationMessages.ERROR_MESSAGES.LOGIN_FAILED);
+        const message =
+          AppValidationMessages.ERROR_MESSAGES.LOGIN_FAILED;
+
+        setError(message);
+        toast.error(message);
       }
     } finally {
       setLoading(false);
@@ -132,391 +163,399 @@ const SignIn: React.FC = () => {
 
   const checkEmail = async (email: string) => {
     try {
-      const response = await axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CHECKMAIL.CREATE_CHECK}`, {
-        email,
-      });
+      const response = await axios.post(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CHECKMAIL.CREATE_CHECK}`,
+        { email }
+      );
 
       if (response.status === 200) {
         return { message: "Email exists", data: response.data };
       }
-    } catch (error: any) {
-      if (error.response) {
-        if (error.response.status === 404) {
-          toast.error("Email not found");
-          return { message: "Email not found" };
-        }
 
-        if (error.response.status === 500) {
-          toast.error(AppFailureToastMessages.SERVER_ERROR);
-          return { message: "Internal Server Error" };
-        }
+      return { message: "Email verification failed" };
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        toast.error("Email not found");
+        return { message: "Email not found" };
       }
 
-      toast.error(AppFailureToastMessages.UNEXPECTED_ERROR + (error.message ? ` ${error.message}` : ""));
+      if (err.response?.status === 500) {
+        toast.error(AppFailureToastMessages.SERVER_ERROR);
+        return { message: "Internal Server Error" };
+      }
+
+      toast.error(
+        AppFailureToastMessages.UNEXPECTED_ERROR +
+          (err.message ? ` ${err.message}` : "")
+      );
+
       return { message: "Unknown error occurred" };
     }
   };
 
-  const getGoogleUserInfo = async (accessToken: string) => {
-    console.log("access token",accessToken);
+  const getGoogleUserInfo = async (credential: string) => {
     try {
       const response = await axios.get(
         "https://www.googleapis.com/oauth2/v3/userinfo",
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${credential}`,
           },
         }
       );
 
-      return response.data; // contains email, name, picture, etc.
+      return response.data;
     } catch (err) {
-      console.error("Failed to fetch Google user:", err);
-      // Fallback: Try to decode as JWT ID token
+      // GoogleLogin normally returns an ID token credential.
       try {
-        const base64Url = accessToken.split('.')[1];
-        if (base64Url) {
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const jsonPayload = decodeURIComponent(
-            atob(base64)
-              .split('')
-              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-              .join('')
-          );
-          console.log("parsed ",jsonPayload);
-          return JSON.parse(jsonPayload);
-        }
-      } catch (decodeError) {
-        console.error("Failed to decode JWT:", decodeError);
+        const payload = credential.split(".")[1];
+
+        if (!payload) return null;
+
+        const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+        const decoded = atob(base64);
+        const json = decodeURIComponent(
+          Array.from(decoded)
+            .map((character) =>
+              "%" +
+              character.charCodeAt(0).toString(16).padStart(2, "0")
+            )
+            .join("")
+        );
+
+        return JSON.parse(json);
+      } catch {
+        return null;
       }
-      return null;
     }
   };
 
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    const { credential } = response;
-      if (!credential) {
-        toast.error(AppFailureToastMessages.UNEXPECTED_ERROR);
-        return;
-      }
-    const emaildata = await getGoogleUserInfo(credential);
-
-    if (!emaildata) {
-      toast.error(AppValidationMessages.ERROR_MESSAGES.UNEXPECTED_ERROR);
-      setError(AppValidationMessages.ERROR_MESSAGES.UNEXPECTED_ERROR);
+  const handleGoogleSuccess = async (
+    response: CredentialResponse
+  ) => {
+    if (!response.credential) {
+      toast.error(AppFailureToastMessages.UNEXPECTED_ERROR);
       return;
     }
 
-    const email: any = emaildata.email;
+    setLoading(true);
 
     try {
-      setLoading(true);
-      const result = await checkEmail(email);
-       console.log("result",result);
-      if (result?.data.success == true) {
-        let portalName = result.data.username;
+      const userInfo = await getGoogleUserInfo(response.credential);
 
-        localStorage.setItem("SuperAdminAuthToken", result.data.accessToken);
-        localStorage.setItem("SuperAdminPortalId", result.data.id);
-        const superAdminUserId =
-          result.data.userId ??
-          result.data.user?.userId ??
-          result.data.user?.id;
-          localStorage.setItem("SuperAdminUserId", superAdminUserId); 
-        localStorage.setItem("SuperAdminPortalName", portalName);
-        if (result.data.tenantId) {
-          localStorage.setItem("tenantId", result.data.tenantId);
-        }
-        if (result.data.tenantJobCode || result.data.tenantCode) {
-          localStorage.setItem("tenantCode", result.data.tenantJobCode ?? result.data.tenantCode);
-        }
-        console.log("superAdmin sign-in localStorage:", {
-          SuperAdminAuthToken: result.data.accessToken,
-          SuperAdminPortalId: result.data.id,
-          SuperAdminPortalName: portalName,
-          FullData: result.data // Log full object
-        });
-        router.push(
-          result.data.tenantId
-            ? `/super-admin/ui/dashboard?tenantId=${result.data.tenantId}`
-            : "/super-admin/ui/dashboard"
-        );
-      } else {
-        toast.error(AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL);
-        setError(AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL);
-        console.log(result?.message);
+      if (!userInfo?.email) {
+        throw new Error("Unable to retrieve your Google account.");
       }
-      } catch (error) {
-        toast.error(AppFailureToastMessages.UNEXPECTED_ERROR + " Please try again.");
-        setError(AppValidationMessages.ERROR_MESSAGES.UNEXPECTED_ERROR);
-      } finally {
+
+      const result = await checkEmail(userInfo.email);
+
+      if (result?.data?.success === true) {
+        saveSession(result.data);
+      } else {
+        const message =
+          result?.message ??
+          AppValidationMessages.ERROR_MESSAGES.MISSING_EMAIL;
+
+        setError(message);
+        toast.error(message);
+      }
+    } catch (err: any) {
+      const message =
+        err.message ??
+        AppValidationMessages.ERROR_MESSAGES.UNEXPECTED_ERROR;
+
+      setError(message);
+      toast.error(message);
+    } finally {
       setLoading(false);
     }
   };
 
-
-
-  interface GoogleError {
-    error: string;
-    details?: string;
-  }
-
-  const handleGoogleFailure = (error: GoogleError) => {
+  const handleGoogleFailure = () => {
     toast.error(AppFailureToastMessages.UNEXPECTED_ERROR);
   };
 
-  const errorWrapper = () => {
-    const error: GoogleError = { error: "Some error message" };
-    handleGoogleFailure(error);
-  };
-
-  const newuserclick = () => {
-    router.push("/super-admin");
-  };
-
   return (
-      
-<div className="h-screen overflow-hidden grid grid-cols-[1.5fr_1fr] ">
-  {showError && error && (
-        <AnimatePresence>
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-            className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-red-500 to-rose-600 text-white px-5 py-4 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.2)] backdrop-blur-md border border-white/10"
-          >
-            <div className="p-2 bg-white/20 rounded-full">
-              <AlertCircle size={20} className="text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-sm tracking-wide">Error</span>
-              <span className="text-sm opacity-90">{error}</span>
-            </div>
-            <button
-              onClick={() => setShowError(false)}
-              className="ml-3 text-white/80 hover:text-white text-sm font-medium transition"
-            >
-              ✕
-            </button>
-          </motion.div>
-        </AnimatePresence>
-      )}
-  {/* ================= LEFT SIDE ================= */}
-  
- <div className="h-screen bg-[#EDEFFD] flex flex-col px-10 py-8">
+    <main>
+      <div className="grid min-h-[calc(100vh-14px)] overflow-hidden bg-white lg:grid-cols-[60%_40%]">
 
-  {/* Logo */}
-  <Image
-    src="/assets/images/bsicon.png"
-    alt="Logo"
-    width={150}
-    height={45}
-    className="mb-4"
-  />
+        {/* LEFT PANEL */}
+        <section className="relative flex min-h-[480px] flex-col overflow-hidden bg-[#F0F1FF] px-6 py-7 sm:px-10 lg:min-h-0 lg:px-8 lg:py-5 xl:px-10">
 
-  {/* Heading */}
-  <div>
-    <h1 className="text-[38px] font-bold text-[#13254B]">
-      Super Admin
-    </h1>
+          {/* Soft background decoration */}
+          <div className="pointer-events-none absolute -right-20 top-[34%] h-72 w-72 rounded-full bg-white/40 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-96 rounded-full bg-[#DCE2FF]/60 blur-3xl" />
 
-    <h2 className=" text-[20px] font-semibold text-[#5575F6]">
-      Complete Control. Total Visibility.
-    </h2>
-
-    <p className="text-[14px]  text-[#5B6475]">
-      Manage tenants, subscriptions, users and platform operations
-      
-      from one secure and powerful hub.
-    </p>
-  </div>
-
-  {/* Illustration */}
-  <div className="flex-1 flex items-center justify-center  ">
-    <Image
-      src="/assets/images/superSign-Photoroom.png"
-      alt="Super Admin"
-      width={600}
-      height={500}
-      priority
-    />
-  </div>
-
-  {/* Slide carousel */}
-  <div className="pb-2">
-    <AnimatePresence mode="wait">
-      <motion.p
-        key={currentIndex}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.4 }}
-        className="min-h-[48px] text-center text-[15px] font-medium text-[#374151]"
-      >
-        {slides[currentIndex].text}
-      </motion.p>
-    </AnimatePresence>
-
-    <div className="mt-4 flex items-center justify-center gap-4">
-      <button
-        type="button"
-        onClick={() =>
-          setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length)
-        }
-        className="flex h-6 w-6 items-center justify-center text-[#8C9AD6] transition hover:text-[#5575F6]"
-      >
-        <ChevronLeft size={16} />
-      </button>
-
-      <div className="flex items-center gap-2">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setCurrentIndex(i)}
-            className={`h-2 rounded-full transition-all ${
-              i === currentIndex ? "w-4 bg-[#5575F6]" : "w-2 bg-[#C7D0FA]"
-            }`}
-          />
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setCurrentIndex((prev) => (prev + 1) % slides.length)}
-        className="flex h-6 w-6 items-center justify-center text-[#8C9AD6] transition hover:text-[#5575F6]"
-      >
-        <ChevronRight size={16} />
-      </button>
-    </div>
-  </div>
-
-</div>
-{/* ================= RIGHT SIDE ================= */}
-
-  <div className="h-screen bg-white flex items-center justify-center overflow-y-auto">
-
-  <div className=" mr-10">
-
-  
-
-    <h2 className="text-center text-[38px] font-bold text-[#1D1D1F]">
-      Welcome Back,
-      <br />
-      Super Admin
-    </h2>
-
-    <p className="text-center text-[#6B7280] mt-4 mb-12">
-      Sign in to access your administration portal
-    </p>
-
-    <form onSubmit={handleFormSubmit} className="space-y-5">
-      <div>
-        <label htmlFor="username" className="mb-2 block text-sm font-medium text-[#374151]">
-          Username
-        </label>
-        <input
-          id="username"
-          name="username"
-          type="text"
-          required
-          autoComplete="username"
-          suppressHydrationWarning
-          value={username1}
-          onChange={(e) => setUsername1(e.target.value)}
-          placeholder="Enter your username"
-          className="w-full rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-sm text-[#111827] outline-none transition focus:border-[#5575F6] focus:bg-white focus:ring-2 focus:ring-[#5575F6]/20"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="password" className="mb-2 block text-sm font-medium text-[#374151]">
-          Password
-        </label>
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            id="password"
-            suppressHydrationWarning
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            className="w-full rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 pr-12 text-sm text-[#111827] outline-none transition focus:border-[#5575F6] focus:bg-white focus:ring-2 focus:ring-[#5575F6]/20"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600"
-          >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-[#6B7280]">
-          <input type="checkbox" className="h-4 w-4 rounded border-[#D1D5DB] text-[#5575F6] focus:ring-[#5575F6]" />
-          Remember me
-        </label>
-        <a href="#" className="text-sm font-medium text-[#5575F6] hover:text-[#3f63d7]">
-          Forgot password?
-        </a>
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className={`w-full rounded-2xl bg-[#5575F6] py-3 text-sm font-semibold text-white transition hover:bg-[#3f63d7] ${loading ? "cursor-not-allowed opacity-70" : ""}`}
-      >
-        {loading ? (
-          <div className="flex items-center justify-center gap-2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            Signing in...
+          {/* Logo */}
+          <div className="relative z-10">
+            <Image
+              src="/assets/images/bsicon.png"
+              alt="Blackstone Academy"
+              width={120}
+              height={38}
+              priority
+              className="h-auto w-[112px] object-contain object-left"
+            />
           </div>
-        ) : (
-          "Sign in as Super Admin"
-        )}
-      </button>
 
-      <div className="relative my-4">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[#E5E7EB]" />
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="bg-white px-3 text-[#6B7280]">or</span>
-        </div>
+          {/* Heading */}
+          <div className="relative z-10 mt-7 lg:mt-6">
+            <h1 className="text-[23px] font-bold leading-tight tracking-[-0.7px] text-[#071638] sm:text-[25px]">
+              Super Admin
+            </h1>
+
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={currentIndex}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.25 }}
+                className="mt-1 text-[14px] font-medium leading-5 text-[#4568FF] sm:text-[15px]"
+              >
+                {slides[currentIndex]}
+              </motion.p>
+            </AnimatePresence>
+
+            <p className="mt-1.5 max-w-[360px] text-[11px] leading-[16px] text-[#53596A]">
+              Manage tenants, subscriptions, users and platform operations
+              from one secure and powerful hub.
+            </p>
+          </div>
+
+          {/* Illustration */}
+          <div className="relative mx-auto mt-5 flex w-full flex-1 items-center justify-center lg:mt-1">
+            <Image
+              src="/assets/images/superSign-Photoroom.png"
+              alt="Super Admin platform illustration"
+              width={600}
+              height={600}
+              priority
+              className="object-contain"
+            />
+          </div>
+        </section>
+
+        {/* RIGHT PANEL */}
+<section className="relative flex min-h-[550px] items-center justify-center overflow-y-auto bg-white px-6 py-8 sm:px-10 lg:min-h-0 lg:px-10 lg:py-8 xl:px-14">
+          {/* Error toast */}
+          <AnimatePresence>
+            {showError && error && (
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                className="fixed right-5 top-5 z-50 flex max-w-sm items-center gap-3 rounded-xl border border-red-100 bg-white px-4 py-3 shadow-lg"
+              >
+                <AlertCircle
+                  size={20}
+                  className="shrink-0 text-red-500"
+                />
+                <p className="text-sm text-red-600">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setShowError(false)}
+                  className="ml-auto text-gray-400 hover:text-gray-700"
+                  aria-label="Close error"
+                >
+                  ×
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+<div className="w-full max-w-[500px] px-2 sm:px-4">            {/* Login headings */}
+            <div className="text-center">
+              <p className="text-[16px] font-bold text-[#586FC0]">
+                Log in
+              </p>
+
+<h2 className="mt-4 text-[22px] font-bold tracking-[0.2px] text-[#071638]">
+  Welcome Back, Super Admin
+</h2>
+
+              <p className="mt-1 text-[11px] leading-4 text-[#858585]">
+                Sign in to access your administration portal
+              </p>
+            </div>
+
+            {/* Login form */}
+<form onSubmit={handleFormSubmit} className="mt-10 space-y-5">
+              {/* Email */}
+              <div>
+                <label
+                  htmlFor="username"
+                  className="mb-1.5 block text-[12px] font-medium text-[#657797]"
+                >
+                  User Name
+                </label>
+
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  autoComplete="username"
+                  suppressHydrationWarning
+                  value={username1}
+                  onChange={(e) => setUsername1(e.target.value)}
+                  placeholder="example@gmail.com"
+className="h-[44px] w-full rounded-[8px] border border-[#DCE2EC] bg-white px-3 text-[13px] text-[#374151] outline-none transition placeholder:text-[#68758B] focus:border-[#5A70C7] focus:ring-2 focus:ring-[#5A70C7]/10"                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mb-1.5 block text-[12px] font-medium text-[#657797]"
+                >
+                  Password
+                </label>
+
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="current-password"
+                    suppressHydrationWarning
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+className="h-[44px] w-full rounded-[8px] border border-[#DCE2EC] bg-white px-3 text-[13px] text-[#374151] outline-none transition placeholder:text-[#68758B] focus:border-[#5A70C7] focus:ring-2 focus:ring-[#5A70C7]/10"                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    className="absolute inset-y-0 right-0 flex w-8 items-center justify-center border-l border-[#E7EAF0] text-[#77849A] transition hover:text-[#4F67B5]"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={14} />
+                    ) : (
+                      <Eye size={14} />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember me and forgot password */}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <label className="flex cursor-pointer items-center gap-1.5 text-[9px] text-[#7D8CA6]">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-[10px] w-[10px] rounded-sm border-[#D5DBE6] accent-[#586FC0]"
+                  />
+                  Remember me
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/super-admin/forgot-password")}
+                  className="text-[9px] font-medium text-[#4D68D2] underline underline-offset-2 hover:text-[#304DBA]"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex h-[33px] w-full items-center justify-center rounded-[11px] bg-[#586FC0] text-[10px] font-semibold text-white transition duration-200 hover:bg-[#465DAE] focus:outline-none focus:ring-2 focus:ring-[#586FC0]/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <LoaderCircle size={14} className="animate-spin" />
+                    Signing in...
+                  </span>
+                ) : (
+                  "Log in"
+                )}
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-[#D1D8E5]" />
+                <span className="text-[8px] text-[#78849A]">OR</span>
+                <div className="h-px flex-1 bg-[#D1D8E5]" />
+              </div>
+
+              {/* Hidden Google OAuth button */}
+              <div
+                ref={googleLoginRef}
+                className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+                aria-hidden="true"
+              >
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleFailure}
+                  useOneTap={false}
+                  auto_select={false}
+                />
+              </div>
+
+              {/* Google login */}
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  const googleButton =
+                    googleLoginRef.current?.querySelector(
+                      'div[role="button"]'
+                    ) as HTMLElement | null;
+
+                  googleButton?.click();
+                }}
+                className="relative flex h-[34px] w-full items-center justify-center rounded-full border border-[#DCE2EC] bg-white text-[10px] font-medium text-[#586783] transition hover:bg-[#F8F9FC] disabled:opacity-60"
+              >
+                <svg
+                  className="absolute left-3 h-[14px] w-[14px]"
+                  viewBox="0 0 48 48"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="#4285F4"
+                    d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20 20 0 0 0 24 44Z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M12.6 27.6a12 12 0 0 1 0-7.2v-5.3H5.8a20 20 0 0 0 0 17.8l6.8-5.3Z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M24 12c3 0 5.7 1 7.8 3.1l5.8-5.8A19.4 19.4 0 0 0 24 4 20 20 0 0 0 5.8 15.1l6.8 5.3C14.2 15.6 18.7 12 24 12Z"
+                  />
+                </svg>
+
+                Continue with Google
+              </button>
+            </form>
+
+            {/* Register */}
+            <p className="mt-4 text-center text-[9px] text-[#858585]">
+              Don&apos;t have an Account?{" "}
+              <button
+                type="button"
+                onClick={() => router.push("/super-admin/ui/login")}
+                className="font-medium text-[#4D68D2] underline underline-offset-2"
+              >
+                Register
+              </button>
+            </p>
+          </div>
+        </section>
       </div>
-
-      <div ref={googleLoginRef} className="pointer-events-none absolute h-[1px] w-[1px] overflow-hidden opacity-0">
-        <GoogleLogin onSuccess={handleGoogleSuccess} onError={errorWrapper} useOneTap={false} auto_select={false} />
-      </div>
-
-      <button
-        type="button"
-        onClick={() => {
-          const googleButton = googleLoginRef.current?.querySelector('div[role="button"]') as HTMLElement;
-          if (googleButton) {
-            googleButton.click();
-          }
-        }}
-        disabled={loading}
-        className="flex w-full items-center justify-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white py-3 text-sm font-medium text-[#374151] transition hover:bg-[#F9FAFB]"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-        </svg>
-        Continue with Google
-      </button>
-    </form>
-
-    </div>
-    </div>
-    </div>
-    
+    </main>
   );
 };
 

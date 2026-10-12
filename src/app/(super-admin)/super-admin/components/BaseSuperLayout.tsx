@@ -41,6 +41,7 @@ const SuperSidebarItems = [
     subItems: [
       { name: "Chat", href: "/super-admin/ui/chatandsupport" },
       { name: "Tickets", href: "/super-admin/ui/tickets" },
+      { name: "Announcement", href: "/super-admin/ui/announcement" },
     ],
   },
   { name: "Updates", href: "/super-admin/ui/updates", icon: TfiReload },
@@ -308,7 +309,7 @@ export default function BaseLayout3({ children }: Props) {
             <SuperSidebar />
           </div>
 
-          <div className="layout-main main-content-scroll-none overflow-y-auto py-2 px-4">
+          <div className="layout-main main-content-scroll-none overflow-y-auto px-4 py-2">
             {children}
           </div>
         </div>
