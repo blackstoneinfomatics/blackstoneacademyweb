@@ -302,12 +302,36 @@ const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
 };
 
 const FALLBACK_COLORS = [
-  { bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]", text: "text-[#22C55E] dark:text-[#68D391]", dot: "#22C55E" },
-  { bg: "bg-[#E0F2FE] dark:bg-[#22375A]", text: "text-[#3B82F6] dark:text-[#7EB0FF]", dot: "#3B82F6" },
-  { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
-  { bg: "bg-[#FFF7E8] dark:bg-[#4A3B22]", text: "text-[#F4A429] dark:text-[#FCD68B]", dot: "#F4A429" },
-  { bg: "bg-[#FDEAEA] dark:bg-[#4A2A2A]", text: "text-[#E35D5D] dark:text-[#F89B9B]", dot: "#E35D5D" },
-  { bg: "bg-[#EAF8EC] dark:bg-[#1F3A2B]", text: "text-[#34A853] dark:text-[#7FD495]", dot: "#34A853" },
+  {
+    bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]",
+    text: "text-[#22C55E] dark:text-[#68D391]",
+    dot: "#22C55E",
+  },
+  {
+    bg: "bg-[#E0F2FE] dark:bg-[#22375A]",
+    text: "text-[#3B82F6] dark:text-[#7EB0FF]",
+    dot: "#3B82F6",
+  },
+  {
+    bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]",
+    text: "text-[#8B5CF6] dark:text-[#C4A8FF]",
+    dot: "#8B5CF6",
+  },
+  {
+    bg: "bg-[#FFF7E8] dark:bg-[#4A3B22]",
+    text: "text-[#F4A429] dark:text-[#FCD68B]",
+    dot: "#F4A429",
+  },
+  {
+    bg: "bg-[#FDEAEA] dark:bg-[#4A2A2A]",
+    text: "text-[#E35D5D] dark:text-[#F89B9B]",
+    dot: "#E35D5D",
+  },
+  {
+    bg: "bg-[#EAF8EC] dark:bg-[#1F3A2B]",
+    text: "text-[#34A853] dark:text-[#7FD495]",
+    dot: "#34A853",
+  },
 ];
 
 const hashString = (str: string): number => {
@@ -329,7 +353,11 @@ const getPlanColor = (plan?: string) => {
   }
   if (PLAN_COLORS[plan]) return PLAN_COLORS[plan];
   const lower = plan.toLowerCase();
-  if (lower.includes("premium") || lower.includes("pro") || lower.includes("ultra")) {
+  if (
+    lower.includes("premium") ||
+    lower.includes("pro") ||
+    lower.includes("ultra")
+  ) {
     return PLAN_COLORS.Premium;
   }
   if (lower.includes("standard")) return PLAN_COLORS.Standard;
@@ -809,15 +837,16 @@ const Message = () => {
       plan: r?.planName ?? "",
       members,
       groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
-      lastMessage: !isChatCleared && r?.lastMessage
-        ? {
-          text: r.lastMessage.message ?? "",
-          time: formatMessageTime(
-            r.lastMessage.createdAt ?? r.lastMessageAt
-          ),
-          senderName: r.lastMessage.senderName ?? "",
-        }
-        : undefined,
+      lastMessage:
+        !isChatCleared && r?.lastMessage
+          ? {
+            text: r.lastMessage.message ?? "",
+            time: formatMessageTime(
+              r.lastMessage.createdAt ?? r.lastMessageAt
+            ),
+            senderName: r.lastMessage.senderName ?? "",
+          }
+          : undefined,
       profileImage: null,
       roomId: id,
       roomCode: r?.roomCode ?? "",
@@ -881,12 +910,11 @@ const Message = () => {
         };
       };
 
-      const [allResponse, unreadResponse, groupResponse] =
-        await Promise.all([
-          fetchTab("ALL"),
-          fetchTab("UNREAD"),
-          fetchTab("GROUP"),
-        ]);
+      const [allResponse, unreadResponse, groupResponse] = await Promise.all([
+        fetchTab("ALL"),
+        fetchTab("UNREAD"),
+        fetchTab("GROUP"),
+      ]);
 
       const mappedAll = allResponse.rooms
         .map(mapRoomToUser)
@@ -922,9 +950,7 @@ const Message = () => {
         if (!roomId) return;
 
         const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
-          ? r.tenantIds.filter(
-            (x: any) => typeof x === "string" && x.trim()
-          )
+          ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
           : [];
 
         if (rawTenantIds.length === 0) return;
@@ -959,7 +985,6 @@ const Message = () => {
 
   useEffect(() => {
     fetchRooms();
-
   }, [activeTab]);
 
   const visibleRooms = useMemo(() => {
@@ -1231,9 +1256,6 @@ const Message = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUser?._id, selectedUser?.isGroup]);
 
-  // ─────────────────────────────────────────────
-  // Fetch group details when Group Details modal opens
-  // ─────────────────────────────────────────────
   useEffect(() => {
     if (!showGroupDetails || !selectedUser) return;
 
@@ -1258,24 +1280,43 @@ const Message = () => {
           },
         });
 
-        console.log("🟡 [Step 2] Response status:", groupRes.status, groupRes.ok ? "✅ OK" : "❌ FAILED");
+        console.log(
+          "🟡 [Step 2] Response status:",
+          groupRes.status,
+          groupRes.ok ? "✅ OK" : "❌ FAILED"
+        );
 
         if (!groupRes.ok) {
           const errText = await groupRes.text();
-          console.error("❌ [Step 2] Group details fetch failed:", groupRes.status, errText);
+          console.error(
+            "❌ [Step 2] Group details fetch failed:",
+            groupRes.status,
+            errText
+          );
         } else {
           const groupJson = await groupRes.json();
-          console.log("🟡 [Step 3] Raw response body:", JSON.stringify(groupJson, null, 2));
+          console.log(
+            "🟡 [Step 3] Raw response body:",
+            JSON.stringify(groupJson, null, 2)
+          );
 
           const groupData = groupJson?.data ?? groupJson;
           console.log("🟡 [Step 4] Parsed groupData:", groupData);
 
-          const rawMembers: any[] = Array.isArray(groupData?.members) ? groupData.members : [];
-          console.log("🟡 [Step 5] members array (length=" + rawMembers.length + "):", rawMembers);
+          const rawMembers: any[] = Array.isArray(groupData?.members)
+            ? groupData.members
+            : [];
+          console.log(
+            "🟡 [Step 5] members array (length=" + rawMembers.length + "):",
+            rawMembers
+          );
 
           if (!cancelled && rawMembers.length > 0) {
             const removedIds = getRemovedTenants(roomId);
-            console.log("🟡 [Step 6] removedIds from localStorage:", removedIds);
+            console.log(
+              "🟡 [Step 6] removedIds from localStorage:",
+              removedIds
+            );
 
             const freshMembers = rawMembers.map((m: any) => ({
               name: m.tenantName || m.name || m.tenantId || "Unknown",
@@ -1283,14 +1324,22 @@ const Message = () => {
               tenantId: m.tenantId || m._id || "",
               isSelected: removedIds.includes(m.tenantId || m._id)
                 ? false
-                : (m.isSelected !== undefined ? m.isSelected : true),
+                : m.isSelected !== undefined
+                  ? m.isSelected
+                  : true,
             }));
 
-            console.log("✅ [Step 7] Final freshMembers to display:", freshMembers);
+            console.log(
+              "✅ [Step 7] Final freshMembers to display:",
+              freshMembers
+            );
 
             mergeIntoRoomMembersCache(
               roomId,
-              freshMembers.map((m) => ({ tenantId: m.tenantId, tenantName: m.name }))
+              freshMembers.map((m) => ({
+                tenantId: m.tenantId,
+                tenantName: m.name,
+              }))
             );
 
             setSelectedUser((prev) => {
@@ -1298,19 +1347,26 @@ const Message = () => {
               return { ...prev, members: freshMembers };
             });
           } else if (rawMembers.length === 0) {
-            console.warn("⚠️ [Step 5] members array is empty — no members to show");
+            console.warn(
+              "⚠️ [Step 5] members array is empty — no members to show"
+            );
           }
         }
 
         if (cancelled) return;
 
         if (!planId) {
-          console.warn("⚠️ [Step 8] No planId — skipping plan-tenants fetch (Add Member dropdown will be empty)");
+          console.warn(
+            "⚠️ [Step 8] No planId — skipping plan-tenants fetch (Add Member dropdown will be empty)"
+          );
           return;
         }
 
         const tenantsUrl = API_TENANTS_BY_PLAN(planId);
-        console.log("🟡 [Step 8] Fetching plan tenants for dropdown →", tenantsUrl);
+        console.log(
+          "🟡 [Step 8] Fetching plan tenants for dropdown →",
+          tenantsUrl
+        );
 
         const tenantsRes = await fetch(tenantsUrl, {
           cache: "no-store",
@@ -1320,19 +1376,41 @@ const Message = () => {
           },
         });
 
-        console.log("🟡 [Step 9] Plan tenants response status:", tenantsRes.status, tenantsRes.ok ? "✅ OK" : "❌ FAILED");
+        console.log(
+          "🟡 [Step 9] Plan tenants response status:",
+          tenantsRes.status,
+          tenantsRes.ok ? "✅ OK" : "❌ FAILED"
+        );
 
         if (!tenantsRes.ok) {
           const errText = await tenantsRes.text();
-          console.error("❌ [Step 9] Plan tenants fetch failed:", tenantsRes.status, errText);
+          console.error(
+            "❌ [Step 9] Plan tenants fetch failed:",
+            tenantsRes.status,
+            errText
+          );
           return;
         }
 
         const tenantsJson = await tenantsRes.json();
-        console.log("🟡 [Step 10] Plan tenants raw response:", JSON.stringify(tenantsJson, null, 2));
+        console.log(
+          "🟡 [Step 10] Plan tenants raw response:",
+          JSON.stringify(tenantsJson, null, 2)
+        );
 
-        const rawList = extractList<any>(tenantsJson, "tenants", "items", "members", "data");
-        console.log("🟡 [Step 11] Extracted tenants list (length=" + rawList.length + "):", rawList);
+        const rawList = extractList<any>(
+          tenantsJson,
+          "tenants",
+          "items",
+          "members",
+          "data"
+        );
+        console.log(
+          "🟡 [Step 11] Extracted tenants list (length=" +
+          rawList.length +
+          "):",
+          rawList
+        );
 
         const normalized: IPlanTenant[] = rawList
           .map((t: any) => ({
@@ -1349,7 +1427,10 @@ const Message = () => {
           setPlanTenants(normalized);
           mergeIntoRoomMembersCache(
             roomId,
-            normalized.map((t) => ({ tenantId: t._id, tenantName: t.tenantName || "Unnamed Tenant" }))
+            normalized.map((t) => ({
+              tenantId: t._id,
+              tenantName: t.tenantName || "Unnamed Tenant",
+            }))
           );
         }
       } catch (err) {
@@ -1360,7 +1441,6 @@ const Message = () => {
     return () => {
       cancelled = true;
     };
- 
   }, [showGroupDetails, selectedUser?._id, selectedUser?.planId]);
 
   const memberOptions = useMemo(
@@ -1412,7 +1492,9 @@ const Message = () => {
         const messages = (result.data?.messages ?? []).map(
           (message, index): IMessage => {
             const createdDate =
-              message.timestamp ?? message.createdAt ?? new Date().toISOString();
+              message.timestamp ??
+              message.createdAt ??
+              new Date().toISOString();
             const date = new Date(createdDate);
             const attachment = message.attachments?.[0];
 
@@ -1513,7 +1595,8 @@ const Message = () => {
     pendingAttachment: File | null,
     pendingName: string
   ): Promise<string | null> => {
-    if (!selectedUser) return Promise.resolve("Select a tenant or group before sending.");
+    if (!selectedUser)
+      return Promise.resolve("Select a tenant or group before sending.");
     if (!text.trim()) return Promise.resolve("Enter a message before sending.");
 
     const token = localStorage.getItem("SuperAdminAuthToken");
@@ -1617,7 +1700,9 @@ const Message = () => {
       }
     } catch (error) {
       console.error("Send message failed:", error);
-      return error instanceof Error ? error.message : "Message could not be sent.";
+      return error instanceof Error
+        ? error.message
+        : "Message could not be sent.";
     }
 
     const now = new Date();
@@ -1664,7 +1749,9 @@ const Message = () => {
       const existing = prev.find((g) => g._id === selectedUser._id);
       if (existing) {
         return prev.map((g) =>
-          g._id === selectedUser._id ? { ...g, messages: [...g.messages, newMessage] } : g
+          g._id === selectedUser._id
+            ? { ...g, messages: [...g.messages, newMessage] }
+            : g
         );
       }
       return [...prev, { _id: selectedUser._id, messages: [newMessage] }];
@@ -2052,25 +2139,27 @@ const Message = () => {
                     }`}
                 >
                   {tab.label}
-                  <span
-                    className={`text-[10px] px-1.5 py-[1px] rounded-full ${activeTab === tab.key
-                      ? "bg-[#E6EAF2] text-[#576CBC]"
-                      : "bg-gray-100 dark:bg-[#2c2c2c] text-gray-500"
-                      }`}
-                  >
-                    {tab.count}
-                  </span>
+                  {tab.count > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-[1px] rounded-full ${activeTab === tab.key
+                        ? "bg-[#E6EAF2] text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]"
+                        : "bg-gray-100 dark:bg-[#2c2c2c] text-gray-500 dark:text-[#8a8a8a]"
+                        }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto max-h-[400px] md:max-h-none">
+            <div className="flex-1 overflow-y-auto max-h-[400px] md:max-h-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {roomsLoading ? (
-                <p className="py-6 text-center text-[11px] text-gray-400">
+                <p className="py-6 text-center text-[11px] text-gray-400 dark:text-[#8a8a8a]">
                   Loading chats…
                 </p>
               ) : visibleRooms.length === 0 ? (
-                <p className="py-6 text-center text-[11px] text-gray-400">
+                <p className="py-6 text-center text-[11px] text-gray-400 dark:text-[#8a8a8a]">
                   {activeTab === "GROUP"
                     ? "No groups yet — create one"
                     : activeTab === "UNREAD"
@@ -2217,11 +2306,17 @@ const Message = () => {
                       {selectedUser.role.includes("Group") ? (
                         <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] flex items-center gap-1">
                           Members
-                          <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
-                            {selectedUser.members?.filter(
-                              (m: any) => m.isSelected !== false
-                            ).length ?? 0}
-                          </span>
+                          {(() => {
+                            const count =
+                              selectedUser.members?.filter(
+                                (m: any) => m.isSelected !== false
+                              ).length ?? 0;
+                            return count > 0 ? (
+                              <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
+                                {count}
+                              </span>
+                            ) : null;
+                          })()}
                         </p>
                       ) : (
                         <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] truncate">
@@ -2271,7 +2366,7 @@ const Message = () => {
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]">
                   {messagesLoading ? (
-                    <p className="py-6 text-center text-[11px] text-gray-400">
+                    <p className="py-6 text-center text-[11px] text-gray-400 dark:text-[#8a8a8a]">
                       Loading messages…
                     </p>
                   ) : (
@@ -2372,7 +2467,9 @@ const Message = () => {
                                       showDelete={isMine}
                                       onInfo={() => setInfoMessage(msg)}
                                       onReply={() => setReplyTo(msg)}
-                                      onDelete={() => handleDeleteMessage(msg._id)}
+                                      onDelete={() =>
+                                        handleDeleteMessage(msg._id)
+                                      }
                                     />
                                   )}
                                 </div>
