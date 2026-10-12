@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -100,6 +100,17 @@ interface PlanModule {
   portalName?: string;
   features?: PlanFeatureItem[];
   children?: PlanChildModule[];
+}
+
+interface PlanBillingPeriod {
+  billingPeriodId?: string;
+  billingPeriod?: string;
+  duration?: number;
+  price?: number;
+  discount?: number;
+  gstRate?: number;
+  taxAmount?: number;
+  totalAmount?: number;
 }
 
 const getPlanFeatureCount = (plan: Record<string, unknown>): number => {
@@ -214,6 +225,8 @@ const PlansTable = () => {
     Record<string, string>
   >({});
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [isLoadingPlanDetails, setIsLoadingPlanDetails] = useState(false);
+  const pricingCarouselRef = useRef<HTMLDivElement>(null);
   const [featureCountByPlan, setFeatureCountByPlan] = useState<
     Record<string, number>
   >({});
@@ -236,6 +249,9 @@ const PlansTable = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const plansList = Array.isArray(plans) ? plans : [];
+  const selectedPlanBillingPeriods = Array.isArray(selectedPlan?.billingPeriods)
+    ? selectedPlan.billingPeriods
+    : [];
 
   const billingOptions = Array.from(
     new Set(plansList.map((plan) => plan.billingCycle)),
@@ -508,13 +524,39 @@ const PlansTable = () => {
   };
 
   const handleViewPlan = async (planId: string) => {
+    const listPlan = plansList.find((plan) => plan.planId === planId);
+    setSelectedPlan(listPlan ?? null);
+    setIsLoadingPlanDetails(true);
+    setShowModal(true);
+
     try {
       const res = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.PLAN.GET_PLAN_BY_ID}`.replace("${planId}", planId));
 
-      setSelectedPlan(res.data.data);
-      setShowModal(true);
+      const responseBody = res.data;
+      const responseData =
+        responseBody?.data?.item ??
+        responseBody?.data?.plan ??
+        responseBody?.data ??
+        responseBody?.item ??
+        responseBody?.plan ??
+        responseBody;
+
+      if (!responseData || typeof responseData !== "object") {
+        throw new Error(`Plan details response was invalid for ${planId}`);
+      }
+
+      setSelectedPlan({
+        ...(listPlan ?? {}),
+        ...responseData,
+        billingPeriods: Array.isArray(responseData.billingPeriods)
+          ? responseData.billingPeriods
+          : listPlan?.billingPeriods ?? [],
+      });
     } catch (err) {
-      console.error(err);
+      console.error(`Failed to load details for plan ${planId}:`, err);
+      toast.error("Unable to load plan details. Please try again.");
+    } finally {
+      setIsLoadingPlanDetails(false);
     }
   };
 
@@ -1357,9 +1399,7 @@ const PlansTable = () => {
                             <button
                               className="w-full border-b border-gray-200 px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-[#4A4A4A] dark:hover:bg-[#444]"
                               onClick={() => {
-                                handleViewPlan(item.planId);
-                                setSelectedPlan(item);
-                                setShowModal(true);
+                                void handleViewPlan(item.planId);
                                 setOpenMenu(null);
                               }}
                             >
@@ -1600,6 +1640,14 @@ const PlansTable = () => {
             </div>
 
             <div className="max-h-[85vh] overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-[#576CBC] scrollbar-track-[#fff] dark:scrollbar-track-[#343434]">
+              {isLoadingPlanDetails && (
+                <p
+                  aria-live="polite"
+                  className="mb-4 rounded-md bg-[#EEF1FF] px-3 py-2 text-xs text-[#344054] dark:bg-[#2C3344] dark:text-gray-200"
+                >
+                  Loading the latest plan details…
+                </p>
+              )}
               {/* Top Plan Card */}
               <div className="flex justify-between items-start mb-5">
                 <div className="flex gap-4">
@@ -1641,11 +1689,17 @@ ${
 
               {/* Info Cards */}
 
-              <div className="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 gap-4 mb-5">
+              <div className="grid lg:grid-cols-4 md:grid-cols-3 grid-cols-2 gap-4 mb-5">
                 {[
                   ["Plan Name", selectedPlan.planName],
 
-                  ["Billing Cycle", selectedPlan.billingCycle],
+                  // [
+                  //   "Billing Cycle",
+                  //   selectedPlanBillingPeriods
+                  //     .map((period: PlanBillingPeriod) => period.billingPeriod)
+                  //     .filter(Boolean)
+                  //     .join(", ") || "-",
+                  // ],
 
                   [
                     "Created Date",
@@ -1673,7 +1727,7 @@ ${
 
                   ["Created By", selectedPlan.createdBy],
                 ].map(([title, value]) => (
-                  <div key={title} className="rounded-md bg-[#EEF1FF] p-3 dark:bg-[#2C3344]">
+                  <div key={title} className="rounded-md border border-gray-200 p-3 dark:border-[#4A4A4A]">
                     <p className="text-xs text-[#010E30] dark:text-gray-200">{title}</p>
 
                     <p className="mt-1 text-[11px] font-medium text-[#010e30a5] dark:text-gray-300">
@@ -1688,30 +1742,112 @@ ${
               <div className="grid lg:grid-cols-2 gap-5 mb-5">
                 {/* Pricing */}
 
-                <div className="rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-400 to-blue-500 text-white p-4">
-                  <h4 className="font-medium text-base mb-6">Pricing</h4>
-
-                  <div className="grid grid-cols-2">
+                <div className="rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-400 to-blue-500 p-4 text-white">
+                  <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm opacity-90">Monthly Price</p>
-
-                      <h2 className="text-lg font-medium mt-3">
-                        ₹{selectedPlan.monthlyPrice} <span>/ Month</span>
-                      </h2>
+                      <h4 className="font-medium text-base">Pricing</h4>
+                      {selectedPlanBillingPeriods.length > 1 && (
+                        <p className="mt-1 text-[11px] text-white/80">
+                          Swipe or scroll to view all billing options
+                        </p>
+                      )}
                     </div>
-
-                    <div className="border-l border-white/40 pl-6">
-                      <p className="text-sm opacity-90">Yearly Price</p>
-
-                      <h2 className="text-lg font-medium mt-3">
-                        ₹{selectedPlan.yearlyPrice} <span>/ Year</span>
-                      </h2>
-
-                      <span className="inline-block mt-2 bg-[#D6FED5] text-green-800 px-3 py-1 rounded text-xs">
-                        Save 17%
-                      </span>
-                    </div>
+                    {selectedPlanBillingPeriods.length > 1 && (
+                      <div className="flex shrink-0 gap-1.5">
+                        <button
+                          aria-label="Previous billing option"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/35 bg-white/15 transition hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                          onClick={() =>
+                            pricingCarouselRef.current?.scrollBy({
+                              left: -pricingCarouselRef.current.clientWidth,
+                              behavior: "smooth",
+                            })
+                          }
+                          type="button"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <button
+                          aria-label="Next billing option"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/35 bg-white/15 transition hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                          onClick={() =>
+                            pricingCarouselRef.current?.scrollBy({
+                              left: pricingCarouselRef.current.clientWidth,
+                              behavior: "smooth",
+                            })
+                          }
+                          type="button"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+                    )}
                   </div>
+
+                  {selectedPlanBillingPeriods.length > 0 ? (
+                    <div
+                      className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-3 touch-pan-x scrollbar-thin scrollbar-thumb-white/60 scrollbar-track-white/15"
+                      ref={pricingCarouselRef}
+                    >
+                      {selectedPlanBillingPeriods.map(
+                        (period: PlanBillingPeriod, index: number) => {
+                          const periodName =
+                            period.billingPeriod || `Billing period ${index + 1}`;
+                          const price = Number(period.price ?? 0);
+                          const discount = Number(period.discount ?? 0);
+                          const taxAmount = Number(period.taxAmount ?? 0);
+                          const totalAmount = Number(
+                            period.totalAmount ?? price - (price * discount) / 100 + taxAmount,
+                          );
+
+                          return (
+                            <div
+                              key={period.billingPeriodId ?? `${periodName}-${index}`}
+                              className="w-full min-w-full snap-start rounded-lg border border-white/30 bg-white/10 p-3 backdrop-blur-sm"
+                            >
+                              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                                <h5 className="font-semibold">
+                                  {periodName}
+                                  {Number(period.duration) > 0 &&
+                                    ` · ${period.duration} month${Number(period.duration) === 1 ? "" : "s"}`}
+                                </h5>
+                                <span className="text-lg font-semibold">
+                                  ₹{totalAmount.toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-white/90 sm:grid-cols-4">
+                                <span>
+                                  Price: ₹{price.toLocaleString("en-IN")}
+                                </span>
+                                <span>Discount: {discount}%</span>
+                                <span>
+                                  GST: {Number(period.gstRate ?? selectedPlan.gstAndTax ?? 0)}%
+                                </span>
+                                <span>
+                                  Tax: ₹{taxAmount.toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2">
+                      <div>
+                        <p className="text-sm opacity-90">Monthly Price</p>
+                        <h2 className="mt-3 text-lg font-medium">
+                          ₹{selectedPlan.monthlyPrice ?? 0} <span>/ Month</span>
+                        </h2>
+                      </div>
+                      <div className="border-l border-white/40 pl-6">
+                        <p className="text-sm opacity-90">Yearly Price</p>
+                        <h2 className="mt-3 text-lg font-medium">
+                          ₹{selectedPlan.yearlyPrice ?? 0} <span>/ Year</span>
+                        </h2>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Statistics */}

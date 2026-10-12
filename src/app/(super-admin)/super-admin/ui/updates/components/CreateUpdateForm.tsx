@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { FiChevronDown, FiInfo } from "react-icons/fi";
+import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 export interface UpdateFormData {
@@ -81,8 +82,6 @@ const CreateUpdateForm = ({
   const isSelectTenants = formData.audience === "selectTenants";
 
   const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [allTenants, setAllTenants] = useState<TenantOption[]>([]);
   const [planOptions, setPlanOptions] = useState<PlanOption[]>([]);
@@ -194,11 +193,9 @@ const CreateUpdateForm = ({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     if (!formData.updateTitle.trim()) {
-      setErrorMsg("Please enter an update title");
+      toast.error("Please enter an update title");
       return;
     }
 
@@ -206,12 +203,12 @@ const CreateUpdateForm = ({
       formData.audience === "selectTenants" &&
       formData.selectedTenants.length === 0
     ) {
-      setErrorMsg("Please select at least one tenant");
+      toast.error("Please select at least one tenant");
       return;
     }
 
     if (formData.audience === "byPlan" && !formData.selectedPlan) {
-      setErrorMsg("Please select a plan");
+      toast.error("Please select a plan");
       return;
     }
 
@@ -236,12 +233,14 @@ const CreateUpdateForm = ({
         );
       }
 
-      setSuccessMsg(json.message || "Update published successfully!");
       onSubmit(e, payload, json);
+      toast.success(json.message || "Update published successfully!");
       setTimeout(() => onClose(), 900);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("❌ Submit failed:", err);
-      setErrorMsg(err?.message || "Failed to publish update");
+      const message =
+        err instanceof Error ? err.message : "Failed to publish update";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -278,17 +277,6 @@ const CreateUpdateForm = ({
               </svg>
             </button>
           </div>
-
-          {errorMsg && (
-            <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-600 dark:bg-red-900/30 dark:text-red-300">
-              {errorMsg}
-            </div>
-          )}
-          {successMsg && (
-            <div className="mb-4 rounded-md bg-green-50 px-3 py-2 text-[12px] text-green-600 dark:bg-green-900/30 dark:text-green-300">
-              {successMsg}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
