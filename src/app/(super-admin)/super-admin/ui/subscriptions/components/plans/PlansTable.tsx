@@ -2028,9 +2028,10 @@ ${
                       }
                       className="h-8 w-full rounded border border-[#D0D5DD] bg-white px-3 text-xs outline-none focus:border-[#576CBC] dark:border-[#555] dark:bg-[#2C2C2C] dark:text-white"
                     >
-                      <option>Most Popular</option>
-                      <option>Growing</option>
-                      <option>Low Adoption</option>
+                     <option value="">Select tag</option>
+                          <option value="Most_Popular">Most Popular</option>
+                          <option value="Growing">Growing</option>
+                          <option value="Low_Adoption">Low Adoption</option>
                     </select>
                   </div>
                 </div>
