@@ -1340,7 +1340,7 @@ const Usercards = () => {
   );
 
   return (
-    <BaseSuperLayout>
+    <div>
       <SuperAdminHeader currentSection="Feature Control" />
 
       <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] p-2">
@@ -2463,7 +2463,7 @@ const Usercards = () => {
           </div>
         </div>
       )}
-    </BaseSuperLayout>
+    </div>
   );
 };
 

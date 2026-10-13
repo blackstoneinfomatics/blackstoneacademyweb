@@ -9,12 +9,12 @@ import RouteChangeLoader from "./_components/RouteChangeLoader";
 const poppins = Poppins({
   subsets: ["latin"],
   display: "swap",
-  weight: ["400", "500", "600", "700"], // Specify the weights you need
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Alfurqan Academy",
-  description: "From Learn Quran Alfurqan Academy",
+  title: "Blackstone Academy",
+  description: "Learn about Blackstone Academy",
 };
 
 export default function RootLayout({

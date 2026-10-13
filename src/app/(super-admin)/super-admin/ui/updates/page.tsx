@@ -1,6 +1,5 @@
 'use client';
 import React, { useEffect, useState } from 'react'
-import BaseLayout3 from '../../components/BaseSuperLayout'
 import SuperAdminHeader from '../../components/SuperAdminHeader'
 import {
   X, ChevronDown, Search, ChevronRight, SlidersHorizontal, ChevronLeft,
@@ -290,7 +289,7 @@ const buildCardsFromApi = (
       trend: "vs last Month",
     },
     {
-      title: "Total Views",
+      title: "Total Request",
       value: "-",
       percentage: undefined,
       direction: undefined,

@@ -33,6 +33,8 @@ type AdminHeaderProps = {
   showBackButton?: boolean;
   showBackPath?: string;
   employeeActiveTab?: "teachers" | "otheremployees" | "recruitment" | "leave";
+  actionButtonLabel?: string;
+  onActionButtonClick?: () => void;
 };
 
 export default function AdminHeader({
@@ -40,6 +42,8 @@ export default function AdminHeader({
   showBackButton = false,
   showBackPath = "",
   employeeActiveTab,
+  actionButtonLabel,
+  onActionButtonClick,
 }: Readonly<AdminHeaderProps>) {
   const theme: any = useTheme();
   const darkMode = theme?.darkMode ?? false;
@@ -210,6 +214,18 @@ useEffect(() => {
 };
 
   const getActionButton = () => {
+    if (actionButtonLabel && onActionButtonClick) {
+      return (
+        <button
+          type="button"
+          onClick={onActionButtonClick}
+          className="bg-[#576CBC] hover:bg-[#3a4f8a] text-white text-sm px-4 py-2 rounded-lg"
+        >
+          {actionButtonLabel}
+        </button>
+      );
+    }
+
     const path = pathname.toLowerCase();
     if (
       path.includes("employees") &&
@@ -520,4 +536,3 @@ useEffect(() => {
     </div>
   );
 }
-
