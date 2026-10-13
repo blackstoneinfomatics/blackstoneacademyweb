@@ -1,10 +1,33 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FiChevronDown, FiInfo } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
+/* ──────────────────────────────────────────────────────────────
+   Constants
+   ────────────────────────────────────────────────────────────── */
+export const CATEGORY_OPTIONS = [
+  { label: "Feature Release", value: "Feature" },
+  { label: "Bug Fix", value: "Bug Fix" },
+  { label: "Maintenance", value: "Maintenance" },
+  { label: "Announcement", value: "Announcement" },
+] as const;
+
+export const PRIORITY_OPTIONS = ["Low", "Medium", "High"] as const;
+
+const UNASSIGNED_PLAN = "Unassigned";
+const TENANTS_PAGE_LIMIT = 1000;
+
+const SUPER_ADMIN_TENANT_NAME = "SuperAdmin";
+const SUPER_ADMIN_TENANT_CODE = "TEN00000";
+const SUPER_ADMIN_PLAN = "Super";
+const EXCLUDED_STATUSES = ["completed", "inactive", "deleted"];
+
+/* ──────────────────────────────────────────────────────────────
+   Types
+   ────────────────────────────────────────────────────────────── */
 export interface UpdateFormData {
   updateTitle: string;
   category: string;
@@ -23,6 +46,7 @@ interface TenantOption {
   id: string;
   name: string;
   plan: string;
+  planId: string | undefined;
 }
 
 interface PlanOption {
@@ -33,7 +57,6 @@ interface PlanOption {
 interface CreateUpdateFormProps {
   formData: UpdateFormData;
   isLoading: boolean;
-  totalTenants?: number;
   onClose: () => void;
   onReset: () => void;
   onSubmit: (
@@ -46,7 +69,9 @@ interface CreateUpdateFormProps {
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => void;
-  onAudienceChange: (audience: "allTenants" | "selectTenants" | "byPlan") => void;
+  onAudienceChange: (
+    audience: "allTenants" | "selectTenants" | "byPlan",
+  ) => void;
   onTenantToggle: (tenantName: string) => void;
   onPlanChange: (planName: string) => void;
   onSendEmailChange: (checked: boolean) => void;
@@ -54,9 +79,15 @@ interface CreateUpdateFormProps {
   onFileChange: (file: File | null) => void;
 }
 
+/* ──────────────────────────────────────────────────────────────
+   API endpoints
+   ────────────────────────────────────────────────────────────── */
 const API_URL = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.CREATE}`;
 const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
 
+/* ──────────────────────────────────────────────────────────────
+   Styles
+   ────────────────────────────────────────────────────────────── */
 const inputClassName =
   "w-full px-3 py-2 border border-[#D5D9E2] rounded-md text-[12px] text-[#101B41] placeholder:text-gray-400 focus:outline-none focus:border-[#5872C5] dark:bg-[#3A3A3A] dark:border-[#555] dark:text-white dark:placeholder:text-gray-500";
 const selectClassName =
@@ -64,12 +95,63 @@ const selectClassName =
 const labelClassName =
   "block text-[12px] font-medium text-[#101B41] mb-1.5 dark:text-gray-200";
 
+/* ──────────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────────── */
+const deriveStatus = (publishDate: string): "Scheduled" | "Published" => {
+  if (!publishDate) return "Scheduled";
+  return new Date(publishDate) > new Date() ? "Scheduled" : "Published";
+};
+
+const resolveAudience = (formData: UpdateFormData): string[] => {
+  switch (formData.audience) {
+    case "allTenants":
+      return ["All Tenants"];
+    case "selectTenants":
+      return ["Select Tenants"];
+    case "byPlan":
+      return formData.selectedPlan ? [formData.selectedPlan] : [];
+    default:
+      return [];
+  }
+};
+
+const resolvePlanName = (t: any): string =>
+  t.plan ?? t.planName ?? t.subscriptionPlan ?? UNASSIGNED_PLAN;
+
+const resolvePlanId = (t: any): string | undefined =>
+  t.planId ?? t.plan_id ?? undefined;
+
+const resolveTenantId = (t: any): string =>
+  t.tenantCode ?? t._id ?? t.id ?? "";
+
+const resolveTenantName = (t: any): string => t.tenantName ?? t.name ?? "";
+
+const isActiveTenant = (t: any): boolean => {
+  const status = (t.status ?? "").toString().trim().toLowerCase();
+  if (!status) return false;
+  return !EXCLUDED_STATUSES.includes(status);
+};
+
+const isNotSuperAdmin = (t: any): boolean => {
+  const name = (t.tenantName ?? t.name ?? "").toString().trim().toLowerCase();
+  const plan = (t.plan ?? "").toString().trim().toLowerCase();
+  const code = (t.tenantCode ?? "").toString().trim().toLowerCase();
+
+  if (name === SUPER_ADMIN_TENANT_NAME.toLowerCase()) return false;
+  if (plan === SUPER_ADMIN_PLAN.toLowerCase()) return false;
+  if (code === SUPER_ADMIN_TENANT_CODE.toLowerCase()) return false;
+  return true;
+};
+
+/* ──────────────────────────────────────────────────────────────
+   Component
+   ────────────────────────────────────────────────────────────── */
 const CreateUpdateForm = ({
   formData,
   isLoading,
-  totalTenants = 288,
   onClose,
-  onReset,
+  onReset: _onReset,
   onSubmit,
   onInputChange,
   onAudienceChange,
@@ -82,54 +164,67 @@ const CreateUpdateForm = ({
   const isSelectTenants = formData.audience === "selectTenants";
 
   const [submitting, setSubmitting] = useState(false);
-
   const [allTenants, setAllTenants] = useState<TenantOption[]>([]);
   const [planOptions, setPlanOptions] = useState<PlanOption[]>([]);
   const [tenantsLoading, setTenantsLoading] = useState(true);
   const [tenantsError, setTenantsError] = useState<string | null>(null);
   const [searchTenant, setSearchTenant] = useState("");
 
-  // ── Fetch tenants ──
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       setTenantsLoading(true);
       setTenantsError(null);
+
       try {
-        const res = await fetch(`${TENANTS_API}?limit=1000`);
+        // ✅ No query params — backend rejects them
+        const res = await fetch(TENANTS_API, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const json = await res.json();
 
-        const items = Array.isArray(json)
+        // Response shape: { total, tenants: [...] }
+        const items: any[] = Array.isArray(json)
           ? json
-          : json?.data?.items ??
-            json?.data?.tenants ??
-            json?.tenants ??
-            json?.data ??
-            json?.items ??
-            [];
+          : json?.tenants ?? json?.data?.tenants ?? json?.data?.items ?? [];
 
         const list: TenantOption[] = items
-          .filter((t: any) => (t.status ?? "").toLowerCase() === "active")
-          .map((t: any) => ({
-            id: t.tenantCode ?? t._id ?? t.id ?? "",
-            name: t.tenantName ?? t.name ?? "",
-            plan: t.plan ?? "Basic",
-          }))
-          .filter((t: TenantOption) => t.id && t.name);
+          .filter(isActiveTenant)
+          .filter(isNotSuperAdmin)
+          .reduce<TenantOption[]>((acc, t) => {
+            const id = resolveTenantId(t);
+            const name = resolveTenantName(t);
+            if (!id || !name) return acc;
+            acc.push({
+              id,
+              name,
+              plan: resolvePlanName(t),
+              planId: resolvePlanId(t),
+            });
+            return acc;
+          }, []);
 
         if (cancelled) return;
         setAllTenants(list);
 
-        const uniquePlans = Array.from(new Set(list.map((t) => t.plan)))
-          .filter(Boolean)
-          .sort();
+        const planMap = new Map<string, PlanOption>();
+        list.forEach((t) => {
+          if (t.plan.toLowerCase() === SUPER_ADMIN_PLAN.toLowerCase()) return;
+          if (!planMap.has(t.plan)) {
+            planMap.set(t.plan, { id: t.planId ?? t.plan, name: t.plan });
+          }
+        });
 
         setPlanOptions(
-          uniquePlans.map((name, i) => ({
-            id: `PLAN-${i + 1}`,
-            name,
-          })),
+          Array.from(planMap.values()).sort((a, b) =>
+            a.name.localeCompare(b.name),
+          ),
         );
       } catch (e: any) {
         if (!cancelled) setTenantsError(e?.message ?? "Failed to load tenants");
@@ -137,48 +232,47 @@ const CreateUpdateForm = ({
         if (!cancelled) setTenantsLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
+  /* ── Derived ── */
+  const totalTenantsCount = allTenants.length;
+
+  const filteredTenants = useMemo(
+    () =>
+      allTenants.filter((t) =>
+        t.name.toLowerCase().includes(searchTenant.toLowerCase()),
+      ),
+    [allTenants, searchTenant],
+  );
+
+  /* ── Handlers ── */
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     onFileChange(e.target.files?.[0] ?? null);
   };
 
-  const filteredTenants = allTenants.filter((t) =>
-    t.name.toLowerCase().includes(searchTenant.toLowerCase()),
-  );
-
+  /* ⭐ Build payload reads `formData.selectedTenants` — the parent keeps it fresh ── */
   const buildPayload = () => {
-    const categoryMap: Record<string, string> = {
-      "Feature Release": "Feature",
-      "Bug Fix": "Bug Fix",
-      Maintenance: "Maintenance",
-      Announcement: "Announcement",
-    };
+    const categoryValue =
+      CATEGORY_OPTIONS.find((o) => o.label === formData.category)?.value ??
+      formData.category;
 
-    let audienceArr: string[] = [];
-    let selectedTenantsArr: string[] = [];
+    const audienceArr = resolveAudience(formData);
 
-    if (formData.audience === "allTenants") {
-      audienceArr = ["All Tenants"];
-      selectedTenantsArr = [];
-    } else if (formData.audience === "selectTenants") {
-      audienceArr = ["Select Tenants"];
-      selectedTenantsArr = formData.selectedTenants;
-    } else if (formData.audience === "byPlan") {
-      audienceArr = [formData.selectedPlan];
-      selectedTenantsArr = [];
-    }
+    // Backend wants string[] — send plain names
+    const selectedTenantsArr =
+      formData.audience === "selectTenants" ? formData.selectedTenants : [];
 
     return {
       title: formData.updateTitle.trim(),
-      category: categoryMap[formData.category] ?? formData.category,
+      category: categoryValue,
       description: formData.description.trim(),
       publishDate: formData.publishDate,
-      priority: formData.priority as "Low" | "Medium" | "High",
-      status: "Scheduled",
+      priority: formData.priority as (typeof PRIORITY_OPTIONS)[number],
+      status: deriveStatus(formData.publishDate),
       audience: audienceArr,
       planName:
         formData.audience === "byPlan" ? formData.selectedPlan : undefined,
@@ -216,7 +310,16 @@ const CreateUpdateForm = ({
 
     try {
       const payload = buildPayload();
-      console.log("📤 POST /api/updates →", JSON.stringify(payload, null, 2));
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(
+          "🧪 At submit — selectedTenants:",
+          formData.selectedTenants,
+          "length:",
+          formData.selectedTenants.length,
+        );
+        console.log("📤 POST /api/updates →", JSON.stringify(payload, null, 2));
+      }
 
       const res = await fetch(API_URL, {
         method: "POST",
@@ -225,7 +328,10 @@ const CreateUpdateForm = ({
       });
 
       const json = await res.json();
-      console.log("📥 Response:", res.status, json);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("📥 Response:", res.status, json);
+      }
 
       if (!res.ok || !json.success) {
         throw new Error(
@@ -237,7 +343,9 @@ const CreateUpdateForm = ({
       toast.success(json.message || "Update published successfully!");
       setTimeout(() => onClose(), 900);
     } catch (err: unknown) {
-      console.error("❌ Submit failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("❌ Submit failed:", err);
+      }
       const message =
         err instanceof Error ? err.message : "Failed to publish update";
       toast.error(message);
@@ -248,6 +356,33 @@ const CreateUpdateForm = ({
 
   const isWorking = submitting || isLoading;
 
+  const infoMessage = useMemo(() => {
+    switch (formData.audience) {
+      case "allTenants":
+        return `This update will be sent to all tenants (${totalTenantsCount} tenants)`;
+      case "selectTenants":
+        if (formData.selectedTenants.length === 0) {
+          return "Select one or more tenants to send this update";
+        }
+        return `This update will be sent to ${formData.selectedTenants.length} tenant${formData.selectedTenants.length > 1 ? "s" : ""
+          }: ${formData.selectedTenants.join(", ")}`;
+      case "byPlan":
+        return formData.selectedPlan
+          ? `This update will be sent to all tenants on the "${formData.selectedPlan}" plan`
+          : "Select a plan";
+      default:
+        return "Select an audience";
+    }
+  }, [
+    formData.audience,
+    formData.selectedPlan,
+    formData.selectedTenants,
+    totalTenantsCount,
+  ]);
+
+  /* ──────────────────────────────────────────────────────────
+     Render
+     ────────────────────────────────────────────────────────── */
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4 py-4">
       <div className="relative max-h-[95vh] w-full max-w-[560px] overflow-y-auto scrollbar-none rounded-[14px] bg-white shadow-2xl dark:bg-[#343434] dark:border dark:border-[#454545]">
@@ -301,10 +436,11 @@ const CreateUpdateForm = ({
                     onChange={onInputChange}
                     className={selectClassName}
                   >
-                    <option value="Feature Release">Feature Release</option>
-                    <option value="Bug Fix">Bug Fix</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Announcement">Announcement</option>
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.label}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                   <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                 </div>
@@ -462,19 +598,7 @@ const CreateUpdateForm = ({
               <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#5872C5] text-[10px] font-bold text-white">
                 <FiInfo className="h-2.5 w-2.5" />
               </span>
-              <span>
-                {formData.audience === "allTenants"
-                  ? `This update will be sent to all tenants (${totalTenants} tenants)`
-                  : formData.audience === "selectTenants"
-                    ? formData.selectedTenants.length > 0
-                      ? `This update will be sent to ${formData.selectedTenants.length} tenant${formData.selectedTenants.length > 1 ? "s" : ""}: ${formData.selectedTenants.join(", ")}`
-                      : "Select one or more tenants to send this update"
-                    : formData.audience === "byPlan"
-                      ? formData.selectedPlan
-                        ? `This update will be sent to all tenants on the "${formData.selectedPlan}" plan`
-                        : "Select a plan"
-                      : "Select an audience"}
-              </span>
+              <span>{infoMessage}</span>
             </div>
 
             {/* Description */}
@@ -485,7 +609,7 @@ const CreateUpdateForm = ({
                 value={formData.description}
                 onChange={onInputChange}
                 rows={6}
-                placeholder="Today Update day"
+                placeholder="Enter update description"
                 className={`${inputClassName} resize-none`}
               />
             </div>
@@ -512,9 +636,11 @@ const CreateUpdateForm = ({
                     onChange={onInputChange}
                     className={selectClassName}
                   >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
+                    {PRIORITY_OPTIONS.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
                   </select>
                   <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                 </div>
@@ -527,7 +653,9 @@ const CreateUpdateForm = ({
                 <label className={labelClassName}>Attachments</label>
                 <div className="flex items-center justify-between rounded-md border border-[#D5D9E2] bg-white px-3 py-2 dark:bg-[#3A3A3A] dark:border-[#555]">
                   <span className="truncate text-[12px] text-gray-400 dark:text-gray-500">
-                    {formData.attachments ? formData.attachments.name : "File"}
+                    {formData.attachments
+                      ? formData.attachments.name
+                      : "No file"}
                   </span>
                   <label className="cursor-pointer text-[12px] font-medium text-[#5872C5] hover:underline dark:text-[#A8B7E8]">
                     Upload

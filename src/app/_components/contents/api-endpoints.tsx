@@ -348,6 +348,7 @@ export const AppApiEndpoints = {
 
   PLAN: {
     CREATE_PLAN: "/plans",
+    GET_ACTIVE_PLANS: "/api/plans/active",
     PLAN_CARD_COUNT: "/plans/dashboard",
     PLAN_ACTIVITY: "/plans/dashboard",
     GET_TOP_PERFORMING_PLAN: "/plans/dashboard",
