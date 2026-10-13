@@ -1141,8 +1141,8 @@ const PlansTable = () => {
       studentLimit: Number(formData.studentLimit),
       billingCycle: formData.billingCycle,
       planDescription: formData.planDescription,
-      // The "Plan Tag" field (Most Popular / Recommended / Best Value) is the
-      // backend's `planStatus`; the "Status" field (Active/Inactive) is `status`.
+      userLimit:formData.userLimit,
+
       planStatus: formData.planTag,
       status: formData.planStatus,
 
