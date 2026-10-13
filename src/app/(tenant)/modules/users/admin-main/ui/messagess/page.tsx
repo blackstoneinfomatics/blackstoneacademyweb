@@ -2,17 +2,19 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
-  FiCheck, FiClock, FiMoreVertical, FiSearch, FiX, FiPlus,
-  FiArrowLeft, FiSend,
+  FiCheck, FiClock, FiX,
 } from "react-icons/fi";
-import { FaTelegramPlane } from "react-icons/fa";
-import { GrAttachment } from "react-icons/gr";
 import { motion, AnimatePresence } from "framer-motion";
 
 import BaseLayout4 from "../../components/BaseLayout4";
 import AdminHeader from "../../components/AdminHeader";
 import { GroupDetailsModal } from "./GroupDetailsModal";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import ConversationList from "./ConversationList";
+import ChatPanel from "./ChatPanel";
+import NewChatModal from "./forms/NewChatModal";
+import NewGroupModal from "./forms/NewGroupModal";
+import type { CategoryDef, CategoryKey, DirectoryMember, IMessage, IUser, RoomType } from "./chat-types";
 
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
@@ -73,15 +75,6 @@ const resolveAuthToken = (): string => {
   return "";
 };
 
-type CategoryKey = string;
-
-interface CategoryDef {
-  key: CategoryKey;
-  label: string;
-  short: string;
-  rawRole: string;
-}
-
 const MANDATORY_CATEGORIES: CategoryDef[] = [
   { key: "ALL", label: "All", short: "AL", rawRole: "" },
   { key: "GROUP", label: "Group", short: "GR", rawRole: "GROUP" },
@@ -93,15 +86,6 @@ const FALLBACK_ROLE_CATEGORIES: CategoryDef[] = [
   { key: "SUPERVISOR", label: "Supervisor", short: "SV", rawRole: "SUPERVISOR" },
   { key: "STUDENT", label: "Student", short: "ST", rawRole: "STUDENT" },
 ];
-
-interface DirectoryMember {
-  _id: string;
-  name: string;
-  role: string;
-  planName: string;
-  planId: string;
-  avatarLetter: string;
-}
 
 const ROLE_LABEL_OVERRIDES: Record<string, { label: string; short: string }> = {
   SUPERADMIN: { label: "Super Admin", short: "SA" },
@@ -205,30 +189,6 @@ const markRoomAsRead = (roomId: string) => {
   if (!current.includes(roomId)) setReadRooms([...current, roomId]);
 };
 
-type RoomType = "TENANT" | "SEGMENT" | "GLOBAL";
-
-interface IMessage {
-  _id: string;
-  messages: string;
-  senderId: string;
-  senderName: string;
-  receiverId: string;
-  receiverName: string;
-  createdDate: string;
-  dateLabel?: string;
-  time: string;
-  notificationStatus: "Unseen" | "Seen";
-  isRead: boolean;
-  status: "Active" | "Inactive";
-  deliveredAt?: string;
-  isDeleted: boolean;
-  seenAt?: string;
-  replyTo?: { messageId: string; messages: string; senderName: string; senderId: string; };
-  attachment?: { name: string; size: number; type: string; url?: string };
-  side?: "left" | "right";
-  canReply?: boolean;
-}
-
 interface IRoomMessageResponse {
   _id?: string; senderId?: string; senderName?: string; message?: string;
   createdAt?: string; timestamp?: string; isDeleted?: boolean; dateLabel?: string;
@@ -242,31 +202,6 @@ interface IRoomMessagesResponse {
 }
 interface IMessageSeenUser { userId: string; name: string; seenAt: string; }
 interface IMessageSeenResponse { success?: boolean; message?: string; data?: { totalSeen?: number; seenUsers?: IMessageSeenUser[] }; }
-
-interface IUser {
-  profileImage: string | null;
-  _id: string;
-  userName: any;
-  email: string;
-  role: string[];
-  roleKey: string;
-  status: string;
-  lastSeen: string;
-  isGroup: boolean;
-  roomType: RoomType;
-  plan: any;
-  members: { name: string; plan: any; tenantId?: string; isSelected?: boolean }[];
-  groupSettings: "everyone" | "admins";
-  lastMessage?: { text: string; time: string; senderName?: string };
-  unreadCount: number;
-  isUnread: boolean;
-  roomId?: string;
-  roomCode?: string;
-  description?: string;
-  planName?: string;
-  planId?: string;
-  sendAccess?: "EVERYONE" | "ADMIN_ONLY";
-}
 
 interface IMessageData { _id: string; messages: IMessage[]; }
 
@@ -349,42 +284,23 @@ const normalizeUsersResponse = (json: any, fallbackRole: string): DirectoryMembe
     .filter((u) => Boolean(u._id));
 };
 
-const ReceiptDots = ({ delivered, seen }: { delivered: boolean; seen: boolean }) => (
-  <span className="ml-1 inline-flex items-center gap-[3px]">
-    <span className={`inline-block h-[6px] w-[6px] rounded-full ${delivered ? "bg-white/90" : "bg-white/40"}`} />
-    <span className={`inline-block h-[6px] w-[6px] rounded-full ${seen ? "bg-[#22C55E]" : "bg-white/40"}`} />
-  </span>
-);
+const fetchMembersForCategory = async (category: CategoryDef): Promise<DirectoryMember[]> => {
+  const tenantId = resolveTenantCode();
+  if (!tenantId) throw new Error("Tenant ID not found in session.");
 
-const MessageMenu = ({
-  showInfo, showReply, showDelete, onInfo, onReply, onDelete,
-}: {
-  showInfo: boolean; showReply: boolean; showDelete: boolean;
-  onInfo: () => void; onReply: () => void; onDelete: () => void;
-}) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-  return (
-    <div ref={ref} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      <button type="button" onClick={() => setOpen((o) => !o)}
-        className="flex h-5 w-5 items-center justify-center rounded-full bg-white/80 text-gray-600 shadow-sm hover:bg-white dark:bg-[#2C2C2C]/80 dark:text-gray-300"
-        aria-label="Message options">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-      </button>
-      {open && (
-        <div className="absolute right-0 top-6 z-30 w-24 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-[#454545] dark:bg-[#2C2C2C]">
-          {showInfo && <button type="button" onClick={() => { onInfo(); setOpen(false); }} className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]">Info</button>}
-          {showReply && <button type="button" onClick={() => { onReply(); setOpen(false); }} className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]">Reply</button>}
-          {showDelete && <button type="button" onClick={() => { onDelete(); setOpen(false); }} className="block w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3A3A3A]">Delete</button>}
-        </div>
-      )}
-    </div>
-  );
+  const token = resolveAuthToken();
+  const rawRole = category.rawRole || category.key;
+  const response = await fetch(API_GET_TENANT_USERS_BY_ROLE(tenantId, rawRole), {
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) throw new Error(`Failed to load members (HTTP ${response.status})`);
+
+  return normalizeUsersResponse(await response.json(), rawRole);
 };
 
 const MessageInfoModal = ({ message, onClose }: { message: IMessage; onClose: () => void }) => {
@@ -468,586 +384,6 @@ const MessageInfoModal = ({ message, onClose }: { message: IMessage; onClose: ()
         </div>
       </div>
     </div>
-  );
-};
-
-interface NewChatModalProps {
-  category: string;
-  categories: CategoryDef[];
-  onClose: () => void;
-  onSendToMember: (member: DirectoryMember, text: string) => void;
-  getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
-}
-
-const NewChatModal = ({
-  category: initialCategory,
-  categories,
-  onClose,
-  onSendToMember,
-  getPlanColor,
-}: NewChatModalProps) => {
-  const startOnCategoryPicker = !initialCategory || initialCategory === "ALL";
-  const pickableCategories = useMemo(
-    () => categories.filter((c) => c.key !== "ALL" && c.key !== "SUPERADMIN" && c.key !== "GROUP"),
-    [categories]
-  );
-
-  const [step, setStep] = useState<"CATEGORY" | "MEMBERS">(
-    startOnCategoryPicker ? "CATEGORY" : "MEMBERS"
-  );
-  const [selectedCategory, setSelectedCategory] = useState<CategoryDef | null>(() => {
-    if (startOnCategoryPicker) return null;
-    return categories.find((c) => c.key === initialCategory) ?? null;
-  });
-  const [memberSearch, setMemberSearch] = useState("");
-  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-
-  const [members, setMembers] = useState<DirectoryMember[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [membersError, setMembersError] = useState<string | null>(null);
-
-  const loadMembersForCategory = useCallback(async (cat: CategoryDef) => {
-    const tenantId = resolveTenantCode();
-    const token = resolveAuthToken();
-
-    if (!tenantId) {
-      setMembersError("Tenant ID not found in session.");
-      setMembers([]);
-      setMembersLoading(false);
-      return;
-    }
-
-    setMembersLoading(true);
-    setMembersError(null);
-    setMembers([]);
-
-    try {
-      const rawRole = cat.rawRole || cat.key;
-      const url = API_GET_TENANT_USERS_BY_ROLE(tenantId, rawRole);
-
-      const res = await fetch(url, {
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to load members (HTTP ${res.status})`);
-      }
-
-      const json = await res.json();
-      const normalized = normalizeUsersResponse(json, rawRole);
-      setMembers(normalized);
-    } catch (err: any) {
-      setMembersError(err?.message ?? "Failed to load members");
-      setMembers([]);
-    } finally {
-      setMembersLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (step !== "MEMBERS") return;
-    if (!selectedCategory) return;
-    if (members.length > 0) return;
-    void loadMembersForCategory(selectedCategory);
-  }, [step, selectedCategory]);
-
-  const filteredMembers = useMemo(() => {
-    if (!memberSearch.trim()) return members;
-    const q = memberSearch.toLowerCase();
-    return members.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.planName.toLowerCase().includes(q) ||
-        m._id.toLowerCase().includes(q)
-    );
-  }, [members, memberSearch]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-[460px] max-h-[92vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-      >
-        <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F] flex items-center gap-3">
-          {step === "MEMBERS" && startOnCategoryPicker && (
-            <button
-              onClick={() => { setStep("CATEGORY"); setMemberSearch(""); setExpandedMemberId(null); setDraft(""); }}
-              aria-label="Back"
-              className="h-8 w-8 flex items-center justify-center rounded-md text-[#576CBC] hover:bg-[#EEF2FB] dark:hover:bg-[#2F2F2F] transition-colors"
-            >
-              <FiArrowLeft size={16} />
-            </button>
-          )}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-[16px] font-semibold text-[#101B41] dark:text-white truncate">
-              {step === "CATEGORY" ? "New Chat" : `New Chat · ${selectedCategory?.label ?? ""}`}
-            </h2>
-            <p className="text-[11px] text-[#8C919C] dark:text-[#B5B5B5] truncate">
-              {step === "CATEGORY"
-                ? "Pick a category to see members"
-                : membersLoading
-                  ? "Loading members…"
-                  : `${filteredMembers.length} member${filteredMembers.length === 1 ? "" : "s"}`}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="h-8 w-8 flex items-center justify-center rounded-md text-[#7C8492] hover:bg-[#F1F3F6] hover:text-[#252B3A] dark:hover:bg-[#2F2F2F] dark:hover:text-white transition-colors"
-          >
-            <FiX size={16} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]">
-          {step === "CATEGORY" ? (
-            <div className="space-y-2">
-              {pickableCategories.map((cat) => (
-                <button
-                  key={cat.key}
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setStep("MEMBERS");
-                    void loadMembersForCategory(cat);
-                  }}
-                  className="w-full flex items-center gap-3 rounded-xl border border-[#EEEEEE] dark:border-[#3F3F3F] bg-white dark:bg-[#242424] px-4 py-3 text-left hover:border-[#576CBC] hover:shadow-sm transition-all"
-                >
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#EEF2FB] text-[#576CBC]">
-                    <span className="text-[14px] font-bold">{cat.short}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-[#101B41] dark:text-white truncate">{cat.label}</p>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-[#9EA3AE] flex-shrink-0">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div>
-              <div className="relative mb-3">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE]" size={14} />
-                <input
-                  type="text"
-                  placeholder="Search members..."
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 rounded-md border border-[#E6EAF2] text-[12px] bg-white dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A] outline-none focus:border-[#576CBC]"
-                />
-              </div>
-
-              {membersLoading ? (
-                <p className="py-8 text-center text-[11px] text-[#9A9EA8] dark:text-[#8a8a8a]">Loading members…</p>
-              ) : membersError ? (
-                <p role="alert" className="py-8 text-center text-[11px] text-red-500">{membersError}</p>
-              ) : filteredMembers.length === 0 ? (
-                <p className="py-8 text-center text-[11px] text-[#9A9EA8] dark:text-[#8a8a8a]">No members found</p>
-              ) : (
-                <div className="space-y-2">
-                  {filteredMembers.map((member) => {
-                    const isExpanded = expandedMemberId === member._id;
-                    const planColor = getPlanColor(member.planName);
-                    return (
-                      <div
-                        key={member._id}
-                        className={`rounded-xl border bg-white dark:bg-[#242424] overflow-hidden transition-all ${isExpanded ? "border-[#576CBC] shadow-sm" : "border-[#EEEEEE] dark:border-[#3F3F3F]"}`}
-                      >
-                        <button
-                          onClick={() => { setExpandedMemberId(isExpanded ? null : member._id); setDraft(""); }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A] transition-colors"
-                        >
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[#F3E8FF] text-[#8B5CF6]">
-                            <span className="text-[13px] font-semibold">{member.avatarLetter}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[12.5px] font-semibold text-[#252B3A] dark:text-white truncate">{member.name}</span>
-                              {member.planName && (
-                                <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>{member.planName}</span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-[#98A2B3] dark:text-[#8a8a8a] truncate mt-[2px]">Tap to send a message</p>
-                          </div>
-                          <span className="flex-shrink-0 text-[10px] font-semibold text-[#576CBC]">{isExpanded ? "Close" : "Message"}</span>
-                        </button>
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.18 }}
-                              className="border-t border-[#EEEEEE] dark:border-[#3F3F3F] bg-[#F8F9FC] dark:bg-[#2c2c2c] overflow-hidden"
-                            >
-                              <div className="p-2 flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  placeholder={`Message ${member.name}...`}
-                                  value={draft}
-                                  onChange={(e) => setDraft(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter" && draft.trim()) onSendToMember(member, draft); }}
-                                  autoFocus
-                                  className="flex-1 h-9 px-3 rounded-md border border-[#E6EAF2] text-[12px] bg-white dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A] outline-none focus:border-[#576CBC]"
-                                />
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => draft.trim() && onSendToMember(member, draft)}
-                                  disabled={!draft.trim()}
-                                  className={`h-9 w-9 flex items-center justify-center rounded-md ${draft.trim() ? "bg-[#576CBC] text-white" : "bg-gray-200 dark:bg-[#505050] text-gray-400 cursor-not-allowed"}`}
-                                  aria-label="Send"
-                                >
-                                  <FiSend size={15} />
-                                </motion.button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex-shrink-0 flex justify-end gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
-          <button onClick={onClose} className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold hover:bg-[#EEF2FB] dark:hover:bg-[#2F2F2F] transition-colors">
-            Cancel
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-interface NewGroupModalProps {
-  categories: CategoryDef[];
-  onClose: () => void;
-  onCreate: (groupName: string, memberIds: string[]) => void;
-  getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
-}
-
-type GroupModalStep = "CATEGORY" | "MEMBERS";
-
-const NewGroupModal = ({
-  categories,
-  onClose,
-  onCreate,
-  getPlanColor,
-}: NewGroupModalProps) => {
-  const pickableCategories = useMemo(
-    () => categories.filter((c) => c.key !== "ALL" && c.key !== "GROUP"),
-    [categories]
-  );
-  const [step, setStep] = useState<GroupModalStep>("CATEGORY");
-  const [groupName, setGroupName] = useState("New Group");
-  const [activeCategory, setActiveCategory] = useState<CategoryDef | null>(null);
-  const [memberSearch, setMemberSearch] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-
-  const [membersByCategory, setMembersByCategory] = useState<Record<string, DirectoryMember[]>>({});
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [membersError, setMembersError] = useState<string | null>(null);
-
-  const loadMembersForCategory = useCallback(async (cat: CategoryDef) => {
-    if (membersByCategory[cat.key]) return;
-
-    const tenantId = resolveTenantCode();
-    const token = resolveAuthToken();
-
-    if (!tenantId) {
-      setMembersError("Tenant ID not found in session.");
-      return;
-    }
-
-    setMembersLoading(true);
-    setMembersError(null);
-
-    try {
-      const rawRole = cat.rawRole || cat.key;
-      const url = API_GET_TENANT_USERS_BY_ROLE(tenantId, rawRole);
-
-      const res = await fetch(url, {
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      if (!res.ok) throw new Error(`Failed to load members (HTTP ${res.status})`);
-
-      const json = await res.json();
-      const normalized = normalizeUsersResponse(json, rawRole);
-      setMembersByCategory((prev) => ({ ...prev, [cat.key]: normalized }));
-    } catch (err: any) {
-      setMembersError(err?.message ?? "Failed to load members");
-    } finally {
-      setMembersLoading(false);
-    }
-  }, [membersByCategory]);
-
-  const currentMembers = useMemo(
-    () => (activeCategory ? membersByCategory[activeCategory.key] ?? [] : []),
-    [membersByCategory, activeCategory]
-  );
-
-  const filteredMembers = useMemo(() => {
-    if (!memberSearch.trim()) return currentMembers;
-    const q = memberSearch.toLowerCase();
-    return currentMembers.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.planName.toLowerCase().includes(q) ||
-        m._id.toLowerCase().includes(q)
-    );
-  }, [currentMembers, memberSearch]);
-
-  const toggleMember = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAllInCategory = () => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      filteredMembers.forEach((m) => next.add(m._id));
-      return next;
-    });
-  };
-  const clearAllInCategory = () => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      filteredMembers.forEach((m) => next.delete(m._id));
-      return next;
-    });
-  };
-
-  const handleCreate = () => {
-    const name = groupName.trim();
-    if (!name) { setError("Group name is required"); return; }
-    if (selected.size === 0) { setError("Select at least one member"); return; }
-    setError(null);
-    onCreate(name, Array.from(selected));
-  };
-
-  const findMemberById = (id: string): DirectoryMember | undefined => {
-    for (const list of Object.values(membersByCategory)) {
-      const found = list.find((m) => m._id === id);
-      if (found) return found;
-    }
-    return undefined;
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-[480px] max-h-[92vh] bg-white dark:bg-[#2c2c2c] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-      >
-        <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F] flex items-center gap-3">
-          {step === "MEMBERS" && (
-            <button
-              onClick={() => { setStep("CATEGORY"); setMemberSearch(""); }}
-              aria-label="Back to categories"
-              className="h-8 w-8 flex items-center justify-center rounded-md text-[#576CBC] hover:bg-[#EEF2FB] dark:hover:bg-[#2F2F2F] transition-colors"
-            >
-              <FiArrowLeft size={16} />
-            </button>
-          )}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-[16px] font-semibold text-[#101B41] dark:text-white truncate">
-              {step === "CATEGORY" ? "New Group" : (activeCategory?.label ?? "")}
-            </h2>
-            <p className="text-[11px] text-[#8C919C] dark:text-[#B5B5B5] truncate">
-              {step === "CATEGORY"
-                ? `${selected.size} member${selected.size === 1 ? "" : "s"} selected across categories`
-                : membersLoading
-                  ? "Loading members…"
-                  : `${filteredMembers.length} member${filteredMembers.length === 1 ? "" : "s"} · ${filteredMembers.filter((m) => selected.has(m._id)).length} selected here`}
-            </p>
-          </div>
-          <button onClick={onClose} aria-label="Close" className="h-8 w-8 flex items-center justify-center rounded-md text-[#7C8492] hover:bg-[#F1F3F6] hover:text-[#252B3A] dark:hover:bg-[#2F2F2F] dark:hover:text-white transition-colors">
-            <FiX size={16} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]">
-          <div className="mb-4">
-            <label className="mb-1.5 block text-[12px] font-medium text-[#101B41] dark:text-white">Group Name</label>
-            <input
-              type="text"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              placeholder="Enter group name"
-              className="w-full h-10 rounded-md border border-[#E6EAF2] text-[12.5px] bg-white dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A] outline-none focus:border-[#576CBC] px-3"
-            />
-          </div>
-
-          {selected.size > 0 && (
-            <div className="mb-4 rounded-lg border border-[#E6EAF2] dark:border-[#3F3F3F] bg-white dark:bg-[#242424] p-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-semibold text-[#101B41] dark:text-white">Selected ({selected.size})</p>
-                <button type="button" onClick={() => setSelected(new Set())} className="text-[10.5px] font-semibold text-[#D14343] hover:underline">Clear all</button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {Array.from(selected).map((id) => {
-                  const m = findMemberById(id);
-                  return (
-                    <span key={id} className="inline-flex items-center gap-1 rounded-full bg-[#EEF2FB] dark:bg-[#2F3550] px-2 py-[3px] text-[10.5px] font-medium text-[#576CBC] dark:text-[#A8B7E8]">
-                      {m?.name ?? id}
-                      <button type="button" onClick={() => toggleMember(id)} aria-label={`Remove ${m?.name ?? id}`} className="text-[#576CBC] hover:text-[#D14343] dark:text-[#A8B7E8]">
-                        <FiX size={10} />
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {step === "CATEGORY" ? (
-            <div className="space-y-2">
-              <p className="text-[11px] font-medium text-[#6D7280] dark:text-[#B5B5B5] mb-1">Pick categories to add members</p>
-              {pickableCategories.map((cat) => {
-                const list = membersByCategory[cat.key] ?? [];
-                const selectedInCat = Array.from(selected).filter((id) =>
-                  list.some((m) => m._id === id)
-                ).length;
-                return (
-                  <button
-                    key={cat.key}
-                    type="button"
-                    onClick={() => {
-                      setActiveCategory(cat);
-                      setStep("MEMBERS");
-                      void loadMembersForCategory(cat);
-                    }}
-                    className="w-full flex items-center gap-3 rounded-xl border border-[#EEEEEE] dark:border-[#3F3F3F] bg-white dark:bg-[#242424] px-4 py-3 text-left hover:border-[#576CBC] hover:shadow-sm transition-all"
-                  >
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#EEF2FB] text-[#576CBC]">
-                      <span className="text-[14px] font-bold">{cat.short}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-[#101B41] dark:text-white truncate">{cat.label}</p>
-                    </div>
-                    {selectedInCat > 0 && (
-                      <span className="flex-shrink-0 rounded-full bg-[#E6F0EC] text-[#2F7A5C] px-2 py-[3px] text-[10.5px] font-bold">{selectedInCat} selected</span>
-                    )}
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-[#9EA3AE] flex-shrink-0">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div>
-              <div className="relative mb-2">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE]" size={14} />
-                <input
-                  type="text"
-                  placeholder="Search members..."
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 rounded-md border border-[#E6EAF2] text-[12px] bg-white dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A] outline-none focus:border-[#576CBC]"
-                />
-              </div>
-              <div className="flex items-center justify-between mb-3">
-                <button type="button" onClick={selectAllInCategory} className="text-[11px] font-semibold text-[#576CBC] hover:underline">Select all ({filteredMembers.length})</button>
-                <button type="button" onClick={clearAllInCategory} className="text-[11px] font-semibold text-[#8C919C] hover:text-[#D14343]">Clear</button>
-              </div>
-
-              {membersLoading ? (
-                <p className="py-8 text-center text-[11px] text-[#9A9EA8] dark:text-[#8a8a8a]">Loading members…</p>
-              ) : membersError ? (
-                <p role="alert" className="py-8 text-center text-[11px] text-red-500">{membersError}</p>
-              ) : filteredMembers.length === 0 ? (
-                <p className="py-8 text-center text-[11px] text-[#9A9EA8] dark:text-[#8a8a8a]">No members found</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {filteredMembers.map((member) => {
-                    const isChecked = selected.has(member._id);
-                    const planColor = getPlanColor(member.planName);
-                    return (
-                      <button
-                        key={member._id}
-                        type="button"
-                        onClick={() => toggleMember(member._id)}
-                        className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all
-                          ${isChecked ? "border-[#576CBC] bg-[#F4F6FB] dark:bg-[#2A3050]" : "border-[#EEEEEE] dark:border-[#3F3F3F] bg-white dark:bg-[#242424] hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A]"}`}
-                      >
-                        <div className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border
-                          ${isChecked ? "bg-[#576CBC] border-[#576CBC]" : "bg-white border-[#D0D5DD] dark:bg-[#343434] dark:border-[#4A4A4A]"}`}>
-                          {isChecked && (
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[#F3E8FF] text-[#8B5CF6]">
-                          <span className="text-[13px] font-semibold">{member.avatarLetter}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[12.5px] font-semibold text-[#252B3A] dark:text-white truncate">{member.name}</span>
-                            {member.planName && (
-                              <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>{member.planName}</span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-[#98A2B3] dark:text-[#8a8a8a] truncate mt-[2px]">
-                            {categories.find((c) => c.key === member.role)?.label ?? member.role}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
-          <div className="min-w-0 flex-1">
-            {error ? <span className="text-[11px] text-red-500">{error}</span> : (
-              <span className="text-[11px] text-[#8C919C] dark:text-[#B5B5B5]">{selected.size} member{selected.size === 1 ? "" : "s"} selected</span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold hover:bg-[#EEF2FB] dark:hover:bg-[#2F2F2F] transition-colors">Cancel</button>
-            <button onClick={handleCreate} className="h-10 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold hover:bg-[#4659a3] transition-colors">Create Group</button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
   );
 };
 
@@ -1801,388 +1137,53 @@ const Message = () => {
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 w-full overflow-hidden">
-          {/* LEFT PANEL */}
-          <div className="w-full md:w-[340px] md:flex-none h-full bg-white dark:bg-[#343434] rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col overflow-hidden">
-            <div className="p-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F] flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-[#E7EAF2] dark:bg-[#2c2c2c] flex items-center justify-center overflow-hidden flex-shrink-0">
-                  <img src="/assets/images/account.png" alt="Profile" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[14px] font-semibold text-[#010E30] dark:text-white truncate">
-                    {currentUser.userName}
-                  </h3>
-                  <p className="text-[11px] text-[#7B8190] dark:text-[#B5B5B5] truncate">
-                    {currentUser.role}
-                  </p>
-                </div>
-              </div>
-            </div>
+          <ConversationList
+            currentUser={currentUser}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            categoryDropdownRef={categoryDropdownRef}
+            categories={categories}
+            categoriesLoading={categoriesLoading}
+            categoryDropdownOpen={categoryDropdownOpen}
+            setCategoryDropdownOpen={setCategoryDropdownOpen}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            setSelectedUser={setSelectedUser}
+            categoryHeading={categoryHeading}
+            tabCounts={tabCounts}
+            setShowNewGroupModal={setShowNewGroupModal}
+            setShowNewChatModal={setShowNewChatModal}
+            roomsLoading={roomsLoading}
+            categoryRooms={categoryRooms}
+            selectedUser={selectedUser}
+            getPlanColor={getPlanColor}
+            getStatusColor={getStatusColor}
+            handleSelectRoom={handleSelectRoom}
+          />
 
-            <div className="px-3 py-2 flex-shrink-0">
-              <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EA3AE]" size={14} />
-                <input
-                  type="text"
-                  placeholder="Search by keyword"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 rounded-md border border-[#E6EAF2] text-[12px] bg-white dark:bg-[#2c2c2c] dark:text-white dark:border-[#4A4A4A] outline-none focus:border-[#576CBC]"
-                />
-              </div>
-            </div>
-
-            <div className="px-3 py-2 flex items-center justify-between border-b border-[#EEEEEE] dark:border-[#3F3F3F] flex-shrink-0">
-              <span className="text-[13px] font-medium text-[#101B41] dark:text-white">
-                Ongoing Conversation
-              </span>
-              <div className="relative" ref={categoryDropdownRef}>
-                <button
-                  onClick={() => setCategoryDropdownOpen((o) => !o)}
-                  disabled={categoriesLoading || categories.length === 0}
-                  className="min-w-[110px] flex items-center justify-between gap-2 text-[12px] font-medium text-[#101B41] dark:text-white px-3 py-[6px] rounded-md border border-[#E6EAF2] bg-white dark:bg-[#2c2c2c] dark:border-[#4A4A4A] disabled:opacity-60"
-                >
-                  <span className="truncate">
-                    {categories.find((c) => c.key === activeCategory)?.label ?? "All"}
-                  </span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                    className="text-[#101B41] dark:text-white flex-shrink-0">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-
-                {categoryDropdownOpen && categories.length > 0 && (
-                  <div className="absolute right-0 top-9 z-40 w-[210px] rounded-md border border-gray-200 bg-white shadow-lg dark:bg-[#2c2c2c] dark:border-[#4A4A4A] max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                    {categories.map((cat) => (
-                      <button
-                        key={cat.key}
-                        onClick={() => {
-                          setActiveCategory(cat.key);
-                          setCategoryDropdownOpen(false);
-                          setSelectedUser(null);
-                        }}
-                        className={`flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] hover:bg-gray-100 dark:hover:bg-[#3A3A3A] ${activeCategory === cat.key
-                          ? "text-[#576CBC] font-semibold"
-                          : "text-[#101B41] dark:text-white"}`}
-                      >
-                        <span className="truncate">{cat.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Dynamic heading tab */}
-            <div className="px-3 py-2 flex items-center justify-between border-b border-[#EEEEEE] dark:border-[#3F3F3F] flex-shrink-0">
-              <span className="text-[13px] font-medium text-[#101B41] dark:text-white">
-                {categoryHeading}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-[#8C919C] dark:text-[#B5B5B5]">
-                  {tabCounts.total} total
-                </span>
-                {tabCounts.unread > 0 && (
-                  <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-[#4F46E5] text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                    {tabCounts.unread > 99 ? "99+" : tabCounts.unread} unread
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Action button */}
-            <div className="px-3 py-2 flex-shrink-0 border-b border-[#EEEEEE] dark:border-[#3F3F3F]">
-              {activeCategory === "GROUP" ? (
-                <button
-                  onClick={() => setShowNewGroupModal(true)}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-md border border-[#576CBC] text-[#576CBC] bg-white dark:bg-transparent dark:text-[#A8B7E8] dark:border-[#3A4570] px-2.5 py-2 text-[12px] font-semibold hover:bg-[#EEF2FB] dark:hover:bg-[#2F3550] transition-colors"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                  New Group
-                </button>
-              ) : activeCategory === "SUPERADMIN" ? (
-                <div className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#E6EAF2] dark:border-[#3A4570] px-2.5 py-2 text-[11px] font-medium text-[#8C919C] dark:text-[#8a8a8a]">
-                  Only one Super Admin — no new chat needed
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowNewChatModal(true)}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-md bg-[#576CBC] text-white px-2.5 py-2 text-[12px] font-semibold hover:bg-[#4659a3] transition-colors"
-                >
-                  <FiPlus size={14} />
-                  {activeCategory === "ALL"
-                    ? "New Chat"
-                    : `New Chat · ${categories.find((c) => c.key === activeCategory)?.label ?? activeCategory}`}
-                </button>
-              )}
-            </div>
-
-            {/* Room list */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              {roomsLoading ? (
-                <p className="py-6 text-center text-[11px] text-gray-400">Loading chats…</p>
-              ) : categoryRooms.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center px-6 py-10 h-full">
-                  <div className="w-16 h-16 rounded-full bg-[#EEF2FB] dark:bg-[#2c2c2c] flex items-center justify-center mb-4">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#576CBC" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                  </div>
-                  <p className="text-[13px] font-semibold text-[#252B3A] dark:text-white mb-1">No chats yet</p>
-                  <p className="text-[11px] text-[#9A9EA8] dark:text-[#8a8a8a] mb-4 max-w-[200px]">
-                    {activeCategory === "GROUP"
-                      ? "Create a group to get going."
-                      : activeCategory === "ALL"
-                        ? "Start a new chat."
-                        : `Start a new chat with a ${(categories.find((c) => c.key === activeCategory)?.label ?? "member").toLowerCase()}.`}
-                  </p>
-                </div>
-              ) : (
-                <AnimatePresence>
-                  {categoryRooms.map((room) => {
-                    const planColor = getPlanColor(room.plan);
-                    const isActive = selectedUser?._id === room._id;
-                    return (
-                      <motion.button
-                        key={room._id}
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className={`w-full h-[64px] flex items-center gap-3 px-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F] text-left transition-colors
-                          ${isActive ? "bg-[#F4F6FB] dark:bg-[#2c2c2c]" : "hover:bg-[#F7F8FC] dark:hover:bg-[#2F2F2F]"}`}
-                        onClick={() => handleSelectRoom(room)}
-                      >
-                        <div className="relative flex-shrink-0">
-                          <div className="w-9 h-9 rounded-md flex items-center justify-center overflow-hidden bg-[#E7E8EC] dark:bg-[#242424]">
-                            {room.profileImage ? (
-                              <img src={room.profileImage} alt={room.userName} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-[13px] font-semibold text-[#9297A2] dark:text-[#B5B5B5]">
-                                {room.userName?.charAt(0)?.toUpperCase() ?? "B"}
-                              </span>
-                            )}
-                          </div>
-                          <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#343434] ${getStatusColor(room.status)}`} />
-                        </div>
-
-                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-[3px]">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-[12.5px] font-semibold text-[#252B3A] dark:text-white truncate">
-                              {room.userName}
-                            </span>
-                            {(room.roomType === "SEGMENT" || room.roomType === "GLOBAL" || room.isGroup) && (
-                              <span className="text-[10px] px-1.5 py-[1px] rounded bg-[#EEF2FB] text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8] flex-shrink-0">
-                                Group
-                              </span>
-                            )}
-                            {room.plan && (
-                              <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>
-                                {room.plan}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11.5px] truncate leading-tight text-[#989DA8] dark:text-[#8a8a8a]">
-                            {room.lastMessage?.text || "No messages yet"}
-                          </p>
-                        </div>
-
-                        <div className="flex-shrink-0 flex flex-col items-end justify-center gap-1 min-w-[52px]">
-                          <span className="text-[10.5px] leading-none text-[#A2A6AF] dark:text-[#8a8a8a]">
-                            {room.lastMessage?.time || room.lastSeen}
-                          </span>
-                          {room.isUnread && (room.unreadCount ?? 0) > 0 ? (
-                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#4F46E5] text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-sm">
-                              {room.unreadCount > 99 ? "99+" : room.unreadCount}
-                            </span>
-                          ) : (
-                            <span className="h-[18px]" aria-hidden="true" />
-                          )}
-                        </div>
-                      </motion.button>
-                    );
-                  })}
-                </AnimatePresence>
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT PANEL */}
-          <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#343434] rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col overflow-hidden">
-            {selectedUser ? (
-              <>
-                <div className="flex-shrink-0 h-[58px] px-4 border-b border-[#EEEEEE] dark:border-[#3F3F3F] flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-9 h-9 rounded-md bg-[#E7E8EC] dark:bg-[#242424] flex items-center justify-center overflow-hidden">
-                        {selectedUser.profileImage ? (
-                          <img src={selectedUser.profileImage} alt={selectedUser.userName} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-[13px] font-semibold text-[#9297A2] dark:text-[#B5B5B5]">
-                            {selectedUser.userName?.charAt(0)?.toUpperCase() ?? "B"}
-                          </span>
-                        )}
-                      </div>
-                      <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#343434] ${getStatusColor(selectedUser.status)}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-[13px] font-semibold text-[#252B3A] dark:text-white truncate">{selectedUser.userName}</h3>
-                      {selectedUser.role.includes("Group") ? (
-                        <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] flex items-center gap-1">
-                          Members
-                          <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
-                            {selectedUser.members?.filter((m: any) => m.isSelected !== false).length ?? 0}
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] truncate">{selectedUser.role[0]}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="relative flex-shrink-0">
-                    <button
-                      onClick={() => setShowGroupMenu((o) => !o)}
-                      className="text-[#777D89] dark:text-[#B5B5B5] p-2 hover:bg-gray-100 dark:hover:bg-[#2F2F2F] rounded-md"
-                    >
-                      <FiMoreVertical size={15} />
-                    </button>
-                    {showGroupMenu && (
-                      <div className="absolute right-0 top-10 z-40 w-[130px] bg-white dark:bg-[#2c2c2c] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
-                        {(selectedUser.isGroup || selectedUser.role.includes("Group")) && (
-                          <button className="block w-full text-left px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200" onClick={handleOpenGroupDetails}>
-                            Group Details
-                          </button>
-                        )}
-                        <button className="block w-full text-left px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200" onClick={handleClearChat}>
-                          Clear chat
-                        </button>
-                        <button className="block w-full text-left px-3 py-2 text-[11px] text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]" onClick={handleDeleteChat}>
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]">
-                  {messagesLoading ? (
-                    <p className="py-6 text-center text-[11px] text-gray-400">Loading messages…</p>
-                  ) : selectedMessages.length === 0 ? (
-                    <p className="py-6 text-center text-[11px] text-gray-400">No messages yet</p>
-                  ) : (
-                    Object.entries(groupedMessages).map(([date, msgs]) => (
-                      <div key={date} className="mb-2">
-                        <div className="flex items-center justify-center my-4">
-                          <span className="text-[10px] font-medium text-[#A3A7B0] dark:text-[#8a8a8a] bg-white dark:bg-[#2c2c2c] px-3 py-1 rounded-full border border-[#EEEEEE] dark:border-[#3F3F3F]">
-                            {date}
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {msgs.map((msg) => {
-                            const isMine = msg.side ? msg.side === "right" : msg.senderId === currentUser.userId;
-                            return (
-                              <div key={msg._id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                                <div className="group relative max-w-[65%]">
-                                  <div className={`px-3 py-2 rounded-2xl inline-block
-                                    ${isMine
-                                      ? msg.isDeleted
-                                        ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-br-md"
-                                        : "bg-[#576CBC] text-white rounded-br-md"
-                                      : msg.isDeleted
-                                        ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-bl-md"
-                                        : "bg-white dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] border border-[#EEEEEE] dark:border-[#333] rounded-bl-md"}`}>
-                                    {msg.messages && (
-                                      <p className="text-[12px] leading-[18px] break-words whitespace-pre-wrap">{msg.messages}</p>
-                                    )}
-                                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px]
-                                      ${isMine ? "text-white/70" : "text-[#9B9FA8] dark:text-[#8a8a8a]"}`}>
-                                      <span className="leading-none">{msg.time}</span>
-                                      {isMine && <ReceiptDots delivered={!!msg.deliveredAt} seen={!!msg.seenAt} />}
-                                    </div>
-                                  </div>
-                                  {!msg.isDeleted && (
-                                    <MessageMenu
-                                      showInfo={isMine}
-                                      showReply={msg.canReply !== false}
-                                      showDelete={isMine}
-                                      onInfo={() => setInfoMessage(msg)}
-                                      onReply={() => setReplyTo(msg)}
-                                      onDelete={() => handleDeleteMessage(msg._id)}
-                                    />
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                <div className="flex-shrink-0 border-t border-[#EEEEEE] dark:border-[#3F3F3F] p-3 bg-white dark:bg-[#343434]">
-                  {replyTo && (
-                    <div className="mb-2 flex items-start justify-between gap-2 rounded-md border-l-2 border-[#576CBC] bg-[#F4F6FB] dark:bg-[#2c2c2c] px-3 py-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-semibold text-[#576CBC]">{replyTo.senderName}</p>
-                        <p className="truncate text-[11px] text-[#555D70] dark:text-[#C5C7CE]">{replyTo.messages}</p>
-                      </div>
-                      <button onClick={() => setReplyTo(null)} className="text-[#7C8492] hover:text-[#252B3A] dark:hover:text-white">
-                        <FiX size={14} />
-                      </button>
-                    </div>
-                  )}
-                  {canSend ? (
-                    <div className="flex items-center rounded-lg bg-gray-50 dark:bg-[#2c2c2c] p-1">
-                      <button className="p-1.5 text-[#010E30] dark:text-[#FFFFFF] ml-1">
-                        <GrAttachment size={14} />
-                      </button>
-                      <input
-                        type="text"
-                        placeholder="Type a message"
-                        className="flex-1 px-2 py-1.5 text-xs bg-transparent outline-none text-[#010E30] dark:text-[#FFFFFF]"
-                        value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter" && messageText.trim()) handleSendMessage(); }}
-                      />
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleSendMessage()}
-                        disabled={!messageText.trim()}
-                        className={`p-1.5 rounded-lg flex items-center ${messageText.trim() ? "bg-[#576CBC] text-white" : "bg-gray-200 dark:bg-[#505050] text-gray-400 cursor-not-allowed"}`}
-                      >
-                        <FaTelegramPlane size={14} />
-                      </motion.button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2 rounded-lg bg-[#F5F6FA] dark:bg-[#2c2c2c] px-4 py-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-[#7C8492]">
-                        <rect x="3" y="11" width="18" height="11" rx="2" />
-                        <path d="M7 11V7a5 5 0 0110 0v4" />
-                      </svg>
-                      <span className="text-[11px] text-[#7C8492] dark:text-[#B5B5B5]">Only admins can send messages in this chat</span>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-[#EEF2FB] dark:bg-[#2c2c2c] flex items-center justify-center">
-                  <FiPlus size={22} className="text-[#576CBC]" />
-                </div>
-                <p className="text-[13px] font-medium text-[#252B3A] dark:text-white">No conversation selected</p>
-                <p className="text-[11px] text-[#9A9EA8] dark:text-[#8a8a8a] text-center max-w-[240px]">
-                  Pick a category, then start a new chat or create a group.
-                </p>
-              </div>
-            )}
-          </div>
+          <ChatPanel
+            selectedUser={selectedUser}
+            getStatusColor={getStatusColor}
+            currentUser={currentUser}
+            showGroupMenu={showGroupMenu}
+            setShowGroupMenu={setShowGroupMenu}
+            handleOpenGroupDetails={handleOpenGroupDetails}
+            handleClearChat={handleClearChat}
+            handleDeleteChat={handleDeleteChat}
+            messagesContainerRef={messagesContainerRef}
+            messagesLoading={messagesLoading}
+            selectedMessages={selectedMessages}
+            groupedMessages={groupedMessages}
+            messagesEndRef={messagesEndRef}
+            setInfoMessage={setInfoMessage}
+            setReplyTo={setReplyTo}
+            handleDeleteMessage={handleDeleteMessage}
+            replyTo={replyTo}
+            canSend={canSend}
+            messageText={messageText}
+            setMessageText={setMessageText}
+            handleSendMessage={handleSendMessage}
+          />
         </div>
 
         {/* MODALS */}
@@ -2195,6 +1196,7 @@ const Message = () => {
               onClose={() => setShowNewChatModal(false)}
               onSendToMember={(member, text) => startChatWithMemberAndSend(member, text)}
               getPlanColor={getPlanColor}
+              fetchMembersForCategory={fetchMembersForCategory}
             />
           )}
 
@@ -2205,6 +1207,7 @@ const Message = () => {
               onClose={() => setShowNewGroupModal(false)}
               onCreate={handleCreateGroupFromDirectory}
               getPlanColor={getPlanColor}
+              fetchMembersForCategory={fetchMembersForCategory}
             />
           )}
 
