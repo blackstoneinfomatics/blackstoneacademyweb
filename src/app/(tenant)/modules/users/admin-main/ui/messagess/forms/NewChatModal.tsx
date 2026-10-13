@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FiArrowLeft, FiPlus, FiSearch, FiSend, FiX } from "react-icons/fi";
-import { motion, AnimatePresence } from "framer-motion";
+import { FiArrowLeft, FiPlus, FiSearch, FiX } from "react-icons/fi";
+import { motion } from "framer-motion";
 import type { CategoryDef, DirectoryMember } from "../chat-types";
 
 interface NewChatModalProps {
   category: string;
   categories: CategoryDef[];
   onClose: () => void;
-  onSendToMember: (member: DirectoryMember, text: string) => void;
+  onCreateChat: (member: DirectoryMember) => Promise<void>;
   getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
   fetchMembersForCategory: (category: CategoryDef) => Promise<DirectoryMember[]>;
 }
@@ -18,7 +18,7 @@ const NewChatModal = ({
   category: initialCategory,
   categories,
   onClose,
-  onSendToMember,
+  onCreateChat,
   getPlanColor,
   fetchMembersForCategory,
 }: NewChatModalProps) => {
@@ -36,8 +36,9 @@ const NewChatModal = ({
     return categories.find((c) => c.key === initialCategory) ?? null;
   });
   const [memberSearch, setMemberSearch] = useState("");
-  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [selectedMember, setSelectedMember] = useState<DirectoryMember | null>(null);
+  const [creatingChat, setCreatingChat] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -72,7 +73,7 @@ const NewChatModal = ({
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.planName.toLowerCase().includes(q) ||
-        m._id.toLowerCase().includes(q)
+        m.userId.toLowerCase().includes(q)
     );
   }, [members, memberSearch]);
 
@@ -92,7 +93,7 @@ const NewChatModal = ({
         <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b border-[#F0F1F4] dark:border-[#3F3F3F] flex items-center gap-3">
           {step === "MEMBERS" && startOnCategoryPicker && (
             <button
-              onClick={() => { setStep("CATEGORY"); setMemberSearch(""); setExpandedMemberId(null); setDraft(""); }}
+              onClick={() => { setStep("CATEGORY"); setMemberSearch(""); setSelectedMember(null); }}
               aria-label="Back"
               className="h-8 w-8 flex items-center justify-center rounded-md text-[#576CBC] hover:bg-[#EEF2FB] dark:hover:bg-[#2F2F2F] transition-colors"
             >
@@ -167,15 +168,15 @@ const NewChatModal = ({
               ) : (
                 <div className="space-y-2">
                   {filteredMembers.map((member) => {
-                    const isExpanded = expandedMemberId === member._id;
+                    const isSelected = selectedMember?.userId === member.userId;
                     const planColor = getPlanColor(member.planName);
                     return (
                       <div
-                        key={member._id}
-                        className={`rounded-xl border bg-white dark:bg-[#242424] overflow-hidden transition-all ${isExpanded ? "border-[#576CBC] shadow-sm" : "border-[#EEEEEE] dark:border-[#3F3F3F]"}`}
+                        key={member.userId}
+                        className={`rounded-xl border bg-white dark:bg-[#242424] overflow-hidden transition-all ${isSelected ? "border-[#576CBC] shadow-sm" : "border-[#EEEEEE] dark:border-[#3F3F3F]"}`}
                       >
                         <button
-                          onClick={() => { setExpandedMemberId(isExpanded ? null : member._id); setDraft(""); }}
+                          onClick={() => { setSelectedMember(isSelected ? null : member); setCreateError(null); }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A] transition-colors"
                         >
                           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[#F3E8FF] text-[#8B5CF6]">
@@ -188,43 +189,12 @@ const NewChatModal = ({
                                 <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>{member.planName}</span>
                               )}
                             </div>
-                            <p className="text-[11px] text-[#98A2B3] dark:text-[#8a8a8a] truncate mt-[2px]">Tap to send a message</p>
+                            <p className="text-[11px] text-[#98A2B3] dark:text-[#8a8a8a] truncate mt-[2px]">
+                              {categories.find((c) => c.key === member.role)?.label ?? member.role}
+                            </p>
                           </div>
-                          <span className="flex-shrink-0 text-[10px] font-semibold text-[#576CBC]">{isExpanded ? "Close" : "Message"}</span>
+                          <span className="flex-shrink-0 text-[10px] font-semibold text-[#576CBC]">{isSelected ? "Selected" : "Select"}</span>
                         </button>
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.18 }}
-                              className="border-t border-[#EEEEEE] dark:border-[#3F3F3F] bg-[#F8F9FC] dark:bg-[#2c2c2c] overflow-hidden"
-                            >
-                              <div className="p-2 flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  placeholder={`Message ${member.name}...`}
-                                  value={draft}
-                                  onChange={(e) => setDraft(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter" && draft.trim()) onSendToMember(member, draft); }}
-                                  autoFocus
-                                  className="flex-1 h-9 px-3 rounded-md border border-[#E6EAF2] text-[12px] bg-white dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A] outline-none focus:border-[#576CBC]"
-                                />
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => draft.trim() && onSendToMember(member, draft)}
-                                  disabled={!draft.trim()}
-                                  className={`h-9 w-9 flex items-center justify-center rounded-md ${draft.trim() ? "bg-[#576CBC] text-white" : "bg-gray-200 dark:bg-[#505050] text-gray-400 cursor-not-allowed"}`}
-                                  aria-label="Send"
-                                >
-                                  <FiSend size={15} />
-                                </motion.button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
                       </div>
                     );
                   })}
@@ -234,9 +204,30 @@ const NewChatModal = ({
           )}
         </div>
 
-        <div className="flex-shrink-0 flex justify-end gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
+        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-5 py-3 border-t border-[#F0F1F4] dark:border-[#3F3F3F]">
+          {createError ? <p role="alert" className="text-[11px] text-red-500">{createError}</p> : <span />}
           <button onClick={onClose} className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold hover:bg-[#EEF2FB] dark:hover:bg-[#2F2F2F] transition-colors">
             Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!selectedMember || creatingChat}
+            onClick={async () => {
+              if (!selectedMember) return;
+              setCreatingChat(true);
+              setCreateError(null);
+              try {
+                await onCreateChat(selectedMember);
+              } catch (error) {
+                setCreateError(error instanceof Error ? error.message : "Could not create chat.");
+              } finally {
+                setCreatingChat(false);
+              }
+            }}
+            className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#576CBC] px-4 text-[12px] font-semibold text-white transition-colors hover:bg-[#4659a3] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FiPlus size={14} />
+            {creatingChat ? "Creating..." : "Create Chat"}
           </button>
         </div>
       </motion.div>

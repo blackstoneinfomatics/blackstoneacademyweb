@@ -25,7 +25,7 @@ const API_CLEAR_CHAT = `${API_BASE}${AppApiEndpoints.CHAT.CLEAR}`;
 const API_MARK_CHAT_SEEN = `${API_BASE}${AppApiEndpoints.CHAT.SEEN}`;
 const API_MESSAGE_SEEN_USERS = (messageId: string, userId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE_SEEN_USERS(messageId, userId)}`;
-const ROOM_MESSAGES_PAGE_LIMIT = 20;
+const ROOM_MESSAGES_PAGE_LIMIT = 10;
 const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.ROOM_MESSAGES(roomId, userId, ROOM_MESSAGES_PAGE_LIMIT)}`;
 const API_UPDATE_CHAT_ROOM = (roomId: string) =>
@@ -34,6 +34,12 @@ const API_GET_GROUP_DETAILS = (roomId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
 const API_DELETE_MESSAGE_FOR_EVERYONE = (messageId: string, userId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`;
+
+const postChatRoom = (tenantId: string, request: RequestInit) => {
+  const headers = new Headers(request.headers);
+  headers.set("tenantId", tenantId);
+  return fetch(API_CREATE_CHAT_ROOM, { ...request, headers });
+};
 
 const API_GET_TENANT_ROLES = (tenantId: string) =>
   `${API_BASE}/tenant-portal/${tenantId}/roles`;
@@ -241,7 +247,7 @@ const extractRoomId = (r: any): string => {
 };
 const normalizeRoomType = (raw: any): RoomType => {
   const t = String(raw ?? "").toUpperCase();
-  if (t === "SEGMENT") return "SEGMENT";
+  if (t === "SEGMENT" || t === "GROUP") return "SEGMENT";
   if (t === "GLOBAL") return "GLOBAL";
   return "TENANT";
 };
@@ -257,11 +263,6 @@ const formatMessageTime = (iso?: string) => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-const hasAnyMessage = (room: IUser): boolean => {
-  const preview = room.lastMessage?.text?.trim();
-  return Boolean(preview && preview.length > 0);
-};
-
 const normalizeUsersResponse = (json: any, fallbackRole: string): DirectoryMember[] => {
   const usersRaw: any[] =
     (json?.data && Array.isArray(json.data.users) && json.data.users) ||
@@ -273,7 +274,7 @@ const normalizeUsersResponse = (json: any, fallbackRole: string): DirectoryMembe
     .map((u: any) => {
       const name = u?.name ?? u?.userName ?? "Unnamed";
       return {
-        _id: String(u?.userId ?? u?._id ?? u?.id ?? ""),
+        userId: String(u?.userId ?? u?._id ?? u?.id ?? ""),
         name,
         role: normalizeRoleKey(u?.role ?? fallbackRole),
         planName: u?.planName ?? u?.plan ?? u?.course ?? "",
@@ -281,7 +282,7 @@ const normalizeUsersResponse = (json: any, fallbackRole: string): DirectoryMembe
         avatarLetter: name.charAt(0).toUpperCase(),
       };
     })
-    .filter((u) => Boolean(u._id));
+    .filter((u) => Boolean(u.userId));
 };
 
 const fetchMembersForCategory = async (category: CategoryDef): Promise<DirectoryMember[]> => {
@@ -610,8 +611,48 @@ const Message = () => {
 
   useEffect(() => { void fetchRooms(); }, [fetchRooms]);
 
+  const activateCreatedRoom = (
+    serverRoom: any,
+    defaults: {
+      type: "DIRECT" | "GROUP";
+      name: string;
+      role: string;
+      members: DirectoryMember[];
+    }
+  ) => {
+    const roomId = extractRoomId(serverRoom);
+    if (!roomId) throw new Error("Chat room was created, but the response did not include a room ID.");
+
+    const room = mapRoomToUser({
+      ...serverRoom,
+      _id: roomId,
+      type: defaults.type,
+      name: defaults.type === "DIRECT" ? defaults.name : serverRoom?.name ?? defaults.name,
+      role: defaults.type === "DIRECT" ? defaults.role : serverRoom?.role ?? defaults.role,
+      tenantIds: Array.isArray(serverRoom?.tenantIds)
+        ? serverRoom.tenantIds
+        : defaults.members.map((member) => member.userId),
+      members: Array.isArray(serverRoom?.members)
+        ? serverRoom.members
+        : defaults.members.map((member) => ({
+            tenantId: member.userId,
+            name: member.name,
+            tenantName: member.name,
+          })),
+    });
+
+    setAllRooms((previous) => [room, ...previous.filter((existing) => existing._id !== roomId)]);
+    setAllMessages((previous) => [
+      ...previous.filter((conversation) => conversation._id !== roomId),
+      { _id: roomId, messages: [] },
+    ]);
+    setSelectedUser(room);
+    markRoomAsRead(roomId);
+    setReadStateVersion((version) => version + 1);
+  };
+
   const categoryRooms = useMemo(() => {
-    let result = allRooms.filter(hasAnyMessage);
+    let result = allRooms;
 
     if (activeCategory === "GROUP") {
       result = result.filter(
@@ -635,10 +676,9 @@ const Message = () => {
 
   const tabCounts = useMemo(() => {
     void readStateVersion;
-    const sources = allRooms.filter(hasAnyMessage);
     return {
-      total: sources.length,
-      unread: sources.filter((r) => r.isUnread).length,
+      total: allRooms.length,
+      unread: allRooms.filter((r) => r.isUnread).length,
     };
   }, [allRooms, readStateVersion]);
 
@@ -874,114 +914,102 @@ const Message = () => {
     }
   };
 
-  const startChatWithMemberAndSend = async (member: DirectoryMember, text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-
+  const createDirectChat = async (member: DirectoryMember) => {
     const token = resolveAuthToken();
     const tenantId = resolveTenantCode();
-
-    let createdRoomId: string | undefined;
-    let serverRoom: any = null;
+    if (!tenantId) throw new Error("Tenant ID not found in session.");
 
     try {
-      const createRes = await fetch(API_CREATE_CHAT_ROOM, {
+      const response = await postChatRoom(tenantId, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
-          type: "TENANT",
-          roomType: "TENANT",
-          tenantIds: [member._id],
-          participants: [member._id],
-          memberIds: [member._id],
-          name: member.name,
-          title: member.name,
-          createdBy: currentUser.userName,
-          creatorId: currentUser.userId,
-          adminId: currentUser.userId,
-          sendAccess: "EVERYONE",
-          settings: "everyone",
-          status: "ACTIVE",
-          tenantId,
+          type: "DIRECT",
+          sender: {
+            userId: currentUser.userId,
+            name: currentUser.userName,
+            role: "ADMIN",
+          },
+          receivers: [{
+            userId: member.userId,
+            name: member.name,
+            role: member.role,
+          }],
         }),
       });
 
-      const createJson = await createRes.json().catch(() => null);
-      if (createRes.ok && createJson?.success !== false) {
-        serverRoom = createJson?.data?.room ?? createJson?.data ?? null;
-        createdRoomId =
-          serverRoom?._id ?? serverRoom?.roomId ?? createJson?.data?._id ?? createJson?.roomId ?? undefined;
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.success === false) {
+        throw new Error(result?.message || `Create direct chat failed: HTTP ${response.status}`);
       }
-    } catch (err) {
-      console.error("[create room] failed:", err);
-    }
 
-    const roomId = createdRoomId;
-    if (!roomId) {
-      console.error("[create room] no room id returned — cannot send message");
-      return;
-    }
-
-    try {
-      await fetch(API_SEND_CHAT_MESSAGE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          roomId,
-          senderId: currentUser.userId,
-          senderName: currentUser.userName,
-          senderRole: "ADMIN",
-          messageType: "TEXT",
-          message: trimmed,
-        }),
+      const serverRoom =
+        result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
+        result?.data ?? result?.room ?? result;
+      activateCreatedRoom(serverRoom, {
+        type: "DIRECT",
+        name: member.name,
+        role: member.role,
+        members: [member],
       });
-    } catch (err) {
-      console.error("[send first message] failed:", err);
+      setShowNewChatModal(false);
+    } catch (error) {
+      console.error("[create direct chat] failed:", error);
+      throw error;
     }
-
-    setShowNewChatModal(false);
-    setTimeout(() => { void fetchRooms(); }, 400);
   };
 
-  const handleCreateGroupFromDirectory = async (groupName: string, memberIds: string[]) => {
+  const handleCreateGroupFromDirectory = async (groupName: string, members: DirectoryMember[]) => {
     const token = resolveAuthToken();
     const tenantId = resolveTenantCode();
+    if (!tenantId) throw new Error("Tenant ID not found in session.");
 
     try {
-      const res = await fetch(API_CREATE_CHAT_ROOM, {
+      const response = await postChatRoom(tenantId, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
+          type: "GROUP",
           name: groupName,
-          title: groupName,
-          roomName: groupName,
-          groupName,
-          description: " ",
-          type: "SEGMENT",
-          roomType: "SEGMENT",
-          participants: memberIds,
-          tenantIds: memberIds,
-          memberIds,
-          createdBy: currentUser.userName,
-          creatorId: currentUser.userId,
-          adminId: currentUser.userId,
-          sendAccess: "EVERYONE",
-          settings: "everyone",
-          status: "ACTIVE",
-          tenantId,
+          description: "",
+          sender: {
+            userId: currentUser.userId,
+            name: currentUser.userName,
+            role: "ADMIN",
+          },
+          receivers: members.map((member) => ({
+            userId: member.userId,
+            name: member.name,
+            role: member.role,
+          })),
         }),
       });
 
-      const json = await res.json().catch(() => null);
-      if (!res.ok || json?.success === false) {
-        throw new Error(json?.message || `Create group failed: HTTP ${res.status}`);
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.success === false) {
+        throw new Error(result?.message || `Create group failed: HTTP ${response.status}`);
       }
 
+      const serverRoom =
+        result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
+        result?.data ?? result?.room ?? result;
+      activateCreatedRoom(serverRoom, {
+        type: "GROUP",
+        name: groupName,
+        role: "GROUP",
+        members,
+      });
       setShowNewGroupModal(false);
       setActiveCategory("GROUP");
-      setTimeout(() => { void fetchRooms(); }, 400);
-    } catch (err) {
-      console.error("[create group] failed:", err);
+    } catch (error) {
+      console.error("[create group] failed:", error);
+      throw error;
     }
   };
 
@@ -1194,7 +1222,7 @@ const Message = () => {
               category={activeCategory}
               categories={categories}
               onClose={() => setShowNewChatModal(false)}
-              onSendToMember={(member, text) => startChatWithMemberAndSend(member, text)}
+              onCreateChat={createDirectChat}
               getPlanColor={getPlanColor}
               fetchMembersForCategory={fetchMembersForCategory}
             />
