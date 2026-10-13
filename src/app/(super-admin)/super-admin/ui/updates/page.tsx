@@ -14,7 +14,7 @@ import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 const DASHBOARD_CARDS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`;
 const UPDATES_TABLE_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_TABLE}`;
 const UPDATE_BY_ID_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_BY_ID}`;
-const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}/tenantsubscription`;
 
 const LOCAL_UPDATES_KEY = "blackstone_created_updates_v1";
 
@@ -121,6 +121,46 @@ const isApiRow = (row: ApiUpdateRow | LocalUpdate): row is ApiUpdateRow => {
   return (row as ApiUpdateRow)._id !== undefined;
 };
 
+/* ⭐ Build (code, name) pairs from any source — single source of truth */
+const buildTenantPairs = (
+  row: any,
+): { tenantCode: string; tenantName: string }[] => {
+  const pairs: { tenantCode: string; tenantName: string }[] = [];
+
+  if (Array.isArray(row?.selectedTenantDetails)) {
+    row.selectedTenantDetails.forEach((t: any) => {
+      const tenantCode = t?.tenantCode ?? t?._id ?? "";
+      const tenantName = t?.tenantName ?? t?.name ?? "";
+      if (tenantCode || tenantName) {
+        pairs.push({ tenantCode, tenantName });
+      }
+    });
+  }
+
+  if (pairs.length === 0 && Array.isArray(row?.selectedTenants)) {
+    row.selectedTenants.forEach((t: any) => {
+      if (typeof t === "string") {
+        pairs.push({ tenantCode: t, tenantName: t });
+      } else if (t) {
+        const tenantCode = t?.tenantCode ?? t?._id ?? "";
+        const tenantName = t?.tenantName ?? t?.name ?? "";
+        if (tenantCode || tenantName) {
+          pairs.push({ tenantCode, tenantName });
+        }
+      }
+    });
+  }
+
+  // Dedup by name (or code fallback)
+  const seen = new Set<string>();
+  return pairs.filter((p) => {
+    const key = (p.tenantName || p.tenantCode).toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const normalizeRow = (
   row: ApiUpdateRow | LocalUpdate,
   totalTenantsCount: number = 0,
@@ -135,30 +175,23 @@ const normalizeRow = (
   const isSelectTenants = audienceJoined.includes("select tenant");
 
   const anyRow = row as any;
-  let selectedNames: string[] = [];
 
-  if (Array.isArray(anyRow.selectedTenantDetails)) {
-    selectedNames = anyRow.selectedTenantDetails
-      .map((t: any) => t?.tenantName ?? t?.tenantCode ?? "")
-      .filter(Boolean);
-  } else if (Array.isArray(anyRow.selectedTenants)) {
-    selectedNames = anyRow.selectedTenants
-      .map((t: any) =>
-        typeof t === "string"
-          ? t
-          : t?.tenantName ?? t?.name ?? t?.tenantCode ?? "",
-      )
-      .filter(Boolean);
-  }
+  /* ⭐ Use the same source as the modal */
+  const tenantPairs = buildTenantPairs(anyRow);
+  const selectedNames = tenantPairs
+    .map((p) => p.tenantName || p.tenantCode)
+    .filter(Boolean);
+
+  const count = tenantPairs.length;
 
   let audienceDisplay: string;
   if (isAllTenants) {
     audienceDisplay = `All Tenants (${totalTenantsCount})`;
   } else if (isSelectTenants) {
-    audienceDisplay = `Selected Tenants (${selectedNames.length})`;
+    audienceDisplay = `Selected Tenants (${count})`;
   } else {
     const planLabel = audienceArr[0] ?? anyRow.planName ?? "Plan";
-    audienceDisplay = `${planLabel} (${selectedNames.length})`;
+    audienceDisplay = `${planLabel} (${count})`;
   }
 
   const rowId = isApiRow(row) ? row._id : row.updateId;
@@ -175,13 +208,10 @@ const normalizeRow = (
     audience: audienceDisplay,
     releaseDate,
     status: (row.status ?? "Draft") as UpdateStatus,
-    affectedTenants: isAllTenants
-      ? totalTenantsCount
-      : isSelectTenants
-        ? selectedNames.length
-        : selectedNames.length,
+    affectedTenants: isAllTenants ? totalTenantsCount : count,
     rawAudience: audienceArr,
     rawSelectedTenants: selectedNames,
+    rawSelectedTenantDetails: tenantPairs,   // ⭐ NEW
     attachments: row.attachments ?? [],
     sendNotification: row.sendNotification,
     publishDate: row.publishDate,
@@ -202,30 +232,20 @@ const mergeRows = (
     const key = api.title.trim().toLowerCase();
     const local = localByTitle.get(key);
 
-    const apiTenants = (() => {
-      if (Array.isArray(api.selectedTenantDetails)) {
-        return api.selectedTenantDetails
-          .map((t) => t.tenantName ?? t.tenantCode ?? "")
-          .filter(Boolean);
-      }
-      if (Array.isArray(api.selectedTenants)) {
-        return api.selectedTenants
-          .map((t: any) =>
-            typeof t === "string"
-              ? t
-              : t?.tenantName ?? t?.name ?? t?.tenantCode ?? "",
-          )
-          .filter(Boolean);
-      }
-      return [];
-    })();
+    // ⭐ Preserve selectedTenantDetails as the authoritative source
+    let tenantPairs = buildTenantPairs(api as any);
 
-    const effectiveTenants =
-      apiTenants.length > 0 ? apiTenants : local?.selectedTenants ?? [];
+    if (tenantPairs.length === 0 && local?.selectedTenants?.length) {
+      tenantPairs = local.selectedTenants.map((n) => ({
+        tenantCode: n,
+        tenantName: n,
+      }));
+    }
 
     const enriched: ApiUpdateRow = {
       ...api,
-      selectedTenants: effectiveTenants,
+      selectedTenantDetails: tenantPairs,
+      selectedTenants: tenantPairs.map((t) => t.tenantName || t.tenantCode),
       audience:
         Array.isArray(api.audience) && api.audience.length > 0
           ? api.audience
@@ -469,27 +489,25 @@ const page = () => {
   const filteredItems = applyFilters(updateList, search, appliedFilters);
   const previewFilteredItems = applyFilters(updateList, search, draftFilters);
 
-  // Fetch tenant count
+  /* ── Fetch tenant count from /tenantsubscription ── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${TENANTS_API}?limit=1000`);
+        const res = await fetch(TENANTS_API);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
-        const items = Array.isArray(json)
+        const items: any[] = Array.isArray(json)
           ? json
-          : json?.data?.items ??
-          json?.data?.tenants ??
-          json?.tenants ??
-          json?.data ??
-          json?.items ??
-          [];
+          : json?.data?.tenants ?? json?.data ?? json?.tenants ?? [];
 
-        const activeItems = items.filter(
-          (t: any) => (t.status ?? "").toLowerCase() === "active",
-        );
+        const activeItems = items.filter((t: any) => {
+          const status = (t?.status ?? t?.tenant?.status ?? "")
+            .toString()
+            .toLowerCase();
+          return status === "active";
+        });
 
         if (!cancelled) setTotalTenantsCount(activeItems.length);
       } catch (e) {
@@ -502,15 +520,13 @@ const page = () => {
     };
   }, []);
 
-  // Fetch cards
+  /* ── Fetch cards ── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setCardsLoading(true);
       try {
-        const res = await fetch(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`,
-        );
+        const res = await fetch(DASHBOARD_CARDS_API);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: DashboardCardsResponse = await res.json();
         if (!cancelled && json.success) setCardsData(json.data);
@@ -525,7 +541,7 @@ const page = () => {
     };
   }, []);
 
-  // Fetch table
+  /* ── Fetch table ── */
   useEffect(() => {
     if (totalTenantsCount === 0) return;
 
@@ -556,7 +572,7 @@ const page = () => {
     };
   }, [totalTenantsCount]);
 
-  // Fetch update by ID
+  /* ── Fetch update by ID ── */
   useEffect(() => {
     if (!viewUpdateId) {
       setViewUpdateData(null);
@@ -587,6 +603,8 @@ const page = () => {
             ...json.data,
             status: json.data?.status ?? prev?.status,
             priority: json.data?.priority ?? prev?.priority,
+            // ⭐ Preserve expectedCount and fallback through the merge
+            expectedCount: prev?.expectedCount,
           }));
         } else if (!cancelled) {
           throw new Error(json.message || "Failed");
@@ -610,7 +628,7 @@ const page = () => {
         if (u.updateId !== payload.updateId) return u;
 
         const incoming = (payload.audience ?? "").trim();
-        const PLAN_LABELS = ["Standard", "Premium", "Basic"];
+        const PLAN_LABELS = ["Standard", "Premium", "Basic", "premium"];
         const isAllTenants = incoming === "All Tenants";
 
         let nextSelectedNames: string[] = u.rawSelectedTenants ?? [];
@@ -672,6 +690,10 @@ const page = () => {
           releaseDate: payload.publishDate || u.releaseDate,
           audience: nextAudienceDisplay,
           rawSelectedTenants: nextSelectedNames,
+          rawSelectedTenantDetails: nextSelectedNames.map((n) => ({
+            tenantCode: n,
+            tenantName: n,
+          })),
           affectedTenants: nextSelectedNames.length,
         };
       }),
@@ -752,7 +774,6 @@ const page = () => {
     resetUpdateForm();
   };
 
-  // Create handler — resolves plan tenants too
   const handleCreateUpdateSubmit = async (
     e: React.FormEvent,
     payload: any,
@@ -779,33 +800,39 @@ const page = () => {
         .includes("select tenant");
       const isByPlan = !isAllTenants && !isSelectTenants;
 
-      // Resolve plan tenant names
       let planTenantNames: string[] = [];
       if (isByPlan && audienceType) {
         try {
-          const tRes = await fetch(`${TENANTS_API}?limit=1000`);
+          const tRes = await fetch(TENANTS_API);
           const tJson = await tRes.json();
-          const items = Array.isArray(tJson)
+          const items: any[] = Array.isArray(tJson)
             ? tJson
-            : tJson?.data?.items ??
-            tJson?.data?.tenants ??
-            tJson?.tenants ??
-            tJson?.data ??
-            tJson?.items ??
-            [];
+            : tJson?.data?.tenants ?? tJson?.data ?? tJson?.tenants ?? [];
 
           planTenantNames = items
-            .filter(
-              (t: any) =>
-                (t.status ?? "").toLowerCase() === "active" &&
-                t.plan === audienceType,
-            )
-            .map((t: any) => t.tenantName ?? t.name ?? "")
+            .filter((t: any) => {
+              const tenantObj = t?.tenant ?? t;
+              const status = (t?.status ?? tenantObj?.status ?? "")
+                .toString()
+                .toLowerCase();
+              const plan =
+                t?.planName ?? tenantObj?.plan ?? t?.plan?.planName ?? "";
+              return (
+                status === "active" &&
+                plan.toLowerCase() === audienceType.toLowerCase()
+              );
+            })
+            .map((t: any) => {
+              const tenantObj = t?.tenant ?? t;
+              return tenantObj?.tenantName ?? "";
+            })
             .filter(Boolean);
 
-          console.log(
-            `✅ Resolved ${planTenantNames.length} tenants on "${audienceType}" plan`,
-          );
+          if (process.env.NODE_ENV !== "production") {
+            console.log(
+              `✅ Resolved ${planTenantNames.length} tenants on "${audienceType}" plan`,
+            );
+          }
         } catch (err) {
           console.warn("Failed to resolve plan tenants:", err);
         }
@@ -1120,6 +1147,13 @@ const page = () => {
 
                                     setViewRowFallback(fallback);
 
+                                    const details =
+                                      item.rawSelectedTenantDetails ?? [];
+                                    const expectedCount =
+                                      details.length > 0
+                                        ? details.length
+                                        : (item.rawSelectedTenants ?? []).length;
+
                                     setViewUpdateData({
                                       title: item.title,
                                       description: item.description,
@@ -1136,7 +1170,9 @@ const page = () => {
                                       releaseDate: item.releaseDate,
                                       audience:
                                         item.rawAudience ??
-                                        local?.audience ?? ["All Tenants"],
+                                        local?.audience ??
+                                        ["All Tenants"],
+                                      selectedTenantDetails: details,
                                       selectedTenants: fallback,
                                       attachments:
                                         item.attachments ??
@@ -1145,6 +1181,7 @@ const page = () => {
                                       affectedTenants:
                                         item.affectedTenants ??
                                         totalTenantsCount,
+                                      expectedCount,
                                     });
 
                                     setViewUpdateId(item.updateId);
@@ -1345,6 +1382,7 @@ const page = () => {
                   error={viewError}
                   fallbackSelectedTenants={viewRowFallback}
                   totalTenantsCount={totalTenantsCount}
+                  expectedCount={viewUpdateData?.expectedCount}
                   onClose={() => {
                     setViewUpdateId(null);
                     setViewUpdateData(null);
@@ -1372,7 +1410,6 @@ const page = () => {
             <CreateUpdateForm
               formData={updateFormData}
               isLoading={isPublishing}
-              totalTenants={totalTenantsCount}
               onClose={closeCreateUpdateModal}
               onReset={resetUpdateForm}
               onSubmit={handleCreateUpdateSubmit}
