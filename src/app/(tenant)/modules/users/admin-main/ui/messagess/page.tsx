@@ -19,8 +19,8 @@ import type { CategoryDef, CategoryKey, DirectoryMember, IMessage, IUser, RoomTy
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
 const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
-const API_LIST_CHAT_ROOMS = (tenantId: string) =>
-  `${API_BASE}/user/chat-room/${encodeURIComponent(tenantId)}?filter=ALL`;
+const API_LIST_CHAT_ROOMS = (userId: string) =>
+  `${API_BASE}/user/chat-room/${encodeURIComponent(userId)}?filter=ALL`;
 const API_SEND_CHAT_MESSAGE = `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE}`;
 const API_CLEAR_CHAT = `${API_BASE}${AppApiEndpoints.CHAT.CLEAR}`;
 const API_MARK_CHAT_SEEN = `${API_BASE}${AppApiEndpoints.CHAT.SEEN}`;
@@ -638,11 +638,12 @@ const Message = () => {
 
     try {
       const tenantId = resolveTenantCode();
+      const userId = localStorage.getItem("AdminPortalUserId") || "";
       const token = resolveAuthToken();
       if (!tenantId) throw new Error("Tenant ID not found in session.");
 
       const res = await fetch(
-        API_LIST_CHAT_ROOMS(tenantId),
+        API_LIST_CHAT_ROOMS(userId),
         {
           cache: "no-store",
           headers: {
