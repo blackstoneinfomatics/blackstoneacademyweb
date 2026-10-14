@@ -19,8 +19,6 @@ import type { CategoryDef, CategoryKey, DirectoryMember, IMessage, IUser, RoomTy
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
 const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
-const API_LIST_CHAT_ROOMS = (userId: string) =>
-  `${API_BASE}/user/chat-room/${encodeURIComponent(userId)}?filter=ALL`;
 const API_SEND_CHAT_MESSAGE = `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE}`;
 const API_CLEAR_CHAT = `${API_BASE}${AppApiEndpoints.CHAT.CLEAR}`;
 const API_MARK_CHAT_SEEN = `${API_BASE}${AppApiEndpoints.CHAT.SEEN}`;
@@ -445,9 +443,7 @@ const Message = () => {
   };
 
   const [allRooms, setAllRooms] = useState<IUser[]>([]);
-  const [roomsLoading, setRoomsLoading] = useState(false);
-  const [roomsError, setRoomsError] = useState<string | null>(null);
-  const roomsRequestIdRef = useRef(0);
+  const [roomsRefreshKey, setRoomsRefreshKey] = useState(0);
 
   const [categories, setCategories] = useState<CategoryDef[]>([
     ...MANDATORY_CATEGORIES,
@@ -631,67 +627,25 @@ const Message = () => {
     };
   }, []);
 
-  const fetchRooms = useCallback(async () => {
-    const requestId = ++roomsRequestIdRef.current;
-    setRoomsLoading(true);
-    setRoomsError(null);
+  const handleRoomsLoaded = useCallback((apiRooms: unknown[], filter: "ALL" | "GROUP") => {
+    const mapped = apiRooms
+      .map((room) => mapRoomToUser(room))
+      .filter((room) => Boolean(room._id));
+    const tenantId = resolveTenantCode();
+    const cachedRooms = tenantId ? getCreatedRoomsCache(tenantId) : [];
+    const serverRoomIds = new Set(mapped.map((room) => room._id));
+    const pendingCachedRooms = cachedRooms.filter((room) =>
+      !serverRoomIds.has(room._id) &&
+      (filter === "GROUP" ? room.isGroup : !room.isGroup)
+    );
 
-    try {
-      const tenantId = resolveTenantCode();
-      const userId = localStorage.getItem("AdminPortalUserId") || "";
-      const token = resolveAuthToken();
-      if (!tenantId) throw new Error("Tenant ID not found in session.");
+    if (tenantId) setCreatedRoomsCache(tenantId, pendingCachedRooms);
 
-      const res = await fetch(
-        API_LIST_CHAT_ROOMS(userId),
-        {
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/json",
-            tenantId,
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }
-      );
-      if (!res.ok) throw new Error(`Fetch chat rooms failed: HTTP ${res.status}`);
-
-      const json = await res.json();
-      if (json?.success === false) {
-        throw new Error(json.message || "Fetch chat rooms failed.");
-      }
-      const data = json?.data ?? {};
-      const apiRooms: any[] = Array.isArray(data?.chatrooms)
-        ? data.chatrooms
-        : Array.isArray(json?.chatrooms)
-          ? json.chatrooms
-        : Array.isArray(data?.data)
-          ? data.data
-          : Array.isArray(data?.items)
-            ? data.items
-            : [];
-
-      const mapped = apiRooms.map(mapRoomToUser).filter((r) => r._id);
-      if (requestId === roomsRequestIdRef.current) {
-        const cachedRooms = getCreatedRoomsCache(tenantId);
-        const serverRoomIds = new Set(mapped.map((room) => room._id));
-        const pendingCachedRooms = cachedRooms.filter((room) => !serverRoomIds.has(room._id));
-        setCreatedRoomsCache(tenantId, pendingCachedRooms);
-        const roomsById = new Map(
-          [...pendingCachedRooms, ...mapped].map((room) => [room._id, room])
-        );
-        setAllRooms(Array.from(roomsById.values()));
-      }
-    } catch (err) {
-      console.error("fetchRooms failed:", err);
-      if (requestId === roomsRequestIdRef.current) {
-        setRoomsError(err instanceof Error ? err.message : "Could not load conversations.");
-      }
-    } finally {
-      if (requestId === roomsRequestIdRef.current) setRoomsLoading(false);
-    }
+    const roomsById = new Map(
+      [...pendingCachedRooms, ...mapped].map((room) => [room._id, room])
+    );
+    setAllRooms(Array.from(roomsById.values()));
   }, [mapRoomToUser]);
-
-  useEffect(() => { void fetchRooms(); }, [fetchRooms]);
 
   const addCreatedRoomToList = (
     serverRoom: any,
@@ -1053,13 +1007,13 @@ const Message = () => {
       const serverRoom =
         result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
         result?.data ?? result?.room ?? result;
-      await fetchRooms();
       addCreatedRoomToList(serverRoom, {
         type: "DIRECT",
         name: member.name,
         role: member.role,
         members: [member],
       });
+      setRoomsRefreshKey((previous) => previous + 1);
       setShowNewChatModal(false);
     } catch (error) {
       console.error("[create direct chat] failed:", error);
@@ -1104,13 +1058,13 @@ const Message = () => {
       const serverRoom =
         result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
         result?.data ?? result?.room ?? result;
-      await fetchRooms();
       addCreatedRoomToList(serverRoom, {
         type: "GROUP",
         name: groupName,
         role: "GROUP",
         members,
       });
+      setRoomsRefreshKey((previous) => previous + 1);
       setShowNewGroupModal(false);
       setActiveCategory("GROUP");
     } catch (error) {
@@ -1289,9 +1243,8 @@ const Message = () => {
             tabCounts={tabCounts}
             setShowNewGroupModal={setShowNewGroupModal}
             setShowNewChatModal={setShowNewChatModal}
-            roomsLoading={roomsLoading}
-            roomsError={roomsError}
-            onRetryRooms={() => void fetchRooms()}
+            roomsRefreshKey={roomsRefreshKey}
+            onRoomsLoaded={handleRoomsLoaded}
             categoryRooms={categoryRooms}
             selectedUser={selectedUser}
             getPlanColor={getPlanColor}

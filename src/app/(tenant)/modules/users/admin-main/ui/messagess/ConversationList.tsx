@@ -1,12 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { FiPlus, FiSearch } from "react-icons/fi";
 import { AnimatePresence, motion } from "framer-motion";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import type { CategoryDef, IUser } from "./chat-types";
 
+type RoomListFilter = "ALL" | "GROUP";
+
 interface ConversationListProps {
-  currentUser: { userName: string; role: string };
+  currentUser: { userId: string; userName: string; role: string };
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   categoryDropdownRef: React.RefObject<HTMLDivElement>;
@@ -21,9 +24,8 @@ interface ConversationListProps {
   tabCounts: { total: number; unread: number };
   setShowNewGroupModal: React.Dispatch<React.SetStateAction<boolean>>;
   setShowNewChatModal: React.Dispatch<React.SetStateAction<boolean>>;
-  roomsLoading: boolean;
-  roomsError: string | null;
-  onRetryRooms: () => void;
+  roomsRefreshKey: number;
+  onRoomsLoaded: (rooms: unknown[], filter: RoomListFilter) => void;
   categoryRooms: IUser[];
   selectedUser: IUser | null;
   getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
@@ -31,13 +33,111 @@ interface ConversationListProps {
   handleSelectRoom: (room: IUser) => void;
 }
 
+const API_BASE = AppApiEndpoints.API_END_POINT;
+const API_LIST_CHAT_ROOMS = (userId: string, filter: RoomListFilter) =>
+  `${API_BASE}/user/chat-room/${encodeURIComponent(userId)}?filter=${filter}`;
+
+const resolveTenantId = (): string => {
+  const keys = [
+    "tenantId", "tenantCode", "TenantId", "TENANT_ID",
+    "selectedTenantId", "TENANT_CODE", "currentTenantId", "tenant",
+  ];
+  for (const key of keys) {
+    const value = window.localStorage.getItem(key);
+    if (!value?.trim()) continue;
+    const trimmed = value.trim();
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        const tenantId = parsed.tenantId || parsed.tenantCode || parsed.id || parsed._id;
+        if (tenantId) return String(tenantId);
+      } catch (error) {
+        console.error("Could not parse tenant information:", error);
+      }
+    }
+    return trimmed;
+  }
+  return "";
+};
+
+const resolveAuthToken = (): string => {
+  for (const key of ["AdminAuthToken", "authToken", "token", "accessToken", "jwt"]) {
+    const value = window.localStorage.getItem(key);
+    if (value?.trim()) return value.trim();
+  }
+  return "";
+};
+
 const ConversationList = ({
   currentUser, searchQuery, setSearchQuery, categoryDropdownRef, categories,
   categoriesLoading, categoryDropdownOpen, setCategoryDropdownOpen, activeCategory,
   setActiveCategory, setSelectedUser, categoryHeading, tabCounts,
-  setShowNewGroupModal, setShowNewChatModal, roomsLoading, roomsError, onRetryRooms, categoryRooms,
+  setShowNewGroupModal, setShowNewChatModal, roomsRefreshKey, onRoomsLoaded, categoryRooms,
   selectedUser, getPlanColor, getStatusColor, handleSelectRoom,
-}: ConversationListProps) => (
+}: ConversationListProps) => {
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const filter: RoomListFilter = activeCategory === "GROUP" ? "GROUP" : "ALL";
+
+    const fetchRooms = async () => {
+      setRoomsLoading(true);
+      setRoomsError(null);
+
+      try {
+        const tenantId = resolveTenantId();
+        const userId = window.localStorage.getItem("AdminPortalUserId")
+          || window.localStorage.getItem("AdminPortalId")
+          || "";
+        if (!tenantId) throw new Error("Tenant ID not found in session.");
+        if (!userId) throw new Error("Admin user ID not found in session.");
+
+        const token = resolveAuthToken();
+        const response = await fetch(API_LIST_CHAT_ROOMS(userId, filter), {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            tenantId,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`Fetch chat rooms failed: HTTP ${response.status}`);
+
+        const result = await response.json();
+        if (result?.success === false) {
+          throw new Error(result.message || "Fetch chat rooms failed.");
+        }
+        const data = result?.data ?? {};
+        const rooms: unknown[] = Array.isArray(data.chatrooms)
+          ? data.chatrooms
+          : Array.isArray(result?.chatrooms)
+            ? result.chatrooms
+            : Array.isArray(data.data)
+              ? data.data
+              : Array.isArray(data.items)
+                ? data.items
+                : [];
+        onRoomsLoaded(rooms, filter);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("fetchRooms failed:", error);
+        setRoomsError(error instanceof Error ? error.message : "Could not load conversations.");
+      } finally {
+        if (!controller.signal.aborted) setRoomsLoading(false);
+      }
+    };
+
+    void fetchRooms();
+    return () => controller.abort();
+  }, [activeCategory, onRoomsLoaded, retryKey, roomsRefreshKey]);
+
+  const retryRooms = () => setRetryKey((previous) => previous + 1);
+
+  return (
   <div className="w-full md:w-[340px] md:flex-none h-full bg-white dark:bg-[#343434] rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col overflow-hidden">
             <div className="p-3 border-b border-[#EEEEEE] dark:border-[#3F3F3F] flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -168,7 +268,7 @@ const ConversationList = ({
                   <p role="alert" className="text-[12px] text-red-500">{roomsError}</p>
                   <button
                     type="button"
-                    onClick={onRetryRooms}
+                    onClick={retryRooms}
                     className="text-[11px] font-semibold text-[#576CBC] hover:underline"
                   >
                     Retry
@@ -256,6 +356,7 @@ const ConversationList = ({
               )}
             </div>
           </div>
-);
+  );
+};
 
 export default ConversationList;
