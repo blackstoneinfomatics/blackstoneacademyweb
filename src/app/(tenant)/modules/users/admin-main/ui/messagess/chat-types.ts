@@ -18,6 +18,34 @@ export interface DirectoryMember {
 
 export type RoomType = "TENANT" | "SEGMENT" | "GLOBAL";
 
+/* ⭐ Backend only accepts these two */
+export type ChatSource = "TENANT" | "SUPER_ADMIN";
+
+export interface SendMessagePayload {
+  roomId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  messageType: "TEXT" | "IMAGE" | "FILE";
+  message: string;
+  replyTo?: {
+    messageId: string;
+    message: string;
+    senderId: string;
+    senderName: string;
+  };
+}
+
+export interface SendMessageResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    _id?: string;
+    messageId?: string;
+    message?: { _id?: string };
+  };
+}
+
 export interface IMessage {
   _id: string;
   messages: string;

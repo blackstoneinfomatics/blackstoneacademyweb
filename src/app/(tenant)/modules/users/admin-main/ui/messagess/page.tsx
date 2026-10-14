@@ -19,14 +19,13 @@ import type { CategoryDef, CategoryKey, DirectoryMember, IMessage, IUser, RoomTy
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
 const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
-const API_SEND_CHAT_MESSAGE = `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE}`;
 const API_CLEAR_CHAT = `${API_BASE}${AppApiEndpoints.CHAT.CLEAR}`;
 const API_MARK_CHAT_SEEN = `${API_BASE}${AppApiEndpoints.CHAT.SEEN}`;
 const API_MESSAGE_SEEN_USERS = (messageId: string, userId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE_SEEN_USERS(messageId, userId)}`;
 const ROOM_MESSAGES_PAGE_LIMIT = 10;
 const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.ROOM_MESSAGES(roomId, userId, ROOM_MESSAGES_PAGE_LIMIT)}`;
+  `${API_BASE}/user/chat/${roomId}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
 const API_UPDATE_CHAT_ROOM = (roomId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
 const API_GET_GROUP_DETAILS = (roomId: string) =>
@@ -138,6 +137,19 @@ const LS_KEY_ROOM_MEMBERS = "adminChatRoom.allMembers.";
 const LS_KEY_CLEARED_AT = "adminChatRoom.clearedAt.";
 const LS_KEY_READ_ROOMS = "adminChatRoom.readRooms";
 const LS_KEY_CREATED_ROOMS = "adminChatRoom.createdRooms.";
+const LS_KEY_LAST_MSG = "adminChatRoom.lastMessage.";
+
+const getCachedLastMessage = (roomId: string): { text: string; time: string; senderName?: string } | undefined => {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_LAST_MSG + roomId);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch { return undefined; }
+};
+const setCachedLastMessage = (roomId: string, preview: { text: string; time: string; senderName?: string }) => {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(LS_KEY_LAST_MSG + roomId, JSON.stringify(preview)); } catch { }
+};
 
 const getCreatedRoomsCache = (tenantId: string): IUser[] => {
   if (typeof window === "undefined") return [];
@@ -146,8 +158,8 @@ const getCreatedRoomsCache = (tenantId: string): IUser[] => {
     const rooms: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(rooms)
       ? rooms.filter((room): room is IUser =>
-          Boolean(room && typeof room === "object" && typeof (room as IUser)._id === "string")
-        )
+        Boolean(room && typeof room === "object" && typeof (room as IUser)._id === "string")
+      )
       : [];
   } catch (error) {
     console.error("Could not read cached chat rooms:", error);
@@ -476,6 +488,7 @@ const Message = () => {
   const [infoMessage, setInfoMessage] = useState<IMessage | null>(null);
 
   const [readStateVersion, setReadStateVersion] = useState(0);
+  const [previewsLoaded, setPreviewsLoaded] = useState(false);
 
   const fetchCategories = useCallback(async () => {
     setCategoriesLoading(true);
@@ -557,6 +570,17 @@ const Message = () => {
     const isChatCleared = clearedAt !== null && !hasMessageAfterClear;
     if (hasMessageAfterClear) removeChatClearedAt(id);
 
+    /* ⭐ Pull preview from API first, then localStorage fallback */
+    const apiLast = r?.lastMessage
+      ? {
+        text: r.lastMessage.message ?? "",
+        time: formatMessageTime(r.lastMessage.createdAt ?? r.lastMessageAt),
+        senderName: r.lastMessage.senderName ?? "",
+      }
+      : undefined;
+    const cachedLast = getCachedLastMessage(id);
+    const lastMessage = !isChatCleared ? apiLast ?? cachedLast : undefined;
+
     const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
       ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
       : [];
@@ -608,13 +632,7 @@ const Message = () => {
       plan: r?.planName ?? r?.course ?? "",
       members: [...activeMembers, ...cachedOnlyMembers],
       groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
-      lastMessage: !isChatCleared && r?.lastMessage
-        ? {
-          text: r.lastMessage.message ?? "",
-          time: formatMessageTime(r.lastMessage.createdAt ?? r.lastMessageAt),
-          senderName: r.lastMessage.senderName ?? "",
-        }
-        : undefined,
+      lastMessage,
       profileImage: null,
       roomId: id,
       roomCode: r?.roomCode ?? "",
@@ -641,11 +659,88 @@ const Message = () => {
 
     if (tenantId) setCreatedRoomsCache(tenantId, pendingCachedRooms);
 
-    const roomsById = new Map(
-      [...pendingCachedRooms, ...mapped].map((room) => [room._id, room])
-    );
-    setAllRooms(Array.from(roomsById.values()));
+    setAllRooms((prev) => {
+      const prevById = new Map(prev.map((r) => [r._id, r]));
+      const merged = [...pendingCachedRooms, ...mapped].map((room) => {
+        const existing = prevById.get(room._id);
+        if (!room.lastMessage && existing?.lastMessage) {
+          return { ...room, lastMessage: existing.lastMessage };
+        }
+        return room;
+      });
+      const mergedById = new Map(merged.map((r) => [r._id, r]));
+      return Array.from(mergedById.values());
+    });
   }, [mapRoomToUser]);
+
+  /* ⭐ Fetch last-message previews for all rooms that don't have one yet */
+  useEffect(() => {
+    if (previewsLoaded) return;
+    if (allRooms.length === 0) return;
+
+    const missing = allRooms.filter((r) => !r.lastMessage);
+    if (missing.length === 0) {
+      setPreviewsLoaded(true);
+      return;
+    }
+
+    const token = resolveAuthToken();
+    const userId = resolveAdminUserId();
+    if (!token || !userId) {
+      setPreviewsLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      /* Fetch in parallel (max 6 at a time) */
+      const CONCURRENCY = 6;
+      const updates: Record<string, { text: string; time: string; senderName?: string }> = {};
+
+      for (let i = 0; i < missing.length; i += CONCURRENCY) {
+        const batch = missing.slice(i, i + CONCURRENCY);
+        await Promise.all(
+          batch.map(async (room) => {
+            try {
+              const roomId = room.roomId || room._id;
+              const res = await fetch(API_ROOM_MESSAGES(roomId, userId), {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+              });
+              if (!res.ok) return;
+              const json: IRoomMessagesResponse = await res.json();
+              const messages = json?.data?.messages ?? [];
+              if (messages.length === 0) return;
+              const last = messages[messages.length - 1];
+              const preview = {
+                text: last.message ?? "",
+                time: formatMessageTime(last.createdAt ?? last.timestamp),
+                senderName: last.senderName ?? "",
+              };
+              updates[room._id] = preview;
+              setCachedLastMessage(room._id, preview);
+            } catch { /* silent */ }
+          })
+        );
+      }
+
+      if (cancelled) return;
+
+      if (Object.keys(updates).length > 0) {
+        setAllRooms((prev) =>
+          prev.map((r) =>
+            updates[r._id] ? { ...r, lastMessage: updates[r._id] } : r
+          )
+        );
+      }
+      setPreviewsLoaded(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allRooms, previewsLoaded]);
 
   const addCreatedRoomToList = (
     serverRoom: any,
@@ -777,9 +872,16 @@ const Message = () => {
 
   }, [selectedUser?._id, selectedUser?.isGroup]);
 
+  /* ⭐ Fresh message fetch per room */
   useEffect(() => {
     if (!selectedUser) return;
     setMessagesLoading(true);
+
+    setAllMessages((prev) =>
+      prev.map((g) =>
+        g._id === selectedUser._id ? { ...g, messages: [] } : g
+      )
+    );
 
     markRoomAsRead(selectedUser._id);
     setReadStateVersion((v) => v + 1);
@@ -801,6 +903,13 @@ const Message = () => {
           cache: "no-store",
         });
         const result: IRoomMessagesResponse = await response.json();
+        console.log("🚨 MESSAGES-FETCH-DEBUG", {
+          roomId,
+          userId,
+          url: API_ROOM_MESSAGES(roomId, userId),
+          status: response.status,
+          result,
+        });
         if (!response.ok || result.success === false) {
           throw new Error(result.message || `Fetch messages failed`);
         }
@@ -854,10 +963,30 @@ const Message = () => {
           }).catch(() => { /* silent */ });
         }
 
-        setAllMessages((prev) => [
-          ...prev.filter((g) => g._id !== selectedUser._id),
-          { _id: selectedUser._id, messages },
-        ]);
+        setAllMessages((prev) => {
+          const others = prev.filter((g) => g._id !== selectedUser._id);
+          return [...others, { _id: selectedUser._id, messages }];
+        });
+
+        if (messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          const preview = {
+            text: lastMsg.messages,
+            time: lastMsg.time,
+            senderName: lastMsg.senderName,
+          };
+          setCachedLastMessage(selectedUser._id, preview);
+          setAllRooms((prev) =>
+            prev.map((r) =>
+              r._id === selectedUser._id ? { ...r, lastMessage: preview } : r
+            )
+          );
+          setSelectedUser((prev) =>
+            prev && prev._id === selectedUser._id
+              ? { ...prev, lastMessage: preview }
+              : prev
+          );
+        }
       } catch (error) {
         if (!controller.signal.aborted) console.error("Failed to fetch room messages:", error);
       } finally {
@@ -887,90 +1016,41 @@ const Message = () => {
     return role.includes("ADMIN") || role.includes("SUPERADMIN");
   }, [selectedUser, currentUser.role]);
 
-  const handleSendMessage = async (): Promise<string | null> => {
-    if (!selectedUser) return "Select a conversation before sending.";
-    if (!canSend) return "Only admins can send messages in this chat.";
-    if (!messageText.trim()) return "Enter a message before sending.";
+  const handleMessageSent = useCallback((message: IMessage) => {
+    if (!selectedUser) return;
 
-    const senderName = currentUser.userName;
-    const senderId = currentUser.userId;
-    const text = messageText.trim();
-    const token = resolveAuthToken();
-
-    try {
-      const response = await fetch(API_SEND_CHAT_MESSAGE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          roomId: selectedUser._id,
-          senderId,
-          senderName,
-          senderRole: "ADMIN",
-          messageType: "TEXT",
-          message: text,
-        }),
-      });
-      const result = await response.json().catch(() => null);
-      if (!response.ok || result?.success === false) {
-        throw new Error(result?.message || "Send failed");
+    setAllMessages((prev) => {
+      const existing = prev.find((g) => g._id === selectedUser._id);
+      if (existing) {
+        return prev.map((g) =>
+          g._id === selectedUser._id
+            ? { ...g, messages: [...g.messages, message] }
+            : g
+        );
       }
+      return [...prev, { _id: selectedUser._id, messages: [message] }];
+    });
 
-      const candidates: unknown[] = [
-        result?.data?.message?._id,
-        result?.data?.messageId,
-        result?.data?._id,
-        result?.message?._id,
-        result?.messageId,
-        result?._id,
-      ];
-      const createdMessageId = candidates.find(
-        (v): v is string => typeof v === "string" && /^[a-f\d]{24}$/i.test(v)
-      );
+    const preview = {
+      text: message.messages,
+      time: message.time,
+      senderName: message.senderName,
+    };
 
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      const newMessage: IMessage = {
-        _id: createdMessageId ?? `local-${Date.now()}`,
-        messages: text,
-        senderId,
-        senderName,
-        receiverId: selectedUser._id,
-        receiverName: selectedUser.userName,
-        createdDate: now.toISOString(),
-        time: timeStr,
-        notificationStatus: "Unseen",
-        isRead: false,
-        status: "Active",
-        deliveredAt: timeStr,
-        isDeleted: false,
-        side: "right",
-        canReply: true,
-      };
+    setCachedLastMessage(selectedUser._id, preview);
 
-      setAllMessages((prev) => {
-        const existing = prev.find((g) => g._id === selectedUser._id);
-        if (existing) {
-          return prev.map((g) =>
-            g._id === selectedUser._id ? { ...g, messages: [...g.messages, newMessage] } : g
-          );
-        }
-        return [...prev, { _id: selectedUser._id, messages: [newMessage] }];
-      });
-      setSelectedUser((prev) =>
-        prev ? { ...prev, lastMessage: { text, time: timeStr, senderName } } : prev
-      );
-      setAllRooms((prev) =>
-        prev.map((r) =>
-          r._id === selectedUser._id ? { ...r, lastMessage: { text, time: timeStr, senderName } } : r
-        )
-      );
-      setMessageText("");
-      return null;
-    } catch (error) {
-      console.error("Send message failed:", error);
-      return error instanceof Error ? error.message : "Message could not be sent.";
-    }
-  };
+    setSelectedUser((prev) =>
+      prev ? { ...prev, lastMessage: preview } : prev
+    );
+
+    setAllRooms((prev) => {
+      const target = prev.find((r) => r._id === selectedUser._id);
+      if (!target) return prev;
+      const updated = { ...target, lastMessage: preview };
+      const rest = prev.filter((r) => r._id !== selectedUser._id);
+      return [updated, ...rest];
+    });
+  }, [selectedUser]);
 
   const createDirectChat = async (member: DirectoryMember) => {
     const token = resolveAuthToken();
@@ -1051,6 +1131,7 @@ const Message = () => {
       });
 
       const result = await response.json().catch(() => null);
+
       if (!response.ok || result?.success === false) {
         throw new Error(result?.message || `Create group failed: HTTP ${response.status}`);
       }
@@ -1119,6 +1200,7 @@ const Message = () => {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(LS_KEY_REMOVED + roomId);
       window.localStorage.removeItem(LS_KEY_ROOM_MEMBERS + roomId);
+      window.localStorage.removeItem(LS_KEY_LAST_MSG + roomId);
     }
     const tenantId = resolveTenantCode();
     if (tenantId) removeCachedRoom(tenantId, roomId);
@@ -1214,9 +1296,6 @@ const Message = () => {
     return `${label} Chats`;
   }, [activeCategory, categories]);
 
-  /* ═══════════════════════════════════════════════════════════
-     RENDER
-     ═══════════════════════════════════════════════════════════ */
   return (
     <BaseLayout4>
       <AdminHeader currentSection="Messages" />
@@ -1273,11 +1352,10 @@ const Message = () => {
             canSend={canSend}
             messageText={messageText}
             setMessageText={setMessageText}
-            handleSendMessage={handleSendMessage}
+            onMessageSent={handleMessageSent}
           />
         </div>
 
-        {/* MODALS */}
         <AnimatePresence>
           {showNewChatModal && (
             <NewChatModal
