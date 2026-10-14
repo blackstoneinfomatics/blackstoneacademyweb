@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
+import type { CategoryDef } from "./chat-types";
 
 export interface GroupDetailsData {
     roomId: string;
@@ -12,7 +13,7 @@ export interface GroupDetailsData {
     description: string;
     planName: string;
     sendAccess: "EVERYONE" | "ADMIN_ONLY";
-    members: { tenantId: string; tenantName: string; isSelected: boolean }[];
+    members: { tenantId: string; tenantName: string; isSelected: boolean; role?: string }[];
     memberCount: number;
 }
 
@@ -35,6 +36,7 @@ interface GroupDetailsModalProps {
     imagePreview: string | null;
     showDeleteConfirm: boolean;
     availableTenants?: AvailableTenant[];
+    roleCategories?: CategoryDef[];
     groupList?: GroupListItem[];
     onSelectGroup?: (roomId: string) => void;
     onImageChange: (file: File | null) => void;
@@ -51,6 +53,7 @@ type TabKey = "DETAILS" | "GROUPS" | "MEMBERS";
 
 export function GroupDetailsModal({
     data, imagePreview, showDeleteConfirm, availableTenants = [],
+    roleCategories = [],
     groupList = [], onSelectGroup, onImageChange, onUpdateMembers,
     onAddMembers, onUpdateAccess, onToggleDeleteConfirm, onDelete, onClose, onSave,
 }: GroupDetailsModalProps) {
@@ -60,6 +63,7 @@ export function GroupDetailsModal({
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
     const [groupSearch, setGroupSearch] = useState("");
+    const [activeMemberRole, setActiveMemberRole] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -122,6 +126,19 @@ export function GroupDetailsModal({
 
     const selectedMembers = localMembers.filter((m) => m.isSelected);
     const selectedCount = selectedMembers.length;
+    const membersByRole = new Map<string, typeof selectedMembers>();
+    selectedMembers.forEach((member) => {
+        const role = member.role || "OTHER";
+        membersByRole.set(role, [...(membersByRole.get(role) ?? []), member]);
+    });
+    const memberRoleGroups = Array.from(membersByRole.entries()).map(([role, members]) => ({
+        role,
+        label: roleCategories.find((category) => category.key === role)?.label
+            ?? role.toLowerCase().replace(/[\s_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        members,
+    }));
+    const selectedRoleGroup = memberRoleGroups.find((group) => group.role === activeMemberRole)
+        ?? memberRoleGroups[0];
 
     const avatarColors = [
         "bg-[#E9EEF8] text-[#4863A8]",
@@ -488,25 +505,46 @@ export function GroupDetailsModal({
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: 8 }}
                                 transition={{ duration: 0.15 }}
-                                className="space-y-2"
+                                className="flex min-h-[240px] gap-3"
                             >
                                 {selectedMembers.length === 0 ? (
-                                    <p className="py-10 text-center text-[12px] text-[#98A2B3]">No members in this group yet.</p>
+                                    <p className="w-full py-10 text-center text-[12px] text-[#98A2B3]">No members in this group yet.</p>
                                 ) : (
-                                    selectedMembers.map((member) => (
-                                        <div key={member.tenantId} className="flex items-center gap-3 rounded-[8px] border border-[#E6EAF2] px-3 py-2.5">
-                                            <div className={`flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${colorFor(member.tenantId)}`}>
-                                                {member.tenantName?.charAt(0)?.toUpperCase() ?? "?"}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[13px] font-medium text-[#101B41] truncate">{member.tenantName}</p>
-                                                <p className="text-[11px] text-[#98A2B3]">{data.planName || "Member"}</p>
-                                            </div>
-                                            <button type="button" onClick={() => handleRemoveMember(member.tenantId)} className="text-[11px] font-semibold text-[#D14343] hover:underline">
-                                                Remove
-                                            </button>
+                                    <>
+                                        <nav aria-label="Member roles" className="w-[130px] shrink-0 space-y-1 border-r border-[#E6EAF2] pr-2">
+                                            {memberRoleGroups.map((group) => (
+                                                <button
+                                                    key={group.role}
+                                                    type="button"
+                                                    onClick={() => setActiveMemberRole(group.role)}
+                                                    className={`flex w-full items-center justify-between gap-1 rounded-md px-2 py-2 text-left text-[12px] ${
+                                                        selectedRoleGroup?.role === group.role
+                                                            ? "bg-[#EEF2FB] font-semibold text-[#576CBC]"
+                                                            : "text-[#667085] hover:bg-[#F8F9FC]"
+                                                    }`}
+                                                >
+                                                    <span className="truncate">{group.label}</span>
+                                                    <span>{group.members.length}</span>
+                                                </button>
+                                            ))}
+                                        </nav>
+                                        <div className="min-w-0 flex-1 space-y-2">
+                                            {selectedRoleGroup?.members.map((member) => (
+                                                <div key={member.tenantId} className="flex items-center gap-3 rounded-[8px] border border-[#E6EAF2] px-3 py-2.5">
+                                                    <div className={`flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${colorFor(member.tenantId)}`}>
+                                                        {member.tenantName?.charAt(0)?.toUpperCase() ?? "?"}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[13px] font-medium text-[#101B41] truncate">{member.tenantName}</p>
+                                                        <p className="text-[11px] text-[#98A2B3]">{selectedRoleGroup.label}</p>
+                                                    </div>
+                                                    <button type="button" onClick={() => handleRemoveMember(member.tenantId)} className="text-[11px] font-semibold text-[#D14343] hover:underline">
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))
+                                    </>
                                 )}
                             </motion.div>
                         )}

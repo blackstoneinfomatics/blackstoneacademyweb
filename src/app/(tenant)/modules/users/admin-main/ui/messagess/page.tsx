@@ -19,7 +19,8 @@ import type { CategoryDef, CategoryKey, DirectoryMember, IMessage, IUser, RoomTy
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
 const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
-const API_LIST_CHAT_ROOMS = `${API_BASE}${AppApiEndpoints.CHAT.ROOM}`;
+const API_LIST_CHAT_ROOMS = (tenantId: string) =>
+  `${API_BASE}/user/chat-room/${encodeURIComponent(tenantId)}?filter=ALL`;
 const API_SEND_CHAT_MESSAGE = `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE}`;
 const API_CLEAR_CHAT = `${API_BASE}${AppApiEndpoints.CHAT.CLEAR}`;
 const API_MARK_CHAT_SEEN = `${API_BASE}${AppApiEndpoints.CHAT.SEEN}`;
@@ -46,8 +47,6 @@ const API_GET_TENANT_ROLES = (tenantId: string) =>
 
 const API_GET_TENANT_USERS_BY_ROLE = (tenantId: string, role: string) =>
   `${API_BASE}/tenant/${tenantId}/users?role=${encodeURIComponent(role)}`;
-
-const ROOMS_PAGE_LIMIT = 100;
 
 const resolveTenantCode = (): string => {
   if (typeof window === "undefined") return "";
@@ -81,10 +80,19 @@ const resolveAuthToken = (): string => {
   return "";
 };
 
+const resolveAdminUserId = (): string => {
+  if (typeof window === "undefined") return "";
+  return (
+    window.localStorage.getItem("AdminPortalUserId") ||
+    window.localStorage.getItem("AdminPortalId") ||
+    ""
+  );
+};
+
 const MANDATORY_CATEGORIES: CategoryDef[] = [
   { key: "ALL", label: "All", short: "AL", rawRole: "" },
   { key: "GROUP", label: "Group", short: "GR", rawRole: "GROUP" },
-  { key: "SUPERADMIN", label: "Super Admin", short: "SA", rawRole: "ADMIN" },
+  { key: "SUPERADMIN", label: "Admin", short: "AD", rawRole: "ADMIN" },
 ];
 
 const FALLBACK_ROLE_CATEGORIES: CategoryDef[] = [
@@ -94,12 +102,12 @@ const FALLBACK_ROLE_CATEGORIES: CategoryDef[] = [
 ];
 
 const ROLE_LABEL_OVERRIDES: Record<string, { label: string; short: string }> = {
-  SUPERADMIN: { label: "Super Admin", short: "SA" },
+  SUPERADMIN: { label: "Admin", short: "AD" },
   ACADEMICCOACH: { label: "Academic Coach", short: "AC" },
   TEACHER: { label: "Teacher", short: "TE" },
   SUPERVISOR: { label: "Supervisor", short: "SV" },
   STUDENT: { label: "Student", short: "ST" },
-  ADMIN: { label: "Super Admin", short: "SA" },
+  ADMIN: { label: "Admin", short: "AD" },
 };
 
 const normalizeRoleKey = (raw: any): string =>
@@ -131,6 +139,44 @@ const LS_KEY_REMOVED = "adminChatRoom.removedTenants.";
 const LS_KEY_ROOM_MEMBERS = "adminChatRoom.allMembers.";
 const LS_KEY_CLEARED_AT = "adminChatRoom.clearedAt.";
 const LS_KEY_READ_ROOMS = "adminChatRoom.readRooms";
+const LS_KEY_CREATED_ROOMS = "adminChatRoom.createdRooms.";
+
+const getCreatedRoomsCache = (tenantId: string): IUser[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_CREATED_ROOMS + tenantId);
+    const rooms: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(rooms)
+      ? rooms.filter((room): room is IUser =>
+          Boolean(room && typeof room === "object" && typeof (room as IUser)._id === "string")
+        )
+      : [];
+  } catch (error) {
+    console.error("Could not read cached chat rooms:", error);
+    return [];
+  }
+};
+
+const setCreatedRoomsCache = (tenantId: string, rooms: IUser[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_KEY_CREATED_ROOMS + tenantId, JSON.stringify(rooms));
+  } catch (error) {
+    console.error("Could not save created chat rooms:", error);
+  }
+};
+
+const cacheCreatedRoom = (tenantId: string, room: IUser) => {
+  const rooms = getCreatedRoomsCache(tenantId);
+  setCreatedRoomsCache(tenantId, [room, ...rooms.filter((existing) => existing._id !== room._id)]);
+};
+
+const removeCachedRoom = (tenantId: string, roomId: string) => {
+  setCreatedRoomsCache(
+    tenantId,
+    getCreatedRoomsCache(tenantId).filter((room) => room._id !== roomId)
+  );
+};
 
 const getChatClearedAt = (roomId: string): number | null => {
   if (typeof window === "undefined") return null;
@@ -163,7 +209,7 @@ const removeFromRemovedTenant = (roomId: string, tenantId: string) => {
   setRemovedTenants(roomId, current.filter((id) => id !== tenantId));
 };
 
-interface StoredMember { tenantId: string; tenantName: string; }
+interface StoredMember { tenantId: string; tenantName: string; role?: string; isSelected?: boolean; }
 const getRoomMembersCache = (roomId: string): StoredMember[] => {
   if (typeof window === "undefined") return [];
   try { const raw = window.localStorage.getItem(LS_KEY_ROOM_MEMBERS + roomId); return raw ? JSON.parse(raw) : []; } catch { return []; }
@@ -175,7 +221,10 @@ const setRoomMembersCache = (roomId: string, members: StoredMember[]) => {
 const mergeIntoRoomMembersCache = (roomId: string, newMembers: StoredMember[]) => {
   const current = getRoomMembersCache(roomId);
   const map = new Map(current.map((m) => [m.tenantId, m]));
-  newMembers.forEach((m) => { if (!map.has(m.tenantId)) map.set(m.tenantId, m); });
+  newMembers.forEach((member) => {
+    const existing = map.get(member.tenantId);
+    map.set(member.tenantId, { ...existing, ...member });
+  });
   setRoomMembersCache(roomId, Array.from(map.values()));
 };
 
@@ -240,7 +289,7 @@ const getPlanColor = (plan?: string) => {
 };
 
 const extractRoomId = (r: any): string => {
-  const raw = r?._id ?? r?.roomId ?? r?.chatRoomId ?? r?.id ?? "";
+  const raw = r?.roomId ?? r?.chatRoomId ?? r?._id ?? r?.id ?? "";
   if (typeof raw === "string") return raw;
   if (raw && typeof raw === "object" && typeof raw.$oid === "string") return raw.$oid;
   return raw ? String(raw) : "";
@@ -311,7 +360,7 @@ const MessageInfoModal = ({ message, onClose }: { message: IMessage; onClose: ()
 
   useEffect(() => {
     const token = resolveAuthToken();
-    const userId = localStorage.getItem("AdminPortalId");
+    const userId = resolveAdminUserId();
     if (!token || !userId) { setSeenError("Admin authentication data is missing."); setSeenLoading(false); return; }
     const controller = new AbortController();
     setSeenLoading(true);
@@ -390,13 +439,15 @@ const MessageInfoModal = ({ message, onClose }: { message: IMessage; onClose: ()
 
 const Message = () => {
   const currentUser = {
-    userId: typeof window !== "undefined" ? localStorage.getItem("AdminPortalId") ?? "ADMIN_PORTAL_ID" : "ADMIN_PORTAL_ID",
+    userId: resolveAdminUserId() || "ADMIN_PORTAL_ID",
     userName: typeof window !== "undefined" ? localStorage.getItem("AdminPortalName") ?? "Admin" : "Admin",
     role: "Admin",
   };
 
   const [allRooms, setAllRooms] = useState<IUser[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
+  const roomsRequestIdRef = useRef(0);
 
   const [categories, setCategories] = useState<CategoryDef[]>([
     ...MANDATORY_CATEGORIES,
@@ -515,22 +566,30 @@ const Message = () => {
       : [];
     const removedIds = getRemovedTenants(id);
     const cachedMembers = getRoomMembersCache(id);
-    const cacheLookup = new Map(cachedMembers.map((m) => [m.tenantId, m.tenantName]));
+    const cacheLookup = new Map(cachedMembers.map((member) => [member.tenantId, member]));
     const rawMembers = Array.isArray(r?.members) ? r.members : [];
 
     const activeMembers = rawTenantIds.map((tid) => {
       const found = rawMembers.find((m: any) => (m.tenantId || m._id || m.id) === tid);
+      const cached = cacheLookup.get(tid);
       return {
-        name: found?.tenantName || found?.name || cacheLookup.get(tid) || tid,
-        plan: r?.planName ?? "",
+        name: found?.tenantName || found?.name || cached?.tenantName || tid,
+        plan: r?.planName ?? r?.course ?? "",
         tenantId: tid,
         isSelected: !removedIds.includes(tid),
+        role: found?.role ?? cached?.role,
       };
     });
     const activeIds = new Set(activeMembers.map((m) => m.tenantId));
     const cachedOnlyMembers = cachedMembers
       .filter((cm) => !activeIds.has(cm.tenantId))
-      .map((cm) => ({ name: cm.tenantName, plan: r?.planName ?? "", tenantId: cm.tenantId, isSelected: false }));
+      .map((member) => ({
+        name: member.tenantName,
+        plan: r?.planName ?? "",
+        tenantId: member.tenantId,
+        isSelected: member.isSelected ?? false,
+        role: member.role,
+      }));
 
     let roleKey: string = isGroup ? "GROUP" : normalizeRoleKey(r?.role);
     if (roleKey === "ADMIN") roleKey = "SUPERADMIN";
@@ -550,7 +609,7 @@ const Message = () => {
       lastSeen: isChatCleared ? "" : r?.lastMessageAt ? formatMessageTime(r.lastMessageAt) : "recently",
       isGroup,
       roomType,
-      plan: r?.planName ?? "",
+      plan: r?.planName ?? r?.course ?? "",
       members: [...activeMembers, ...cachedOnlyMembers],
       groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
       lastMessage: !isChatCleared && r?.lastMessage
@@ -566,52 +625,74 @@ const Message = () => {
       unreadCount: isUnread ? Math.max(rawUnread, 1) : 0,
       isUnread,
       description: r?.description ?? "",
-      planName: r?.planName ?? "",
+      planName: r?.planName ?? r?.course ?? "",
       planId: r?.planId ?? "",
       sendAccess: r?.sendAccess === "ADMIN_ONLY" || r?.sendAccess === "ADMINS" ? "ADMIN_ONLY" : "EVERYONE",
     };
   }, []);
 
   const fetchRooms = useCallback(async () => {
+    const requestId = ++roomsRequestIdRef.current;
     setRoomsLoading(true);
+    setRoomsError(null);
 
     try {
-      const userId = localStorage.getItem("AdminPortalId") || "";
       const tenantId = resolveTenantCode();
       const token = resolveAuthToken();
+      if (!tenantId) throw new Error("Tenant ID not found in session.");
 
       const res = await fetch(
-        `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}&userId=${userId}&tenantId=${tenantId}`,
+        API_LIST_CHAT_ROOMS(tenantId),
         {
           cache: "no-store",
           headers: {
             "Content-Type": "application/json",
+            tenantId,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         }
       );
+      if (!res.ok) throw new Error(`Fetch chat rooms failed: HTTP ${res.status}`);
 
-      const json = res.ok ? await res.json() : {};
+      const json = await res.json();
+      if (json?.success === false) {
+        throw new Error(json.message || "Fetch chat rooms failed.");
+      }
       const data = json?.data ?? {};
-      const apiRooms: any[] = Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.items)
-          ? data.items
-          : [];
+      const apiRooms: any[] = Array.isArray(data?.chatrooms)
+        ? data.chatrooms
+        : Array.isArray(json?.chatrooms)
+          ? json.chatrooms
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
 
       const mapped = apiRooms.map(mapRoomToUser).filter((r) => r._id);
-      setAllRooms(mapped);
+      if (requestId === roomsRequestIdRef.current) {
+        const cachedRooms = getCreatedRoomsCache(tenantId);
+        const serverRoomIds = new Set(mapped.map((room) => room._id));
+        const pendingCachedRooms = cachedRooms.filter((room) => !serverRoomIds.has(room._id));
+        setCreatedRoomsCache(tenantId, pendingCachedRooms);
+        const roomsById = new Map(
+          [...pendingCachedRooms, ...mapped].map((room) => [room._id, room])
+        );
+        setAllRooms(Array.from(roomsById.values()));
+      }
     } catch (err) {
       console.error("fetchRooms failed:", err);
-      setAllRooms([]);
+      if (requestId === roomsRequestIdRef.current) {
+        setRoomsError(err instanceof Error ? err.message : "Could not load conversations.");
+      }
     } finally {
-      setRoomsLoading(false);
+      if (requestId === roomsRequestIdRef.current) setRoomsLoading(false);
     }
   }, [mapRoomToUser]);
 
   useEffect(() => { void fetchRooms(); }, [fetchRooms]);
 
-  const activateCreatedRoom = (
+  const addCreatedRoomToList = (
     serverRoom: any,
     defaults: {
       type: "DIRECT" | "GROUP";
@@ -632,23 +713,44 @@ const Message = () => {
       tenantIds: Array.isArray(serverRoom?.tenantIds)
         ? serverRoom.tenantIds
         : defaults.members.map((member) => member.userId),
-      members: Array.isArray(serverRoom?.members)
-        ? serverRoom.members
-        : defaults.members.map((member) => ({
-            tenantId: member.userId,
-            name: member.name,
-            tenantName: member.name,
-          })),
+      members: (Array.isArray(serverRoom?.members) ? serverRoom.members : [])
+        .map((member: any) => {
+          const memberId = String(member?.tenantId ?? member?.userId ?? member?._id ?? member?.id ?? "");
+          const directoryMember = defaults.members.find((candidate) => candidate.userId === memberId);
+          return {
+            ...member,
+            tenantId: memberId,
+            tenantName: member?.tenantName ?? member?.name ?? directoryMember?.name ?? memberId,
+            role: member?.role ?? directoryMember?.role,
+          };
+        })
+        .concat(
+          defaults.members
+            .filter((member) => !serverRoom?.members?.some((existing: any) =>
+              String(existing?.tenantId ?? existing?.userId ?? existing?._id ?? existing?.id ?? "") === member.userId
+            ))
+            .map((member) => ({
+              tenantId: member.userId,
+              tenantName: member.name,
+              role: member.role,
+            }))
+        ),
     });
 
+    const tenantId = resolveTenantCode();
+    mergeIntoRoomMembersCache(
+      roomId,
+      room.members
+        .filter((member) => Boolean(member.tenantId))
+        .map((member) => ({
+          tenantId: member.tenantId!,
+          tenantName: member.name,
+          role: member.role,
+          isSelected: member.isSelected ?? true,
+        }))
+    );
+    if (tenantId) cacheCreatedRoom(tenantId, room);
     setAllRooms((previous) => [room, ...previous.filter((existing) => existing._id !== roomId)]);
-    setAllMessages((previous) => [
-      ...previous.filter((conversation) => conversation._id !== roomId),
-      { _id: roomId, messages: [] },
-    ]);
-    setSelectedUser(room);
-    markRoomAsRead(roomId);
-    setReadStateVersion((version) => version + 1);
   };
 
   const categoryRooms = useMemo(() => {
@@ -731,13 +833,14 @@ const Message = () => {
     );
 
     const token = resolveAuthToken();
-    const userId = localStorage.getItem("AdminPortalId");
+    const userId = resolveAdminUserId();
     if (!token || !userId) { setMessagesLoading(false); return; }
 
     const controller = new AbortController();
+    const roomId = selectedUser.roomId || selectedUser._id;
     (async () => {
       try {
-        const response = await fetch(API_ROOM_MESSAGES(selectedUser._id, userId), {
+        const response = await fetch(API_ROOM_MESSAGES(roomId, userId), {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
           cache: "no-store",
@@ -751,11 +854,11 @@ const Message = () => {
           const date = new Date(createdDate);
           const attachment = message.attachments?.[0];
           return {
-            _id: message._id ?? `${selectedUser._id}-${index}`,
+            _id: message._id ?? `${roomId}-${index}`,
             messages: message.message ?? "",
             senderId: message.senderId ?? "",
             senderName: message.senderName ?? "",
-            receiverId: selectedUser._id,
+            receiverId: roomId,
             receiverName: selectedUser.userName,
             createdDate,
             dateLabel: message.dateLabel,
@@ -791,7 +894,7 @@ const Message = () => {
           void fetch(API_MARK_CHAT_SEEN, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ roomId: selectedUser._id, userId, messageId: lastMessageId }),
+            body: JSON.stringify({ roomId, userId, messageId: lastMessageId }),
             signal: controller.signal,
           }).catch(() => { /* silent */ });
         }
@@ -949,7 +1052,8 @@ const Message = () => {
       const serverRoom =
         result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
         result?.data ?? result?.room ?? result;
-      activateCreatedRoom(serverRoom, {
+      await fetchRooms();
+      addCreatedRoomToList(serverRoom, {
         type: "DIRECT",
         name: member.name,
         role: member.role,
@@ -999,7 +1103,8 @@ const Message = () => {
       const serverRoom =
         result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
         result?.data ?? result?.room ?? result;
-      activateCreatedRoom(serverRoom, {
+      await fetchRooms();
+      addCreatedRoomToList(serverRoom, {
         type: "GROUP",
         name: groupName,
         role: "GROUP",
@@ -1060,6 +1165,8 @@ const Message = () => {
       window.localStorage.removeItem(LS_KEY_REMOVED + roomId);
       window.localStorage.removeItem(LS_KEY_ROOM_MEMBERS + roomId);
     }
+    const tenantId = resolveTenantCode();
+    if (tenantId) removeCachedRoom(tenantId, roomId);
     removeChatClearedAt(roomId);
     setAllRooms((prev) => prev.filter((u) => u._id !== deletedId));
     setAllMessages((prev) => prev.filter((g) => g._id !== deletedId));
@@ -1074,7 +1181,7 @@ const Message = () => {
     if (!selectedUser) return;
     const roomId = selectedUser.roomId || selectedUser._id;
     const token = resolveAuthToken();
-    const userId = localStorage.getItem("AdminPortalId");
+    const userId = resolveAdminUserId();
     if (!token || !userId) return;
 
     try {
@@ -1106,7 +1213,7 @@ const Message = () => {
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const userId = localStorage.getItem("AdminPortalId") || "";
+      const userId = resolveAdminUserId();
       await fetch(API_DELETE_MESSAGE_FOR_EVERYONE(messageId, userId), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -1182,6 +1289,8 @@ const Message = () => {
             setShowNewGroupModal={setShowNewGroupModal}
             setShowNewChatModal={setShowNewChatModal}
             roomsLoading={roomsLoading}
+            roomsError={roomsError}
+            onRetryRooms={() => void fetchRooms()}
             categoryRooms={categoryRooms}
             selectedUser={selectedUser}
             getPlanColor={getPlanColor}

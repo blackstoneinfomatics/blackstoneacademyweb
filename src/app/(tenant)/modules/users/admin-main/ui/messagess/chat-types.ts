@@ -52,7 +52,7 @@ export interface IUser {
   isGroup: boolean;
   roomType: RoomType;
   plan: any;
-  members: { name: string; plan: any; tenantId?: string; isSelected?: boolean }[];
+  members: { name: string; plan: any; tenantId?: string; isSelected?: boolean; role?: string }[];
   groupSettings: "everyone" | "admins";
   lastMessage?: { text: string; time: string; senderName?: string };
   unreadCount: number;

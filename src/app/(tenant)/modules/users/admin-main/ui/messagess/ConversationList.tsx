@@ -22,6 +22,8 @@ interface ConversationListProps {
   setShowNewGroupModal: React.Dispatch<React.SetStateAction<boolean>>;
   setShowNewChatModal: React.Dispatch<React.SetStateAction<boolean>>;
   roomsLoading: boolean;
+  roomsError: string | null;
+  onRetryRooms: () => void;
   categoryRooms: IUser[];
   selectedUser: IUser | null;
   getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
@@ -33,7 +35,7 @@ const ConversationList = ({
   currentUser, searchQuery, setSearchQuery, categoryDropdownRef, categories,
   categoriesLoading, categoryDropdownOpen, setCategoryDropdownOpen, activeCategory,
   setActiveCategory, setSelectedUser, categoryHeading, tabCounts,
-  setShowNewGroupModal, setShowNewChatModal, roomsLoading, categoryRooms,
+  setShowNewGroupModal, setShowNewChatModal, roomsLoading, roomsError, onRetryRooms, categoryRooms,
   selectedUser, getPlanColor, getStatusColor, handleSelectRoom,
 }: ConversationListProps) => (
   <div className="w-full md:w-[340px] md:flex-none h-full bg-white dark:bg-[#343434] rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col overflow-hidden">
@@ -142,7 +144,7 @@ const ConversationList = ({
                 </button>
               ) : activeCategory === "SUPERADMIN" ? (
                 <div className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#E6EAF2] dark:border-[#3A4570] px-2.5 py-2 text-[11px] font-medium text-[#8C919C] dark:text-[#8a8a8a]">
-                  Only one Super Admin — no new chat needed
+                  Only one Admin — no new chat needed
                 </div>
               ) : (
                 <button
@@ -161,6 +163,17 @@ const ConversationList = ({
             <div className="flex-1 min-h-0 overflow-y-auto">
               {roomsLoading ? (
                 <p className="py-6 text-center text-[11px] text-gray-400">Loading chats…</p>
+              ) : roomsError ? (
+                <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+                  <p role="alert" className="text-[12px] text-red-500">{roomsError}</p>
+                  <button
+                    type="button"
+                    onClick={onRetryRooms}
+                    className="text-[11px] font-semibold text-[#576CBC] hover:underline"
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : categoryRooms.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center px-6 py-10 h-full">
                   <div className="w-16 h-16 rounded-full bg-[#EEF2FB] dark:bg-[#2c2c2c] flex items-center justify-center mb-4">

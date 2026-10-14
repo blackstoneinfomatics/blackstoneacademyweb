@@ -215,8 +215,9 @@ const fetchRoleBasedAccessControl = async (
       const response = await signIn(username, password);
       const data = response.data;
       console.log("Admin login successful:", data);
-      const { accessToken, role, _id, userName,tenantId } = data;
+      const { accessToken, role, _id, userId, userName, tenantId } = data;
       const userEmail: string = data.email ?? data.userEmail ?? "";
+      const adminUserId = userId ?? _id ?? data.id;
 
       if (!role?.includes("ADMIN")) {
         setLoginError("Only Administrators are allowed to log in.");
@@ -224,7 +225,10 @@ const fetchRoleBasedAccessControl = async (
       }
 
       localStorage.setItem("AdminAuthToken", accessToken);
-      localStorage.setItem("AdminPortalId", _id);
+      if (adminUserId) {
+        localStorage.setItem("AdminPortalUserId", adminUserId);
+        localStorage.setItem("AdminPortalId", adminUserId);
+      }
       localStorage.setItem("AdminPortalName", userName);
       localStorage.setItem("AdminPortalEmail", userEmail);
       localStorage.setItem("AdminPortalRole", role);
@@ -317,8 +321,12 @@ const fetchRoleBasedAccessControl = async (
       const role = result?.data?.role;
 
       if (result?.message === "Email exists" && role?.includes("ADMIN")) {
+        const adminUserId = result.data.userId ?? result.data._id ?? result.data.id;
         localStorage.setItem("AdminAuthToken", result.data.accessToken);
-        localStorage.setItem("AdminPortalId", result.data.id);
+        if (adminUserId) {
+          localStorage.setItem("AdminPortalUserId", adminUserId);
+          localStorage.setItem("AdminPortalId", adminUserId);
+        }
         localStorage.setItem("AdminPortalName", result.data.username);
         router.push("/modules/users/admin-main/ui/dashboard");
       } else {
