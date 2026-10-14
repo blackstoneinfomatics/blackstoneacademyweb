@@ -8,7 +8,7 @@ import type { CategoryDef, DirectoryMember } from "../chat-types";
 interface NewGroupModalProps {
   categories: CategoryDef[];
   onClose: () => void;
-  onCreate: (groupName: string, memberIds: string[]) => void;
+  onCreate: (groupName: string, members: DirectoryMember[]) => Promise<void>;
   getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
   fetchMembersForCategory: (category: CategoryDef) => Promise<DirectoryMember[]>;
 }
@@ -36,6 +36,7 @@ const NewGroupModal = ({
   const [membersByCategory, setMembersByCategory] = useState<Record<string, DirectoryMember[]>>({});
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
+  const [creatingGroup, setCreatingGroup] = useState(false);
 
   const loadMembersForCategory = useCallback(async (cat: CategoryDef) => {
     if (membersByCategory[cat.key]) return;
@@ -65,7 +66,7 @@ const NewGroupModal = ({
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.planName.toLowerCase().includes(q) ||
-        m._id.toLowerCase().includes(q)
+        m.userId.toLowerCase().includes(q)
     );
   }, [currentMembers, memberSearch]);
 
@@ -81,29 +82,43 @@ const NewGroupModal = ({
   const selectAllInCategory = () => {
     setSelected((prev) => {
       const next = new Set(prev);
-      filteredMembers.forEach((m) => next.add(m._id));
+      filteredMembers.forEach((m) => next.add(m.userId));
       return next;
     });
   };
   const clearAllInCategory = () => {
     setSelected((prev) => {
       const next = new Set(prev);
-      filteredMembers.forEach((m) => next.delete(m._id));
+      filteredMembers.forEach((m) => next.delete(m.userId));
       return next;
     });
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const name = groupName.trim();
     if (!name) { setError("Group name is required"); return; }
     if (selected.size === 0) { setError("Select at least one member"); return; }
+    const selectedMembers = Array.from(selected)
+      .map(findMemberById)
+      .filter((member): member is DirectoryMember => Boolean(member));
+    if (selectedMembers.length !== selected.size) {
+      setError("Could not load details for every selected member. Please try again.");
+      return;
+    }
     setError(null);
-    onCreate(name, Array.from(selected));
+    setCreatingGroup(true);
+    try {
+      await onCreate(name, selectedMembers);
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Could not create group.");
+    } finally {
+      setCreatingGroup(false);
+    }
   };
 
   const findMemberById = (id: string): DirectoryMember | undefined => {
     for (const list of Object.values(membersByCategory)) {
-      const found = list.find((m) => m._id === id);
+      const found = list.find((m) => m.userId === id);
       if (found) return found;
     }
     return undefined;
@@ -141,7 +156,7 @@ const NewGroupModal = ({
                 ? `${selected.size} member${selected.size === 1 ? "" : "s"} selected across categories`
                 : membersLoading
                   ? "Loading members…"
-                  : `${filteredMembers.length} member${filteredMembers.length === 1 ? "" : "s"} · ${filteredMembers.filter((m) => selected.has(m._id)).length} selected here`}
+                  : `${filteredMembers.length} member${filteredMembers.length === 1 ? "" : "s"} · ${filteredMembers.filter((m) => selected.has(m.userId)).length} selected here`}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="h-8 w-8 flex items-center justify-center rounded-md text-[#7C8492] hover:bg-[#F1F3F6] hover:text-[#252B3A] dark:hover:bg-[#2F2F2F] dark:hover:text-white transition-colors">
@@ -189,7 +204,7 @@ const NewGroupModal = ({
               {pickableCategories.map((cat) => {
                 const list = membersByCategory[cat.key] ?? [];
                 const selectedInCat = Array.from(selected).filter((id) =>
-                  list.some((m) => m._id === id)
+                  list.some((m) => m.userId === id)
                 ).length;
                 return (
                   <button
@@ -244,13 +259,13 @@ const NewGroupModal = ({
               ) : (
                 <div className="space-y-1.5">
                   {filteredMembers.map((member) => {
-                    const isChecked = selected.has(member._id);
+                    const isChecked = selected.has(member.userId);
                     const planColor = getPlanColor(member.planName);
                     return (
                       <button
-                        key={member._id}
+                        key={member.userId}
                         type="button"
-                        onClick={() => toggleMember(member._id)}
+                        onClick={() => toggleMember(member.userId)}
                         className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all
                           ${isChecked ? "border-[#576CBC] bg-[#F4F6FB] dark:bg-[#2A3050]" : "border-[#EEEEEE] dark:border-[#3F3F3F] bg-white dark:bg-[#242424] hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A]"}`}
                       >
@@ -293,7 +308,13 @@ const NewGroupModal = ({
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="h-10 rounded-md border border-[#576CBC] text-[#576CBC] px-4 text-[12px] font-semibold hover:bg-[#EEF2FB] dark:hover:bg-[#2F2F2F] transition-colors">Cancel</button>
-            <button onClick={handleCreate} className="h-10 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold hover:bg-[#4659a3] transition-colors">Create Group</button>
+            <button
+              onClick={handleCreate}
+              disabled={creatingGroup}
+              className="h-10 rounded-md bg-[#576CBC] text-white px-4 text-[12px] font-semibold hover:bg-[#4659a3] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {creatingGroup ? "Creating..." : "Create Group"}
+            </button>
           </div>
         </div>
       </motion.div>

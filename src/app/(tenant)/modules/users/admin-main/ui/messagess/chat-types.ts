@@ -8,7 +8,7 @@ export interface CategoryDef {
 }
 
 export interface DirectoryMember {
-  _id: string;
+  userId: string;
   name: string;
   role: string;
   planName: string;

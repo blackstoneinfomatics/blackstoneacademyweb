@@ -13,7 +13,7 @@ export interface ProductUpdate {
   affectedTenants: number;
   rawAudience: string[];
   rawSelectedTenants: string[];
-  rawSelectedTenantDetails?: { tenantCode: string; tenantName: string }[];  // ⭐
+  rawSelectedTenantDetails?: { tenantCode: string; tenantName: string }[]; // ⬅️ NEW
   attachments: string[];
   sendNotification?: { email: boolean; inApp: boolean };
   publishDate?: string;
