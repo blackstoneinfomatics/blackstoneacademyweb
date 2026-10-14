@@ -23,6 +23,8 @@ export const AppApiEndpoints = {
 
   NOTIFICATION: {
     GET_LIST: "/notification/getlist",
+    CARD_DETAILS: "/notification/card-details",
+    REQUEST_LIST: "/notification/request-list",
     CREATE: "/notification",
     UPDATE: "/notification",
   },
