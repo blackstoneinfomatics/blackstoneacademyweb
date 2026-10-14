@@ -175,30 +175,23 @@ const normalizeRow = (
   const isSelectTenants = audienceJoined.includes("select tenant");
 
   const anyRow = row as any;
-  let selectedNames: string[] = [];
 
-  if (Array.isArray(anyRow.selectedTenantDetails)) {
-    selectedNames = anyRow.selectedTenantDetails
-      .map((t: any) => t?.tenantName ?? t?.tenantCode ?? "")
-      .filter(Boolean);
-  } else if (Array.isArray(anyRow.selectedTenants)) {
-    selectedNames = anyRow.selectedTenants
-      .map((t: any) =>
-        typeof t === "string"
-          ? t
-          : t?.tenantName ?? t?.name ?? t?.tenantCode ?? "",
-      )
-      .filter(Boolean);
-  }
+  /* ⭐ Use the same source as the modal */
+  const tenantPairs = buildTenantPairs(anyRow);
+  const selectedNames = tenantPairs
+    .map((p) => p.tenantName || p.tenantCode)
+    .filter(Boolean);
+
+  const count = tenantPairs.length;
 
   let audienceDisplay: string;
   if (isAllTenants) {
     audienceDisplay = `All Tenants (${totalTenantsCount})`;
   } else if (isSelectTenants) {
-    audienceDisplay = `Selected Tenants (${selectedNames.length})`;
+    audienceDisplay = `Selected Tenants (${count})`;
   } else {
     const planLabel = audienceArr[0] ?? anyRow.planName ?? "Plan";
-    audienceDisplay = `${planLabel} (${selectedNames.length})`;
+    audienceDisplay = `${planLabel} (${count})`;
   }
 
   const rowId = isApiRow(row) ? row._id : row.updateId;
@@ -215,13 +208,10 @@ const normalizeRow = (
     audience: audienceDisplay,
     releaseDate,
     status: (row.status ?? "Draft") as UpdateStatus,
-    affectedTenants: isAllTenants
-      ? totalTenantsCount
-      : isSelectTenants
-        ? selectedNames.length
-        : selectedNames.length,
+    affectedTenants: isAllTenants ? totalTenantsCount : count,
     rawAudience: audienceArr,
     rawSelectedTenants: selectedNames,
+    rawSelectedTenantDetails: tenantPairs,   // ⭐ NEW
     attachments: row.attachments ?? [],
     sendNotification: row.sendNotification,
     publishDate: row.publishDate,
@@ -242,30 +232,20 @@ const mergeRows = (
     const key = api.title.trim().toLowerCase();
     const local = localByTitle.get(key);
 
-    const apiTenants = (() => {
-      if (Array.isArray(api.selectedTenantDetails)) {
-        return api.selectedTenantDetails
-          .map((t) => t.tenantName ?? t.tenantCode ?? "")
-          .filter(Boolean);
-      }
-      if (Array.isArray(api.selectedTenants)) {
-        return api.selectedTenants
-          .map((t: any) =>
-            typeof t === "string"
-              ? t
-              : t?.tenantName ?? t?.name ?? t?.tenantCode ?? "",
-          )
-          .filter(Boolean);
-      }
-      return [];
-    })();
+    // ⭐ Preserve selectedTenantDetails as the authoritative source
+    let tenantPairs = buildTenantPairs(api as any);
 
-    const effectiveTenants =
-      apiTenants.length > 0 ? apiTenants : local?.selectedTenants ?? [];
+    if (tenantPairs.length === 0 && local?.selectedTenants?.length) {
+      tenantPairs = local.selectedTenants.map((n) => ({
+        tenantCode: n,
+        tenantName: n,
+      }));
+    }
 
     const enriched: ApiUpdateRow = {
       ...api,
-      selectedTenants: effectiveTenants,
+      selectedTenantDetails: tenantPairs,
+      selectedTenants: tenantPairs.map((t) => t.tenantName || t.tenantCode),
       audience:
         Array.isArray(api.audience) && api.audience.length > 0
           ? api.audience
@@ -1167,6 +1147,13 @@ const page = () => {
 
                                     setViewRowFallback(fallback);
 
+                                    const details =
+                                      item.rawSelectedTenantDetails ?? [];
+                                    const expectedCount =
+                                      details.length > 0
+                                        ? details.length
+                                        : (item.rawSelectedTenants ?? []).length;
+
                                     setViewUpdateData({
                                       title: item.title,
                                       description: item.description,
@@ -1183,7 +1170,9 @@ const page = () => {
                                       releaseDate: item.releaseDate,
                                       audience:
                                         item.rawAudience ??
-                                        local?.audience ?? ["All Tenants"],
+                                        local?.audience ??
+                                        ["All Tenants"],
+                                      selectedTenantDetails: details,
                                       selectedTenants: fallback,
                                       attachments:
                                         item.attachments ??
@@ -1192,6 +1181,7 @@ const page = () => {
                                       affectedTenants:
                                         item.affectedTenants ??
                                         totalTenantsCount,
+                                      expectedCount,
                                     });
 
                                     setViewUpdateId(item.updateId);
