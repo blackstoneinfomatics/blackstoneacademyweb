@@ -521,9 +521,6 @@ const SeenByModal = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">{name}</p>
-                        {seenAt && (
-                          <p className="text-[10px] text-[#8C919C] dark:text-[#8a8a8a]">{seenAt}</p>
-                        )}
                       </div>
                     </div>
                   );
