@@ -14,25 +14,17 @@ import type {
   SendMessageResponse,
 } from "./chat-types";
 
-/* ═══════════════════════════════════════════════════════════════════
-   API — this component owns the send-message endpoint
-   ═══════════════════════════════════════════════════════════════════ */
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
-/* ⭐ Backend accepts ONLY "SUPER_ADMIN" or "TENANT" */
 const resolveChatSource = (): ChatSource => {
   if (typeof window === "undefined") return "SUPER_ADMIN";
-
-  // 1) Explicit override (must be SUPER_ADMIN or TENANT)
   const explicit = (localStorage.getItem("chatSource") || "").trim().toUpperCase();
   if (explicit === "SUPER_ADMIN" || explicit === "TENANT") {
     return explicit as ChatSource;
   }
-
-  // 2) Infer from URL — anything under /super-admin → SUPER_ADMIN, else TENANT
-  const path = window.location.pathname.toLowerCase();
-  if (path.startsWith("/super-admin")) return "SUPER_ADMIN";
-  return "TENANT";
+  return window.location.pathname.toLowerCase().startsWith("/super-admin")
+    ? "SUPER_ADMIN"
+    : "TENANT";
 };
 
 const API_SEND_CHAT_MESSAGE = (source: ChatSource) =>
@@ -56,9 +48,6 @@ const resolveAdminUserId = (): string => {
   );
 };
 
-/* ═══════════════════════════════════════════════════════════════════
-   Sub-components
-   ═══════════════════════════════════════════════════════════════════ */
 const ReceiptDots = ({ delivered, seen }: { delivered: boolean; seen: boolean }) => (
   <span className="ml-1 inline-flex items-center gap-[3px]">
     <span className={`inline-block h-[6px] w-[6px] rounded-full ${delivered ? "bg-white/90" : "bg-white/40"}`} />
@@ -119,9 +108,6 @@ const MessageMenu = ({
   );
 };
 
-/* ═══════════════════════════════════════════════════════════════════
-   Props
-   ═══════════════════════════════════════════════════════════════════ */
 interface ChatPanelProps {
   selectedUser: IUser | null;
   getStatusColor: (status: string) => string;
@@ -143,7 +129,6 @@ interface ChatPanelProps {
   canSend: boolean;
   messageText: string;
   setMessageText: (value: string) => void;
-  /* ⭐ Called after a successful send so the parent can update list + thread */
   onMessageSent: (message: IMessage) => void;
 }
 
@@ -158,7 +143,6 @@ const ChatPanel = ({
   const [sendError, setSendError] = useState<string | null>(null);
   const [chatSource] = useState<ChatSource>(() => resolveChatSource());
 
-  /* ⭐ Reset the send error whenever the user switches rooms */
   useEffect(() => {
     setSendError(null);
   }, [selectedUser?._id]);
@@ -183,7 +167,7 @@ const ChatPanel = ({
       roomId: selectedUser.roomId || selectedUser._id,
       senderId,
       senderName,
-      senderRole: chatSource,           // ⭐ "SUPER_ADMIN" | "TENANT"
+      senderRole: chatSource,
       messageType: "TEXT",
       message: text,
       ...(replyTo
@@ -209,12 +193,6 @@ const ChatPanel = ({
       });
 
       const json: SendMessageResponse = await res.json().catch(() => ({}));
-      console.log("🚨 SEND-DEBUG", {
-        url: API_SEND_CHAT_MESSAGE(chatSource),
-        payload,
-        status: res.status,
-        response: json,
-      });
 
       if (!res.ok || json?.success === false) {
         throw new Error(json?.message || `Send failed: HTTP ${res.status}`);
@@ -304,8 +282,10 @@ const ChatPanel = ({
             </div>
 
             <div className="relative flex-shrink-0">
-              <button onClick={() => setShowGroupMenu((o) => !o)}
-                className="text-[#777D89] dark:text-[#B5B5B5] p-2 hover:bg-gray-100 dark:hover:bg-[#2F2F2F] rounded-md">
+              <button
+                onClick={() => setShowGroupMenu((o) => !o)}
+                className="text-[#777D89] dark:text-[#B5B5B5] p-2 hover:bg-gray-100 dark:hover:bg-[#2F2F2F] rounded-md"
+              >
                 <FiMoreVertical size={15} />
               </button>
               {showGroupMenu && (
@@ -326,7 +306,11 @@ const ChatPanel = ({
             </div>
           </div>
 
-          <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]">
+          {/* ⭐ scrollbar-hide applied */}
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-5 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]"
+          >
             {messagesLoading ? (
               <p className="py-6 text-center text-[11px] text-gray-400">Loading messages…</p>
             ) : selectedMessages.length === 0 ? (

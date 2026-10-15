@@ -16,10 +16,13 @@ export interface DirectoryMember {
   avatarLetter: string;
 }
 
-export type RoomType = "TENANT" | "GROUP" | "SEGMENT" | "GLOBAL";
+export type RoomType = "TENANT" | "SEGMENT" | "GLOBAL";
 
-/* ⭐ Backend only accepts these two */
+/* ⭐ Backend only accepts these two for the {source} path param */
 export type ChatSource = "TENANT" | "SUPER_ADMIN";
+
+/* ⭐ Shared filter type used by ConversationList + page */
+export type RoomListFilter = "ALL" | "GROUP" | "ADMIN" | "SUPERADMIN";
 
 export interface SendMessagePayload {
   roomId: string;
@@ -91,4 +94,7 @@ export interface IUser {
   planName?: string;
   planId?: string;
   sendAccess?: "EVERYONE" | "ADMIN_ONLY";
+  /* ⭐ Optional so existing code that doesn't set them still compiles */
+  roomRole?: string;
+  roomCourse?: string;
 }
