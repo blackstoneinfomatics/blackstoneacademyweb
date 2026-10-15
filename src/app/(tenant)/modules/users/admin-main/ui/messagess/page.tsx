@@ -791,8 +791,13 @@ const Message = () => {
         role: member.role,
       }));
 
-    let roleKey: string = isGroup ? "GROUP" : normalizeRoleKey(r?.role);
-    if (roleKey === "ADMIN") roleKey = "SUPERADMIN";
+    const isSuperAdminSource = String(r?.source ?? "").toUpperCase() === "SUPER_ADMIN";
+    let roleKey: string = isSuperAdminSource
+      ? "SUPERADMIN"
+      : isGroup
+        ? "GROUP"
+        : normalizeRoleKey(r?.role);
+    if (!isSuperAdminSource && roleKey === "ADMIN") roleKey = "SUPERADMIN";
 
     const readIds = getReadRooms();
     const isReadLocally = readIds.includes(id);
@@ -1001,6 +1006,8 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
       result = result.filter(
         (r) => r.roomType === "SEGMENT" || r.roomType === "GLOBAL" || r.isGroup,
       );
+    } else if (activeCategory === "SUPERADMIN") {
+      result = result.filter((r) => r.roleKey === "SUPERADMIN");
     } else if (activeCategory !== "ALL") {
       result = result.filter((r) => !r.isGroup && r.roleKey === activeCategory);
     }
@@ -1020,10 +1027,10 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
   const tabCounts = useMemo(() => {
     void readStateVersion;
     return {
-      total: allRooms.length,
-      unread: allRooms.filter((r) => r.isUnread).length,
+      total: categoryRooms.length,
+      unread: categoryRooms.filter((r) => r.isUnread).length,
     };
-  }, [allRooms, readStateVersion]);
+  }, [categoryRooms, readStateVersion]);
 
   useEffect(() => {
     if (!selectedUser) return;
