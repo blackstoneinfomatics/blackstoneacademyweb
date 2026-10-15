@@ -348,7 +348,7 @@ const ConversationList = ({
                                 {room.roomRole}
                               </span>
                             )}
-                            {(room.roomType === "GROUP" || room.roomType === "SEGMENT" || room.roomType === "GLOBAL" || room.isGroup) && (
+                            {(room.roomType === "SEGMENT" || room.roomType === "GLOBAL" || room.isGroup) && (
                               <span className="text-[10px] px-1.5 py-[1px] rounded bg-[#EEF2FB] text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8] flex-shrink-0">
                                 {room.roomType === "SEGMENT" ? "" : "Group"}
                               </span>

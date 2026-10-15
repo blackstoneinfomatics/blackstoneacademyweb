@@ -18,7 +18,6 @@ import type {
   DirectoryMember,
   IMessage,
   IUser,
-  RoomListFilter,
   RoomType,
 } from "./chat-types";
 
@@ -829,7 +828,7 @@ const Message = () => {
   }, []);
 
   const handleRoomsLoaded = useCallback(
-    (apiRooms: unknown[], filter: RoomListFilter) => {
+    (apiRooms: unknown[], filter: string) => {
       const mapped = apiRooms
         .map((room) => mapRoomToUser(room))
         .filter((room) => Boolean(room._id));
@@ -1213,6 +1212,9 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
   }, [selectedUser]);
 
   const createDirectChat = async (member: DirectoryMember) => {
+    if (member.userId === currentUser.userId) {
+      throw new Error("You cannot start a chat with yourself.");
+    }
     const token = resolveAuthToken();
     const tenantId = resolveTenantCode();
     if (!tenantId) throw new Error("Tenant ID not found in session.");
@@ -1266,6 +1268,8 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
     const token = resolveAuthToken();
     const tenantId = resolveTenantCode();
     if (!tenantId) throw new Error("Tenant ID not found in session.");
+    const receivers = members.filter((member) => member.userId !== currentUser.userId);
+    if (receivers.length === 0) throw new Error("Select at least one member other than yourself.");
 
     try {
       const response = await postChatRoom(tenantId, {
@@ -1283,7 +1287,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
             name: currentUser.userName,
             role: "ADMIN",
           },
-          receivers: members.map((member) => ({
+          receivers: receivers.map((member) => ({
             userId: member.userId,
             name: member.name,
             role: member.role,
@@ -1303,7 +1307,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
         type: "GROUP",
         name: groupName,
         role: "GROUP",
-        members,
+        members: receivers,
       });
       setRoomsRefreshKey((previous) => previous + 1);
       setShowNewGroupModal(false);
@@ -1524,6 +1528,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
               key="new-chat-modal"
               category={activeCategory}
               categories={categories}
+              currentUserId={currentUser.userId}
               onClose={() => setShowNewChatModal(false)}
               onCreateChat={createDirectChat}
               getPlanColor={getPlanColor}
@@ -1535,6 +1540,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
             <NewGroupModal
               key="new-group-modal"
               categories={categories}
+              currentUserId={currentUser.userId}
               onClose={() => setShowNewGroupModal(false)}
               onCreate={handleCreateGroupFromDirectory}
               getPlanColor={getPlanColor}

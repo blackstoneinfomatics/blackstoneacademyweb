@@ -7,6 +7,7 @@ import type { CategoryDef, DirectoryMember } from "../chat-types";
 
 interface NewGroupModalProps {
   categories: CategoryDef[];
+  currentUserId: string;
   onClose: () => void;
   onCreate: (groupName: string, members: DirectoryMember[]) => Promise<void>;
   getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
@@ -17,6 +18,7 @@ type GroupModalStep = "CATEGORY" | "MEMBERS";
 
 const NewGroupModal = ({
   categories,
+  currentUserId,
   onClose,
   onCreate,
   getPlanColor,
@@ -76,6 +78,7 @@ const NewGroupModal = ({
   }, [currentMembers, memberSearch]);
 
   const toggleMember = (id: string) => {
+    if (id === currentUserId) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -87,14 +90,18 @@ const NewGroupModal = ({
   const selectAllInCategory = () => {
     setSelected((prev) => {
       const next = new Set(prev);
-      filteredMembers.forEach((m) => next.add(m.userId));
+      filteredMembers.forEach((m) => {
+        if (m.userId !== currentUserId) next.add(m.userId);
+      });
       return next;
     });
   };
   const clearAllInCategory = () => {
     setSelected((prev) => {
       const next = new Set(prev);
-      filteredMembers.forEach((m) => next.delete(m.userId));
+      filteredMembers.forEach((m) => {
+        if (m.userId !== currentUserId) next.delete(m.userId);
+      });
       return next;
     });
   };
@@ -102,11 +109,12 @@ const NewGroupModal = ({
   const handleCreate = async () => {
     const name = groupName.trim();
     if (!name) { setError("Group name is required"); return; }
-    if (selected.size === 0) { setError("Select at least one member"); return; }
-    const selectedMembers = Array.from(selected)
+    const selectableIds = Array.from(selected).filter((id) => id !== currentUserId);
+    if (selectableIds.length === 0) { setError("Select at least one member"); return; }
+    const selectedMembers = selectableIds
       .map(findMemberById)
       .filter((member): member is DirectoryMember => Boolean(member));
-    if (selectedMembers.length !== selected.size) {
+    if (selectedMembers.length !== selectableIds.length) {
       setError("Could not load details for every selected member. Please try again.");
       return;
     }
@@ -264,15 +272,23 @@ const NewGroupModal = ({
               ) : (
                 <div className="space-y-1.5">
                   {filteredMembers.map((member) => {
-                    const isChecked = selected.has(member.userId);
+                    const isCurrentUser = member.userId === currentUserId;
+                    const isChecked = !isCurrentUser && selected.has(member.userId);
                     const planColor = getPlanColor(member.planName);
                     return (
                       <button
                         key={member.userId}
                         type="button"
+                        disabled={isCurrentUser}
                         onClick={() => toggleMember(member.userId)}
+                        aria-label={isCurrentUser ? `${member.name} (you, cannot be added)` : member.name}
+                        title={isCurrentUser ? "You cannot add yourself to the group." : undefined}
                         className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all
-                          ${isChecked ? "border-[#576CBC] bg-[#F4F6FB] dark:bg-[#2A3050]" : "border-[#EEEEEE] dark:border-[#3F3F3F] bg-white dark:bg-[#242424] hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A]"}`}
+                          ${isCurrentUser
+                            ? "cursor-not-allowed border-[#EEEEEE] bg-[#F3F4F6] opacity-60 dark:border-[#3F3F3F] dark:bg-[#2A2A2A]"
+                            : isChecked
+                              ? "border-[#576CBC] bg-[#F4F6FB] dark:bg-[#2A3050]"
+                              : "border-[#EEEEEE] dark:border-[#3F3F3F] bg-white dark:bg-[#242424] hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A]"}`}
                       >
                         <div className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border
                           ${isChecked ? "bg-[#576CBC] border-[#576CBC]" : "bg-white border-[#D0D5DD] dark:bg-[#343434] dark:border-[#4A4A4A]"}`}>
@@ -287,7 +303,9 @@ const NewGroupModal = ({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[12.5px] font-semibold text-[#252B3A] dark:text-white truncate">{member.name}</span>
+                            <span className="text-[12.5px] font-semibold text-[#252B3A] dark:text-white truncate">
+                              {member.name}{isCurrentUser ? " (You)" : ""}
+                            </span>
                             {member.planName && (
                               <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>{member.planName}</span>
                             )}

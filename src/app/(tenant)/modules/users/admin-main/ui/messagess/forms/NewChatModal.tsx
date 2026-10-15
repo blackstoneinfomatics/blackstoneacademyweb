@@ -8,6 +8,7 @@ import type { CategoryDef, DirectoryMember } from "../chat-types";
 interface NewChatModalProps {
   category: string;
   categories: CategoryDef[];
+  currentUserId: string;
   onClose: () => void;
   onCreateChat: (member: DirectoryMember) => Promise<void>;
   getPlanColor: (plan?: string) => { bg: string; text: string; dot: string };
@@ -17,6 +18,7 @@ interface NewChatModalProps {
 const NewChatModal = ({
   category: initialCategory,
   categories,
+  currentUserId,
   onClose,
   onCreateChat,
   getPlanColor,
@@ -168,23 +170,30 @@ const NewChatModal = ({
               ) : (
                 <div className="space-y-2">
                   {filteredMembers.map((member) => {
-                    const isSelected = selectedMember?.userId === member.userId;
+                    const isCurrentUser = member.userId === currentUserId;
+                    const isSelected = !isCurrentUser && selectedMember?.userId === member.userId;
                     const planColor = getPlanColor(member.planName);
                     return (
                       <div
                         key={member.userId}
-                        className={`rounded-xl border bg-white dark:bg-[#242424] overflow-hidden transition-all ${isSelected ? "border-[#576CBC] shadow-sm" : "border-[#EEEEEE] dark:border-[#3F3F3F]"}`}
+                        className={`rounded-xl border bg-white dark:bg-[#242424] overflow-hidden transition-all ${isCurrentUser ? "border-[#EEEEEE] opacity-60 dark:border-[#3F3F3F]" : isSelected ? "border-[#576CBC] shadow-sm" : "border-[#EEEEEE] dark:border-[#3F3F3F]"}`}
                       >
                         <button
+                          type="button"
+                          disabled={isCurrentUser}
+                          aria-label={isCurrentUser ? `${member.name} (you, cannot start a chat with yourself)` : member.name}
+                          title={isCurrentUser ? "You cannot start a chat with yourself." : undefined}
                           onClick={() => { setSelectedMember(isSelected ? null : member); setCreateError(null); }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A] transition-colors"
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#F7F8FC] dark:hover:bg-[#2A2A2A] transition-colors disabled:cursor-not-allowed"
                         >
                           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[#F3E8FF] text-[#8B5CF6]">
                             <span className="text-[13px] font-semibold">{member.avatarLetter}</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[12.5px] font-semibold text-[#252B3A] dark:text-white truncate">{member.name}</span>
+                              <span className="text-[12.5px] font-semibold text-[#252B3A] dark:text-white truncate">
+                                {member.name}{isCurrentUser ? " (You)" : ""}
+                              </span>
                               {member.planName && (
                                 <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>{member.planName}</span>
                               )}
@@ -193,7 +202,9 @@ const NewChatModal = ({
                               {categories.find((c) => c.key === member.role)?.label ?? member.role}
                             </p>
                           </div>
-                          <span className="flex-shrink-0 text-[10px] font-semibold text-[#576CBC]">{isSelected ? "Selected" : "Select"}</span>
+                          <span className="flex-shrink-0 text-[10px] font-semibold text-[#576CBC]">
+                            {isCurrentUser ? "You" : isSelected ? "Selected" : "Select"}
+                          </span>
                         </button>
                       </div>
                     );
@@ -213,7 +224,7 @@ const NewChatModal = ({
             type="button"
             disabled={!selectedMember || creatingChat}
             onClick={async () => {
-              if (!selectedMember) return;
+              if (!selectedMember || selectedMember.userId === currentUserId) return;
               setCreatingChat(true);
               setCreateError(null);
               try {
