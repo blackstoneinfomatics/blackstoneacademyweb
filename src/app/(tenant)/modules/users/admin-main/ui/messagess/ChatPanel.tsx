@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { FiMoreVertical, FiPlus, FiX } from "react-icons/fi";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FiMoreVertical, FiPlus, FiX, FiCheck, FiClock } from "react-icons/fi";
 import { FaTelegramPlane } from "react-icons/fa";
 import { GrAttachment } from "react-icons/gr";
 import { motion } from "framer-motion";
@@ -14,21 +14,19 @@ import type {
   SendMessageResponse,
 } from "./chat-types";
 
+/* ═══════════════════════════════════════════════════════════════════
+   Base
+   ═══════════════════════════════════════════════════════════════════ */
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
 const resolveChatSource = (): ChatSource => {
   if (typeof window === "undefined") return "SUPER_ADMIN";
   const explicit = (localStorage.getItem("chatSource") || "").trim().toUpperCase();
-  if (explicit === "SUPER_ADMIN" || explicit === "TENANT") {
-    return explicit as ChatSource;
-  }
+  if (explicit === "SUPER_ADMIN" || explicit === "TENANT") return explicit as ChatSource;
   return window.location.pathname.toLowerCase().startsWith("/super-admin")
     ? "SUPER_ADMIN"
     : "TENANT";
 };
-
-const API_SEND_CHAT_MESSAGE = (source: ChatSource) =>
-  `${API_BASE}/user/chat/${source}/message`;
 
 const resolveAuthToken = (): string => {
   if (typeof window === "undefined") return "";
@@ -48,6 +46,259 @@ const resolveAdminUserId = (): string => {
   );
 };
 
+/* ═══════════════════════════════════════════════════════════════════
+   Local persistence helpers
+   ═══════════════════════════════════════════════════════════════════ */
+const LS_KEY_CLEARED_AT = "adminChatRoom.clearedAt.";
+const LS_KEY_DELETED_BY = "adminChatRoom.deletedBy.";
+
+const getClearedAt = (roomId: string): number | null => {
+  if (typeof window === "undefined") return null;
+  const value = Number(window.localStorage.getItem(LS_KEY_CLEARED_AT + roomId));
+  return Number.isFinite(value) && value > 0 ? value : null;
+};
+
+const setClearedAt = (roomId: string, timestamp: number) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_KEY_CLEARED_AT + roomId, String(timestamp));
+  } catch { /* ignore */ }
+};
+
+const filterAfterClear = (
+  messages: IMessage[],
+  clearedAt: number | null,
+): IMessage[] => {
+  if (!clearedAt) return messages;
+  return messages.filter((m) => {
+    const t = new Date(m.createdDate).getTime();
+    return Number.isFinite(t) && t > clearedAt;
+  });
+};
+
+/* ⭐ Track who deleted each message locally */
+const setDeletedBy = (
+  messageId: string,
+  info: { userId: string; userName: string },
+) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_KEY_DELETED_BY + messageId, JSON.stringify(info));
+  } catch { /* ignore */ }
+};
+
+const getDeletedBy = (
+  messageId: string,
+): { userId: string; userName: string } | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_DELETED_BY + messageId);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   Endpoints owned by ChatPanel
+   ═══════════════════════════════════════════════════════════════════ */
+const API_SEND_CHAT_MESSAGE = (source: ChatSource) =>
+  `${API_BASE}/user/chat/${source}/message`;
+
+const API_MARK_CHAT_SEEN = (source: ChatSource) =>
+  `${API_BASE}/user/chat/${source}/seen`;
+
+const API_CLEAR_CHAT = (source: ChatSource) =>
+  `${API_BASE}/user/chat/${source}/clear`;
+
+const API_MESSAGE_SEEN_USERS = (
+  source: ChatSource,
+  messageId: string,
+  currentUserId: string,
+) =>
+  `${API_BASE}/user/chat/${source}/message/${encodeURIComponent(messageId)}/seen/${encodeURIComponent(currentUserId)}`;
+
+/* ⭐ DELETE /user/chat/{source}/message/{messageId}/everyone/{userId} */
+const API_DELETE_MESSAGE_FOR_EVERYONE = (
+  source: ChatSource,
+  messageId: string,
+  userId: string,
+) =>
+  `${API_BASE}/user/chat/${source}/message/${encodeURIComponent(messageId)}/everyone/${encodeURIComponent(userId)}`;
+
+const API_ROOM_MESSAGES = (
+  source: ChatSource,
+  roomId: string,
+  userId: string,
+  limit = 10,
+) =>
+  `${API_BASE}/user/chat/${source}/${roomId}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${limit}`;
+
+/* ═══════════════════════════════════════════════════════════════════
+   Response shapes
+   ═══════════════════════════════════════════════════════════════════ */
+interface IRoomMessageResponse {
+  _id?: string;
+  senderId?: string;
+  senderName?: string;
+  senderRole?: string;
+  message?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  timestamp?: string;
+  isDeleted?: boolean;
+  deletedForEveryone?: boolean;
+  deletedBy?: string;
+  deletedByName?: string;
+  dateLabel?: string;
+  side?: "left" | "right";
+  replyTo?: { messageId?: string; message?: string; senderName?: string; senderId?: string } | null;
+  attachments?: { name?: string; size?: number; type?: string; url?: string }[];
+}
+interface IRoomMessageGroup {
+  date: string;
+  dateLabel: string;
+  messages: IRoomMessageResponse[];
+}
+interface IRoomMessagesResponse {
+  success?: boolean;
+  statusCode?: number;
+  message?: string;
+  data?: {
+    messagesByDate?: IRoomMessageGroup[];
+    messages?: IRoomMessageResponse[];
+  };
+}
+interface IMarkSeenResponse {
+  success?: boolean;
+  statusCode?: number;
+  message?: string;
+  data?: {
+    message?: IRoomMessageResponse;
+    lastMessage?: IRoomMessageResponse;
+    room?: { lastMessage?: IRoomMessageResponse; lastMessageAt?: string };
+    unreadCount?: number;
+    [key: string]: any;
+  };
+}
+interface ISeenUser {
+  userId?: string;
+  tenantId?: string;
+  name?: string;
+  userName?: string;
+  tenantName?: string;
+  seenAt?: string;
+  timestamp?: string;
+  [key: string]: any;
+}
+interface IMessageSeenResponse {
+  success?: boolean;
+  statusCode?: number;
+  message?: string;
+  data?:
+  | ISeenUser[]
+  | {
+    seenUsers?: ISeenUser[];
+    users?: ISeenUser[];
+    items?: ISeenUser[];
+    list?: ISeenUser[];
+    seen?: ISeenUser[];
+    [key: string]: any;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Helpers
+   ═══════════════════════════════════════════════════════════════════ */
+const flattenMessageGroups = (
+  groups: IRoomMessageGroup[] | undefined,
+): IRoomMessageResponse[] => {
+  if (!Array.isArray(groups)) return [];
+  const out: IRoomMessageResponse[] = [];
+  groups.forEach((group) => {
+    if (Array.isArray(group?.messages)) {
+      group.messages.forEach((m) =>
+        out.push({ ...m, dateLabel: m.dateLabel ?? group.dateLabel }),
+      );
+    }
+  });
+  return out;
+};
+
+const apiMessageToLocal = (
+  message: IRoomMessageResponse,
+  index: number,
+  roomId: string,
+  receiverName: string,
+): IMessage => {
+  const createdDate = message.timestamp ?? message.createdAt ?? new Date().toISOString();
+  const date = new Date(createdDate);
+  const attachment = message.attachments?.[0];
+  return {
+    _id: message._id ?? `${roomId}-${index}`,
+    messages: message.message ?? "",
+    senderId: message.senderId ?? "",
+    senderName: message.senderName ?? "",
+    receiverId: roomId,
+    receiverName,
+    createdDate,
+    dateLabel: message.dateLabel,
+    time: Number.isNaN(date.getTime())
+      ? ""
+      : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    notificationStatus: "Unseen",
+    isRead: false,
+    status: "Active",
+    isDeleted: message.isDeleted ?? message.deletedForEveryone ?? false,
+    deletedBy: message.deletedBy || "",
+    deletedByName: message.deletedByName,
+    side: message.side,
+    replyTo: message.replyTo
+      ? {
+        messageId: message.replyTo.messageId ?? "",
+        messages: message.replyTo.message ?? "",
+        senderName: message.replyTo.senderName ?? "",
+        senderId: message.replyTo.senderId ?? "",
+      }
+      : undefined,
+    attachment: attachment
+      ? {
+        name: attachment.name ?? "Attachment",
+        size: attachment.size ?? 0,
+        type: attachment.type ?? "application/octet-stream",
+        url: attachment.url,
+      }
+      : undefined,
+  };
+};
+
+const extractLastMessagePreview = (
+  response: IMarkSeenResponse,
+): { text: string; time: string; senderName?: string } | null => {
+  const data = response?.data;
+  if (!data) return null;
+
+  const candidate =
+    data.message ?? data.lastMessage ?? data.room?.lastMessage ?? undefined;
+
+  if (candidate) {
+    const createdDate = candidate.timestamp ?? candidate.createdAt ?? "";
+    const date = createdDate ? new Date(createdDate) : null;
+    return {
+      text: candidate.message ?? "",
+      time:
+        date && !Number.isNaN(date.getTime())
+          ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "",
+      senderName: candidate.senderName ?? "",
+    };
+  }
+  return null;
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   UI atoms
+   ═══════════════════════════════════════════════════════════════════ */
 const ReceiptDots = ({ delivered, seen }: { delivered: boolean; seen: boolean }) => (
   <span className="ml-1 inline-flex items-center gap-[3px]">
     <span className={`inline-block h-[6px] w-[6px] rounded-full ${delivered ? "bg-white/90" : "bg-white/40"}`} />
@@ -108,6 +359,187 @@ const MessageMenu = ({
   );
 };
 
+/* ═══════════════════════════════════════════════════════════════════
+   Seen-by modal
+   ═══════════════════════════════════════════════════════════════════ */
+const SeenByModal = ({
+  message,
+  chatSource,
+  onClose,
+}: {
+  message: IMessage;
+  chatSource: ChatSource;
+  onClose: () => void;
+}) => {
+  const [seenUsers, setSeenUsers] = useState<ISeenUser[]>([]);
+  const [seenLoading, setSeenLoading] = useState(true);
+  const [seenError, setSeenError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = resolveAuthToken();
+    const userId = resolveAdminUserId();
+    if (!token || !userId) {
+      setSeenError("Admin authentication data is missing.");
+      setSeenLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setSeenLoading(true);
+    setSeenError(null);
+
+    (async () => {
+      try {
+        const url = API_MESSAGE_SEEN_USERS(chatSource, message._id, userId);
+        const response = await fetch(url, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          signal: controller.signal,
+          cache: "no-store",
+        });
+
+        const result: IMessageSeenResponse = await response.json().catch(() => ({}));
+        if (!response.ok || result.success === false) {
+          throw new Error(result.message || `Fetch seen users failed: HTTP ${response.status}`);
+        }
+
+        let users: ISeenUser[] = [];
+        const data = result.data;
+        if (Array.isArray(data)) users = data;
+        else if (data && typeof data === "object") {
+          const d = data as any;
+          if (Array.isArray(d.seenUsers)) users = d.seenUsers;
+          else if (Array.isArray(d.users)) users = d.users;
+          else if (Array.isArray(d.items)) users = d.items;
+          else if (Array.isArray(d.list)) users = d.list;
+          else if (Array.isArray(d.seen)) users = d.seen;
+        }
+        setSeenUsers(users);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setSeenError(error instanceof Error ? error.message : "Could not load seen info.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setSeenLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [message._id, chatSource]);
+
+  const displayName = (u: ISeenUser): string =>
+    u.name || u.userName || u.tenantName || u.userId || u.tenantId || "Unknown";
+
+  const displaySeenAt = (u: ISeenUser): string => {
+    const raw = u.seenAt || u.timestamp;
+    if (!raw) return "";
+    try {
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[420px] overflow-hidden rounded-xl border border-[#E7EAF0] bg-white shadow-2xl dark:border-[#42464D] dark:bg-[#262A30]"
+      >
+        <div className="flex items-center justify-between border-b border-[#ECEEF2] px-5 py-4 dark:border-[#3B4048]">
+          <h3 className="mt-0.5 text-[15px] font-semibold text-[#172033] dark:text-white">Message info</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close message info"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-[#7C8492] transition hover:bg-[#F1F3F6] hover:text-[#172033] dark:hover:bg-[#383D45] dark:hover:text-white"
+          >
+            <FiX size={16} />
+          </button>
+        </div>
+
+        <div className="max-h-[min(70vh,560px)] space-y-5 overflow-y-auto scrollbar-hide p-5">
+          <section>
+            <div className="ml-auto max-w-[88%] rounded-xl rounded-br-sm bg-[#576CBC] px-3.5 py-3 text-white shadow-sm">
+              <p className="whitespace-pre-wrap break-words text-[13px] leading-5">
+                {message.messages || "Attachment"}
+              </p>
+              <p className="mt-2 text-right text-[10px] text-white/75">{message.time}</p>
+            </div>
+          </section>
+
+          <div className="flex items-center justify-between border-t border-[#ECEEF2] pt-4 text-[12px] dark:border-[#3B4048]">
+            <span className="text-[#7C8492]">Sent</span>
+            <span className="font-medium text-[#172033] dark:text-[#E7EAF0]">{message.time || "—"}</span>
+          </div>
+
+          <section>
+            <div className="mb-3 flex items-center justify-between border-b border-[#ECEEF2] pb-2 dark:border-[#3B4048]">
+              <div className="flex items-center gap-2">
+                <FiCheck className="text-[#2F8F76]" size={14} />
+                <h4 className="text-[12px] font-semibold text-[#172033] dark:text-white">Seen by</h4>
+              </div>
+              {!seenLoading && !seenError && (
+                <span className="rounded-full bg-[#E5F3EF] px-2 py-0.5 text-[10px] font-semibold text-[#287A66] dark:bg-[#243D37] dark:text-[#83C8B4]">
+                  {seenUsers.length}
+                </span>
+              )}
+            </div>
+
+            {seenLoading ? (
+              <div className="flex items-center gap-2 py-2 text-[11px] text-[#7C8492]">
+                <FiClock size={13} /> Loading seen details…
+              </div>
+            ) : seenError ? (
+              <p role="alert" className="py-2 text-[11px] text-red-500">{seenError}</p>
+            ) : seenUsers.length === 0 ? (
+              <p className="py-2 text-[11px] text-[#9299A5]">Not seen yet</p>
+            ) : (
+              <div className="divide-y divide-[#ECEEF2] dark:divide-[#3B4048]">
+                {seenUsers.map((user, idx) => {
+                  const name = displayName(user);
+                  const seenAt = displaySeenAt(user);
+                  const key = user.userId || user.tenantId || `${name}-${idx}`;
+                  return (
+                    <div key={String(key)} className="flex items-center gap-3 py-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9EEF8] text-[11px] font-semibold text-[#4863A8] dark:bg-[#343D50] dark:text-[#B5C5F1]">
+                        {name.trim().charAt(0).toUpperCase() || "?"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">{name}</p>
+                        {seenAt && (
+                          <p className="text-[10px] text-[#8C919C] dark:text-[#8a8a8a]">{seenAt}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   ChatPanel props
+   ═══════════════════════════════════════════════════════════════════ */
 interface ChatPanelProps {
   selectedUser: IUser | null;
   getStatusColor: (status: string) => string;
@@ -115,44 +547,151 @@ interface ChatPanelProps {
   showGroupMenu: boolean;
   setShowGroupMenu: React.Dispatch<React.SetStateAction<boolean>>;
   handleOpenGroupDetails: () => void;
-  handleClearChat: () => void;
   handleDeleteChat: () => void;
   messagesContainerRef: React.RefObject<HTMLDivElement>;
-  messagesLoading: boolean;
-  selectedMessages: IMessage[];
-  groupedMessages: Record<string, IMessage[]>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
-  setInfoMessage: React.Dispatch<React.SetStateAction<IMessage | null>>;
-  setReplyTo: React.Dispatch<React.SetStateAction<IMessage | null>>;
-  handleDeleteMessage: (messageId: string) => void;
-  replyTo: IMessage | null;
-  canSend: boolean;
-  messageText: string;
-  setMessageText: (value: string) => void;
-  onMessageSent: (message: IMessage) => void;
+  onMessageSent?: (message: IMessage) => void;
+  onMessagesLoaded?: (roomId: string, messages: IMessage[]) => void;
+  onLastMessageUpdated?: (
+    roomId: string,
+    preview: { text: string; time: string; senderName?: string },
+  ) => void;
+  onChatCleared?: (roomId: string) => void;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   ChatPanel
+   ═══════════════════════════════════════════════════════════════════ */
 const ChatPanel = ({
-  selectedUser, getStatusColor, currentUser, showGroupMenu, setShowGroupMenu,
-  handleOpenGroupDetails, handleClearChat, handleDeleteChat, messagesContainerRef,
-  messagesLoading, selectedMessages, groupedMessages, messagesEndRef,
-  setInfoMessage, setReplyTo, handleDeleteMessage, replyTo, canSend,
-  messageText, setMessageText, onMessageSent,
+  selectedUser,
+  getStatusColor,
+  currentUser,
+  showGroupMenu,
+  setShowGroupMenu,
+  handleOpenGroupDetails,
+  handleDeleteChat,
+  messagesContainerRef,
+  messagesEndRef,
+  onMessageSent,
+  onMessagesLoaded,
+  onLastMessageUpdated,
+  onChatCleared,
 }: ChatPanelProps) => {
+  const [defaultChatSource] = useState<ChatSource>(() => resolveChatSource());
+  const chatSource = selectedUser?.chatSource ?? defaultChatSource;
+
+  const [messages, setMessages] = useState<IMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+
+  const [replyTo, setReplyTo] = useState<IMessage | null>(null);
+  const [infoMessage, setInfoMessage] = useState<IMessage | null>(null);
+  const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [chatSource] = useState<ChatSource>(() => resolveChatSource());
+  const [clearing, setClearing] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
+  /* ⭐ Load thread */
   useEffect(() => {
-    setSendError(null);
-  }, [selectedUser?._id]);
+    if (!selectedUser) {
+      setMessages([]);
+      return;
+    }
 
+    const roomId = selectedUser.roomId || selectedUser._id;
+    const receiverName = selectedUser.userName;
+    const token = resolveAuthToken();
+    const userId = resolveAdminUserId();
+    const controller = new AbortController();
+
+    setMessagesLoading(true);
+    setMessagesError(null);
+    setMessages([]);
+
+    (async () => {
+      try {
+        if (!token || !userId) throw new Error("Missing auth credentials.");
+
+        const url = API_ROOM_MESSAGES(chatSource, roomId, userId);
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+          cache: "no-store",
+        });
+
+        const json: IRoomMessagesResponse = await res.json();
+        if (!res.ok || json.statusCode === 404) {
+          throw new Error(json.message || `Fetch messages failed`);
+        }
+
+        const flat = flattenMessageGroups(json.data?.messagesByDate);
+        const fallback = Array.isArray(json.data?.messages) ? json.data.messages : [];
+        const raw = flat.length > 0 ? flat : fallback;
+
+        const all = raw.map((m, i) => apiMessageToLocal(m, i, roomId, receiverName));
+
+        const clearedAt = getClearedAt(selectedUser._id);
+        const visible = filterAfterClear(all, clearedAt);
+
+        setMessages(visible);
+        onMessagesLoaded?.(selectedUser._id, visible);
+
+        const lastId = visible[visible.length - 1]?._id;
+        if (lastId) {
+          try {
+            const seenRes = await fetch(API_MARK_CHAT_SEEN(chatSource), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ roomId, messageId: lastId, userId }),
+              signal: controller.signal,
+            });
+
+            if (seenRes.ok) {
+              const seenJson: IMarkSeenResponse = await seenRes.json().catch(() => ({}));
+              const preview = extractLastMessagePreview(seenJson);
+              if (preview) onLastMessageUpdated?.(selectedUser._id, preview);
+            }
+          } catch { /* silent */ }
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setMessagesError(error instanceof Error ? error.message : "Failed to load messages.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setMessagesLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [selectedUser?._id, chatSource, onMessagesLoaded, onLastMessageUpdated]);
+
+  /* Auto-scroll */
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [messages, messagesContainerRef]);
+
+  /* ⭐ Send */
   const handleSend = async () => {
     if (!selectedUser) return;
-    if (!canSend) {
+
+    const access =
+      selectedUser.sendAccess ??
+      (selectedUser.groupSettings === "admins" ? "ADMIN_ONLY" : "EVERYONE");
+    const canSendLocal =
+      access === "EVERYONE" ||
+      String(currentUser.role || "").toUpperCase().includes("ADMIN");
+
+    if (!canSendLocal) {
       setSendError("Only admins can send messages in this chat.");
       return;
     }
+
     const text = messageText.trim();
     if (!text || sending) return;
 
@@ -238,7 +777,8 @@ const ChatPanel = ({
           : {}),
       };
 
-      onMessageSent(newMessage);
+      setMessages((prev) => [...prev, newMessage]);
+      onMessageSent?.(newMessage);
       setMessageText("");
       setReplyTo(null);
     } catch (err) {
@@ -247,6 +787,145 @@ const ChatPanel = ({
       setSending(false);
     }
   };
+
+  /* ⭐ Delete message for everyone */
+  const handleDelete = async (messageId: string) => {
+    if (!messageId || deletingIds.has(messageId)) return;
+
+    const userId = resolveAdminUserId();
+    const token = resolveAuthToken();
+
+    if (!userId || !token) {
+      console.warn("Delete skipped — missing token or userId");
+      return;
+    }
+
+    setDeletingIds((prev) => {
+      const next = new Set(prev);
+      next.add(messageId);
+      return next;
+    });
+
+    try {
+      const url = API_DELETE_MESSAGE_FOR_EVERYONE(chatSource, messageId, userId);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🚨 DELETE-MESSAGE-FOR-EVERYONE", { url });
+      }
+
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("🚨 DELETE-MESSAGE-RESPONSE", res.status, json);
+      }
+
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || `Delete failed: HTTP ${res.status}`);
+      }
+
+      /* ⭐ Record who deleted it — used to render "You deleted…" vs "Deleted by X" */
+      setDeletedBy(messageId, {
+        userId: currentUser.userId,
+        userName: currentUser.userName,
+      });
+
+      /* Mark as deleted locally */
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === messageId
+            ? {
+              ...m,
+              isDeleted: true,
+              messages: "",
+              deletedBy: currentUser.userId,
+              deletedByName: currentUser.userName,
+            }
+            : m,
+        ),
+      );
+    } catch (error) {
+      console.error("deleteMessageForEveryone failed:", error);
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
+  };
+
+  /* ⭐ Clear chat (frontend-only persistence) */
+  const handleClear = async () => {
+    if (!selectedUser || clearing) return;
+
+    const roomId = selectedUser.roomId || selectedUser._id;
+    const token = resolveAuthToken();
+    const userId = resolveAdminUserId();
+
+    setClearing(true);
+
+    if (token && userId) {
+      try {
+        await fetch(API_CLEAR_CHAT(chatSource), {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ roomId, userId }),
+        });
+      } catch { /* silent */ }
+    }
+
+    setClearedAt(selectedUser._id, Date.now());
+
+    setMessages([]);
+    setReplyTo(null);
+    setSendError(null);
+
+    onChatCleared?.(selectedUser._id);
+
+    setClearing(false);
+    setShowGroupMenu(false);
+  };
+
+  const canSend = useMemo(() => {
+    if (!selectedUser) return false;
+    const access =
+      selectedUser.sendAccess ??
+      (selectedUser.groupSettings === "admins" ? "ADMIN_ONLY" : "EVERYONE");
+    if (access === "EVERYONE") return true;
+    const role = String(currentUser.role || "").toUpperCase();
+    return role.includes("ADMIN") || role.includes("SUPERADMIN");
+  }, [selectedUser, currentUser.role]);
+
+  const groupedMessages = useMemo(() => {
+    const fmt = (value: string) => {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      if (date.toDateString() === today.toDateString()) return "Today";
+      if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    };
+    return messages.reduce((acc, m) => {
+      const date = m.dateLabel || fmt(m.createdDate);
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(m);
+      return acc;
+    }, {} as Record<string, IMessage[]>);
+  }, [messages]);
 
   return (
     <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#343434] rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] flex flex-col overflow-hidden">
@@ -295,8 +974,12 @@ const ChatPanel = ({
                       Group Details
                     </button>
                   )}
-                  <button className="block w-full text-left px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200" onClick={handleClearChat}>
-                    Clear chat
+                  <button
+                    className="block w-full text-left px-3 py-2 text-[11px] hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200 disabled:opacity-60"
+                    onClick={handleClear}
+                    disabled={clearing}
+                  >
+                    {clearing ? "Clearing…" : "Clear chat"}
                   </button>
                   <button className="block w-full text-left px-3 py-2 text-[11px] text-red-500 hover:bg-gray-100 dark:hover:bg-[#444]" onClick={handleDeleteChat}>
                     Delete
@@ -306,14 +989,15 @@ const ChatPanel = ({
             </div>
           </div>
 
-          {/* ⭐ scrollbar-hide applied */}
           <div
             ref={messagesContainerRef}
             className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-5 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]"
           >
             {messagesLoading ? (
               <p className="py-6 text-center text-[11px] text-gray-400">Loading messages…</p>
-            ) : selectedMessages.length === 0 ? (
+            ) : messagesError ? (
+              <p className="py-6 text-center text-[11px] text-red-500">{messagesError}</p>
+            ) : messages.length === 0 ? (
               <p className="py-6 text-center text-[11px] text-gray-400">No messages yet</p>
             ) : (
               Object.entries(groupedMessages).map(([date, msgs]) => (
@@ -325,19 +1009,37 @@ const ChatPanel = ({
                   </div>
                   <div className="space-y-2">
                     {msgs.map((msg) => {
-                      const isMine = msg.side ? msg.side === "right" : msg.senderId === currentUser.userId;
+                      const isMine = msg.side
+                        ? msg.side === "right"
+                        : msg.senderId === currentUser.userId;
+                      const isDeleting = deletingIds.has(msg._id);
+
+                      /* ⭐ Compute the deleted-by label */
+                      const localDeleter = getDeletedBy(msg._id);
+                      const deleterName =
+                        msg.deletedByName ||
+                        (msg as any).deletedBy?.name ||
+                        localDeleter?.userName ||
+                        msg.senderName ||
+                        "Unknown";
+
+                      const deletedLabel =
+                        deleterName === currentUser.userName
+                          ? "You deleted this message"
+                          : `Deleted by ${deleterName}`;
+
                       return (
                         <div key={msg._id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                           <div className="group relative max-w-[65%]">
                             <div className={`px-3 py-2 rounded-2xl inline-block
-                              ${isMine
-                                ? msg.isDeleted
-                                  ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-br-md"
-                                  : "bg-[#576CBC] text-white rounded-br-md"
-                                : msg.isDeleted
-                                  ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-bl-md"
+                              ${msg.isDeleted
+                                ? "bg-transparent border border-dashed border-[#D5D9E2] dark:border-[#555] rounded-br-md rounded-bl-md"
+                                : isMine
+                                  ? "bg-[#576CBC] text-white rounded-br-md"
                                   : "bg-white dark:bg-[#242424] text-[#252B3A] dark:text-[#E2E2E2] border border-[#EEEEEE] dark:border-[#333] rounded-bl-md"}`}>
-                              {msg.replyTo && (
+
+                              {/* Reply preview — hidden once the message is deleted */}
+                              {msg.replyTo && !msg.isDeleted && (
                                 <div className={`mb-1.5 rounded-md border-l-2 px-2 py-1 text-[10px]
                                   ${isMine
                                     ? "border-white/50 bg-white/10 text-white/90"
@@ -346,23 +1048,58 @@ const ChatPanel = ({
                                   <p className="truncate opacity-90">{msg.replyTo.messages}</p>
                                 </div>
                               )}
-                              {msg.messages && (
-                                <p className="text-[12px] leading-[18px] break-words whitespace-pre-wrap">{msg.messages}</p>
+
+                              {/* ⭐ Deleted placeholder OR actual message text */}
+                              {msg.isDeleted ? (
+                                <p className="text-[12px] italic leading-[18px] text-[#9B9FA8] dark:text-[#8a8a8a] flex items-center gap-1.5">
+                                  <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="shrink-0"
+                                  >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                                  </svg>
+                                  {deletedLabel}
+                                </p>
+                              ) : (
+                                msg.messages && (
+                                  <p className="text-[12px] leading-[18px] break-words whitespace-pre-wrap">
+                                    {msg.messages}
+                                  </p>
+                                )
                               )}
+
+                              {/* Timestamp + receipts */}
                               <div className={`mt-1 flex items-center justify-end gap-1 text-[10px]
-                                ${isMine ? "text-white/70" : "text-[#9B9FA8] dark:text-[#8a8a8a]"}`}>
-                                <span className="leading-none">{msg.time}</span>
-                                {isMine && <ReceiptDots delivered={!!msg.deliveredAt} seen={!!msg.seenAt} />}
+                                ${msg.isDeleted
+                                  ? "text-[#9B9FA8] dark:text-[#8a8a8a]"
+                                  : isMine
+                                    ? "text-white/70"
+                                    : "text-[#9B9FA8] dark:text-[#8a8a8a]"}`}>
+                                <span className="leading-none">
+                                  {isDeleting ? "Deleting…" : msg.time}
+                                </span>
+                                {isMine && !msg.isDeleted && (
+                                  <ReceiptDots delivered={!!msg.deliveredAt} seen={!!msg.seenAt} />
+                                )}
                               </div>
                             </div>
-                            {!msg.isDeleted && (
+
+                            {!msg.isDeleted && !isDeleting && (
                               <MessageMenu
                                 showInfo={isMine}
                                 showReply={msg.canReply !== false}
                                 showDelete={isMine}
                                 onInfo={() => setInfoMessage(msg)}
                                 onReply={() => setReplyTo(msg)}
-                                onDelete={() => handleDeleteMessage(msg._id)}
+                                onDelete={() => handleDelete(msg._id)}
                               />
                             )}
                           </div>
@@ -443,6 +1180,14 @@ const ChatPanel = ({
             Pick a category, then start a new chat or create a group.
           </p>
         </div>
+      )}
+
+      {infoMessage && (
+        <SeenByModal
+          message={infoMessage}
+          chatSource={chatSource}
+          onClose={() => setInfoMessage(null)}
+        />
       )}
     </div>
   );

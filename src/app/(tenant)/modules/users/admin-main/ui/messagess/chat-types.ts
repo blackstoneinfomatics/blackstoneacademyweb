@@ -64,6 +64,7 @@ export interface IMessage {
   status: "Active" | "Inactive";
   deliveredAt?: string;
   isDeleted: boolean;
+  deletedBy:string;
   seenAt?: string;
   replyTo?: { messageId: string; messages: string; senderName: string; senderId: string };
   attachment?: { name: string; size: number; type: string; url?: string };
@@ -72,6 +73,7 @@ export interface IMessage {
 }
 
 export interface IUser {
+  chatSource?: ChatSource;
   profileImage: string | null;
   _id: string;
   userName: any;

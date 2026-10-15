@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { FiCheck, FiClock, FiX } from "react-icons/fi";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import BaseLayout4 from "../../components/BaseLayout4";
@@ -35,10 +34,10 @@ const resolveChatSource = (): "TENANT" | "SUPER_ADMIN" => {
 };
 
 const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
-const API_CLEAR_CHAT = `${API_BASE}${AppApiEndpoints.CHAT.CLEAR}`;
-const API_MARK_CHAT_SEEN = `${API_BASE}${AppApiEndpoints.CHAT.SEEN}`;
-const API_MESSAGE_SEEN_USERS = (messageId: string, userId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.MESSAGE_SEEN_USERS(messageId, userId)}`;
+const API_UPDATE_CHAT_ROOM = (roomId: string) =>
+  `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
+const API_GET_GROUP_DETAILS = (roomId: string) =>
+  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
 
 const ROOM_MESSAGES_PAGE_LIMIT = 10;
 
@@ -48,13 +47,6 @@ const API_ROOM_MESSAGES = (
   userId: string,
 ) =>
   `${API_BASE}/user/chat/${source}/${roomId}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
-
-const API_UPDATE_CHAT_ROOM = (roomId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
-const API_GET_GROUP_DETAILS = (roomId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
-const API_DELETE_MESSAGE_FOR_EVERYONE = (messageId: string, userId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`;
 
 const postChatRoom = (tenantId: string, request: RequestInit) => {
   const headers = new Headers(request.headers);
@@ -346,104 +338,96 @@ const markRoomAsRead = (roomId: string) => {
   if (!current.includes(roomId)) setReadRooms([...current, roomId]);
 };
 
-interface IRoomMessageResponse {
-  _id?: string;
-  roomId?: string;
-  senderId?: string;
-  senderName?: string;
-  senderRole?: string;
-  message?: string;
-  messageType?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  timestamp?: string;
-  isDeleted?: boolean;
-  deletedForEveryone?: boolean;
-  dateLabel?: string;
-  side?: "left" | "right";
-  replyTo?: { messageId?: string; message?: string; senderName?: string; senderId?: string } | null;
-  attachments?: { name?: string; size?: number; type?: string; url?: string }[];
-}
+// interface IRoomMessageResponse {
+//   _id?: string;
+//   roomId?: string;
+//   senderId?: string;
+//   senderName?: string;
+//   senderRole?: string;
+//   message?: string;
+//   messageType?: string;
+//   createdAt?: string;
+//   updatedAt?: string;
+//   timestamp?: string;
+//   isDeleted?: boolean;
+//   deletedForEveryone?: boolean;
+//   dateLabel?: string;
+//   side?: "left" | "right";
+//   replyTo?: { messageId?: string; message?: string; senderName?: string; senderId?: string } | null;
+//   attachments?: { name?: string; size?: number; type?: string; url?: string }[];
+// }
 interface IRoomMessageGroup {
   date: string;
   dateLabel: string;
-  messages: IRoomMessageResponse[];
+  messages: { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[];
 }
 interface IRoomMessagesResponse {
   success?: boolean;
   statusCode?: number;
   message?: string;
   data?: {
-    source?: string;
-    room?: any;
     messagesByDate?: IRoomMessageGroup[];
-    messages?: IRoomMessageResponse[];
-    pagination?: any;
+    messages?: { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[];
   };
 }
 
-interface IMessageSeenUser { userId: string; name: string; seenAt: string; }
-interface IMessageSeenResponse { success?: boolean; message?: string; data?: { totalSeen?: number; seenUsers?: IMessageSeenUser[] }; }
-
-interface IMessageData { _id: string; messages: IMessage[]; }
-
 const flattenMessageGroups = (
   groups: IRoomMessageGroup[] | undefined,
-): IRoomMessageResponse[] => {
+): { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[] => {
   if (!Array.isArray(groups)) return [];
-  const out: IRoomMessageResponse[] = [];
+  const out: { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[] = [];
   groups.forEach((group) => {
     if (Array.isArray(group?.messages)) {
-      group.messages.forEach((m) => out.push({ ...m, dateLabel: m.dateLabel ?? group.dateLabel }));
+      group.messages.forEach((m) => out.push(m));
     }
   });
   return out;
 };
 
-const apiMessageToLocal = (
-  message: IRoomMessageResponse,
-  index: number,
-  roomId: string,
-  receiverName: string,
-): IMessage => {
-  const createdDate = message.timestamp ?? message.createdAt ?? new Date().toISOString();
-  const date = new Date(createdDate);
-  const attachment = message.attachments?.[0];
-  return {
-    _id: message._id ?? `${roomId}-${index}`,
-    messages: message.message ?? "",
-    senderId: message.senderId ?? "",
-    senderName: message.senderName ?? "",
-    receiverId: roomId,
-    receiverName,
-    createdDate,
-    dateLabel: message.dateLabel,
-    time: Number.isNaN(date.getTime())
-      ? ""
-      : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    notificationStatus: "Unseen",
-    isRead: false,
-    status: "Active",
-    isDeleted: message.isDeleted ?? message.deletedForEveryone ?? false,
-    side: message.side,
-    replyTo: message.replyTo
-      ? {
-        messageId: message.replyTo.messageId ?? "",
-        messages: message.replyTo.message ?? "",
-        senderName: message.replyTo.senderName ?? "",
-        senderId: message.replyTo.senderId ?? "",
-      }
-      : undefined,
-    attachment: attachment
-      ? {
-        name: attachment.name ?? "Attachment",
-        size: attachment.size ?? 0,
-        type: attachment.type ?? "application/octet-stream",
-        url: attachment.url,
-      }
-      : undefined,
-  };
-};
+// const apiMessageToLocal = (
+//   message: IRoomMessageResponse,
+//   index: number,
+//   roomId: string,
+//   receiverName: string,
+// ): IMessage => {
+//   const createdDate = message.timestamp ?? message.createdAt ?? new Date().toISOString();
+//   const date = new Date(createdDate);
+//   const attachment = message.attachments?.[0];
+//   return {
+//     _id: message._id ?? `${roomId}-${index}`,
+//     messages: message.message ?? "",
+//     senderId: message.senderId ?? "",
+//     senderName: message.senderName ?? "",
+//     receiverId: roomId,
+//     receiverName,
+//     createdDate,
+//     dateLabel: message.dateLabel,
+//     time: Number.isNaN(date.getTime())
+//       ? ""
+//       : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+//     notificationStatus: "Unseen",
+//     isRead: false,
+//     status: "Active",
+//     isDeleted: message.isDeleted ?? message.deletedForEveryone ?? false,
+//     side: message.side,
+//     replyTo: message.replyTo
+//       ? {
+//         messageId: message.replyTo.messageId ?? "",
+//         messages: message.replyTo.message ?? "",
+//         senderName: message.replyTo.senderName ?? "",
+//         senderId: message.replyTo.senderId ?? "",
+//       }
+//       : undefined,
+//     attachment: attachment
+//       ? {
+//         name: attachment.name ?? "Attachment",
+//         size: attachment.size ?? 0,
+//         type: attachment.type ?? "application/octet-stream",
+//         url: attachment.url,
+//       }
+//       : undefined,
+//   };
+// };
 
 const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   Premium: { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
@@ -504,15 +488,31 @@ const normalizeUsersResponse = (json: any, fallbackRole: string): DirectoryMembe
     (Array.isArray(json?.users) && json.users) ||
     [];
 
+  const getCourseName = (value: any): string => {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      return value.map(getCourseName).filter(Boolean).join(", ");
+    }
+    if (!value || typeof value !== "object") return "";
+    return String(
+      value.courseName ??
+      value.name ??
+      value.planName ??
+      value.title ??
+      "",
+    );
+  };
+
   return usersRaw
     .map((u: any) => {
       const name = u?.name ?? u?.userName ?? "Unnamed";
+      const course = getCourseName(u?.course ?? u?.courseName ?? u?.planName ?? u?.plan);
       return {
         userId: String(u?.userId ?? u?._id ?? u?.id ?? ""),
         name,
         role: normalizeRoleKey(u?.role ?? fallbackRole),
-        planName: u?.planName ?? u?.plan ?? u?.course ?? "",
-        planId: u?.planId ?? "",
+        planName: course,
+        planId: u?.planId ?? u?.courseId ?? u?.course?._id ?? u?.plan?._id ?? "",
         avatarLetter: name.charAt(0).toUpperCase(),
       };
     })
@@ -538,89 +538,89 @@ const fetchMembersForCategory = async (category: CategoryDef): Promise<Directory
   return normalizeUsersResponse(await response.json(), rawRole);
 };
 
-const MessageInfoModal = ({ message, onClose }: { message: IMessage; onClose: () => void }) => {
-  const [seenUsers, setSeenUsers] = useState<IMessageSeenUser[]>([]);
-  const [seenLoading, setSeenLoading] = useState(true);
-  const [seenError, setSeenError] = useState<string | null>(null);
+// const MessageInfoModal = ({ message, onClose }: { message: IMessage; onClose: () => void }) => {
+//   const [seenUsers, setSeenUsers] = useState<IMessageSeenUser[]>([]);
+//   const [seenLoading, setSeenLoading] = useState(true);
+//   const [seenError, setSeenError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const token = resolveAuthToken();
-    const userId = resolveAdminUserId();
-    if (!token || !userId) { setSeenError("Admin authentication data is missing."); setSeenLoading(false); return; }
-    const controller = new AbortController();
-    setSeenLoading(true);
-    setSeenError(null);
-    (async () => {
-      try {
-        const response = await fetch(API_MESSAGE_SEEN_USERS(message._id, userId), {
-          headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: "no-store",
-        });
-        const result: IMessageSeenResponse = await response.json();
-        if (!response.ok || result.success === false) throw new Error(result.message || `Fetch seen users failed`);
-        setSeenUsers(result.data?.seenUsers ?? []);
-      } catch (error) {
-        if (!controller.signal.aborted) setSeenError(error instanceof Error ? error.message : "Could not load seen info.");
-      } finally { if (!controller.signal.aborted) setSeenLoading(false); }
-    })();
-    return () => controller.abort();
-  }, [message._id]);
+//   useEffect(() => {
+//     const token = resolveAuthToken();
+//     const userId = resolveAdminUserId();
+//     if (!token || !userId) { setSeenError("Admin authentication data is missing."); setSeenLoading(false); return; }
+//     const controller = new AbortController();
+//     setSeenLoading(true);
+//     setSeenError(null);
+//     (async () => {
+//       try {
+//         const response = await fetch(API_MESSAGE_SEEN_USERS(message._id, userId), {
+//           headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: "no-store",
+//         });
+//         const result: IMessageSeenResponse = await response.json();
+//         if (!response.ok || result.success === false) throw new Error(result.message || `Fetch seen users failed`);
+//         setSeenUsers(result.data?.seenUsers ?? []);
+//       } catch (error) {
+//         if (!controller.signal.aborted) setSeenError(error instanceof Error ? error.message : "Could not load seen info.");
+//       } finally { if (!controller.signal.aborted) setSeenLoading(false); }
+//     })();
+//     return () => controller.abort();
+//   }, [message._id]);
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]" onClick={onClose}>
-      <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[420px] overflow-hidden rounded-xl border border-[#E7EAF0] bg-white shadow-2xl dark:border-[#42464D] dark:bg-[#262A30]">
-        <div className="flex items-center justify-between border-b border-[#ECEEF2] px-5 py-4 dark:border-[#3B4048]">
-          <h3 className="mt-0.5 text-[15px] font-semibold text-[#172033] dark:text-white">Message info</h3>
-          <button type="button" onClick={onClose} aria-label="Close message info"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-[#7C8492] transition hover:bg-[#F1F3F6] hover:text-[#172033] dark:hover:bg-[#383D45] dark:hover:text-white">
-            <FiX size={16} />
-          </button>
-        </div>
-        <div className="max-h-[min(70vh,560px)] space-y-5 overflow-y-auto p-5">
-          <section>
-            <div className="ml-auto max-w-[88%] rounded-xl rounded-br-sm bg-[#576CBC] px-3.5 py-3 text-white shadow-sm">
-              <p className="whitespace-pre-wrap break-words text-[13px] leading-5">{message.messages || "Attachment"}</p>
-              <p className="mt-2 text-right text-[10px] text-white/75">{message.time}</p>
-            </div>
-          </section>
-          <div className="flex items-center justify-between border-t border-[#ECEEF2] pt-4 text-[12px] dark:border-[#3B4048]">
-            <span className="text-[#7C8492]">Sent</span>
-            <span className="font-medium text-[#172033] dark:text-[#E7EAF0]">{message.time || "—"}</span>
-          </div>
-          <section>
-            <div className="mb-3 flex items-center justify-between border-b border-[#ECEEF2] pb-2 dark:border-[#3B4048]">
-              <div className="flex items-center gap-2">
-                <FiCheck className="text-[#2F8F76]" size={14} />
-                <h4 className="text-[12px] font-semibold text-[#172033] dark:text-white">Seen by</h4>
-              </div>
-              {!seenLoading && !seenError && (
-                <span className="rounded-full bg-[#E5F3EF] px-2 py-0.5 text-[10px] font-semibold text-[#287A66] dark:bg-[#243D37] dark:text-[#83C8B4]">{seenUsers.length}</span>
-              )}
-            </div>
-            {seenLoading ? (
-              <div className="flex items-center gap-2 py-2 text-[11px] text-[#7C8492]"><FiClock size={13} /> Loading seen details…</div>
-            ) : seenError ? (
-              <p role="alert" className="py-2 text-[11px] text-red-500">{seenError}</p>
-            ) : seenUsers.length === 0 ? (
-              <p className="py-2 text-[11px] text-[#9299A5]">Not seen yet</p>
-            ) : (
-              <div className="divide-y divide-[#ECEEF2] dark:divide-[#3B4048]">
-                {seenUsers.map((user) => (
-                  <div key={user.userId} className="flex items-center gap-3 py-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9EEF8] text-[11px] font-semibold text-[#4863A8] dark:bg-[#343D50] dark:text-[#B5C5F1]">
-                      {user.name.trim().charAt(0).toUpperCase() || "?"}
-                    </div>
-                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">{user.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
-    </div>
-  );
-};
+//   return (
+//     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]" onClick={onClose}>
+//       <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}
+//         className="w-full max-w-[420px] overflow-hidden rounded-xl border border-[#E7EAF0] bg-white shadow-2xl dark:border-[#42464D] dark:bg-[#262A30]">
+//         <div className="flex items-center justify-between border-b border-[#ECEEF2] px-5 py-4 dark:border-[#3B4048]">
+//           <h3 className="mt-0.5 text-[15px] font-semibold text-[#172033] dark:text-white">Message info</h3>
+//           <button type="button" onClick={onClose} aria-label="Close message info"
+//             className="flex h-8 w-8 items-center justify-center rounded-md text-[#7C8492] transition hover:bg-[#F1F3F6] hover:text-[#172033] dark:hover:bg-[#383D45] dark:hover:text-white">
+//             <FiX size={16} />
+//           </button>
+//         </div>
+//         <div className="max-h-[min(70vh,560px)] space-y-5 overflow-y-auto p-5">
+//           <section>
+//             <div className="ml-auto max-w-[88%] rounded-xl rounded-br-sm bg-[#576CBC] px-3.5 py-3 text-white shadow-sm">
+//               <p className="whitespace-pre-wrap break-words text-[13px] leading-5">{message.messages || "Attachment"}</p>
+//               <p className="mt-2 text-right text-[10px] text-white/75">{message.time}</p>
+//             </div>
+//           </section>
+//           <div className="flex items-center justify-between border-t border-[#ECEEF2] pt-4 text-[12px] dark:border-[#3B4048]">
+//             <span className="text-[#7C8492]">Sent</span>
+//             <span className="font-medium text-[#172033] dark:text-[#E7EAF0]">{message.time || "—"}</span>
+//           </div>
+//           <section>
+//             <div className="mb-3 flex items-center justify-between border-b border-[#ECEEF2] pb-2 dark:border-[#3B4048]">
+//               <div className="flex items-center gap-2">
+//                 <FiCheck className="text-[#2F8F76]" size={14} />
+//                 <h4 className="text-[12px] font-semibold text-[#172033] dark:text-white">Seen by</h4>
+//               </div>
+//               {!seenLoading && !seenError && (
+//                 <span className="rounded-full bg-[#E5F3EF] px-2 py-0.5 text-[10px] font-semibold text-[#287A66] dark:bg-[#243D37] dark:text-[#83C8B4]">{seenUsers.length}</span>
+//               )}
+//             </div>
+//             {seenLoading ? (
+//               <div className="flex items-center gap-2 py-2 text-[11px] text-[#7C8492]"><FiClock size={13} /> Loading seen details…</div>
+//             ) : seenError ? (
+//               <p role="alert" className="py-2 text-[11px] text-red-500">{seenError}</p>
+//             ) : seenUsers.length === 0 ? (
+//               <p className="py-2 text-[11px] text-[#9299A5]">Not seen yet</p>
+//             ) : (
+//               <div className="divide-y divide-[#ECEEF2] dark:divide-[#3B4048]">
+//                 {seenUsers.map((user) => (
+//                   <div key={user.userId} className="flex items-center gap-3 py-2.5">
+//                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9EEF8] text-[11px] font-semibold text-[#4863A8] dark:bg-[#343D50] dark:text-[#B5C5F1]">
+//                       {user.name.trim().charAt(0).toUpperCase() || "?"}
+//                     </div>
+//                     <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">{user.name}</span>
+//                   </div>
+//                 ))}
+//               </div>
+//             )}
+//           </section>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 const Message = () => {
   const currentUser = {
@@ -645,11 +645,8 @@ const Message = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
 
-  const [allMessages, setAllMessages] = useState<IMessageData[]>([]);
   const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
-  const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [messagesLoading, setMessagesLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -658,14 +655,10 @@ const Message = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
 
-  const [replyTo, setReplyTo] = useState<IMessage | null>(null);
-  const [infoMessage, setInfoMessage] = useState<IMessage | null>(null);
 
   const [readStateVersion, setReadStateVersion] = useState(0);
   const [previewsLoaded, setPreviewsLoaded] = useState(false);
 
-  /* ⭐ Keep latest selectedUser in a ref so the fetch effect doesn't re-run
-     when setSelectedUser creates a new object reference with the same _id */
   const selectedUserRef = useRef<IUser | null>(null);
   useEffect(() => {
     selectedUserRef.current = selectedUser;
@@ -797,7 +790,6 @@ const Message = () => {
       : isGroup
         ? "GROUP"
         : normalizeRoleKey(r?.role);
-    if (!isSuperAdminSource && roleKey === "ADMIN") roleKey = "SUPERADMIN";
 
     const readIds = getReadRooms();
     const isReadLocally = readIds.includes(id);
@@ -806,6 +798,7 @@ const Message = () => {
 
     return {
       _id: id || `room-${Math.random().toString(36).slice(2)}`,
+      chatSource: isSuperAdminSource ? "SUPER_ADMIN" : "TENANT",
       userName: r?.name ?? r?.roomCode ?? "Untitled Room",
       email: "room@example.com",
       role: isGroup ? ["Group"] : ["Tenant"],
@@ -900,7 +893,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
           batch.map(async (room) => {
             try {
               const roomId = room.roomId || room._id;
-              const url = API_ROOM_MESSAGES(chatSource, roomId, userId);
+              const url = API_ROOM_MESSAGES(room.chatSource ?? chatSource, roomId, userId);
               const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` },
                 cache: "no-store",
@@ -1071,131 +1064,131 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
 
   /* ⭐ Fetch messages only when the room _id changes. Uses selectedUserRef
      so setSelectedUser({...prev}) inside the effect doesn't re-trigger it. */
-  useEffect(() => {
-    const user = selectedUserRef.current;
-    if (!user) return;
-    setMessagesLoading(true);
+  // useEffect(() => {
+  //   const user = selectedUserRef.current;
+  //   if (!user) return;
+  //   setMessagesLoading(true);
 
-    setAllMessages((prev) =>
-      prev.map((g) => (g._id === user._id ? { ...g, messages: [] } : g)),
-    );
+  //   setAllMessages((prev) =>
+  //     prev.map((g) => (g._id === user._id ? { ...g, messages: [] } : g)),
+  //   );
 
-    markRoomAsRead(user._id);
-    setReadStateVersion((v) => v + 1);
-    setAllRooms((prev) =>
-      prev.map((r) => (r._id === user._id ? { ...r, isUnread: false, unreadCount: 0 } : r)),
-    );
+  //   markRoomAsRead(user._id);
+  //   setReadStateVersion((v) => v + 1);
+  //   setAllRooms((prev) =>
+  //     prev.map((r) => (r._id === user._id ? { ...r, isUnread: false, unreadCount: 0 } : r)),
+  //   );
 
-    const token = resolveAuthToken();
-    const userId = resolveAdminUserId();
-    if (!token || !userId) { setMessagesLoading(false); return; }
+  //   const token = resolveAuthToken();
+  //   const userId = resolveAdminUserId();
+  //   if (!token || !userId) { setMessagesLoading(false); return; }
 
-    const controller = new AbortController();
-    const roomId = user.roomId || user._id;
+  //   const controller = new AbortController();
+  //   const roomId = user.roomId || user._id;
 
-    (async () => {
-      try {
-        const url = API_ROOM_MESSAGES(chatSource, roomId, userId);
+  //   (async () => {
+  //     try {
+  //       const url = API_ROOM_MESSAGES(chatSource, roomId, userId);
 
-        if (process.env.NODE_ENV !== "production") {
-          console.log("🚨 MESSAGES-FETCH", { url });
-        }
+  //       if (process.env.NODE_ENV !== "production") {
+  //         console.log("🚨 MESSAGES-FETCH", { url });
+  //       }
 
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-          cache: "no-store",
-        });
+  //       const response = await fetch(url, {
+  //         headers: { Authorization: `Bearer ${token}` },
+  //         signal: controller.signal,
+  //         cache: "no-store",
+  //       });
 
-        const result: IRoomMessagesResponse = await response.json();
+  //       const result: IRoomMessagesResponse = await response.json();
 
-        if (!response.ok || result.statusCode === 404) {
-          throw new Error(result.message || `Fetch messages failed`);
-        }
+  //       if (!response.ok || result.statusCode === 404) {
+  //         throw new Error(result.message || `Fetch messages failed`);
+  //       }
 
-        const flat = flattenMessageGroups(result.data?.messagesByDate);
-        const fallback = Array.isArray(result.data?.messages) ? result.data.messages : [];
-        const rawMessages = flat.length > 0 ? flat : fallback;
+  //       const flat = flattenMessageGroups(result.data?.messagesByDate);
+  //       const fallback = Array.isArray(result.data?.messages) ? result.data.messages : [];
+  //       const rawMessages = flat.length > 0 ? flat : fallback;
 
-        const messages = rawMessages.map((message, index) =>
-          apiMessageToLocal(message, index, roomId, user.userName),
-        );
+  //       const messages = rawMessages.map((message, index) =>
+  //         apiMessageToLocal(message, index, roomId, user.userName),
+  //       );
 
-        const lastMessageId = messages[messages.length - 1]?._id;
-        if (lastMessageId) {
-          void fetch(API_MARK_CHAT_SEEN, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ roomId, userId, messageId: lastMessageId }),
-            signal: controller.signal,
-          }).catch(() => { /* silent */ });
-        }
+  //       const lastMessageId = messages[messages.length - 1]?._id;
+  //       if (lastMessageId) {
+  //         void fetch(API_MARK_CHAT_SEEN, {
+  //           method: "POST",
+  //           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  //           body: JSON.stringify({ roomId, userId, messageId: lastMessageId }),
+  //           signal: controller.signal,
+  //         }).catch(() => { /* silent */ });
+  //       }
 
-        setAllMessages((prev) => {
-          const others = prev.filter((g) => g._id !== user._id);
-          return [...others, { _id: user._id, messages }];
-        });
+  //       setAllMessages((prev) => {
+  //         const others = prev.filter((g) => g._id !== user._id);
+  //         return [...others, { _id: user._id, messages }];
+  //       });
 
-        if (messages.length > 0) {
-          const lastMsg = messages[messages.length - 1];
-          const preview = {
-            text: lastMsg.messages,
-            time: lastMsg.time,
-            senderName: lastMsg.senderName,
-          };
-          setCachedLastMessage(user._id, preview);
-          setAllRooms((prev) =>
-            prev.map((r) => (r._id === user._id ? { ...r, lastMessage: preview } : r)),
-          );
-          setSelectedUser((prev) =>
-            prev && prev._id === user._id ? { ...prev, lastMessage: preview } : prev,
-          );
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error("Failed to fetch room messages:", error);
-        }
-      } finally {
-        if (!controller.signal.aborted) setMessagesLoading(false);
-      }
-    })();
+  //       if (messages.length > 0) {
+  //         const lastMsg = messages[messages.length - 1];
+  //         const preview = {
+  //           text: lastMsg.messages,
+  //           time: lastMsg.time,
+  //           senderName: lastMsg.senderName,
+  //         };
+  //         setCachedLastMessage(user._id, preview);
+  //         setAllRooms((prev) =>
+  //           prev.map((r) => (r._id === user._id ? { ...r, lastMessage: preview } : r)),
+  //         );
+  //         setSelectedUser((prev) =>
+  //           prev && prev._id === user._id ? { ...prev, lastMessage: preview } : prev,
+  //         );
+  //       }
+  //     } catch (error) {
+  //       if (!controller.signal.aborted) {
+  //         console.error("Failed to fetch room messages:", error);
+  //       }
+  //     } finally {
+  //       if (!controller.signal.aborted) setMessagesLoading(false);
+  //     }
+  //   })();
 
-    return () => controller.abort();
-  }, [selectedUser?._id, chatSource]);
+  //   return () => controller.abort();
+  // }, [selectedUser?._id, chatSource]);
 
-  useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
-  }, [allMessages, selectedUser?._id]);
+  // useEffect(() => {
+  //   if (messagesContainerRef.current) {
+  //     messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+  //   }
+  // }, [allMessages, selectedUser?._id]);
 
-  const selectedMessages = useMemo(() => {
-    if (!selectedUser) return [];
-    return allMessages.find((g) => g._id === selectedUser._id)?.messages || [];
-  }, [selectedUser, allMessages]);
+  // const selectedMessages = useMemo(() => {
+  //   if (!selectedUser) return [];
+  //   return allMessages.find((g) => g._id === selectedUser._id)?.messages || [];
+  // }, [selectedUser, allMessages]);
 
-  const canSend = useMemo(() => {
-    if (!selectedUser) return false;
-    const access = selectedUser.sendAccess ?? (selectedUser.groupSettings === "admins" ? "ADMIN_ONLY" : "EVERYONE");
-    if (access === "EVERYONE") return true;
-    const role = String(currentUser.role || "").toUpperCase();
-    return role.includes("ADMIN") || role.includes("SUPERADMIN");
-  }, [selectedUser, currentUser.role]);
+  // const canSend = useMemo(() => {
+  //   if (!selectedUser) return false;
+  //   const access = selectedUser.sendAccess ?? (selectedUser.groupSettings === "admins" ? "ADMIN_ONLY" : "EVERYONE");
+  //   if (access === "EVERYONE") return true;
+  //   const role = String(currentUser.role || "").toUpperCase();
+  //   return role.includes("ADMIN") || role.includes("SUPERADMIN");
+  // }, [selectedUser, currentUser.role]);
 
   const handleMessageSent = useCallback((message: IMessage) => {
     if (!selectedUser) return;
 
-    setAllMessages((prev) => {
-      const existing = prev.find((g) => g._id === selectedUser._id);
-      if (existing) {
-        return prev.map((g) =>
-          g._id === selectedUser._id
-            ? { ...g, messages: [...g.messages, message] }
-            : g,
-        );
-      }
-      return [...prev, { _id: selectedUser._id, messages: [message] }];
-    });
+    // setAllMessages((prev) => {
+    //   const existing = prev.find((g) => g._id === selectedUser._id);
+    //   if (existing) {
+    //     return prev.map((g) =>
+    //       g._id === selectedUser._id
+    //         ? { ...g, messages: [...g.messages, message] }
+    //         : g,
+    //     );
+    //   }
+    //   return [...prev, { _id: selectedUser._id, messages: [message] }];
+    // });
 
     const preview = {
       text: message.messages,
@@ -1205,9 +1198,9 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
 
     setCachedLastMessage(selectedUser._id, preview);
 
-    setSelectedUser((prev) =>
-      prev ? { ...prev, lastMessage: preview } : prev,
-    );
+    // setSelectedUser((prev) =>
+    //   prev ? { ...prev, lastMessage: preview } : prev,
+    // );
 
     setAllRooms((prev) => {
       const target = prev.find((r) => r._id === selectedUser._id);
@@ -1218,6 +1211,50 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
     });
   }, [selectedUser]);
 
+  const handleMessagesLoaded = useCallback((roomId: string, list: IMessage[]) => {
+    const last = list[list.length - 1];
+    if (!last) return;
+    const preview = {
+      text: last.messages,
+      time: last.time,
+      senderName: last.senderName,
+    };
+    setCachedLastMessage(roomId, preview);
+    setAllRooms((prev) =>
+      prev.map((r) => (r._id === roomId ? { ...r, lastMessage: preview } : r)),
+    );
+  }, []);
+
+
+  const handleLastMessageUpdated = useCallback(
+    (
+      roomId: string,
+      preview: { text: string; time: string; senderName?: string },
+    ) => {
+      setCachedLastMessage(roomId, preview);
+      setAllRooms((prev) =>
+        prev.map((r) => (r._id === roomId ? { ...r, lastMessage: preview } : r)),
+      );
+      setSelectedUser((prev) =>
+        prev && prev._id === roomId ? { ...prev, lastMessage: preview } : prev,
+      );
+    },
+    [],
+  );
+
+
+  /* ⭐ Called by ChatPanel after it clears a chat */
+  const handleChatCleared = useCallback((roomId: string) => {
+    setAllRooms((prev) =>
+      prev.map((r) =>
+        r._id === roomId ? { ...r, lastMessage: undefined, lastSeen: "" } : r,
+      ),
+    );
+    setSelectedUser((prev) =>
+      prev && prev._id === roomId ? { ...prev, lastMessage: undefined, lastSeen: "" } : prev,
+    );
+  }, []);
+
   const createDirectChat = async (member: DirectoryMember) => {
     if (member.userId === currentUser.userId) {
       throw new Error("You cannot start a chat with yourself.");
@@ -1225,6 +1262,15 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
     const token = resolveAuthToken();
     const tenantId = resolveTenantCode();
     if (!tenantId) throw new Error("Tenant ID not found in session.");
+    const receiverRole = normalizeRoleKey(member.role);
+    const receiver = {
+      userId: member.userId,
+      name: member.name,
+      role: member.role,
+      ...(receiverRole === "TEACHER" || receiverRole === "STUDENT"
+        ? { course: member.planName }
+        : {}),
+    };
 
     try {
       const response = await postChatRoom(tenantId, {
@@ -1240,11 +1286,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
             name: currentUser.userName,
             role: "ADMIN",
           },
-          receivers: [{
-            userId: member.userId,
-            name: member.name,
-            role: member.role,
-          }],
+          receivers: [receiver],
         }),
       });
 
@@ -1332,22 +1374,22 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
       default: return "bg-gray-300";
     }
   };
-  const formatDate = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return "Today";
-    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
-  const groupedMessages = selectedMessages.reduce((acc, message) => {
-    const date = message.dateLabel || formatDate(message.createdDate);
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(message);
-    return acc;
-  }, {} as Record<string, IMessage[]>);
+  // const formatDate = (value: string) => {
+  //   const date = new Date(value);
+  //   if (Number.isNaN(date.getTime())) return "";
+  //   const today = new Date();
+  //   const yesterday = new Date();
+  //   yesterday.setDate(today.getDate() - 1);
+  //   if (date.toDateString() === today.toDateString()) return "Today";
+  //   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  //   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // };
+  // const groupedMessages = selectedMessages.reduce((acc, message) => {
+  //   const date = message.dateLabel || formatDate(message.createdDate);
+  //   if (!acc[date]) acc[date] = [];
+  //   acc[date].push(message);
+  //   return acc;
+  // }, {} as Record<string, IMessage[]>);
 
   const handleOpenGroupDetails = () => {
     setShowGroupMenu(false);
@@ -1378,7 +1420,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
     if (tenantId) removeCachedRoom(tenantId, roomId);
     removeChatClearedAt(roomId);
     setAllRooms((prev) => prev.filter((u) => u._id !== deletedId));
-    setAllMessages((prev) => prev.filter((g) => g._id !== deletedId));
+    // setAllMessages((prev) => prev.filter((g) => g._id !== deletedId));
     setSelectedUser((prev) => (prev?._id === deletedId ? null : prev));
     setShowDeleteConfirm(false);
     setShowGroupDetails(false);
@@ -1386,58 +1428,19 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
     setEditGroupImagePreview(null);
   };
 
-  const handleClearChat = async () => {
+  const handleClearChat = useCallback(() => {
     if (!selectedUser) return;
     const roomId = selectedUser.roomId || selectedUser._id;
-    const token = resolveAuthToken();
-    const userId = resolveAdminUserId();
-    if (!token || !userId) return;
-
-    try {
-      await fetch(API_CLEAR_CHAT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ roomId, userId }),
-      });
-    } catch (error) { console.error("Clear chat failed:", error); return; }
-
     setChatClearedAt(roomId, Date.now());
-    setAllMessages((prev) => prev.map((g) => (g._id === selectedUser._id ? { ...g, messages: [] } : g)));
-    setAllRooms((prev) =>
-      prev.map((room) =>
-        room._id === selectedUser._id ? { ...room, lastMessage: { text: "", time: "" }, lastSeen: "" } : room,
-      ),
-    );
-    setSelectedUser((prev) => (prev ? { ...prev, lastMessage: { text: "", time: "" } } : prev));
     setShowGroupMenu(false);
-  };
+  }, [selectedUser]);
+
 
   const handleDeleteChat = () => {
     if (!selectedUser) return;
-    setAllMessages((prev) => prev.filter((g) => g._id !== selectedUser._id));
     setAllRooms((prev) => prev.filter((r) => r._id !== selectedUser._id));
     setShowGroupMenu(false);
     setSelectedUser(null);
-  };
-
-  const handleDeleteMessage = async (messageId: string) => {
-    try {
-      const userId = resolveAdminUserId();
-      await fetch(API_DELETE_MESSAGE_FOR_EVERYONE(messageId, userId), {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-      });
-    } catch (error) { console.error("deleteMessageForEveryone failed:", error); return; }
-
-    setAllMessages((prev) =>
-      prev.map((g) => ({
-        ...g,
-        messages: g.messages.map((m) =>
-          m._id === messageId ? { ...m, isDeleted: true, messages: "" } : m,
-        ),
-      })),
-    );
   };
 
   const handleSaveGroupDetails = () => {
@@ -1511,21 +1514,13 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
             showGroupMenu={showGroupMenu}
             setShowGroupMenu={setShowGroupMenu}
             handleOpenGroupDetails={handleOpenGroupDetails}
-            handleClearChat={handleClearChat}
             handleDeleteChat={handleDeleteChat}
             messagesContainerRef={messagesContainerRef}
-            messagesLoading={messagesLoading}
-            selectedMessages={selectedMessages}
-            groupedMessages={groupedMessages}
             messagesEndRef={messagesEndRef}
-            setInfoMessage={setInfoMessage}
-            setReplyTo={setReplyTo}
-            handleDeleteMessage={handleDeleteMessage}
-            replyTo={replyTo}
-            canSend={canSend}
-            messageText={messageText}
-            setMessageText={setMessageText}
             onMessageSent={handleMessageSent}
+            onMessagesLoaded={handleMessagesLoaded}
+            onLastMessageUpdated={handleLastMessageUpdated}
+            onChatCleared={handleChatCleared}
           />
         </div>
 
@@ -1535,11 +1530,11 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
               key="new-chat-modal"
               category={activeCategory}
               categories={categories}
-              currentUserId={currentUser.userId}
               onClose={() => setShowNewChatModal(false)}
               onCreateChat={createDirectChat}
               getPlanColor={getPlanColor}
               fetchMembersForCategory={fetchMembersForCategory}
+              currentUserId={currentUser.userId}
             />
           )}
 
@@ -1547,11 +1542,11 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
             <NewGroupModal
               key="new-group-modal"
               categories={categories}
-              currentUserId={currentUser.userId}
               onClose={() => setShowNewGroupModal(false)}
               onCreate={handleCreateGroupFromDirectory}
               getPlanColor={getPlanColor}
               fetchMembersForCategory={fetchMembersForCategory}
+              currentUserId={currentUser.userId}
             />
           )}
 
@@ -1628,8 +1623,6 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
             />
           )}
         </AnimatePresence>
-
-        {infoMessage && <MessageInfoModal message={infoMessage} onClose={() => setInfoMessage(null)} />}
       </div>
     </BaseLayout4>
   );
