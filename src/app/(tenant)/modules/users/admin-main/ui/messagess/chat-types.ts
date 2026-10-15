@@ -16,7 +16,7 @@ export interface DirectoryMember {
   avatarLetter: string;
 }
 
-export type RoomType = "TENANT" | "SEGMENT" | "GLOBAL";
+export type RoomType = "TENANT" | "GROUP" | "SEGMENT" | "GLOBAL";
 
 /* ⭐ Backend only accepts these two */
 export type ChatSource = "TENANT" | "SUPER_ADMIN";

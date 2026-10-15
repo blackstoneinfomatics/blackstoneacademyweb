@@ -89,7 +89,8 @@ const resolveAdminUserId = (): string => {
 const MANDATORY_CATEGORIES: CategoryDef[] = [
   { key: "ALL", label: "All", short: "AL", rawRole: "" },
   { key: "GROUP", label: "Group", short: "GR", rawRole: "GROUP" },
-  { key: "SUPERADMIN", label: "Admin", short: "AD", rawRole: "ADMIN" },
+  { key: "ADMIN", label: "Admin", short: "AD", rawRole: "ADMIN" },
+  { key: "SUPERADMIN", label: "Super Admin", short: "SA", rawRole: "ADMIN" },
 ];
 
 const FALLBACK_ROLE_CATEGORIES: CategoryDef[] = [
@@ -99,12 +100,12 @@ const FALLBACK_ROLE_CATEGORIES: CategoryDef[] = [
 ];
 
 const ROLE_LABEL_OVERRIDES: Record<string, { label: string; short: string }> = {
-  SUPERADMIN: { label: "Admin", short: "AD" },
+  SUPERADMIN: { label: "Super Admin", short: "SA" },
+  ADMIN: { label: "Admin", short: "AD" },
   ACADEMICCOACH: { label: "Academic Coach", short: "AC" },
   TEACHER: { label: "Teacher", short: "TE" },
   SUPERVISOR: { label: "Supervisor", short: "SV" },
   STUDENT: { label: "Student", short: "ST" },
-  ADMIN: { label: "Admin", short: "AD" },
 };
 
 const normalizeRoleKey = (raw: any): string =>
@@ -306,7 +307,8 @@ const extractRoomId = (r: any): string => {
 };
 const normalizeRoomType = (raw: any): RoomType => {
   const t = String(raw ?? "").toUpperCase();
-  if (t === "SEGMENT" || t === "GROUP") return "SEGMENT";
+  if (t === "SEGMENT") return "SEGMENT";
+  if (t === "GROUP") return "GROUP";
   if (t === "GLOBAL") return "GLOBAL";
   return "TENANT";
 };
@@ -517,7 +519,7 @@ const Message = () => {
       const json = await res.json();
       const rawRoles: string[] = Array.isArray(json?.data) ? json.data : [];
 
-      const seen = new Set<string>(["ALL", "GROUP", "SUPERADMIN"]);
+      const seen = new Set<string>(["ALL", "GROUP", "ADMIN", "SUPERADMIN"]);
       const dynamicRoles: CategoryDef[] = [];
 
       rawRoles.forEach((raw) => {
@@ -562,7 +564,7 @@ const Message = () => {
   const mapRoomToUser = useCallback((r: any): IUser => {
     const id = extractRoomId(r);
     const roomType = normalizeRoomType(r?.type);
-    const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
+    const isGroup = roomType === "GROUP" || roomType === "SEGMENT" || roomType === "GLOBAL";
 
     const clearedAt = getChatClearedAt(id);
     const lastRoomMessageAt = new Date(r?.lastMessage?.createdAt ?? r?.lastMessageAt ?? "").getTime();
@@ -611,8 +613,37 @@ const Message = () => {
         role: member.role,
       }));
 
-    let roleKey: string = isGroup ? "GROUP" : normalizeRoleKey(r?.role);
-    if (roleKey === "ADMIN") roleKey = "SUPERADMIN";
+    const sourceRole = normalizeRoleKey(r?.source);
+    const isSuperAdminSource = sourceRole === "SUPERADMIN";
+    const roomRole = r?.role
+      ? roleToLabel(String(r.role))
+      : sourceRole === "SUPERADMIN"
+        ? "Super Admin"
+        : sourceRole === "ADMIN"
+          ? "Admin"
+          : "";
+    const memberCourseValues = Array.isArray(r?.members)
+      ? r.members.flatMap((member: any) => [
+          member?.course,
+          member?.courseName,
+          member?.planName,
+          member?.plan,
+        ])
+      : [];
+    const roomCourse = [r?.course, r?.courseName, r?.planName, r?.plan, ...memberCourseValues]
+      .map((value) => {
+        if (typeof value === "string") return value.trim();
+        if (!value || typeof value !== "object") return "";
+        return String(value.courseName ?? value.name ?? value.planName ?? value.plan ?? "").trim();
+      })
+      .find(Boolean) ?? "";
+    const roleKey: string = isSuperAdminSource
+      ? "SUPERADMIN"
+      : isGroup
+        ? "GROUP"
+        : roomType === "TENANT" && (sourceRole === "ADMIN" || normalizeRoleKey(r?.role) === "ADMIN")
+          ? "ADMIN"
+        : normalizeRoleKey(r?.role);
 
     const readIds = getReadRooms();
     const isReadLocally = readIds.includes(id);
@@ -624,38 +655,42 @@ const Message = () => {
       userName: r?.name ?? r?.roomCode ?? "Untitled Room",
       email: "room@example.com",
       role: isGroup ? ["Group"] : ["Tenant"],
+      roomRole,
       roleKey,
       status: r?.isEnabled ? "online" : "offline",
       lastSeen: isChatCleared ? "" : r?.lastMessageAt ? formatMessageTime(r.lastMessageAt) : "recently",
       isGroup,
       roomType,
-      plan: r?.planName ?? r?.course ?? "",
+      plan: roomCourse,
       members: [...activeMembers, ...cachedOnlyMembers],
       groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
       lastMessage,
       profileImage: null,
       roomId: id,
       roomCode: r?.roomCode ?? "",
+      roomCourse,
       unreadCount: isUnread ? Math.max(rawUnread, 1) : 0,
       isUnread,
       description: r?.description ?? "",
-      planName: r?.planName ?? r?.course ?? "",
+      planName: roomCourse,
       planId: r?.planId ?? "",
       sendAccess: r?.sendAccess === "ADMIN_ONLY" || r?.sendAccess === "ADMINS" ? "ADMIN_ONLY" : "EVERYONE",
     };
   }, []);
 
-  const handleRoomsLoaded = useCallback((apiRooms: unknown[], filter: "ALL" | "GROUP") => {
+  const handleRoomsLoaded = useCallback((apiRooms: unknown[], filter: "ALL" | "GROUP" | "ADMIN" | "SUPERADMIN") => {
     const mapped = apiRooms
       .map((room) => mapRoomToUser(room))
       .filter((room) => Boolean(room._id));
     const tenantId = resolveTenantCode();
     const cachedRooms = tenantId ? getCreatedRoomsCache(tenantId) : [];
     const serverRoomIds = new Set(mapped.map((room) => room._id));
-    const pendingCachedRooms = cachedRooms.filter((room) =>
-      !serverRoomIds.has(room._id) &&
-      (filter === "GROUP" ? room.isGroup : !room.isGroup)
-    );
+    const pendingCachedRooms = filter === "SUPERADMIN" || filter === "ADMIN"
+      ? []
+      : cachedRooms.filter((room) =>
+          !serverRoomIds.has(room._id) &&
+          (filter === "GROUP" ? room.isGroup : !room.isGroup)
+        );
 
     if (tenantId) setCreatedRoomsCache(tenantId, pendingCachedRooms);
 
@@ -808,7 +843,13 @@ const Message = () => {
 
     if (activeCategory === "GROUP") {
       result = result.filter(
-        (r) => r.roomType === "SEGMENT" || r.roomType === "GLOBAL" || r.isGroup
+        (r) => r.roomType === "GROUP" || r.roomType === "GLOBAL"
+      );
+    } else if (activeCategory === "SUPERADMIN") {
+      result = result.filter((r) => r.roleKey === "SUPERADMIN");
+    } else if (activeCategory === "ADMIN") {
+      result = result.filter(
+        (r) => r.roomType === "TENANT" && r.roleKey === "ADMIN"
       );
     } else if (activeCategory !== "ALL") {
       result = result.filter((r) => !r.isGroup && r.roleKey === activeCategory);
@@ -829,10 +870,10 @@ const Message = () => {
   const tabCounts = useMemo(() => {
     void readStateVersion;
     return {
-      total: allRooms.length,
-      unread: allRooms.filter((r) => r.isUnread).length,
+      total: categoryRooms.length,
+      unread: categoryRooms.filter((room) => room.isUnread).length,
     };
-  }, [allRooms, readStateVersion]);
+  }, [categoryRooms, readStateVersion]);
 
   useEffect(() => {
     if (!selectedUser) return;
@@ -1075,6 +1116,7 @@ const Message = () => {
             userId: member.userId,
             name: member.name,
             role: member.role,
+            course: member.planName,
           }],
         }),
       });

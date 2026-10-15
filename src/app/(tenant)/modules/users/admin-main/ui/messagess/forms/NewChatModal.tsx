@@ -24,7 +24,7 @@ const NewChatModal = ({
 }: NewChatModalProps) => {
   const startOnCategoryPicker = !initialCategory || initialCategory === "ALL";
   const pickableCategories = useMemo(
-    () => categories.filter((c) => c.key !== "ALL" && c.key !== "SUPERADMIN" && c.key !== "GROUP"),
+    () => categories.filter((c) => c.key !== "ALL" && c.key !== "SUPERADMIN" && c.key !== "ADMIN" && c.key !== "GROUP"),
     [categories]
   );
 

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { FiArrowLeft, FiSearch, FiX } from "react-icons/fi";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import type { CategoryDef, DirectoryMember } from "../chat-types";
 
 interface NewGroupModalProps {
@@ -23,11 +23,16 @@ const NewGroupModal = ({
   fetchMembersForCategory,
 }: NewGroupModalProps) => {
   const pickableCategories = useMemo(
-    () => categories.filter((c) => c.key !== "ALL" && c.key !== "GROUP"),
+    () => categories.filter(
+      (category) =>
+        category.key !== "ALL" &&
+        category.key !== "GROUP" &&
+        category.key !== "SUPERADMIN"
+    ),
     [categories]
   );
   const [step, setStep] = useState<GroupModalStep>("CATEGORY");
-  const [groupName, setGroupName] = useState("New Group");
+  const [groupName, setGroupName] = useState("");
   const [activeCategory, setActiveCategory] = useState<CategoryDef | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
