@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import type { CategoryDef, IUser } from "./chat-types";
 
-type RoomListFilter = "ALL" | "GROUP" | "ADMIN" | "SUPERADMIN";
+type RoomListFilter = string;
 
 interface ConversationListProps {
   currentUser: { userId: string; userName: string; role: string };
@@ -17,6 +17,7 @@ interface ConversationListProps {
   categoriesLoading: boolean;
   categoryDropdownOpen: boolean;
   setCategoryDropdownOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onRefreshCategories: () => void;
   activeCategory: string;
   setActiveCategory: React.Dispatch<React.SetStateAction<string>>;
   setSelectedUser: React.Dispatch<React.SetStateAction<IUser | null>>;
@@ -35,7 +36,7 @@ interface ConversationListProps {
 
 const API_BASE = AppApiEndpoints.API_END_POINT;
 const API_LIST_CHAT_ROOMS = (userId: string, filter: RoomListFilter) =>
-  `${API_BASE}/user/chat-room/${encodeURIComponent(userId)}?filter=${filter}`;
+  `${API_BASE}/user/chat-room/${encodeURIComponent(userId)}?filter=${encodeURIComponent(filter)}`;
 
 const resolveTenantId = (): string => {
   const keys = [
@@ -71,23 +72,27 @@ const resolveAuthToken = (): string => {
 const ConversationList = ({
   currentUser, searchQuery, setSearchQuery, categoryDropdownRef, categories,
   categoriesLoading, categoryDropdownOpen, setCategoryDropdownOpen, activeCategory,
+  onRefreshCategories,
   setActiveCategory, setSelectedUser, categoryHeading, tabCounts,
-  setShowNewGroupModal, setShowNewChatModal, roomsRefreshKey, onRoomsLoaded, categoryRooms,
+  setShowNewGroupModal, setShowNewChatModal, roomsRefreshKey, onRoomsLoaded,
+  categoryRooms,
   selectedUser, getPlanColor, getStatusColor, handleSelectRoom,
 }: ConversationListProps) => {
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-
   useEffect(() => {
     const controller = new AbortController();
-    const filter: RoomListFilter = activeCategory === "GROUP"
-      ? "GROUP"
+    const category = categories.find((item) => item.key === activeCategory);
+    const filter: RoomListFilter = activeCategory === "SUPERADMIN"
+      ? "SUPERADMIN"
       : activeCategory === "ADMIN"
         ? "ADMIN"
-      : activeCategory === "SUPERADMIN"
-        ? "SUPERADMIN"
-        : "ALL";
+        : activeCategory === "GROUP"
+          ? "GROUP"
+          : activeCategory === "ALL"
+            ? "ALL"
+            : category?.rawRole || activeCategory;
 
     const fetchRooms = async () => {
       setRoomsLoading(true);
@@ -139,7 +144,7 @@ const ConversationList = ({
 
     void fetchRooms();
     return () => controller.abort();
-  }, [activeCategory, onRoomsLoaded, retryKey, roomsRefreshKey]);
+  }, [activeCategory, categories, onRoomsLoaded, retryKey, roomsRefreshKey]);
 
   const retryRooms = () => setRetryKey((previous) => previous + 1);
 
@@ -180,7 +185,11 @@ const ConversationList = ({
               </span>
               <div className="relative" ref={categoryDropdownRef}>
                 <button
-                  onClick={() => setCategoryDropdownOpen((o) => !o)}
+                  onClick={() => {
+                    const shouldOpen = !categoryDropdownOpen;
+                    setCategoryDropdownOpen(shouldOpen);
+                    if (shouldOpen) onRefreshCategories();
+                  }}
                     disabled={categoriesLoading || categories.length === 0}
                   className="min-w-[110px] flex items-center justify-between gap-2 text-[12px] font-medium text-[#101B41] dark:text-white px-3 py-[6px] rounded-md border border-[#E6EAF2] bg-white dark:bg-[#2c2c2c] dark:border-[#4A4A4A] disabled:opacity-60"
                 >
@@ -247,15 +256,15 @@ const ConversationList = ({
                   </svg>
                   New Group
                 </button>
-              ) : activeCategory === "SUPERADMIN" || activeCategory === "ADMIN" ? (
+              ) : activeCategory === "SUPERADMIN" ? (
                 <div className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#E6EAF2] dark:border-[#3A4570] px-2.5 py-2 text-[11px] font-medium text-[#8C919C] dark:text-[#8a8a8a]">
                   {roomsLoading
                     ? "Loading conversations..."
                     : roomsError
                       ? "Conversations could not be loaded."
                       : categoryRooms.length === 0
-                        ? `No ${activeCategory === "SUPERADMIN" ? "Super Admin" : "Admin"} conversations yet.`
-                        : `${activeCategory === "SUPERADMIN" ? "Super Admin" : "Admin"} conversations`}
+                        ? "No Super Admin conversations yet."
+                        : "Super Admin conversations"}
                 </div>
               ) : (
                 <button
@@ -341,12 +350,7 @@ const ConversationList = ({
                             )}
                             {(room.roomType === "GROUP" || room.roomType === "SEGMENT" || room.roomType === "GLOBAL" || room.isGroup) && (
                               <span className="text-[10px] px-1.5 py-[1px] rounded bg-[#EEF2FB] text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8] flex-shrink-0">
-                                {room.roomType === "SEGMENT" ? "Segment" : "Group"}
-                              </span>
-                            )}
-                            {room.roomType === "TENANT" && (
-                              <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>
-                                Course: {room.roomCourse || "N/A"}
+                                {room.roomType === "SEGMENT" ? "" : "Group"}
                               </span>
                             )}
                           </div>
@@ -356,6 +360,11 @@ const ConversationList = ({
                         </div>
 
                   <div className="flex-shrink-0 flex flex-col items-end justify-center gap-1 min-w-[52px]">
+                    {room.roomType === "TENANT" && (
+                              <span className={`text-[10px] px-1.5 py-[1px] rounded flex-shrink-0 ${planColor.bg} ${planColor.text}`}>
+                                {room.roomCourse || ""}
+                              </span>
+                            )}
                     <span className="text-[10.5px] leading-none text-[#A2A6AF] dark:text-[#8a8a8a]">
                       {room.lastMessage?.time || room.lastSeen}
                     </span>
