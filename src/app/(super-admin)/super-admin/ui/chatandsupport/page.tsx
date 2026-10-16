@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiCheck, FiClock, FiMoreVertical, FiX } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-
+import {ChatSource} from "@/app/utils/chat-events"
 import BaseLayout3 from "../../components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import { ChatMessageComposer } from "./ChatMessageComposer";
@@ -12,6 +12,7 @@ import { AddGroupModal, type GroupFormData } from "./AddGroupModal";
 import { BroadcastModal, type BroadcastData } from "./BroadcastModal";
 import { GroupDetailsModal } from "./GroupDetailsModal";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import { onNewMessage, joinChatRoom, leaveChatRoom } from "@/app/utils/chat-socket";
 
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
@@ -33,7 +34,7 @@ const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
 const API_UPDATE_CHAT_ROOM = (roomId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
 const API_GET_GROUP_DETAILS = (roomId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
+  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS_SUPERADMIN(roomId)}`;
 const API_DELETE_MESSAGE_FOR_EVERYONE = (messageId: string, userId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`;
 
@@ -764,6 +765,7 @@ const Message = () => {
 
   const mapRoomToUser = (r: any): IUser => {
     const id = extractRoomId(r);
+    const chatSource = "SUPER_ADMIN";
     const roomType = normalizeRoomType(r?.type);
     const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
     const clearedAt = getChatClearedAt(id);
@@ -1457,6 +1459,142 @@ const Message = () => {
     if (!selectedUser) return [];
     return allMessages.find((g) => g._id === selectedUser._id)?.messages || [];
   }, [selectedUser, allMessages]);
+  
+const apiMessageToLocal = (
+  message: IRoomMessageResponse,
+  index: number,
+  roomId: string,
+  receiverName: string,
+  userId:string,
+): IMessage => {
+  const createdDate = message.timestamp ?? message.createdAt ?? new Date().toISOString();
+  const date = new Date(createdDate);
+  const attachment = message.attachments?.[0];
+  return {
+    _id: message._id ?? `${roomId}-${index}`,
+    messages: message.message ?? "",
+    senderId: message.senderId ?? "",
+    senderName: message.senderName ?? "",
+    receiverId: roomId,
+    receiverName,
+    createdDate,
+    dateLabel: message.dateLabel,
+    time: Number.isNaN(date.getTime())
+      ? ""
+      : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    notificationStatus: "Unseen",
+    isRead: false,
+    status: "Active",
+    isDeleted:  false,
+    side: message.senderId === userId ? 'right' : 'left',
+    replyTo: message.replyTo
+      ? {
+        messageId: message.replyTo.messageId ?? "",
+        messages: message.replyTo.message ?? "",
+        senderName: message.replyTo.senderName ?? "",
+        senderId: message.replyTo.senderId ?? "",
+      }
+      : undefined,
+    attachment: attachment
+      ? {
+        name: attachment.name ?? "Attachment",
+        size: attachment.size ?? 0,
+        type: attachment.type ?? "application/octet-stream",
+        url: attachment.url,
+      }
+      : undefined,
+  };
+};
+  const roomId =selectedUser?._id;
+     const chatSource : ChatSource = "SUPER_ADMIN";
+    const userId = localStorage.getItem("SuperAdminUserId");
+
+  useEffect(() => {
+      if (!userId || !roomId || !chatSource) return;
+    
+      const room = {
+        source: chatSource,
+        roomId,
+      };
+    
+      // 1. Listen for new messages
+      const unsubscribeMessage = onNewMessage(userId, (event) => {
+        if (
+          event.source !== chatSource ||
+          event.roomId !== roomId
+        ) {
+          return;
+        }
+    
+        if (!event.message || typeof event.message !== "object") {
+          return;
+        }
+    
+        const incoming = event.message as Parameters<
+  typeof apiMessageToLocal
+>[0];
+
+const localMessage = apiMessageToLocal(
+  incoming,
+  0,
+  roomId,
+  "no",
+  userId,
+);
+
+if (localMessage.senderId !== userId) {
+  setAllMessages((previous) => {
+    const groupId = selectedUser._id;
+
+    const existingGroup = previous.find(
+      (group) => group._id === groupId,
+    );
+
+    // Avoid duplicate messages
+    if (
+      existingGroup?.messages.some(
+        (message) => message._id === localMessage._id,
+      )
+    ) {
+      return previous;
+    }
+
+    // Append to the existing user's message group
+    if (existingGroup) {
+      return previous.map((group) =>
+        group._id === groupId
+          ? {
+              ...group,
+              messages: [...group.messages, localMessage],
+            }
+          : group,
+      );
+    }
+
+    // Create a new group if one doesn't exist
+    return [
+      ...previous,
+      {
+        _id: groupId,
+        messages: [localMessage],
+      },
+    ];
+  });
+}
+      });
+    
+      // 3. Join the selected chat room
+      void joinChatRoom(userId, room).catch((error: unknown) => {
+        console.error("Chat room join failed:", error);
+      });
+    
+      // 4. Clean up when switching rooms or unmounting
+      return () => {
+        unsubscribeMessage();
+        leaveChatRoom(userId, room);
+      };
+    }, [userId, roomId, chatSource]);
+
 
   useEffect(() => {
     if (!selectedUser) return;
@@ -1470,6 +1608,8 @@ const Message = () => {
 
     const controller = new AbortController();
     setMessagesLoading(true);
+
+
 
     const fetchRoomMessages = async () => {
       try {
