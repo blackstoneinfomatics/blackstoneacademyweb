@@ -1596,14 +1596,14 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
               }}
               onAddMembers={(newMembers) => {
                 const roomId = selectedUser.roomId || selectedUser._id;
-                newMembers.forEach((nm) => removeFromRemovedTenant(roomId, nm.tenantId));
+                newMembers.forEach((nm) => removeFromRemovedTenant(roomId, nm.userId));
                 mergeIntoRoomMembersCache(roomId, newMembers);
                 setSelectedUser((prev) => {
                   if (!prev) return prev;
-                  const existingIds = new Set((prev.members ?? []).map((m: any) => m.tenantId));
+                  const existingIds = new Set((prev.members ?? []).map((m: any) => m.userId));
                   const toAdd = newMembers
-                    .filter((nm) => !existingIds.has(nm.tenantId))
-                    .map((nm) => ({ name: nm.tenantName, plan: prev.planName ?? "", tenantId: nm.tenantId, isSelected: true }));
+                    .filter((nm) => !existingIds.has(nm.userId))
+                    .map((nm) => ({ name: nm.userName, plan: prev.planName ?? "", userId: nm.userId, isSelected: true }));
                   return { ...prev, members: [...(prev.members ?? []), ...toAdd] };
                 });
               }}
