@@ -1,846 +1,1263 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
+
+import BaseLayout4 from "../../components/BaseLayout4";
+import AdminHeader from "../../components/AdminHeader";
+import GroupDetailsModal from "./GroupDetailsModal";   // ⭐ default import
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
-import type { CategoryDef } from "./chat-types";
-interface ILocalMember {
-  userId: string;
-  userName: string;
-  isSelected: boolean;
-  role: string;
-  course: string | null;
-}
+import ConversationList from "./ConversationList";
+import ChatPanel from "./ChatPanel";
+import NewChatModal from "./forms/NewChatModal";
+import NewGroupModal from "./forms/NewGroupModal";
+import type {
+    CategoryDef,
+    CategoryKey,
+    DirectoryMember,
+    IMessage,
+    IUser,
+    RoomListFilter,                                      // ⭐ imported
+    RoomType,
+} from "./chat-types";
+
 const API_BASE = AppApiEndpoints.API_END_POINT;
-const API_GET_TENANT_ROLES = (tenantId: string) =>
-    `${API_BASE}/tenant-portal/${tenantId}/roles`;
-const GROUP_MEMBERS_PAGE_LIMIT = 100;
-const API_GET_TENANT_USERS_BY_GROUP = (
-    source: string,
-    roomId: string,
-    tenantId: string,
-    userId: string,
-    payloadUserId: string,
-    role: string,
-    page: number,
-) => {
-    const query = new URLSearchParams({
-        tenantId,
-        userId,
-        payloadUserId,
-        role,
-        page: String(page),
-        limit: String(GROUP_MEMBERS_PAGE_LIMIT),
-    });
-    return `${API_BASE}/user/chat/${encodeURIComponent(source)}/groupuser/${encodeURIComponent(roomId)}?${query}`;
-};
-const API_GET_GROUP_DETAILS = (source: string, roomId: string, userId: string) =>
-    `${API_BASE}/user/chat/${encodeURIComponent(source)}/groups/${encodeURIComponent(roomId)}?userId=${encodeURIComponent(userId)}`;
 
-type ChatSource = "TENANT" | "SUPER_ADMIN";
-
-const resolveChatSource = (): ChatSource => {
+/* ═══════════════════════════════════════════════════════════════════
+   Chat source
+   ═══════════════════════════════════════════════════════════════════ */
+const resolveChatSource = (): "TENANT" | "SUPER_ADMIN" => {
     if (typeof window === "undefined") return "SUPER_ADMIN";
-    const explicit = (window.localStorage.getItem("chatSource") || "").trim().toUpperCase();
-    if (explicit === "SUPER_ADMIN" || explicit === "TENANT") return explicit;
+    const explicit = (localStorage.getItem("chatSource") || "").trim().toUpperCase();
+    if (explicit === "SUPER_ADMIN" || explicit === "TENANT") {
+        return explicit as "TENANT" | "SUPER_ADMIN";
+    }
     return window.location.pathname.toLowerCase().startsWith("/super-admin")
         ? "SUPER_ADMIN"
         : "TENANT";
 };
 
-const getStoredUserId = () => {
-    if (typeof window === "undefined") return "";
-    return window.localStorage.getItem("AdminPortalUserId")
-        || window.localStorage.getItem("AdminPortalId")
-        || "";
+/* ⭐ Correct endpoints */
+const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
+
+const API_UPDATE_CHAT_ROOM = (
+    source: "TENANT" | "SUPER_ADMIN",
+    roomId: string,
+) =>
+    `${API_BASE}/user/chat-room/${encodeURIComponent(source)}/${encodeURIComponent(roomId)}`;
+
+const API_DELETE_CHAT_ROOM = (roomId: string) =>
+    `${API_BASE}/user/chat-room/${encodeURIComponent(roomId)}`;
+
+const API_GET_GROUP_DETAILS = (
+    source: "TENANT" | "SUPER_ADMIN",
+    roomId: string,
+) =>
+    `${API_BASE}/user/chat/${encodeURIComponent(source)}/groups/${encodeURIComponent(roomId)}`;
+
+const ROOM_MESSAGES_PAGE_LIMIT = 10;
+
+const API_ROOM_MESSAGES = (
+    source: "TENANT" | "SUPER_ADMIN",
+    roomId: string,
+    userId: string,
+) =>
+    `${API_BASE}/user/chat/${source}/${roomId}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
+
+const postChatRoom = (tenantId: string, request: RequestInit) => {
+    const headers = new Headers(request.headers);
+    headers.set("tenantId", tenantId);
+    return fetch(API_CREATE_CHAT_ROOM, { ...request, headers });
 };
 
-interface RoleUser {
-    userId: string;
-    userName: string;
-    course: string | null;
-    isSelected: boolean;
-    role: string;
-}
+const API_GET_TENANT_ROLES = (tenantId: string) =>
+    `${API_BASE}/tenant-portal/${tenantId}/roles`;
 
-interface GroupMembersPagination {
-    page: number;
-    totalPages: number;
-    totalRecords: number;
-}
+const API_GET_TENANT_USERS_BY_ROLE = (tenantId: string, role: string) =>
+    `${API_BASE}/tenant/${tenantId}/users?role=${encodeURIComponent(role)}`;
 
-const getStoredTenantId = () => {
+const resolveTenantCode = (): string => {
     if (typeof window === "undefined") return "";
     const keys = [
         "tenantId", "tenantCode", "TenantId", "TENANT_ID",
         "selectedTenantId", "TENANT_CODE", "currentTenantId", "tenant",
     ];
-    for (const key of keys) {
-        const value = window.localStorage.getItem(key);
-        if (!value?.trim()) continue;
-        const trimmed = value.trim();
+    for (const k of keys) {
+        const v = window.localStorage.getItem(k);
+        if (!v || !v.trim()) continue;
+        const trimmed = v.trim();
         if (trimmed.startsWith("{")) {
             try {
-                const tenant = JSON.parse(trimmed);
-                const tenantId = tenant.tenantId || tenant.tenantCode || tenant.id || tenant._id;
-                if (tenantId) return String(tenantId);
-            } catch (error) {
-                console.error("Could not parse tenant information:", error);
-            }
+                const obj = JSON.parse(trimmed);
+                const id = obj.tenantId || obj.tenantCode || obj.id || obj._id;
+                if (id) return String(id);
+            } catch { /* ignore */ }
         }
         return trimmed;
     }
     return "";
 };
 
-const getStoredAuthToken = () => {
+const resolveAuthToken = (): string => {
     if (typeof window === "undefined") return "";
-    for (const key of ["AdminAuthToken", "authToken", "token", "accessToken", "jwt"]) {
-        const value = window.localStorage.getItem(key);
-        if (value?.trim()) return value.trim();
+    const keys = ["AdminAuthToken", "authToken", "token", "accessToken", "jwt"];
+    for (const k of keys) {
+        const v = window.localStorage.getItem(k);
+        if (v && v.trim()) return v.trim();
     }
     return "";
 };
 
-const normalizeGroupRoleUsers = (response: unknown) => {
-    if (!response || typeof response !== "object") {
-        throw new Error("The group members response was not in the expected format.");
-    }
-    const payload = response as {
-        data?: {
-            members?: unknown;
-            pagination?: Partial<GroupMembersPagination>;
-        };
-    };
-    if (!Array.isArray(payload.data?.members)) {
-        throw new Error("The group members response was not in the expected format.");
-    }
-
-    return {
-        users: payload.data.members
-            .filter((member): member is Record<string, unknown> => Boolean(member) && typeof member === "object")
-            .map((member) => ({
-                userId: String(member.userId ?? ""),
-                userName: String(member.userName ?? "Unnamed"),
-                course: typeof member.course === "string" ? member.course : null,
-                role: String(member.role ?? ""),
-                isSelected: member.isSelected === true,
-            }))
-            .filter((member) => Boolean(member.userId)),
-        pagination: {
-            page: Number(payload.data.pagination?.page) || 1,
-            totalPages: Number(payload.data.pagination?.totalPages) || 1,
-            totalRecords: Number(payload.data.pagination?.totalRecords) || 0,
-        },
-    };
+const resolveAdminUserId = (): string => {
+    if (typeof window === "undefined") return "";
+    return (
+        window.localStorage.getItem("AdminPortalUserId") ||
+        window.localStorage.getItem("AdminPortalId") ||
+        ""
+    );
 };
 
-export interface GroupDetailsData {
-    roomId: string;
-    roomCode: string;
-    groupName: string;
-    role: string;
-    description: string;
-    planName: string;
-    sendAccess: "EVERYONE" | "ADMIN_ONLY";
-    members: { tenantId: string; tenantName: string; isSelected: boolean; role?: string }[];
-    memberCount: number;
-}
+const MANDATORY_CATEGORIES: CategoryDef[] = [
+    { key: "ALL", label: "All", short: "AL", rawRole: "" },
+    { key: "GROUP", label: "Group", short: "GR", rawRole: "GROUP" },
+    { key: "SUPERADMIN", label: "Admin", short: "AD", rawRole: "ADMIN" },
+];
 
-interface ApiGroupDetails {
-    roomId: string;
-    roomCode: string;
-    type: string;
-    source: ChatSource;
-    groupName: string;
-    description: string;
-    sendAccess: "EVERYONE" | "ADMIN_ONLY";
-    canUpdate: boolean;
-}
+const FALLBACK_ROLE_CATEGORIES: CategoryDef[] = [
+    { key: "TEACHER", label: "Teacher", short: "TE", rawRole: "TEACHER" },
+    { key: "SUPERVISOR", label: "Supervisor", short: "SV", rawRole: "SUPERVISOR" },
+    { key: "STUDENT", label: "Student", short: "ST", rawRole: "STUDENT" },
+];
 
-interface AvailableTenant {
-    course: any;
-    role: any; userId: string; userName: string; 
-}
+const ROLE_LABEL_OVERRIDES: Record<string, { label: string; short: string }> = {
+    SUPERADMIN: { label: "Admin", short: "AD" },
+    ACADEMICCOACH: { label: "Academic Coach", short: "AC" },
+    TEACHER: { label: "Teacher", short: "TE" },
+    SUPERVISOR: { label: "Supervisor", short: "SV" },
+    STUDENT: { label: "Student", short: "ST" },
+    ADMIN: { label: "Admin", short: "AD" },
+};
 
-export interface GroupListItem {
-    roomId: string;
-    groupName: string;
-    description?: string;
-    planName?: string;
-    roomCode?: string;
-    sendAccess?: "EVERYONE" | "ADMIN_ONLY";
-    memberCount: number;
-    memberNames?: string[];
-    imagePreview?: string | null;
-}
+const normalizeRoleKey = (raw: any): string =>
+    String(raw ?? "").toUpperCase().replace(/[\s_-]/g, "");
 
-interface GroupDetailsModalProps {
-    data: GroupDetailsData;
-    imagePreview: string | null;
-    showDeleteConfirm: boolean;
-    availableTenants?: AvailableTenant[];
-    roleCategories?: CategoryDef[];
-    groupList?: GroupListItem[];
-    onSelectGroup?: (roomId: string) => void;
-    onImageChange: (file: File | null) => void;
-    onUpdateMembers: (payload: { addTenantIds?: string[]; removeTenantIds?: string[]; updatedBy: string }) => void;
-    onAddMembers?: (newMembers: { userId: string; userName: string }[]) => void;
-    onUpdateAccess: (access: "EVERYONE" | "ADMIN_ONLY") => void;
-    onToggleDeleteConfirm: (show: boolean) => void;
-    onDelete: () => void;
-    onClose: () => void;
-    onSave: () => void;
-}
+const roleToLabel = (raw: string): string => {
+    const key = normalizeRoleKey(raw);
+    if (ROLE_LABEL_OVERRIDES[key]) return ROLE_LABEL_OVERRIDES[key].label;
+    return raw
+        .toLowerCase()
+        .split(/[\s_-]+/)
+        .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+        .join(" ");
+};
 
-type TabKey = "DETAILS" | "ROLES";
+const roleToShort = (raw: string): string => {
+    const key = normalizeRoleKey(raw);
+    if (ROLE_LABEL_OVERRIDES[key]) return ROLE_LABEL_OVERRIDES[key].short;
+    return (
+        raw
+            .split(/[\s_-]+/)
+            .map((w) => (w ? w[0].toUpperCase() : ""))
+            .join("")
+            .slice(0, 2) || "??"
+    );
+};
 
-export function GroupDetailsModal({
-    data, imagePreview, showDeleteConfirm, availableTenants = [],
-    onImageChange, onUpdateMembers,
-    onAddMembers, onUpdateAccess, onToggleDeleteConfirm, onDelete, onClose, onSave,
-}: GroupDetailsModalProps) {
-    const [tab, setTab] = useState<TabKey>("DETAILS");
-    const [localMembers, setLocalMembers] = useState<ILocalMember[]>([]);
-    const [access, setAccess] = useState<"EVERYONE" | "ADMIN_ONLY">();
-    const [groupDetails, setGroupDetails] = useState<ApiGroupDetails | null>(null);
-    const [groupDetailsLoading, setGroupDetailsLoading] = useState(true);
-    const [groupDetailsError, setGroupDetailsError] = useState<string | null>(null);
-    const [, setShowAddDropdown] = useState(false);
-    const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
-    const [tenantRoles, setTenantRoles] = useState<string[]>([]);
-    const [rolesLoading, setRolesLoading] = useState(false);
-    const [rolesError, setRolesError] = useState<string | null>(null);
-    const [roleSearch, setRoleSearch] = useState("");
-    const [selectedPortalRole, setSelectedPortalRole] = useState("");
-    const [roleUsers, setRoleUsers] = useState<RoleUser[]>([]);
-    const [currentUserId, setCurrentUserId] = useState("");
-    const [roleUsersLoading, setRoleUsersLoading] = useState(false);
-    const [roleUsersError, setRoleUsersError] = useState<string | null>(null);
-    const [roleUsersPage, setRoleUsersPage] = useState(1);
-    const [roleUsersPagination, setRoleUsersPagination] = useState<GroupMembersPagination>({
-        page: 1,
-        totalPages: 1,
-        totalRecords: 0,
+const LS_KEY_REMOVED = "adminChatRoom.removedTenants.";
+const LS_KEY_ROOM_MEMBERS = "adminChatRoom.allMembers.";
+const LS_KEY_CLEARED_AT = "adminChatRoom.clearedAt.";
+const LS_KEY_READ_ROOMS = "adminChatRoom.readRooms";
+const LS_KEY_CREATED_ROOMS = "adminChatRoom.createdRooms.";
+const LS_KEY_LAST_MSG = "adminChatRoom.lastMessage.";
+
+const getCachedLastMessage = (
+    roomId: string,
+): { text: string; time: string; senderName?: string } | undefined => {
+    if (typeof window === "undefined") return undefined;
+    try {
+        const raw = window.localStorage.getItem(LS_KEY_LAST_MSG + roomId);
+        return raw ? JSON.parse(raw) : undefined;
+    } catch {
+        return undefined;
+    }
+};
+
+const setCachedLastMessage = (
+    roomId: string,
+    preview: { text: string; time: string; senderName?: string },
+) => {
+    if (typeof window === "undefined") return;
+    try {
+        window.localStorage.setItem(LS_KEY_LAST_MSG + roomId, JSON.stringify(preview));
+    } catch { /* ignore */ }
+};
+
+const getCreatedRoomsCache = (tenantId: string): IUser[] => {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.localStorage.getItem(LS_KEY_CREATED_ROOMS + tenantId);
+        const rooms: unknown = raw ? JSON.parse(raw) : [];
+        return Array.isArray(rooms)
+            ? rooms.filter((room): room is IUser =>
+                Boolean(room && typeof room === "object" && typeof (room as IUser)._id === "string"),
+            )
+            : [];
+    } catch (error) {
+        console.error("Could not read cached chat rooms:", error);
+        return [];
+    }
+};
+
+const setCreatedRoomsCache = (tenantId: string, rooms: IUser[]) => {
+    if (typeof window === "undefined") return;
+    try {
+        window.localStorage.setItem(LS_KEY_CREATED_ROOMS + tenantId, JSON.stringify(rooms));
+    } catch (error) {
+        console.error("Could not save created chat rooms:", error);
+    }
+};
+
+const cacheCreatedRoom = (tenantId: string, room: IUser) => {
+    const rooms = getCreatedRoomsCache(tenantId);
+    setCreatedRoomsCache(tenantId, [room, ...rooms.filter((existing) => existing._id !== room._id)]);
+};
+
+const removeCachedRoom = (tenantId: string, roomId: string) => {
+    setCreatedRoomsCache(
+        tenantId,
+        getCreatedRoomsCache(tenantId).filter((room) => room._id !== roomId),
+    );
+};
+
+const getChatClearedAt = (roomId: string): number | null => {
+    if (typeof window === "undefined") return null;
+    const value = Number(window.localStorage.getItem(LS_KEY_CLEARED_AT + roomId));
+    return Number.isFinite(value) && value > 0 ? value : null;
+};
+const setChatClearedAt = (roomId: string, timestamp: number) => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(LS_KEY_CLEARED_AT + roomId, String(timestamp)); } catch { /* ignore */ }
+};
+const removeChatClearedAt = (roomId: string) => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.removeItem(LS_KEY_CLEARED_AT + roomId); } catch { /* ignore */ }
+};
+
+const getRemovedTenants = (roomId: string): string[] => {
+    if (typeof window === "undefined") return [];
+    try { const raw = window.localStorage.getItem(LS_KEY_REMOVED + roomId); return raw ? JSON.parse(raw) : []; } catch { return []; }
+};
+const setRemovedTenants = (roomId: string, ids: string[]) => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(LS_KEY_REMOVED + roomId, JSON.stringify(ids)); } catch { /* ignore */ }
+};
+const addRemovedTenant = (roomId: string, tenantId: string) => {
+    const current = getRemovedTenants(roomId);
+    if (!current.includes(tenantId)) setRemovedTenants(roomId, [...current, tenantId]);
+};
+const removeFromRemovedTenant = (roomId: string, tenantId: string) => {
+    const current = getRemovedTenants(roomId);
+    setRemovedTenants(roomId, current.filter((id) => id !== tenantId));
+};
+
+interface StoredMember { tenantId: string; tenantName: string; role?: string; isSelected?: boolean; }
+const getRoomMembersCache = (roomId: string): StoredMember[] => {
+    if (typeof window === "undefined") return [];
+    try { const raw = window.localStorage.getItem(LS_KEY_ROOM_MEMBERS + roomId); return raw ? JSON.parse(raw) : []; } catch { return []; }
+};
+const setRoomMembersCache = (roomId: string, members: StoredMember[]) => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(LS_KEY_ROOM_MEMBERS + roomId, JSON.stringify(members)); } catch { /* ignore */ }
+};
+const mergeIntoRoomMembersCache = (roomId: string, newMembers: StoredMember[]) => {
+    const current = getRoomMembersCache(roomId);
+    const map = new Map(current.map((m) => [m.tenantId, m]));
+    newMembers.forEach((member) => {
+        const existing = map.get(member.tenantId);
+        map.set(member.tenantId, { ...existing, ...member });
     });
-    const [] = useState("");
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    const canUpdateGroup = groupDetails?.roomId === data.roomId && groupDetails.canUpdate;
+    setRoomMembersCache(roomId, Array.from(map.values()));
+};
+
+const getReadRooms = (): string[] => {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.localStorage.getItem(LS_KEY_READ_ROOMS);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+};
+const setReadRooms = (ids: string[]) => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(LS_KEY_READ_ROOMS, JSON.stringify(ids)); } catch { /* ignore */ }
+};
+const markRoomAsRead = (roomId: string) => {
+    const current = getReadRooms();
+    if (!current.includes(roomId)) setReadRooms([...current, roomId]);
+};
+
+interface IRoomMessageGroup {
+    date: string;
+    dateLabel: string;
+    messages: { message?: string; createdAt?: string; timestamp?: string; senderName?: string }[];
+}
+interface IRoomMessagesResponse {
+    success?: boolean;
+    statusCode?: number;
+    message?: string;
+    data?: {
+        messagesByDate?: IRoomMessageGroup[];
+        messages?: { message?: string; createdAt?: string; timestamp?: string; senderName?: string }[];
+    };
+}
+
+const flattenMessageGroups = (
+    groups: IRoomMessageGroup[] | undefined,
+): { message?: string; createdAt?: string; timestamp?: string; senderName?: string }[] => {
+    if (!Array.isArray(groups)) return [];
+    const out: { message?: string; createdAt?: string; timestamp?: string; senderName?: string }[] = [];
+    groups.forEach((group) => {
+        if (Array.isArray(group?.messages)) {
+            group.messages.forEach((m) => out.push(m));
+        }
+    });
+    return out;
+};
+
+const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+    Premium: { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
+    Standard: { bg: "bg-[#E0F2FE] dark:bg-[#22375A]", text: "text-[#3B82F6] dark:text-[#7EB0FF]", dot: "#3B82F6" },
+    Basic: { bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]", text: "text-[#22C55E] dark:text-[#68D391]", dot: "#22C55E" },
+};
+const FALLBACK_COLORS = [
+    { bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]", text: "text-[#22C55E] dark:text-[#68D391]", dot: "#22C55E" },
+    { bg: "bg-[#E0F2FE] dark:bg-[#22375A]", text: "text-[#3B82F6] dark:text-[#7EB0FF]", dot: "#3B82F6" },
+    { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
+    { bg: "bg-[#FFF7E8] dark:bg-[#4A3B22]", text: "text-[#F4A429] dark:text-[#FCD68B]", dot: "#F4A429" },
+    { bg: "bg-[#FDEAEA] dark:bg-[#4A2A2A]", text: "text-[#E35D5D] dark:text-[#F89B9B]", dot: "#E35D5D" },
+    { bg: "bg-[#EAF8EC] dark:bg-[#1F3A2B]", text: "text-[#34A853] dark:text-[#7FD495]", dot: "#34A853" },
+];
+const hashString = (str: string): number => {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+    return Math.abs(h);
+};
+const getPlanColor = (plan?: string) => {
+    if (!plan) return { bg: "bg-gray-100 dark:bg-[#3A3A3A]", text: "text-gray-600 dark:text-gray-300", dot: "#9CA3AF" };
+    if (PLAN_COLORS[plan]) return PLAN_COLORS[plan];
+    const lower = plan.toLowerCase();
+    if (lower.includes("premium") || lower.includes("pro") || lower.includes("ultra")) return PLAN_COLORS.Premium;
+    if (lower.includes("standard")) return PLAN_COLORS.Standard;
+    if (lower.includes("basic")) return PLAN_COLORS.Basic;
+    return FALLBACK_COLORS[hashString(plan) % FALLBACK_COLORS.length];
+};
+
+const extractRoomId = (r: any): string => {
+    const raw = r?.roomId ?? r?.chatRoomId ?? r?._id ?? r?.id ?? "";
+    if (typeof raw === "string") return raw;
+    if (raw && typeof raw === "object" && typeof raw.$oid === "string") return raw.$oid;
+    return raw ? String(raw) : "";
+};
+const normalizeRoomType = (raw: any): RoomType => {
+    const t = String(raw ?? "").toUpperCase();
+    if (t === "SEGMENT" || t === "GROUP") return "SEGMENT";
+    if (t === "GLOBAL") return "GLOBAL";
+    return "TENANT";
+};
+const formatMessageTime = (iso?: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+    if (d.toDateString() === now.toDateString())
+        return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+    if (diffDays < 7) return d.toLocaleDateString("en-US", { weekday: "short" });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+const normalizeUsersResponse = (json: any, fallbackRole: string): DirectoryMember[] => {
+    const usersRaw: any[] =
+        (json?.data && Array.isArray(json.data.users) && json.data.users) ||
+        (Array.isArray(json?.data) && json.data) ||
+        (Array.isArray(json?.users) && json.users) ||
+        [];
+
+    return usersRaw
+        .map((u: any) => {
+            const name = u?.name ?? u?.userName ?? "Unnamed";
+            return {
+                userId: String(u?.userId ?? u?._id ?? u?.id ?? ""),
+                name,
+                role: normalizeRoleKey(u?.role ?? fallbackRole),
+                planName: u?.planName ?? u?.plan ?? u?.course ?? "",
+                planId: u?.planId ?? "",
+                avatarLetter: name.charAt(0).toUpperCase(),
+            };
+        })
+        .filter((u) => Boolean(u.userId));
+};
+
+const fetchMembersForCategory = async (category: CategoryDef): Promise<DirectoryMember[]> => {
+    const tenantId = resolveTenantCode();
+    if (!tenantId) throw new Error("Tenant ID not found in session.");
+
+    const token = resolveAuthToken();
+    const rawRole = category.rawRole || category.key;
+    const response = await fetch(API_GET_TENANT_USERS_BY_ROLE(tenantId, rawRole), {
+        cache: "no-store",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+    });
+
+    if (!response.ok) throw new Error(`Failed to load members (HTTP ${response.status})`);
+
+    return normalizeUsersResponse(await response.json(), rawRole);
+};
+
+const Message = () => {
+    const currentUser = {
+        userId: resolveAdminUserId() || "ADMIN_PORTAL_ID",
+        userName:
+            typeof window !== "undefined"
+                ? localStorage.getItem("AdminPortalName") ?? "Admin"
+                : "Admin",
+        role: "Admin",
+    };
+
+    const [chatSource] = useState<"TENANT" | "SUPER_ADMIN">(() => resolveChatSource());
+
+    const [allRooms, setAllRooms] = useState<IUser[]>([]);
+    const [roomsRefreshKey, setRoomsRefreshKey] = useState(0);
+
+    const [categories, setCategories] = useState<CategoryDef[]>([
+        ...MANDATORY_CATEGORIES,
+        ...FALLBACK_ROLE_CATEGORIES,
+    ]);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
+    const [categoriesError, setCategoriesError] = useState<string | null>(null);
+    void categoriesError;
+
+    const [activeCategory, setActiveCategory] = useState<CategoryKey>("ALL");
+    const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+    const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+    const [showNewChatModal, setShowNewChatModal] = useState(false);
+    const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+
+    const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+    const [showGroupDetails, setShowGroupDetails] = useState(false);
+    const [editGroupImagePreview, setEditGroupImagePreview] = useState<string | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showGroupMenu, setShowGroupMenu] = useState(false);
+
+    const [readStateVersion, setReadStateVersion] = useState(0);
+    const [previewsLoaded, setPreviewsLoaded] = useState(false);
+
+    const fetchCategories = useCallback(async () => {
+        setCategoriesLoading(true);
+        setCategoriesError(null);
+
+        try {
+            const tenantId = resolveTenantCode();
+            const token = resolveAuthToken();
+
+            if (!tenantId) {
+                setCategories([...MANDATORY_CATEGORIES, ...FALLBACK_ROLE_CATEGORIES]);
+                setCategoriesLoading(false);
+                return;
+            }
+
+            const res = await fetch(API_GET_TENANT_ROLES(tenantId), {
+                cache: "no-store",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+            });
+
+            if (!res.ok) throw new Error(`Failed to load roles (HTTP ${res.status})`);
+
+            const json = await res.json();
+            const rawRoles: string[] = Array.isArray(json?.data) ? json.data : [];
+
+            const seen = new Set<string>(["ALL", "GROUP", "SUPERADMIN"]);
+            const dynamicRoles: CategoryDef[] = [];
+
+            rawRoles.forEach((raw) => {
+                const key = normalizeRoleKey(raw);
+                if (key === "ADMIN" || key === "SUPERADMIN") return;
+                if (key === "GROUP") return;
+                if (seen.has(key)) return;
+                seen.add(key);
+                dynamicRoles.push({
+                    key,
+                    label: roleToLabel(raw),
+                    short: roleToShort(raw),
+                    rawRole: raw,
+                });
+            });
+
+            const next: CategoryDef[] = [...MANDATORY_CATEGORIES, ...dynamicRoles];
+            setCategories(next);
+            setActiveCategory((prev) => (next.some((c) => c.key === prev) ? prev : "ALL"));
+        } catch (err: any) {
+            setCategoriesError(err?.message ?? "Failed to load roles");
+            setCategories([...MANDATORY_CATEGORIES, ...FALLBACK_ROLE_CATEGORIES]);
+        } finally {
+            setCategoriesLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { void fetchCategories(); }, [fetchCategories]);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowAddDropdown(false);
+            if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+                setCategoryDropdownOpen(false);
+            }
         };
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    useEffect(() => { setTab("DETAILS"); }, [data.roomId]);
+    const mapRoomToUser = useCallback((r: any): IUser => {
+        const id = extractRoomId(r);
+        const roomType = normalizeRoomType(r?.type);
+        const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
 
-    useEffect(() => {
-        const userId = getStoredUserId();
-        const source = resolveChatSource();
-        const controller = new AbortController();
+        const clearedAt = getChatClearedAt(id);
+        const lastRoomMessageAt = new Date(r?.lastMessage?.createdAt ?? r?.lastMessageAt ?? "").getTime();
+        const hasMessageAfterClear = clearedAt !== null && Number.isFinite(lastRoomMessageAt) && lastRoomMessageAt > clearedAt;
+        const isChatCleared = clearedAt !== null && !hasMessageAfterClear;
+        if (hasMessageAfterClear) removeChatClearedAt(id);
 
-        setGroupDetails(null);
-        setGroupDetailsError(null);
-        setGroupDetailsLoading(true);
-
-        if (!data.roomId) {
-            setGroupDetailsError("Group ID is missing.");
-            setGroupDetailsLoading(false);
-            return () => controller.abort();
-        }
-        if (!userId) {
-            setGroupDetailsError("Admin user ID not found in session.");
-            setGroupDetailsLoading(false);
-            return () => controller.abort();
-        }
-
-        const token = getStoredAuthToken();
-        void (async () => {
-            try {
-                const response = await fetch(API_GET_GROUP_DETAILS(source, data.roomId, userId), {
-                    cache: "no-store",
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    signal: controller.signal,
-                });
-                const result: unknown = await response.json();
-                if (!response.ok) {
-                    const message = result && typeof result === "object" && "message" in result
-                        ? String((result as { message?: unknown }).message || "")
-                        : "";
-                    throw new Error(message || `Failed to load group details (HTTP ${response.status}).`);
-                }
-
-                const details = result && typeof result === "object" && "data" in result
-                    ? (result as { data?: unknown }).data
-                    : undefined;
-                if (!details || typeof details !== "object") {
-                    throw new Error("The group details response was not in the expected format.");
-                }
-                const payload = details as Partial<ApiGroupDetails>;
-                if (
-                    typeof payload.groupName !== "string"
-                    || typeof payload.description !== "string"
-                    || (payload.sendAccess !== "EVERYONE" && payload.sendAccess !== "ADMIN_ONLY")
-                ) {
-                    throw new Error("The group details response was missing required group information.");
-                }
-
-                const normalizedDetails: ApiGroupDetails = {
-                    roomId: String(payload.roomId || data.roomId),
-                    roomCode: String(payload.roomCode || ""),
-                    type: String(payload.type || ""),
-                    source,
-                    groupName: payload.groupName,
-                    description: payload.description,
-                    sendAccess: payload.sendAccess,
-                    canUpdate: payload.canUpdate === true,
-                };
-                setGroupDetails(normalizedDetails);
-                setAccess(normalizedDetails.sendAccess);
-            } catch (error) {
-                if (error instanceof DOMException && error.name === "AbortError") return;
-                setGroupDetailsError(error instanceof Error ? error.message : "Failed to load group details.");
-            } finally {
-                if (!controller.signal.aborted) setGroupDetailsLoading(false);
+        const apiLast = r?.lastMessage
+            ? {
+                text: r.lastMessage.message ?? "",
+                time: formatMessageTime(r.lastMessage.createdAt ?? r.lastMessageAt),
+                senderName: r.lastMessage.senderName ?? "",
             }
-        })();
+            : undefined;
+        const cachedLast = getCachedLastMessage(id);
+        const lastMessage = !isChatCleared ? apiLast ?? cachedLast : undefined;
 
-        return () => controller.abort();
-    }, [data.roomId]);
+        const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
+            ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
+            : [];
+        const removedIds = getRemovedTenants(id);
+        const cachedMembers = getRoomMembersCache(id);
+        const cacheLookup = new Map(cachedMembers.map((member) => [member.tenantId, member]));
+        const rawMembers = Array.isArray(r?.members) ? r.members : [];
 
-    useEffect(() => {
-        const tenantId = getStoredTenantId();
-        if (!tenantId) {
-            setTenantRoles([]);
-            setRolesError("Tenant ID not found in session.");
-            return;
-        }
+        const activeMembers = rawTenantIds.map((tid) => {
+            const found = rawMembers.find((m: any) => (m.tenantId || m._id || m.id) === tid);
+            const cached = cacheLookup.get(tid);
+            return {
+                name: found?.tenantName || found?.name || cached?.tenantName || tid,
+                plan: r?.planName ?? r?.course ?? "",
+                tenantId: tid,
+                isSelected: !removedIds.includes(tid),
+                role: found?.role ?? cached?.role,
+            };
+        });
+        const activeIds = new Set(activeMembers.map((m) => m.tenantId));
+        const cachedOnlyMembers = cachedMembers
+            .filter((cm) => !activeIds.has(cm.tenantId))
+            .map((member) => ({
+                name: member.tenantName,
+                plan: r?.planName ?? "",
+                tenantId: member.tenantId,
+                isSelected: member.isSelected ?? false,
+                role: member.role,
+            }));
 
-        const controller = new AbortController();
-        setRolesLoading(true);
-        setRolesError(null);
-        const token = getStoredAuthToken();
+        let roleKey: string = isGroup ? "GROUP" : normalizeRoleKey(r?.role);
+        if (roleKey === "ADMIN") roleKey = "SUPERADMIN";
 
-        void (async () => {
-            try {
-                const response = await fetch(API_GET_TENANT_ROLES(encodeURIComponent(tenantId)), {
-                    cache: "no-store",
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    signal: controller.signal,
-                });
-                if (!response.ok) throw new Error(`Failed to load roles (HTTP ${response.status})`);
+        const readIds = getReadRooms();
+        const isReadLocally = readIds.includes(id);
+        const rawUnread = r?.unreadCount ?? 0;
+        const isUnread = !isReadLocally && (r?.isUnread ?? rawUnread > 0);
 
-                const result: unknown = await response.json();
-                const roles = result && typeof result === "object" && "data" in result
-                    ? (result as { data?: unknown }).data
-                    : undefined;
-                if (!Array.isArray(roles)) throw new Error("The roles response was not in the expected format.");
-
-                const roleNames = Array.from(new Set(
-                    roles.filter((role): role is string => typeof role === "string" && Boolean(role.trim()))
-                        .map((role) => role.trim()),
-                ));
-                setTenantRoles(roleNames);
-                setSelectedPortalRole((current) =>
-                    roleNames.includes(current) ? current : roleNames[0] ?? "",
-                );
-            } catch (error) {
-                if (error instanceof DOMException && error.name === "AbortError") return;
-                setTenantRoles([]);
-                setRolesError(error instanceof Error ? error.message : "Failed to load roles.");
-            } finally {
-                if (!controller.signal.aborted) setRolesLoading(false);
-            }
-        })();
-
-        return () => controller.abort();
+        return {
+            _id: id || `room-${Math.random().toString(36).slice(2)}`,
+            userName: r?.name ?? r?.roomCode ?? "Untitled Room",
+            email: "room@example.com",
+            role: isGroup ? ["Group"] : ["Tenant"],
+            roleKey,
+            status: r?.isEnabled ? "online" : "offline",
+            lastSeen: isChatCleared ? "" : r?.lastMessageAt ? formatMessageTime(r.lastMessageAt) : "recently",
+            isGroup,
+            roomType,
+            plan: r?.planName ?? r?.course ?? "",
+            members: [...activeMembers, ...cachedOnlyMembers],
+            groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
+            lastMessage,
+            profileImage: null,
+            roomId: id,
+            roomCode: r?.roomCode ?? "",
+            unreadCount: isUnread ? Math.max(rawUnread, 1) : 0,
+            isUnread,
+            description: r?.description ?? "",
+            planName: r?.planName ?? r?.course ?? "",
+            planId: r?.planId ?? "",
+            roomRole: r?.role ?? (isGroup ? "GROUP" : "TENANT"),
+            roomCourse: r?.course ?? r?.planName ?? "",
+            sendAccess: r?.sendAccess === "ADMIN_ONLY" || r?.sendAccess === "ADMINS" ? "ADMIN_ONLY" : "EVERYONE",
+        };
     }, []);
 
-    useEffect(() => {
-        if (!selectedPortalRole) {
-            setRoleUsers([]);
-            setRoleUsersError(null);
-            setRoleUsersLoading(false);
-            return;
-        }
+    const handleRoomsLoaded = useCallback(
+        (apiRooms: unknown[], filter: RoomListFilter) => {
+            const mapped = apiRooms
+                .map((room) => mapRoomToUser(room))
+                .filter((room) => Boolean(room._id));
+            const tenantId = resolveTenantCode();
+            const cachedRooms = tenantId ? getCreatedRoomsCache(tenantId) : [];
+            const serverRoomIds = new Set(mapped.map((room) => room._id));
+            const pendingCachedRooms = cachedRooms.filter(
+                (room) =>
+                    !serverRoomIds.has(room._id) &&
+                    (filter === "GROUP" ? room.isGroup : !room.isGroup),
+            );
 
-        const tenantId = getStoredTenantId();
-        if (!tenantId) {
-            setRoleUsers([]);
-            setRoleUsersError("Tenant ID not found in session.");
-            return;
-        }
+            if (tenantId) setCreatedRoomsCache(tenantId, pendingCachedRooms);
 
-        const userId = getStoredUserId();
-        if (!userId) {
-            setRoleUsers([]);
-            setRoleUsersError("User ID not found in session.");
-            return;
-        }
-        setCurrentUserId(userId);
-
-        const controller = new AbortController();
-        setRoleUsersLoading(true);
-        setRoleUsersError(null);
-        const token = getStoredAuthToken();
-
-        void (async () => {
-            try {
-                const response = await fetch(
-                    API_GET_TENANT_USERS_BY_GROUP(
-                        "TENANT",
-                        data.roomId,
-                        tenantId,
-                        userId,
-                        userId,
-                        selectedPortalRole,
-                        roleUsersPage,
-                    ),
-                    {
-                        cache: "no-store",
-                        headers: {
-                            "Content-Type": "application/json",
-                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        },
-                        signal: controller.signal,
-                    },
-                );
-                if (!response.ok) throw new Error(`Failed to load ${selectedPortalRole} members (HTTP ${response.status})`);
-                const result = normalizeGroupRoleUsers(await response.json());
-                setRoleUsers(result.users.map((member) => ({
-                    userId: member.userId,
-                    userName: member.userName,
-                    course: member.course,
-                    role: member.role,
-                    isSelected: member.isSelected,
-                })));
-                setRoleUsersPagination(result.pagination);
-                setLocalMembers((current) => {
-                    const byId = new Map(current.map((member) => [member.userId, member]));
-                    result.users.forEach((member) => {
-                        byId.set(member.userId, {
-                            userId: member.userId,
-                            userName: member.userName,
-                            course:member.course,
-                            role: member.role || selectedPortalRole,
-                            isSelected: member.isSelected,
-                        });
-                    });
-                    return Array.from(byId.values());
+            setAllRooms((prev) => {
+                const prevById = new Map(prev.map((r) => [r._id, r]));
+                const merged = [...pendingCachedRooms, ...mapped].map((room) => {
+                    const existing = prevById.get(room._id);
+                    if (!room.lastMessage && existing?.lastMessage) {
+                        return { ...room, lastMessage: existing.lastMessage };
+                    }
+                    return room;
                 });
-            } catch (error) {
-                if (error instanceof DOMException && error.name === "AbortError") return;
-                setRoleUsers([]);
-                setRoleUsersError(error instanceof Error ? error.message : "Failed to load role details.");
-            } finally {
-                if (!controller.signal.aborted) setRoleUsersLoading(false);
+                const mergedById = new Map(merged.map((r) => [r._id, r]));
+                return Array.from(mergedById.values());
+            });
+        },
+        [mapRoomToUser],
+    );
+
+    /* Prefetch last-message previews */
+    useEffect(() => {
+        if (previewsLoaded) return;
+        if (allRooms.length === 0) return;
+
+        const missing = allRooms.filter((r) => !r.lastMessage);
+        if (missing.length === 0) {
+            setPreviewsLoaded(true);
+            return;
+        }
+
+        const token = resolveAuthToken();
+        const userId = resolveAdminUserId();
+        if (!token || !userId) {
+            setPreviewsLoaded(true);
+            return;
+        }
+
+        let cancelled = false;
+
+        (async () => {
+            const CONCURRENCY = 6;
+            const updates: Record<string, { text: string; time: string; senderName?: string }> = {};
+
+            for (let i = 0; i < missing.length; i += CONCURRENCY) {
+                const batch = missing.slice(i, i + CONCURRENCY);
+                await Promise.all(
+                    batch.map(async (room) => {
+                        try {
+                            const roomId = room.roomId || room._id;
+                            const url = API_ROOM_MESSAGES(chatSource, roomId, userId);
+                            const res = await fetch(url, {
+                                headers: { Authorization: `Bearer ${token}` },
+                                cache: "no-store",
+                            });
+                            if (!res.ok) return;
+                            const json: IRoomMessagesResponse = await res.json();
+                            const flat = flattenMessageGroups(json?.data?.messagesByDate);
+                            const fallback = Array.isArray(json?.data?.messages) ? json.data.messages : [];
+                            const list = flat.length > 0 ? flat : fallback;
+                            if (list.length === 0) return;
+                            const last = list[list.length - 1];
+                            const preview = {
+                                text: last.message ?? "",
+                                time: formatMessageTime(last.createdAt ?? last.timestamp),
+                                senderName: last.senderName ?? "",
+                            };
+                            updates[room._id] = preview;
+                            setCachedLastMessage(room._id, preview);
+                        } catch { /* silent */ }
+                    }),
+                );
             }
+
+            if (cancelled) return;
+
+            if (Object.keys(updates).length > 0) {
+                setAllRooms((prev) =>
+                    prev.map((r) => (updates[r._id] ? { ...r, lastMessage: updates[r._id] } : r)),
+                );
+            }
+            setPreviewsLoaded(true);
+        })();
+
+        return () => { cancelled = true; };
+    }, [allRooms, previewsLoaded, chatSource]);
+
+    const addCreatedRoomToList = (
+        serverRoom: any,
+        defaults: {
+            type: "DIRECT" | "GROUP";
+            name: string;
+            role: string;
+            members: DirectoryMember[];
+        },
+    ) => {
+        const roomId = extractRoomId(serverRoom);
+        if (!roomId) throw new Error("Chat room was created, but the response did not include a room ID.");
+
+        const room = mapRoomToUser({
+            ...serverRoom,
+            _id: roomId,
+            type: defaults.type,
+            name: defaults.type === "DIRECT" ? defaults.name : serverRoom?.name ?? defaults.name,
+            role: defaults.type === "DIRECT" ? defaults.role : serverRoom?.role ?? defaults.role,
+            tenantIds: Array.isArray(serverRoom?.tenantIds)
+                ? serverRoom.tenantIds
+                : defaults.members.map((member) => member.userId),
+            members: (Array.isArray(serverRoom?.members) ? serverRoom.members : [])
+                .map((member: any) => {
+                    const memberId = String(member?.tenantId ?? member?.userId ?? member?._id ?? member?.id ?? "");
+                    const directoryMember = defaults.members.find((candidate) => candidate.userId === memberId);
+                    return {
+                        ...member,
+                        tenantId: memberId,
+                        tenantName: member?.tenantName ?? member?.name ?? directoryMember?.name ?? memberId,
+                        role: member?.role ?? directoryMember?.role,
+                    };
+                })
+                .concat(
+                    defaults.members
+                        .filter((member) => !serverRoom?.members?.some((existing: any) =>
+                            String(existing?.tenantId ?? existing?.userId ?? existing?._id ?? existing?.id ?? "") === member.userId,
+                        ))
+                        .map((member) => ({
+                            tenantId: member.userId,
+                            tenantName: member.name,
+                            role: member.role,
+                        })),
+                ),
+        });
+
+        const tenantId = resolveTenantCode();
+        mergeIntoRoomMembersCache(
+            roomId,
+            room.members
+                .filter((member) => Boolean(member.tenantId))
+                .map((member) => ({
+                    tenantId: member.tenantId!,
+                    tenantName: member.name,
+                    role: member.role,
+                    isSelected: member.isSelected ?? true,
+                })),
+        );
+        if (tenantId) cacheCreatedRoom(tenantId, room);
+        setAllRooms((previous) => [room, ...previous.filter((existing) => existing._id !== roomId)]);
+    };
+
+    const categoryRooms = useMemo(() => {
+        let result = allRooms;
+
+        if (activeCategory === "GROUP") {
+            result = result.filter(
+                (r) => r.roomType === "SEGMENT" || r.roomType === "GLOBAL" || r.isGroup,
+            );
+        } else if (activeCategory !== "ALL") {
+            result = result.filter((r) => !r.isGroup && r.roleKey === activeCategory);
+        }
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter(
+                (r) =>
+                    r.userName.toLowerCase().includes(q) ||
+                    r.plan?.toLowerCase().includes(q) ||
+                    r.members?.some((m: any) => m.name.toLowerCase().includes(q)),
+            );
+        }
+        return result;
+    }, [allRooms, activeCategory, searchQuery]);
+
+    const tabCounts = useMemo(() => {
+        void readStateVersion;
+        return {
+            total: allRooms.length,
+            unread: allRooms.filter((r) => r.isUnread).length,
+        };
+    }, [allRooms, readStateVersion]);
+
+    /* Group-details fetch — correct endpoint */
+    useEffect(() => {
+        if (!selectedUser) return;
+        if (!selectedUser.isGroup && !selectedUser.role.includes("Group")) return;
+        const roomId = selectedUser.roomId || selectedUser._id;
+        const token = resolveAuthToken();
+        const currentSelectedId = selectedUser._id;
+        const controller = new AbortController();
+
+        (async () => {
+            try {
+                const res = await fetch(API_GET_GROUP_DETAILS(chatSource, roomId), {
+                    cache: "no-store",
+                    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                    signal: controller.signal,
+                });
+                if (!res.ok) return;
+                const json = await res.json();
+                const groupData = json?.data ?? json;
+                const rawMembers: any[] = Array.isArray(groupData?.members) ? groupData.members : [];
+                if (controller.signal.aborted || rawMembers.length === 0) return;
+                const removedIds = getRemovedTenants(roomId);
+                const freshMembers = rawMembers.map((m: any) => ({
+                    name: m.tenantName || m.name || m.tenantId || "Unknown",
+                    plan: groupData?.planName ?? selectedUser.planName ?? "",
+                    tenantId: m.tenantId || m._id || "",
+                    isSelected: removedIds.includes(m.tenantId || m._id)
+                        ? false
+                        : (m.isSelected !== undefined ? m.isSelected : true),
+                }));
+                mergeIntoRoomMembersCache(roomId, freshMembers.map((m) => ({ tenantId: m.tenantId, tenantName: m.name })));
+                setSelectedUser((prev) => (prev && prev._id === currentSelectedId ? { ...prev, members: freshMembers } : prev));
+            } catch { /* silent */ }
         })();
 
         return () => controller.abort();
-    }, [data.roomId, roleUsersPage, selectedPortalRole]);
+    }, [selectedUser?._id, selectedUser?.isGroup, chatSource]);
 
+    const handleMessageSent = useCallback((message: IMessage) => {
+        if (!selectedUser) return;
 
-    const handleRemoveMember = (userId: string) => {
-        if (!canUpdateGroup) return;
-        setRoleUsers((prev) => prev.map((member) =>
-            member.userId === userId ? { ...member, isSelected: false } : member,
-        ));
-        setLocalMembers((prev) => prev.map((member) =>
-            member.userId === userId ? { ...member, isSelected: false } : member,
-        ));
-        onUpdateMembers({ removeTenantIds: [userId], updatedBy: "ADMIN" });
-    };
+        const preview = {
+            text: message.messages,
+            time: message.time,
+            senderName: message.senderName,
+        };
+        setCachedLastMessage(selectedUser._id, preview);
 
-    const handleToggleRoleUser = (user: RoleUser) => {
-        if (!canUpdateGroup) return;
-        const isSelected = !user.isSelected;
-        setRoleUsers((prev) => prev.map((member) =>
-            member.userId === user.userId ? { ...member, isSelected } : member,
-        ));
-        setLocalMembers((prev) => {
-            const exists = prev.some((member) => member.userId === user.userId);
-            const nextMember = {
-                userId: user.userId,
-                userName: user.userName,
-                course: user.course,
-                role: selectedPortalRole,
-                isSelected,
-            };
-            return exists
-                ? prev.map((member) => member.userId === user.userId ? { ...member, isSelected } : member)
-                : [...prev, nextMember];
+        setSelectedUser((prev) => (prev ? { ...prev, lastMessage: preview } : prev));
+
+        setAllRooms((prev) => {
+            const target = prev.find((r) => r._id === selectedUser._id);
+            if (!target) return prev;
+            const updated = { ...target, lastMessage: preview };
+            const rest = prev.filter((r) => r._id !== selectedUser._id);
+            return [updated, ...rest];
         });
+    }, [selectedUser]);
 
-        if (isSelected) {
-            onAddMembers?.([{ userId: user.userId, userName: user.userName }]);
-            onUpdateMembers({ addTenantIds: [user.userId], updatedBy: "ADMIN" });
-        } else {
-            onUpdateMembers({ removeTenantIds: [user.userId], updatedBy: "ADMIN" });
+    const handleMessagesLoaded = useCallback((roomId: string, list: IMessage[]) => {
+        const last = list[list.length - 1];
+        if (!last) return;
+        const preview = {
+            text: last.messages,
+            time: last.time,
+            senderName: last.senderName,
+        };
+        setCachedLastMessage(roomId, preview);
+        setAllRooms((prev) =>
+            prev.map((r) => (r._id === roomId ? { ...r, lastMessage: preview } : r)),
+        );
+    }, []);
+
+    const handleLastMessageUpdated = useCallback(
+        (
+            roomId: string,
+            preview: { text: string; time: string; senderName?: string },
+        ) => {
+            setCachedLastMessage(roomId, preview);
+            setAllRooms((prev) =>
+                prev.map((r) => (r._id === roomId ? { ...r, lastMessage: preview } : r)),
+            );
+            setSelectedUser((prev) =>
+                prev && prev._id === roomId ? { ...prev, lastMessage: preview } : prev,
+            );
+        },
+        [],
+    );
+
+    const handleChatCleared = useCallback((roomId: string) => {
+        setAllRooms((prev) =>
+            prev.map((r) =>
+                r._id === roomId ? { ...r, lastMessage: undefined, lastSeen: "" } : r,
+            ),
+        );
+        setSelectedUser((prev) =>
+            prev && prev._id === roomId ? { ...prev, lastMessage: undefined, lastSeen: "" } : prev,
+        );
+    }, []);
+
+    const createDirectChat = async (member: DirectoryMember) => {
+        const token = resolveAuthToken();
+        const tenantId = resolveTenantCode();
+        if (!tenantId) throw new Error("Tenant ID not found in session.");
+
+        try {
+            const response = await postChatRoom(tenantId, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    type: "DIRECT",
+                    sender: {
+                        userId: currentUser.userId,
+                        name: currentUser.userName,
+                        role: "ADMIN",
+                    },
+                    receivers: [{
+                        userId: member.userId,
+                        name: member.name,
+                        role: member.role,
+                    }],
+                }),
+            });
+
+            const result = await response.json().catch(() => null);
+            if (!response.ok || result?.success === false) {
+                throw new Error(result?.message || `Create direct chat failed: HTTP ${response.status}`);
+            }
+
+            const serverRoom =
+                result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
+                result?.data ?? result?.room ?? result;
+            addCreatedRoomToList(serverRoom, {
+                type: "DIRECT",
+                name: member.name,
+                role: member.role,
+                members: [member],
+            });
+            setRoomsRefreshKey((previous) => previous + 1);
+            setShowNewChatModal(false);
+        } catch (error) {
+            console.error("[create direct chat] failed:", error);
+            throw error;
         }
     };
 
-    const handleAccessChange = (newAccess: "EVERYONE" | "ADMIN_ONLY") => {
-        if (!canUpdateGroup) return;
-        setAccess(newAccess);
-        onUpdateAccess(newAccess);
+    const handleCreateGroupFromDirectory = async (groupName: string, members: DirectoryMember[]) => {
+        const token = resolveAuthToken();
+        const tenantId = resolveTenantCode();
+        if (!tenantId) throw new Error("Tenant ID not found in session.");
+
+        try {
+            const response = await postChatRoom(tenantId, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    type: "GROUP",
+                    name: groupName,
+                    description: "",
+                    sender: {
+                        userId: currentUser.userId,
+                        name: currentUser.userName,
+                        role: "ADMIN",
+                    },
+                    receivers: members.map((member) => ({
+                        userId: member.userId,
+                        name: member.name,
+                        role: member.role,
+                    })),
+                }),
+            });
+
+            const result = await response.json().catch(() => null);
+            if (!response.ok || result?.success === false) {
+                throw new Error(result?.message || `Create group failed: HTTP ${response.status}`);
+            }
+
+            const serverRoom =
+                result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
+                result?.data ?? result?.room ?? result;
+            addCreatedRoomToList(serverRoom, {
+                type: "GROUP",
+                name: groupName,
+                role: "GROUP",
+                members,
+            });
+            setRoomsRefreshKey((previous) => previous + 1);
+            setShowNewGroupModal(false);
+            setActiveCategory("GROUP");
+        } catch (error) {
+            console.error("[create group] failed:", error);
+            throw error;
+        }
     };
 
-    const existingIds = new Set(localMembers.map((m) => m.userId));
-    const addableTenants = availableTenants.filter((t) => !existingIds.has(t.userId));
-
-    const handleConfirmAdd = () => {
-        if (!canUpdateGroup || selectedToAdd.length === 0) return;
-        const newMembers = addableTenants
-            .filter((t) => selectedToAdd.includes(t.userId))
-            .map((t) => ({
-                userId: t.userId,
-                userName: t.userName,
-                isSelected: true,
-                role: t.role,
-                course: t.course,
-            }));
-        setLocalMembers((prev) => [...prev, ...newMembers]);
-        onAddMembers?.(newMembers.map((m) => ({ userId: m.userId, userName: m.userName })));
-        onUpdateMembers({ addTenantIds: selectedToAdd, updatedBy: "ADMIN" });
-        setSelectedToAdd([]);
-        setShowAddDropdown(false);
+    const getStatusColor = (status: string) => {
+        switch (status.toLowerCase()) {
+            case "online": return "bg-green-400";
+            case "busy": return "bg-yellow-400";
+            default: return "bg-gray-300";
+        }
     };
 
-    const selectedMembers = localMembers.filter((m) => m.isSelected);
-    const selectedCount = selectedMembers.length;
-    const membersByRole = new Map<string, typeof selectedMembers>();
-    selectedMembers.forEach((member) => {
-        const role = member.role || "OTHER";
-        membersByRole.set(role, [...(membersByRole.get(role) ?? []), member]);
-    });
-
-    const avatarColors = [
-        "bg-[#E9EEF8] text-[#4863A8]",
-        "bg-[#E6F7EC] text-[#22C55E]",
-        "bg-[#F3E8FF] text-[#8B5CF6]",
-        "bg-[#FFF7E8] text-[#F4A429]",
-        "bg-[#FDEAEA] text-[#E35D5D]",
-        "bg-[#E0F2FE] text-[#3B82F6]",
-    ];
-    const colorFor = (key: string) => {
-        let h = 0;
-        for (let i = 0; i < key.length; i++) h = (h << 5) - h + key.charCodeAt(i);
-        return avatarColors[Math.abs(h) % avatarColors.length];
+    const handleOpenGroupDetails = () => {
+        setShowGroupMenu(false);
+        setEditGroupImagePreview(selectedUser?.profileImage ?? null);
+        setShowGroupDetails(true);
     };
 
-    const filteredRoles = tenantRoles.filter((role) =>
-        role.toLowerCase().includes(roleSearch.trim().toLowerCase()),
-    );
+    const handleDeleteGroup = async () => {
+        if (!selectedUser) return;
+        const deletedId = selectedUser._id;
+        const roomId = selectedUser.roomId || deletedId;
+        const token = resolveAuthToken();
+
+        try {
+            await fetch(API_DELETE_CHAT_ROOM(roomId), {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: JSON.stringify({ deletedBy: "ADMIN" }),
+            });
+        } catch (error) { console.error(error); return; }
+
+        if (typeof window !== "undefined") {
+            window.localStorage.removeItem(LS_KEY_REMOVED + roomId);
+            window.localStorage.removeItem(LS_KEY_ROOM_MEMBERS + roomId);
+            window.localStorage.removeItem(LS_KEY_LAST_MSG + roomId);
+        }
+        const tenantId = resolveTenantCode();
+        if (tenantId) removeCachedRoom(tenantId, roomId);
+        removeChatClearedAt(roomId);
+        setAllRooms((prev) => prev.filter((u) => u._id !== deletedId));
+        setSelectedUser((prev) => (prev?._id === deletedId ? null : prev));
+        setShowDeleteConfirm(false);
+        setShowGroupDetails(false);
+        setShowGroupMenu(false);
+        setEditGroupImagePreview(null);
+    };
+
+    const handleClearChat = useCallback(() => {
+        if (!selectedUser) return;
+        const roomId = selectedUser.roomId || selectedUser._id;
+        setChatClearedAt(roomId, Date.now());
+        setShowGroupMenu(false);
+    }, [selectedUser]);
+
+    const handleDeleteChat = () => {
+        if (!selectedUser) return;
+        setAllRooms((prev) => prev.filter((r) => r._id !== selectedUser._id));
+        setShowGroupMenu(false);
+        setSelectedUser(null);
+    };
+
+    const handleSaveGroupDetails = () => {
+        if (!selectedUser) return;
+        setAllRooms((prev) =>
+            prev.map((u) =>
+                u._id === selectedUser._id ? { ...u, profileImage: editGroupImagePreview ?? u.profileImage } : u,
+            ),
+        );
+        setSelectedUser((prev) =>
+            prev ? { ...prev, profileImage: editGroupImagePreview ?? prev.profileImage } : prev,
+        );
+        setShowGroupDetails(false);
+    };
+
+    const handleSelectRoom = (room: IUser) => {
+        setSelectedUser(room);
+        markRoomAsRead(room._id);
+        setReadStateVersion((v) => v + 1);
+        setAllRooms((prev) =>
+            prev.map((r) => (r._id === room._id ? { ...r, isUnread: false, unreadCount: 0 } : r)),
+        );
+    };
+
+    const categoryHeading = useMemo(() => {
+        if (activeCategory === "ALL") return "All Chats";
+        const label = categories.find((c) => c.key === activeCategory)?.label ?? activeCategory;
+        return `${label} Chats`;
+    }, [activeCategory, categories]);
 
     return (
-        <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/20 p-0 sm:p-4 font-sans"
-            onClick={onClose}
-        >
-            <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-[560px] max-h-[92vh] bg-white rounded-t-[20px] sm:rounded-[16px] shadow-2xl flex flex-col overflow-hidden"
-            >
-                {/* Header */}
-                <div className="relative bg-gradient-to-b from-[#EEF2FB] to-white px-6 pt-5 pb-4 border-b border-[#E6EAF2]">
-                    <div className="flex items-start gap-4">
-                        <label className={`block relative shrink-0 ${canUpdateGroup ? "cursor-pointer" : "pointer-events-none cursor-not-allowed opacity-60"}`}>
-                            <div className="w-[72px] h-[72px] rounded-[12px] overflow-hidden bg-gray-100 flex items-center justify-center ring-2 ring-white shadow-md">
-                                {imagePreview ? (
-                                    <Image src={imagePreview} alt={groupDetails?.groupName || "Group"} width={72} height={72} unoptimized className="w-full h-full object-cover" />
-                                ) : (
-                                    <span className="text-[28px] font-semibold text-gray-400">
-                                        {groupDetails?.groupName?.charAt(0)?.toUpperCase() ?? "G"}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="absolute -bottom-1 -right-1 bg-[#576CBC] rounded-full p-[5px] shadow">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-white">
-                                    <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
-                                </svg>
-                            </div>
-                            <input type="file" accept="image/*" disabled={!canUpdateGroup} className="hidden" onChange={(e) => onImageChange(e.target.files?.[0] ?? null)} />
-                        </label>
+        <BaseLayout4>
+            <AdminHeader currentSection="Messages" />
 
-                        <div className="flex-1 min-w-0">
-                            <h2 className="text-[18px] font-bold text-[#101828] tracking-tight truncate">
-                                {groupDetailsLoading ? "Loading group details..." : groupDetails?.groupName || "Group details unavailable"}
-                            </h2>
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                                <span className="text-[12px] text-[#667085] truncate">{groupDetails?.description || (groupDetailsLoading ? " " : "No description")}</span>
-                            </div>
-                            {groupDetailsError && (
-                                <p role="alert" className="mt-1 text-[11px] text-red-600">{groupDetailsError}</p>
-                            )}
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#E6F0EC] px-2 py-[3px] text-[11px] font-semibold text-[#2F7A5C]">
-                                    {selectedCount} member{selectedCount === 1 ? "" : "s"}
-                                </span>
-                                {data.planName && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-[#E0F2FE] px-2 py-[3px] text-[11px] font-semibold text-[#3B82F6]">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
-                                        {data.planName}
-                                    </span>
-                                )}
-                                {groupDetails && (
-                                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-semibold ${access === "ADMIN_ONLY" ? "bg-[#FFF7E8] text-[#B45309]" : "bg-[#EAF8EC] text-[#22C55E]"
-                                        }`}>
-                                        {access === "ADMIN_ONLY" ? "🔒 Admins only" : "✓ Everyone"}
-                                    </span>
-                                )}
-                                {groupDetails?.roomCode && <span className="text-[11px] text-[#98A2B3]">#{groupDetails.roomCode}</span>}
-                            </div>
-                        </div>
-                    </div>
+            <div className="h-[calc(100vh-80px)] flex flex-col rounded-2xl bg-[#F5F7FC] dark:bg-[#1F1F1F] p-3 md:p-4 overflow-hidden">
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                    <h1 className="text-[16px] font-semibold text-[#010E30] dark:text-white">Messages</h1>
                 </div>
 
-                {/* Tabs */}
-                <div className="px-6 pt-3">
-                    <div className="flex items-center gap-1 border-b border-[#E6EAF2]">
-                        {(
-                            [
-                                { key: "DETAILS", label: "Details" },
-                                { key: "ROLES", label: `Roles (${tenantRoles.length})` },
-                            ] as const
-                        ).map((t) => (
-                            <button
-                                key={t.key}
-                                onClick={() => setTab(t.key)}
-                                className={`relative px-3 py-2 text-[12px] font-medium transition-colors ${tab === t.key ? "text-[#576CBC]" : "text-[#667085] hover:text-[#101B41]"
-                                    }`}
-                            >
-                                {t.label}
-                                {tab === t.key && (
-                                    <motion.div
-                                        layoutId="groupDetailsTabIndicator"
-                                        className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-[#576CBC] rounded-t"
-                                    />
-                                )}
-                            </button>
-                        ))}
-                    </div>
+                <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 w-full overflow-hidden">
+                    <ConversationList
+                        currentUser={currentUser}
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        categoryDropdownRef={categoryDropdownRef}
+                        categories={categories}
+                        categoriesLoading={categoriesLoading}
+                        categoryDropdownOpen={categoryDropdownOpen}
+                        setCategoryDropdownOpen={setCategoryDropdownOpen}
+                        activeCategory={activeCategory}
+                        setActiveCategory={setActiveCategory}
+                        setSelectedUser={setSelectedUser}
+                        categoryHeading={categoryHeading}
+                        tabCounts={tabCounts}
+                        setShowNewGroupModal={setShowNewGroupModal}
+                        setShowNewChatModal={setShowNewChatModal}
+                        roomsRefreshKey={roomsRefreshKey}
+                        onRoomsLoaded={handleRoomsLoaded}
+                        categoryRooms={categoryRooms}
+                        selectedUser={selectedUser}
+                        getPlanColor={getPlanColor}
+                        getStatusColor={getStatusColor}
+                        handleSelectRoom={handleSelectRoom}
+                    />
+
+                    <ChatPanel
+                        selectedUser={selectedUser}
+                        getStatusColor={getStatusColor}
+                        currentUser={currentUser}
+                        showGroupMenu={showGroupMenu}
+                        setShowGroupMenu={setShowGroupMenu}
+                        handleOpenGroupDetails={handleOpenGroupDetails}
+                        handleDeleteChat={handleDeleteChat}
+                        messagesContainerRef={messagesContainerRef}
+                        messagesEndRef={messagesEndRef}
+                        onMessageSent={handleMessageSent}
+                        onMessagesLoaded={handleMessagesLoaded}
+                        onLastMessageUpdated={handleLastMessageUpdated}
+                        onChatCleared={handleChatCleared}
+                    />
                 </div>
 
-                {/* Tab content */}
-                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                    <AnimatePresence mode="wait">
-                        {tab === "DETAILS" && (
-                            <motion.div
-                                key="details"
-                                initial={{ opacity: 0, x: -8 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 8 }}
-                                transition={{ duration: 0.15 }}
-                                className="space-y-5"
-                            >
-                                <div>
-                                    <label className="mb-1.5 block text-[13px] font-medium text-[#101B41]">Group Name</label>
-                                    <input type="text" value={groupDetails?.groupName || ""} readOnly className="w-full h-[42px] rounded-[6px] border border-[#D0D5DD] px-3 text-[13px] text-[#101B41] outline-none" />
-                                </div>
+                <AnimatePresence>
+                    {showNewChatModal && (
+                        <NewChatModal
+                            key="new-chat-modal"
+                            category={activeCategory}
+                            categories={categories}
+                            onClose={() => setShowNewChatModal(false)}
+                            onCreateChat={createDirectChat}
+                            getPlanColor={getPlanColor}
+                            fetchMembersForCategory={fetchMembersForCategory}
+                            currentUserId={currentUser.userId}
+                        />
+                    )}
 
-                                <div>
-                                    <label className="mb-1.5 block text-[13px] font-medium text-[#101B41]">Description</label>
-                                    <textarea value={groupDetails?.description || ""} rows={2} readOnly placeholder="Enter group description" className="w-full rounded-[6px] border border-[#D0D5DD] px-3 py-2 text-[13px] text-[#101B41] outline-none resize-none" />
-                                </div>
+                    {showNewGroupModal && (
+                        <NewGroupModal
+                            key="new-group-modal"
+                            categories={categories}
+                            onClose={() => setShowNewGroupModal(false)}
+                            onCreate={handleCreateGroupFromDirectory}
+                            getPlanColor={getPlanColor}
+                            fetchMembersForCategory={fetchMembersForCategory}
+                            currentUserId={currentUser.userId}
+                        />
+                    )}
 
-                                <div className="rounded-[8px] border border-[#E6EAF2] p-4">
-                                    <h3 className="text-[13px] font-semibold text-[#101B41] mb-1">Group Settings</h3>
-                                    <p className="text-[12px] text-[#667085] mb-3">Who can send messages</p>
-                                    <div className="flex items-center gap-8">
-                                        <div className={`flex items-center gap-2 select-none ${canUpdateGroup ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
-                                            <button type="button" disabled={!canUpdateGroup} aria-label="Allow everyone to send messages" onClick={() => handleAccessChange("EVERYONE")} className={`w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center disabled:cursor-not-allowed ${access === "EVERYONE" ? "border-[#576CBC]" : "border-[#D0D5DD]"}`}>
-                                                {access === "EVERYONE" && <div className="w-[8px] h-[8px] rounded-full bg-[#576CBC]" />}
-                                            </button>
-                                            <span className="text-[13px] text-[#101B41]">Everyone</span>
-                                        </div>
-                                        <div className={`flex items-center gap-2 select-none ${canUpdateGroup ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
-                                            <button type="button" disabled={!canUpdateGroup} aria-label="Allow admins only to send messages" onClick={() => handleAccessChange("ADMIN_ONLY")} className={`w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center disabled:cursor-not-allowed ${access === "ADMIN_ONLY" ? "border-[#576CBC]" : "border-[#D0D5DD]"}`}>
-                                                {access === "ADMIN_ONLY" && <div className="w-[8px] h-[8px] rounded-full bg-[#576CBC]" />}
-                                            </button>
-                                            <span className="text-[13px] text-[#101B41]">Admins only</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-[8px] border border-[#F5D0D0] bg-[#FFF8F8] p-4">
-                                    <p className="mb-1 text-[14px] font-bold text-[#D14343]">Delete Group</p>
-                                    <p className="mb-4 text-[12px] text-[#8C919C]">Once deleted, this group and all messages will be permanently removed.</p>
-                                    {!showDeleteConfirm ? (
-                                        <button type="button" disabled={!canUpdateGroup} onClick={() => onToggleDeleteConfirm(true)} className="h-[36px] rounded-[6px] border border-[#D14343] text-[#D14343] px-4 text-[13px] font-semibold hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">Delete Group</button>
-                                    ) : (
-                                        <div className="flex gap-2">
-                                            <button type="button" disabled={!canUpdateGroup} onClick={() => onToggleDeleteConfirm(false)} className="flex-1 h-[36px] rounded-[6px] border border-[#D0D5DD] bg-white px-3 text-[13px] font-semibold text-[#344054] disabled:cursor-not-allowed disabled:opacity-50">Cancel</button>
-                                            <button type="button" disabled={!canUpdateGroup} onClick={onDelete} className="flex-1 h-[36px] rounded-[6px] bg-[#D14343] text-white px-3 text-[13px] font-semibold hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">Yes, Delete</button>
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-
-
-                        {tab === "ROLES" && (
-                            <motion.div
-                                key="roles"
-                                initial={{ opacity: 0, x: -8 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 8 }}
-                                transition={{ duration: 0.15 }}
-                                className="flex min-h-[240px] gap-3"
-                            >
-                                <nav aria-label="Tenant roles" className="w-[150px] shrink-0 space-y-2 border-r border-[#E6EAF2] pr-2">
-                                    <input
-                                        type="search"
-                                        placeholder="Search roles..."
-                                        value={roleSearch}
-                                        onChange={(event) => setRoleSearch(event.target.value)}
-                                        disabled={!canUpdateGroup}
-                                        className="h-8 w-full rounded-md border border-[#E6EAF2] px-2 text-[11px] outline-none focus:border-[#576CBC] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-70"
-                                    />
-                                    {rolesLoading ? (
-                                        <p className="px-2 py-3 text-[11px] text-[#98A2B3]">Loading roles...</p>
-                                    ) : rolesError ? (
-                                        <p role="alert" className="px-2 py-2 text-[11px] text-[#D14343]">{rolesError}</p>
-                                    ) : filteredRoles.length === 0 ? (
-                                        <p className="px-2 py-3 text-[11px] text-[#98A2B3]">No roles found</p>
-                                    ) : (
-                                        filteredRoles.map((role) => (
-                                            <button
-                                                key={role}
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedPortalRole(role);
-                                                    setRoleUsersPage(1);
-                                                }}
-                                                className={`flex w-full items-center justify-between gap-1 rounded-md px-2 py-2 text-left text-[12px] ${
-                                                    selectedPortalRole === role
-                                                        ? "bg-[#EEF2FB] font-semibold text-[#576CBC]"
-                                                        : "text-[#667085] hover:bg-[#F8F9FC]"
-                                                }`}
-                                            >
-                                                <span className="truncate">{role}</span>
-                                                {selectedPortalRole === role && (
-                                                    <span aria-hidden="true" className="text-[10px]">›</span>
-                                                )}
-                                            </button>
-                                        ))
-                                    )}
-                                </nav>
-                                <div className="min-w-0 flex-1 space-y-2">
-                                    {!selectedPortalRole ? (
-                                        <p className="py-10 text-center text-[12px] text-[#98A2B3]">Select a role to view its members.</p>
-                                    ) : (
-                                        <>
-                                            <div className="mb-2 flex items-center justify-between gap-2">
-                                                <h3 className="truncate text-[13px] font-semibold text-[#101B41]">{selectedPortalRole}</h3>
-                                                {!roleUsersLoading && !roleUsersError && (
-                                                    <span className="shrink-0 rounded-full bg-[#E6F0EC] px-2 py-[3px] text-[10px] font-semibold text-[#2F7A5C]">
-                                                        {roleUsersPagination.totalRecords} member{roleUsersPagination.totalRecords === 1 ? "" : "s"}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {roleUsersLoading ? (
-                                                <p className="py-8 text-center text-[12px] text-[#98A2B3]">Loading role details...</p>
-                                            ) : roleUsersError ? (
-                                                <p role="alert" className="py-8 text-center text-[12px] text-[#D14343]">{roleUsersError}</p>
-                                            ) : roleUsers.length === 0 ? (
-                                                <p className="py-8 text-center text-[12px] text-[#98A2B3]">No users found for this role.</p>
-                                            ) : (
-                                                <>
-                                                    {[...roleUsers]
-                                                        .sort((first, second) => Number(second.isSelected) - Number(first.isSelected))
-                                                        .map((user) => (
-                                                        <div key={user.userId} className="flex items-center gap-3 rounded-[8px] border border-[#E6EAF2] px-3 py-2.5">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={user.isSelected}
-                                                                disabled={!canUpdateGroup}
-                                                                onChange={() => handleToggleRoleUser(user)}
-                                                                aria-label={`${user.isSelected ? "Remove" : "Add"} ${user.userName} ${user.isSelected ? "from" : "to"} this group`}
-                                                                className="h-4 w-4 shrink-0 cursor-pointer accent-[#576CBC] disabled:cursor-not-allowed"
-                                                            />
-                                                            <div className={`flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${colorFor(user.userId)}`}>
-                                                                {user.userId === currentUserId ? "Y" : user.userName.charAt(0).toUpperCase() || "?"}
-                                                            </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="truncate text-[13px] font-medium text-[#101B41]">{user.userId === currentUserId ? "You" : user.userName}</p>
-                                                                <p className="text-[11px] text-[#98A2B3]">{selectedPortalRole}</p>
-                                                            </div>
-                                                            {user.course && (
-                                                                <span className="max-w-[90px] shrink-0 truncate rounded bg-[#E0F2FE] px-1.5 py-[2px] text-[10px] font-semibold text-[#3B82F6]">
-                                                                    {user.course}
-                                                                </span>
-                                                            )}
-                                                            {canUpdateGroup && user.isSelected && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveMember(user.userId)}
-                                                                    aria-label={`Remove ${user.userName} from this group`}
-                                                                    title="Remove from group"
-                                                                    className="shrink-0 rounded p-1 text-[#D14343] hover:bg-[#FDEAEA]"
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                                                        <path d="M3 6h18" />
-                                                                        <path d="M8 6V4h8v2" />
-                                                                        <path d="m19 6-1 14H6L5 6" />
-                                                                        <path d="M10 11v5M14 11v5" />
-                                                                    </svg>
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                    {roleUsersPagination.totalPages > 1 && (
-                                                        <div className="flex items-center justify-between pt-2">
-                                                            <button
-                                                                type="button"
-                                                                disabled={roleUsersPage <= 1 || roleUsersLoading}
-                                                                onClick={() => setRoleUsersPage((page) => Math.max(1, page - 1))}
-                                                                className="rounded border border-[#E6EAF2] px-2 py-1 text-[11px] text-[#576CBC] disabled:cursor-not-allowed disabled:opacity-40"
-                                                            >
-                                                                Previous
-                                                            </button>
-                                                            <span className="text-[11px] text-[#98A2B3]">
-                                                                Page {roleUsersPagination.page} of {roleUsersPagination.totalPages}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                disabled={roleUsersPage >= roleUsersPagination.totalPages || roleUsersLoading}
-                                                                onClick={() => setRoleUsersPage((page) => Math.min(roleUsersPagination.totalPages, page + 1))}
-                                                                className="rounded border border-[#E6EAF2] px-2 py-1 text-[11px] text-[#576CBC] disabled:cursor-not-allowed disabled:opacity-40"
-                                                            >
-                                                                Next
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#F0F1F4] bg-white">
-                    <button onClick={onClose} className="h-[40px] rounded-[6px] border border-[#576CBC] text-[#576CBC] px-6 text-[13px] font-semibold hover:bg-blue-50">Cancel</button>
-                    <button onClick={onSave} disabled={!canUpdateGroup} className="h-[40px] rounded-[6px] bg-[#576CBC] text-white px-6 text-[13px] font-semibold hover:bg-[#4659a3] disabled:cursor-not-allowed disabled:opacity-50">Done</button>
-                </div>
-            </motion.div>
-        </motion.div>
+                    {showGroupDetails && selectedUser && (
+                        <GroupDetailsModal
+                            key="group-details-modal"
+                            data={{
+                                roomId: selectedUser.roomId || selectedUser._id,
+                                roomCode: selectedUser.roomCode || "",
+                                groupName: selectedUser.userName || "",
+                                role: Array.isArray(selectedUser.role) ? selectedUser.role[0] || "ADMIN" : selectedUser.role,
+                                description: selectedUser.description || "",
+                                planName: selectedUser.planName || "Group",
+                                sendAccess: (selectedUser.sendAccess as "EVERYONE" | "ADMIN_ONLY") || (selectedUser.groupSettings === "admins" ? "ADMIN_ONLY" : "EVERYONE"),
+                                members: (selectedUser.members || []).map((m: any, idx: number) => ({
+                                    tenantId: m.tenantId || `temp-${idx}`,
+                                    tenantName: m.name || m.tenantName || "Unknown",
+                                    isSelected: m.isSelected !== undefined ? m.isSelected : true,
+                                })),
+                                memberCount: (selectedUser.members || []).filter((m: any) => m.isSelected !== false).length,
+                            }}
+                            imagePreview={editGroupImagePreview}
+                            showDeleteConfirm={showDeleteConfirm}
+                            availableTenants={[]}
+                            onImageChange={(file: File | null) =>
+                                setEditGroupImagePreview(file ? URL.createObjectURL(file) : null)
+                            }
+                            onUpdateMembers={(payload: {
+                                addTenantIds?: string[];
+                                removeTenantIds?: string[];
+                                updatedBy: string;
+                            }) => {
+                                const roomId = selectedUser.roomId || selectedUser._id;
+                                payload.removeTenantIds?.forEach((id: string) => addRemovedTenant(roomId, id));
+                                payload.addTenantIds?.forEach((id: string) => removeFromRemovedTenant(roomId, id));
+                                fetch(API_UPDATE_CHAT_ROOM(chatSource, roomId), {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify(payload),
+                                }).catch((err) => console.error("Update members API failed:", err));
+                                setSelectedUser((prev) =>
+                                    prev
+                                        ? {
+                                            ...prev,
+                                            members: (prev.members ?? []).map((m: any) => {
+                                                if (payload.removeTenantIds?.includes(m.tenantId)) return { ...m, isSelected: false };
+                                                if (payload.addTenantIds?.includes(m.tenantId)) return { ...m, isSelected: true };
+                                                return m;
+                                            }),
+                                        }
+                                        : prev,
+                                );
+                            }}
+                            onAddMembers={(newMembers: { tenantId: string; tenantName: string }[]) => {
+                                const roomId = selectedUser.roomId || selectedUser._id;
+                                newMembers.forEach((nm: { tenantId: string; tenantName: string }) =>
+                                    removeFromRemovedTenant(roomId, nm.tenantId),
+                                );
+                                mergeIntoRoomMembersCache(roomId, newMembers);
+                                setSelectedUser((prev) => {
+                                    if (!prev) return prev;
+                                    const existingIds = new Set((prev.members ?? []).map((m: any) => m.tenantId));
+                                    const toAdd = newMembers
+                                        .filter((nm: { tenantId: string; tenantName: string }) => !existingIds.has(nm.tenantId))
+                                        .map((nm: { tenantId: string; tenantName: string }) => ({
+                                            name: nm.tenantName,
+                                            plan: prev.planName ?? "",
+                                            tenantId: nm.tenantId,
+                                            isSelected: true,
+                                        }));
+                                    return { ...prev, members: [...(prev.members ?? []), ...toAdd] };
+                                });
+                            }}
+                            onUpdateAccess={(newAccess: "EVERYONE" | "ADMIN_ONLY") => {
+                                const roomId = selectedUser.roomId || selectedUser._id;
+                                fetch(API_UPDATE_CHAT_ROOM(chatSource, roomId), {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ sendAccess: newAccess, updatedBy: "ADMIN" }),
+                                }).catch((err) => console.error("Update access API failed:", err));
+                                setSelectedUser((prev) => (prev ? { ...prev, sendAccess: newAccess } : prev));
+                            }}
+                            onToggleDeleteConfirm={setShowDeleteConfirm}
+                            onDelete={handleDeleteGroup}
+                            onClose={() => setShowGroupDetails(false)}
+                            onSave={handleSaveGroupDetails}
+                        />
+                    )}
+                </AnimatePresence>
+            </div>
+        </BaseLayout4>
     );
-}
+};
+
+export default Message;

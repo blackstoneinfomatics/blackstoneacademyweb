@@ -10,7 +10,7 @@ export const AppApiEndpoints = {
   },
 
   TENANTACCESS: {
-    GET_ACCESS:(tenantId : string)=> `/tenant-portal/${tenantId}/access`,
+    GET_ACCESS: (tenantId: string) => `/tenant-portal/${tenantId}/access`,
   },
 
   USER: {
@@ -268,7 +268,8 @@ export const AppApiEndpoints = {
       `/api/tenant-subscriptions/tenantsbyplan/${planId}`,
     ROOM: "/chat-room",
     ROOM_BY_ID: (roomId: string) => `/chat-room/${roomId}`,
-    GET_GROUP_DETAILS: (roomId: string) => `/chat/groups/${roomId}`,
+    GET_GROUP_DETAILS: (source: string, roomId: string) =>
+      `/user/chat/${source}/groups/${roomId}`,
     MESSAGE: "/chat/message",
     CLEAR: "/chat/clear",
     SEEN: "/chat/seen",
@@ -378,10 +379,10 @@ export const AppApiEndpoints = {
     TENANT_PORTAL_DASHBOARD: "/tenant-portal-dashboard/{tenantCode}",
     UPDATE_SUBSCRIPTION_PLAN: "/tenant/subscription-plan/{tenantCode}",
     GET_ANALYTICS_CARDS: "/tenants/analytics/cards",
-        GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
+    GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
     TENANT_AUDIT_LOGS: "/audit-log/tenant/{tenantCode}",
     TENANT_ACTIVITY_SUMMARY: "/audit-log/dashboard/activity-summary",
-    TENANT_SUBSCRIPTION_LIST_CARD:"/tenant-subscription"
+    TENANT_SUBSCRIPTION_LIST_CARD: "/tenant-subscription"
   },
   PORTAL: {
     GET_ALL: "/portal",
