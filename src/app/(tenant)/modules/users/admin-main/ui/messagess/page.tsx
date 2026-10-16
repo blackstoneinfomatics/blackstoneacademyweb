@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import BaseLayout4 from "../../components/BaseLayout4";
 import AdminHeader from "../../components/AdminHeader";
-import { GroupDetailsModal } from "./GroupDetailsModal";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import ConversationList from "./ConversationList";
 import ChatPanel from "./ChatPanel";
@@ -19,6 +18,7 @@ import type {
   IUser,
   RoomType,
 } from "./chat-types";
+import UserGroupDetails from "./UserGroupDetails";
 
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
@@ -34,8 +34,8 @@ const resolveChatSource = (): "TENANT" | "SUPER_ADMIN" => {
 };
 
 const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
-const API_UPDATE_CHAT_ROOM = (roomId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
+const API_DELETE_CHAT_ROOM = (roomId: string) =>
+  `${API_BASE}/user/chat-room/${encodeURIComponent(roomId)}`;
 const API_GET_GROUP_DETAILS = (roomId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
 
@@ -1404,12 +1404,52 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
     const token = resolveAuthToken();
 
     try {
-      await fetch(API_UPDATE_CHAT_ROOM(roomId), {
+      const url = API_DELETE_CHAT_ROOM(roomId);
+      const payload = { deletedBy: "ADMIN" };
+      console.info("[Message] Delete group request", { method: "DELETE", url, payload });
+      const response = await fetch(url, {
         method: "DELETE",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ deletedBy: "ADMIN" }),
+        body: JSON.stringify(payload),
       });
-    } catch (error) { console.error(error); return; }
+      const responseText = await response.text();
+      let result: unknown = null;
+      if (responseText) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          result = responseText;
+        }
+      }
+      console.info("[Message] Delete group response", {
+        status: response.status,
+        ok: response.ok,
+        body: result,
+      });
+      if (!response.ok) {
+        const apiMessage = result && typeof result === "object" && "message" in result
+          ? result.message
+          : null;
+        throw new Error(
+          typeof apiMessage === "string" && apiMessage
+            ? apiMessage
+            : typeof result === "string" && result
+              ? result
+              : `Failed to delete group (HTTP ${response.status}).`,
+        );
+      }
+      if (result && typeof result === "object" && "success" in result && result.success === false) {
+        const apiMessage = "message" in result ? result.message : null;
+        throw new Error(
+          typeof apiMessage === "string" && apiMessage
+            ? apiMessage
+            : "The server rejected the group deletion.",
+        );
+      }
+    } catch (error) {
+      console.error("[Message] Delete group failed", error);
+      throw error;
+    }
 
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(LS_KEY_REMOVED + roomId);
@@ -1551,75 +1591,11 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
           )}
 
           {showGroupDetails && selectedUser && (
-            <GroupDetailsModal
-              key="group-details-modal"
-              data={{
-                roomId: selectedUser.roomId || selectedUser._id,
-                roomCode: selectedUser.roomCode || "",
-                groupName: selectedUser.userName || "",
-                role: Array.isArray(selectedUser.role) ? selectedUser.role[0] || "ADMIN" : selectedUser.role,
-                description: selectedUser.description || "",
-                planName: selectedUser.planName || "Group",
-                sendAccess: (selectedUser.sendAccess as "EVERYONE" | "ADMIN_ONLY") || (selectedUser.groupSettings === "admins" ? "ADMIN_ONLY" : "EVERYONE"),
-                members: (selectedUser.members || []).map((m: any, idx: number) => ({
-                  tenantId: m.tenantId || `temp-${idx}`,
-                  tenantName: m.name || m.tenantName || "Unknown",
-                  isSelected: m.isSelected !== undefined ? m.isSelected : true,
-                })),
-                memberCount: (selectedUser.members || []).filter((m: any) => m.isSelected !== false).length,
-              }}
-              imagePreview={editGroupImagePreview}
-              showDeleteConfirm={showDeleteConfirm}
-              availableTenants={[]}
-              onImageChange={(file) => setEditGroupImagePreview(file ? URL.createObjectURL(file) : null)}
-              onUpdateMembers={(payload) => {
-                const roomId = selectedUser.roomId || selectedUser._id;
-                if (payload.removeTenantIds) payload.removeTenantIds.forEach((id) => addRemovedTenant(roomId, id));
-                if (payload.addTenantIds) payload.addTenantIds.forEach((id) => removeFromRemovedTenant(roomId, id));
-                fetch(API_UPDATE_CHAT_ROOM(roomId), {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                }).catch((err) => console.error("Update members API failed:", err));
-                setSelectedUser((prev) =>
-                  prev
-                    ? {
-                      ...prev,
-                      members: (prev.members ?? []).map((m: any) => {
-                        if (payload.removeTenantIds?.includes(m.tenantId)) return { ...m, isSelected: false };
-                        if (payload.addTenantIds?.includes(m.tenantId)) return { ...m, isSelected: true };
-                        return m;
-                      }),
-                    }
-                    : prev,
-                );
-              }}
-              onAddMembers={(newMembers) => {
-                const roomId = selectedUser.roomId || selectedUser._id;
-                newMembers.forEach((nm) => removeFromRemovedTenant(roomId, nm.userId));
-                mergeIntoRoomMembersCache(roomId, newMembers);
-                setSelectedUser((prev) => {
-                  if (!prev) return prev;
-                  const existingIds = new Set((prev.members ?? []).map((m: any) => m.userId));
-                  const toAdd = newMembers
-                    .filter((nm) => !existingIds.has(nm.userId))
-                    .map((nm) => ({ name: nm.userName, plan: prev.planName ?? "", userId: nm.userId, isSelected: true }));
-                  return { ...prev, members: [...(prev.members ?? []), ...toAdd] };
-                });
-              }}
-              onUpdateAccess={(newAccess) => {
-                const roomId = selectedUser.roomId || selectedUser._id;
-                fetch(API_UPDATE_CHAT_ROOM(roomId), {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ sendAccess: newAccess, updatedBy: "ADMIN" }),
-                }).catch((err) => console.error("Update access API failed:", err));
-                setSelectedUser((prev) => (prev ? { ...prev, sendAccess: newAccess } : prev));
-              }}
-              onToggleDeleteConfirm={setShowDeleteConfirm}
-              onDelete={handleDeleteGroup}
+            <UserGroupDetails
+              roomId={selectedUser.roomId || selectedUser._id}
+              source={selectedUser.chatSource ?? chatSource}
               onClose={() => setShowGroupDetails(false)}
-              onSave={handleSaveGroupDetails}
+              onDeleteGroup={handleDeleteGroup}
             />
           )}
         </AnimatePresence>

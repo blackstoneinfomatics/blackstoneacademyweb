@@ -13,6 +13,7 @@ import type {
   SendMessagePayload,
   SendMessageResponse,
 } from "./chat-types";
+import { onNewMessage, joinChatRoom, leaveChatRoom } from "@/app/utils/chat-socket";
 
 /* ═══════════════════════════════════════════════════════════════════
    Base
@@ -45,6 +46,37 @@ const resolveAdminUserId = (): string => {
     ""
   );
 };
+
+
+const resolveTenantId = (): string => {
+  if (typeof window === "undefined") return "";
+  for (const key of [
+    "tenantId",
+    "tenantCode",
+    "TenantId",
+    "TENANT_ID",
+    "selectedTenantId",
+    "TENANT_CODE",
+    "currentTenantId",
+    "tenant",
+  ]) {
+    const value = window.localStorage.getItem(key)?.trim();
+    if (!value) continue;
+    if (value.startsWith("{")) {
+      try {
+        const tenant = JSON.parse(value) as Record<string, unknown>;
+        const tenantId = tenant.tenantId ?? tenant.tenantCode ?? tenant.id ?? tenant._id;
+        if (tenantId) return String(tenantId);
+      } catch (error) {
+        console.error("[ChatPanel] Could not parse tenant ID", error);
+      }
+    } else {
+      return value;
+    }
+  }
+  return "";
+};
+
 
 /* ═══════════════════════════════════════════════════════════════════
    Local persistence helpers
@@ -230,11 +262,12 @@ const apiMessageToLocal = (
   index: number,
   roomId: string,
   receiverName: string,
+  userId:string,
 ): IMessage => {
   const createdDate = message.timestamp ?? message.createdAt ?? new Date().toISOString();
   const date = new Date(createdDate);
   const attachment = message.attachments?.[0];
-  return {
+ return {
     _id: message._id ?? `${roomId}-${index}`,
     messages: message.message ?? "",
     senderId: message.senderId ?? "",
@@ -252,7 +285,7 @@ const apiMessageToLocal = (
     isDeleted: message.isDeleted ?? message.deletedForEveryone ?? false,
     deletedBy: message.deletedBy || "",
     deletedByName: message.deletedByName,
-    side: message.side,
+    side: message.senderId === userId ? 'right' : 'left',
     replyTo: message.replyTo
       ? {
         messageId: message.replyTo.messageId ?? "",
@@ -559,6 +592,7 @@ interface ChatPanelProps {
 /* ═══════════════════════════════════════════════════════════════════
    ChatPanel
    ═══════════════════════════════════════════════════════════════════ */
+   
 const ChatPanel = ({
   selectedUser,
   getStatusColor,
@@ -580,7 +614,7 @@ const ChatPanel = ({
   const [messages, setMessages] = useState<IMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
-
+  const [groupMemberCount, setGroupMemberCount] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<IMessage | null>(null);
   const [infoMessage, setInfoMessage] = useState<IMessage | null>(null);
   const [messageText, setMessageText] = useState("");
@@ -588,6 +622,141 @@ const ChatPanel = ({
   const [sendError, setSendError] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+const userId = resolveAdminUserId();
+  const roomId = selectedUser?.roomId || selectedUser?._id;
+  const receiverName = selectedUser?.userName;
+
+  useEffect(() => {
+    if (
+      !selectedUser
+      || !(selectedUser.isGroup || selectedUser.role.includes("Group"))
+      || chatSource !== "TENANT"
+    ) {
+      setGroupMemberCount(null);
+      return;
+    }
+
+    const roomId = selectedUser.roomId || selectedUser._id;
+    const tenantId = resolveTenantId();
+    const userId = currentUser.userId || resolveAdminUserId();
+    const token = resolveAuthToken();
+    const controller = new AbortController();
+    setGroupMemberCount(null);
+
+    if (!tenantId || !userId) {
+      console.warn("[ChatPanel] Cannot load group member count: tenant or user ID is missing.", {
+        hasTenantId: Boolean(tenantId),
+        hasUserId: Boolean(userId),
+      });
+      setGroupMemberCount(
+        selectedUser.members?.filter((member) => member.isSelected !== false).length ?? 0,
+      );
+      return () => controller.abort();
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    void (async () => {
+      try {
+        const rolesUrl = `${API_BASE}/tenant-portal/${encodeURIComponent(tenantId)}/roles`;
+        const rolesResponse = await fetch(rolesUrl, {
+          method: "GET",
+          cache: "no-store",
+          headers,
+          signal: controller.signal,
+        });
+        if (!rolesResponse.ok) {
+          throw new Error(`Could not load tenant roles (HTTP ${rolesResponse.status}).`);
+        }
+        const rolesResult: unknown = await rolesResponse.json();
+        if (
+          !rolesResult
+          || typeof rolesResult !== "object"
+          || !("data" in rolesResult)
+          || !Array.isArray(rolesResult.data)
+        ) {
+          throw new Error("The tenant roles response did not contain a roles list.");
+        }
+        const roles = Array.from(new Set(
+          rolesResult.data.filter((role): role is string => typeof role === "string" && Boolean(role.trim()))
+            .map((role) => role.trim().toUpperCase()),
+        ));
+
+        const selectedMemberIds = new Set<string>();
+        await Promise.all(roles.map(async (role) => {
+          const query = new URLSearchParams({
+            tenantId,
+            userId,
+            payloadUserId: userId,
+            role,
+            page: "1",
+            limit: "100",
+          });
+          const membersUrl = `${API_BASE}/user/chat/${encodeURIComponent(chatSource)}/groupuser/${encodeURIComponent(roomId)}?${query.toString()}`;
+          const membersResponse = await fetch(membersUrl, {
+            method: "GET",
+            cache: "no-store",
+            headers,
+            signal: controller.signal,
+          });
+          if (!membersResponse.ok) {
+            throw new Error(`Could not load ${role} group members (HTTP ${membersResponse.status}).`);
+          }
+          const membersResult: unknown = await membersResponse.json();
+          if (
+            !membersResult
+            || typeof membersResult !== "object"
+            || !("data" in membersResult)
+            || !membersResult.data
+            || typeof membersResult.data !== "object"
+            || !("members" in membersResult.data)
+            || !Array.isArray(membersResult.data.members)
+          ) {
+            throw new Error(`The ${role} group-members response did not contain a members list.`);
+          }
+          for (const member of membersResult.data.members) {
+            if (!member || typeof member !== "object") continue;
+            const record = member as Record<string, unknown>;
+            const memberId = record.userId ?? record.tenantId ?? record._id;
+            if (record.isSelected === true && typeof memberId === "string" && memberId) {
+              selectedMemberIds.add(memberId);
+            }
+          }
+        }));
+
+        if (!controller.signal.aborted) {
+          setGroupMemberCount(selectedMemberIds.size);
+          console.info("[ChatPanel] Group member count loaded", {
+            roomId,
+            roleCount: roles.length,
+            memberCount: selectedMemberIds.size,
+          });
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("[ChatPanel] Failed to load group member count", error);
+        if (!controller.signal.aborted) {
+          setGroupMemberCount(
+            selectedUser.members?.filter((member) => member.isSelected !== false).length ?? 0,
+          );
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [
+    chatSource,
+    currentUser.userId,
+    selectedUser?._id,
+    selectedUser?.isGroup,
+    selectedUser?.members,
+    selectedUser?.role,
+    selectedUser?.roomId,
+  ]);
+
 
   /* ⭐ Load thread */
   useEffect(() => {
@@ -626,7 +795,7 @@ const ChatPanel = ({
         const fallback = Array.isArray(json.data?.messages) ? json.data.messages : [];
         const raw = flat.length > 0 ? flat : fallback;
 
-        const all = raw.map((m, i) => apiMessageToLocal(m, i, roomId, receiverName));
+        const all = raw.map((m, i) => apiMessageToLocal(m, i, roomId, receiverName, userId));
 
         const clearedAt = getClearedAt(selectedUser._id);
         const visible = filterAfterClear(all, clearedAt);
@@ -665,6 +834,74 @@ const ChatPanel = ({
 
     return () => controller.abort();
   }, [selectedUser?._id, chatSource, onMessagesLoaded, onLastMessageUpdated]);
+
+  useEffect(() => {
+  if (!userId || !roomId || !chatSource) return;
+
+
+  const room = {
+    source: chatSource,
+    roomId,
+  };
+
+
+  // 1. Listen for new messages
+  const unsubscribeMessage = onNewMessage(userId, (event) => {
+    if (
+      event.source !== chatSource ||
+      event.roomId !== roomId
+    ) {
+      return;
+    }
+
+
+    if (!event.message || typeof event.message !== "object") {
+      return;
+    }
+
+
+    const incoming = event.message as Parameters<
+      typeof apiMessageToLocal
+    >[0];
+
+
+    const localMessage = apiMessageToLocal(
+      incoming,
+      0,
+      roomId,
+      receiverName,
+      userId
+    );
+    if(localMessage.senderId != userId){
+    // 2. Update the existing message state without duplicates
+    setMessages((previous) => {
+      if (
+        previous.some(
+          (message) => message._id === localMessage._id,
+        )
+      ) {
+        return previous;
+      }
+
+
+      return [...previous, localMessage];
+    });
+  }
+  });
+
+
+  // 3. Join the selected chat room
+  void joinChatRoom(userId, room).catch((error: unknown) => {
+    console.error("Chat room join failed:", error);
+  });
+
+
+  // 4. Clean up when switching rooms or unmounting
+  return () => {
+    unsubscribeMessage();
+    leaveChatRoom(userId, room);
+  };
+}, [userId, roomId, chatSource, receiverName]);
 
   /* Auto-scroll */
   useEffect(() => {
@@ -760,6 +997,7 @@ const ChatPanel = ({
         status: "Active",
         deliveredAt: timeStr,
         isDeleted: false,
+        deletedBy: "",
         side: "right",
         canReply: true,
         ...(replyTo
@@ -948,7 +1186,7 @@ const ChatPanel = ({
                   <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] flex items-center gap-1">
                     Members
                     <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
-                      {selectedUser.members?.filter((m: any) => m.isSelected !== false).length ?? 0}
+                      {groupMemberCount ?? "—"}
                     </span>
                   </p>
                 ) : (
