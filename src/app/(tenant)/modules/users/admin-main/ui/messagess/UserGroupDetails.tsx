@@ -322,11 +322,10 @@ const UserGroupDetails = ({ roomId, source, onClose, onDeleteGroup }: UserGroupD
     }
 
     const tenantId = getTenantId();
-    const userId = getUserId();
-    if (!tenantId || !userId) {
+    if (!tenantId) {
       setGroupUsers([]);
       setUsersInfo(null);
-      setUsersError(!tenantId ? "Tenant ID not found in session." : "Admin user ID not found in session.");
+      setUsersError("Tenant ID not found in session.");
       setUsersLoading(false);
       return;
     }
@@ -341,11 +340,7 @@ const UserGroupDetails = ({ roomId, source, onClose, onDeleteGroup }: UserGroupD
       try {
         const query = new URLSearchParams({
           tenantId,
-          userId,
-          payloadUserId: userId,
           role: selectedRole.trim().toUpperCase(),
-          page: "1",
-          limit: "100",
         });
         const url = `${API_BASE}/user/chat/${encodeURIComponent(source)}/groupuser/${encodeURIComponent(roomId)}?${query.toString()}`;
         logApiRequest("Get group members by role", "GET", url);
@@ -538,17 +533,11 @@ const UserGroupDetails = ({ roomId, source, onClose, onDeleteGroup }: UserGroupD
           ...(removeUsers.length ? { removeUsers } : {}),
           updatedBy: "ADMIN",
         });
-
         const tenantId = getTenantId();
-        const userId = getUserId();
-        if (tenantId && userId && selectedRole) {
+        if (tenantId && selectedRole) {
           const query = new URLSearchParams({
             tenantId,
-            userId,
-            payloadUserId: userId,
             role: selectedRole.trim().toUpperCase(),
-            page: "1",
-            limit: "100",
           });
           const url = `${API_BASE}/user/chat/${encodeURIComponent(source)}/groupuser/${encodeURIComponent(roomId)}?${query.toString()}`;
           console.info("[UserGroupDetails] Refreshing members after save", { url, roomId, source, role: selectedRole });
@@ -641,9 +630,8 @@ const UserGroupDetails = ({ roomId, source, onClose, onDeleteGroup }: UserGroupD
           }
         } else {
           membershipSaveUnconfirmed = true;
-          console.warn("[UserGroupDetails] Could not refresh members after save: missing tenantId, userId, or role.", {
+          console.warn("[UserGroupDetails] Could not refresh members after save: missing tenantId or role.", {
             hasTenantId: Boolean(tenantId),
-            hasUserId: Boolean(userId),
             role: selectedRole,
           });
         }

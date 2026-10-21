@@ -213,7 +213,7 @@ interface IMarkSeenResponse {
     [key: string]: any;
   };
 }
-interface ISeenUser {
+interface ISeenUser { 
   userId?: string;
   tenantId?: string;
   name?: string;
@@ -1098,7 +1098,6 @@ const userId = resolveAdminUserId();
     }
   };
 
-  /* ⭐ Clear chat (frontend-only persistence) */
   const handleClear = async () => {
     if (!selectedUser || clearing) return;
 

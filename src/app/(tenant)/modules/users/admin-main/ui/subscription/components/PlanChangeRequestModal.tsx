@@ -8,49 +8,15 @@ type PlanChangeRequestModalProps = {
   onClose: () => void;
 };
 
-type BillingPeriod = {
-  billingPeriodId?: string;
-  billingPeriod: string;
-  duration: number;
-  price: number;
-  discount: number;
-  gstRate: number;
-  taxAmount: number;
-  totalAmount: number;
-};
-
 type PlanOption = {
   planId: string;
   planName: string;
-  billingPeriods: BillingPeriod[];
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
     : null;
-
-const toNumber = (value: unknown): number => {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : 0;
-};
-
-const parseBillingPeriod = (value: unknown): BillingPeriod | null => {
-  const row = asRecord(value);
-  if (!row || typeof row.billingPeriod !== "string") return null;
-
-  return {
-    billingPeriodId:
-      typeof row.billingPeriodId === "string" ? row.billingPeriodId : undefined,
-    billingPeriod: row.billingPeriod,
-    duration: toNumber(row.duration),
-    price: toNumber(row.price),
-    discount: toNumber(row.discount),
-    gstRate: toNumber(row.gstRate),
-    taxAmount: toNumber(row.taxAmount),
-    totalAmount: toNumber(row.totalAmount),
-  };
-};
 
 const parsePlan = (value: unknown): PlanOption | null => {
   const row = asRecord(value);
@@ -67,11 +33,6 @@ const parsePlan = (value: unknown): PlanOption | null => {
   return {
     planId,
     planName: row.planName,
-    billingPeriods: Array.isArray(row.billingPeriods)
-      ? row.billingPeriods
-          .map(parseBillingPeriod)
-          .filter((period): period is BillingPeriod => period !== null)
-      : [],
   };
 };
 
@@ -90,13 +51,6 @@ const extractPlans = (responseData: unknown): PlanOption[] => {
     .filter((plan): plan is PlanOption => plan !== null);
 };
 
-const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(amount);
-
 const PlanChangeRequestModal = ({
   onClose,
 }: PlanChangeRequestModalProps) => {
@@ -104,7 +58,6 @@ const PlanChangeRequestModal = ({
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState("");
-  const [selectedBillingPeriodId, setSelectedBillingPeriodId] = useState("");
 
   useEffect(() => {
     let isCurrent = true;
@@ -120,11 +73,6 @@ const PlanChangeRequestModal = ({
         if (isCurrent) {
           setPlans(availablePlans);
           setSelectedPlanId(availablePlans[0]?.planId ?? "");
-          setSelectedBillingPeriodId(
-            availablePlans[0]?.billingPeriods[0]?.billingPeriodId ??
-              availablePlans[0]?.billingPeriods[0]?.billingPeriod ??
-              "",
-          );
           if (availablePlans.length === 0) {
             setPlansError("No active plans with billing details were returned.");
           }
@@ -145,22 +93,8 @@ const PlanChangeRequestModal = ({
     };
   }, []);
 
-  const selectedPlan = plans.find((plan) => plan.planId === selectedPlanId);
-  const billingPeriods = selectedPlan?.billingPeriods ?? [];
-  const selectedBillingPeriod = billingPeriods.find(
-    (period) =>
-      (period.billingPeriodId ?? period.billingPeriod) ===
-      selectedBillingPeriodId,
-  );
-
   const handlePlanChange = (planId: string) => {
-    const nextPlan = plans.find((plan) => plan.planId === planId);
     setSelectedPlanId(planId);
-    setSelectedBillingPeriodId(
-      nextPlan?.billingPeriods[0]?.billingPeriodId ??
-        nextPlan?.billingPeriods[0]?.billingPeriod ??
-        "",
-    );
   };
 
   return (
@@ -219,68 +153,6 @@ const PlanChangeRequestModal = ({
               </select>
             </label>
 
-            <label className="block text-[13px] font-medium text-[#101b3d] dark:text-[#e5e7eb]">
-              Billing Cycle
-              <select
-                aria-label="Billing Cycle"
-                className="mt-[5px] h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[9px] text-[10px] text-[#253252] outline-none focus:border-[#5870c5] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#555] dark:bg-[#252525] dark:text-white"
-                disabled={billingPeriods.length === 0}
-                onChange={(event) =>
-                  setSelectedBillingPeriodId(event.target.value)
-                }
-                required
-                value={selectedBillingPeriodId}
-              >
-                <option disabled value="">
-                  {billingPeriods.length > 0
-                    ? "Select a billing cycle"
-                    : "No billing cycles available"}
-                </option>
-                {billingPeriods.map((period, index) => {
-                  const value =
-                    period.billingPeriodId ?? period.billingPeriod;
-                  return (
-                    <option key={`${value}-${index}`} value={value}>
-                      {period.billingPeriod}
-                      {period.duration > 0 ? ` - ${period.duration} Month${period.duration === 1 ? "" : "s"}` : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-
-            {selectedBillingPeriod && (
-              <div
-                aria-live="polite"
-                className="rounded-md bg-[#f5f7ff] px-3 py-2 text-[11px] text-[#253252] dark:bg-[#252f45] dark:text-[#e5e7eb]"
-              >
-                <div className="flex justify-between py-1">
-                  <span>Price</span>
-                  <span>{formatCurrency(selectedBillingPeriod.price)}</span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span>Discount ({selectedBillingPeriod.discount}%)</span>
-                  <span>
-                    {formatCurrency(
-                      (selectedBillingPeriod.price *
-                        selectedBillingPeriod.discount) /
-                        100,
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span>Tax ({selectedBillingPeriod.gstRate}%)</span>
-                  <span>{formatCurrency(selectedBillingPeriod.taxAmount)}</span>
-                </div>
-                <div className="mt-1 flex justify-between border-t border-[#dce1eb] pt-2 font-semibold dark:border-[#505b70]">
-                  <span>Total Amount</span>
-                  <span>
-                    {formatCurrency(selectedBillingPeriod.totalAmount)}
-                  </span>
-                </div>
-              </div>
-            )}
-
             {plansError && (
               <p className="text-xs text-red-600 dark:text-red-400" role="alert">
                 {plansError}
@@ -337,7 +209,7 @@ const PlanChangeRequestModal = ({
           </button>
           <button
             className="h-[32px] min-w-[75px] rounded-[6px] bg-[#5870c5] px-[16px] text-[12px] font-semibold text-white transition hover:bg-[#4d63b5] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={loadingPlans || plans.length === 0 || !selectedBillingPeriod}
+            disabled={loadingPlans || plans.length === 0}
             form="plan-change-request-form"
             type="submit"
           >
