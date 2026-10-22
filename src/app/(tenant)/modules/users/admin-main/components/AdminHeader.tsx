@@ -16,10 +16,11 @@ import { toast } from "react-toastify";
 import { appSuccessToastMessages } from "@/app/_components/contents/toast_message";
 import { io } from "socket.io-client";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import RaiseTicketModal from "../ui/messagess/tickets/RaiseTicketModal";
 
 type NotificationType = {
   _id: string;
-  senderId : string;
+  senderId: string;
   senderName: string;
   messages: string;
   createdDate: string;
@@ -47,7 +48,7 @@ export default function AdminHeader({
 }: Readonly<AdminHeaderProps>) {
   const theme: any = useTheme();
   const darkMode = theme?.darkMode ?? false;
-  const toggleDarkMode = theme?.toggleDarkMode ?? (() => {});
+  const toggleDarkMode = theme?.toggleDarkMode ?? (() => { });
   const pathname = usePathname();
   const router = useRouter();
 
@@ -60,9 +61,10 @@ export default function AdminHeader({
   const [showAddPackage, setShowAddPackage] = useState(false);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
   const [showAddExpenses, setShowAddExpenses] = useState(false);
-  const [showKnowledge,setShowKnowledge] =useState(false);
+  const [showKnowledge, setShowKnowledge] = useState(false);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
+  const [showRaiseTicket, setShowRaiseTicket] = useState(false);
 
   const [permissions, setPermissions] = useState({
     leave: false,
@@ -71,7 +73,7 @@ export default function AdminHeader({
     meetings: false,
     invoice: false,
     employees: false,
-    courses : false,
+    courses: false,
   });
 
   const userId =
@@ -94,14 +96,14 @@ export default function AdminHeader({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
       setNotifications((prev) =>
         prev.map((n) =>
           n._id === notificationId
             ? { ...n, isRead: true, notificationStatus: "Seen" }
-            : n
-        )
+            : n,
+        ),
       );
       setNotificationCount((prev) => Math.max(prev - 1, 0));
     } catch (error) {
@@ -121,7 +123,7 @@ export default function AdminHeader({
           meetings: parsed?.meetings?.write ?? false,
           invoice: parsed?.invoice?.write ?? false,
           employees: parsed?.employees?.write ?? false,
-          courses : parsed?.courses?.write ?? false,
+          courses: parsed?.courses?.write ?? false,
         });
       }
     } catch (err) {
@@ -144,7 +146,7 @@ export default function AdminHeader({
           `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.GET_LIST}?receiverId=${userId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
         const list = data?.data?.notifications ?? [];
         setNotifications(list);
@@ -157,18 +159,17 @@ export default function AdminHeader({
     fetchNotifications();
   }, [userId]);
 
-useEffect(() => {
-  const socket = io("https://api.blackstoneinfomaticstech.com");
+  useEffect(() => {
+    const socket = io("https://api.blackstoneinfomaticstech.com");
 
-  socket.on("notification", (data: any) => {
-    setNotifications((prev) => [data, ...prev]);
-  });
+    socket.on("notification", (data: any) => {
+      setNotifications((prev) => [data, ...prev]);
+    });
 
-  return () => {
-    socket.disconnect(); // cleanup
-  };
-}, []);
-
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -199,19 +200,20 @@ useEffect(() => {
         return "🔔";
     }
   };
-    const handleNotificationRedirect = (notification : NotificationType) => {
-  const { notificationType, senderId } = notification;
 
-  switch (notificationType) {
-    case "STUDENT_NOTIFICATION":
-      router.push('/modules/users/admin-main/ui/evaluations');
-      break;
+  const handleNotificationRedirect = (notification: NotificationType) => {
+    const { notificationType } = notification;
 
-    default:
-      console.warn("Unknown notification type:", notificationType);
-      break;
-  }
-};
+    switch (notificationType) {
+      case "STUDENT_NOTIFICATION":
+        router.push("/modules/users/admin-main/ui/evaluations");
+        break;
+
+      default:
+        console.warn("Unknown notification type:", notificationType);
+        break;
+    }
+  };
 
   const getActionButton = () => {
     if (actionButtonLabel && onActionButtonClick) {
@@ -227,6 +229,7 @@ useEffect(() => {
     }
 
     const path = pathname.toLowerCase();
+
     if (
       path.includes("employees") &&
       permissions.employees &&
@@ -241,6 +244,7 @@ useEffect(() => {
         </button>
       );
     }
+
     if (
       path.includes("dashboard") &&
       (permissions.leave || permissions.meetings)
@@ -254,6 +258,7 @@ useEffect(() => {
         </button>
       );
     }
+
     if (path.includes("package") && permissions.packages) {
       return (
         <button
@@ -264,7 +269,11 @@ useEffect(() => {
         </button>
       );
     }
-    if (path.includes("expenses") && (permissions.expenses || permissions.invoice)) {
+
+    if (
+      path.includes("expenses") &&
+      (permissions.expenses || permissions.invoice)
+    ) {
       return (
         <button
           onClick={() => setShowAddExpenses(true)}
@@ -274,7 +283,8 @@ useEffect(() => {
         </button>
       );
     }
-    if (currentSection === "knowledge base" ) {
+
+    if (currentSection === "knowledge base") {
       return (
         <button
           onClick={() => setShowKnowledge(true)}
@@ -284,6 +294,7 @@ useEffect(() => {
         </button>
       );
     }
+
     if (path.includes("meeting") && permissions.meetings) {
       return (
         <button
@@ -294,6 +305,18 @@ useEffect(() => {
         </button>
       );
     }
+
+    if (path.includes("tickets")) {
+      return (
+        <button
+          onClick={() => setShowRaiseTicket(true)}
+          className="bg-[#576CBC] hover:bg-[#3a4f8a] text-white text-sm px-4 py-2 rounded-lg"
+        >
+          Raise Ticket
+        </button>
+      );
+    }
+
     if (path.includes("invoice") && permissions.invoice) {
       return (
         <button
@@ -304,6 +327,7 @@ useEffect(() => {
         </button>
       );
     }
+
     return null;
   };
 
@@ -348,7 +372,9 @@ useEffect(() => {
           {getActionButton()}
 
           <button
-            onClick={() => router.push("/modules/users/admin-main/ui/admincalendar")}
+            onClick={() =>
+              router.push("/modules/users/admin-main/ui/admincalendar")
+            }
             className="p-2.5 bg-white dark:bg-gray-700 rounded-lg"
           >
             <CalendarDays className="w-4 h-4 text-gray-800 dark:text-white" />
@@ -382,98 +408,99 @@ useEffect(() => {
                 </div>
 
                 <div className="flex justify-start backdrop-blur-md px-5">
-                                <div className="flex w-full justify-start gap-3">
-                                  {["Unseen", "Seen"].map((tab) => (
-                                    <button
-                                      key={tab}
-                                      onClick={() => setActiveTab(tab as "Seen" | "Unseen")}
-                                      className={`relative text-sm px-2 py-1 font-medium transition-all text-black ${
-                                        activeTab === tab
-                                          ? "text-[#576CBC] dark:text-[#576CBC]"
-                                          : "dark:text-white"
-                                      }`}
-                                    >
-                                      {tab}
-                                      {activeTab === tab && (
-                                        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#576CBC] rounded-full"></span>
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                    
-                              <div className="h-64 overflow-y-auto scrollbar-hide p-1 px-5">
-                                {notifications && notifications.length > 0 ? (
-                                  notifications
-                                    .filter((n) =>
-                                      activeTab === "Seen"
-                                        ? n.notificationStatus === "Seen"
-                                        : n.notificationStatus !== "Seen"
-                                    )
-                                    .map((notification) => (
-                                      <button
-                                        key={notification._id}
-                                        onClick={() => {
-                                          if (notification.notificationStatus !== "Seen") {
-                                            handleNotificationClick(notification._id);
-                                          }
-                                        }}
-                                        className={`w-full text-left p-2   flex items-start gap-3 transition-all duration-200 border-b border-[#D9D9D9]  ${
-                                          notification.notificationStatus === "Seen"
-                                            ? "bg-white/20 text-gray-900 hover:bg-white/50 dark:bg-[#252525]"
-                                            : " text-gray-900 font-medium hover:bg-[#bfc5e8] dark:bg-[#252525] dark:hover:bg-[#5a5858]"
-                                        }`}
-                                      >
-                                        <div className="w-8 h-8 rounded-lg bg-[#E4E7F4] flex items-center justify-center relative shrink-0 dark:bg-[#343434] ">
-                                          <span className="text-sm font-semibold text-[#576CBC] ">
-                                            {notification.senderName?.[0] || "N"}
-                                          </span>
-                                          {!notification.isRead && (
-                                            <span className="absolute bottom-0 right-0 w-2 h-2 bg-[#68D391] rounded-full border-2 border-white dark:bg-[#68D391]"></span>
-                                          )}
-                                        </div>
-                    
-                                        <div className="flex-1">
-                                          <div className="flex justify-between">
-                                            <h4 className="text-xs font-semibold dark:text-white">
-                                              {notification.senderName.toLowerCase() || "Unknown"}
-                                            </h4>
-                                            <span className="text-xs text-gray-500 dark:text-[#bbb0b099]">
-                                              {new Date(notification.createdDate)
-                                                .toLocaleString("en-GB", {
-                                                  day: "2-digit",
-                                                  month: "2-digit",
-                                                  year: "numeric",
-                                                  hour: "2-digit",
-                                                  minute: "2-digit",
-                                                  hour12: true,
-                                                })
-                                                .replace(",", "")}
-                                            </span>
-                                          </div>
-                                          <div className="text-xs mt-0.5 text-gray-800 flex items-center gap-1">
-                                            <span>
-                                              {getNotificationIcon(notification.notificationType)}
-                                            </span>
-                                            <span
-                                              onClick={() =>
-                                                handleNotificationRedirect(notification)
-                                              }
-                                              className="text-xs text-[#43424299] dark:text-[#bbb0b099] dark:hover:text-white cursor-pointer hover:underline transition"
-                                            >
-                                              {notification.messages}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </button>
-                                    ))
-                                ) : (
-                                  <div className="p-6 text-center text-gray-800">
-                                    <Bell size={40} className="mx-auto text-gray-300 mb-2" />
-                                    <p className="text-gray-700">No notifications found</p>
-                                  </div>
+                  <div className="flex w-full justify-start gap-3">
+                    {["Unseen", "Seen"].map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab as "Seen" | "Unseen")}
+                        className={`relative text-sm px-2 py-1 font-medium transition-all text-black ${activeTab === tab
+                          ? "text-[#576CBC] dark:text-[#576CBC]"
+                          : "dark:text-white"
+                          }`}
+                      >
+                        {tab}
+                        {activeTab === tab && (
+                          <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#576CBC] rounded-full"></span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-64 overflow-y-auto scrollbar-hide p-1 px-5">
+                  {notifications && notifications.length > 0 ? (
+                    notifications
+                      .filter((n) =>
+                        activeTab === "Seen"
+                          ? n.notificationStatus === "Seen"
+                          : n.notificationStatus !== "Seen",
+                      )
+                      .map((notification) => (
+                        <button
+                          key={notification._id}
+                          onClick={() => {
+                            if (notification.notificationStatus !== "Seen") {
+                              handleNotificationClick(notification._id);
+                            }
+                          }}
+                          className={`w-full text-left p-2 flex items-start gap-3 transition-all duration-200 border-b border-[#D9D9D9]  ${notification.notificationStatus === "Seen"
+                            ? "bg-white/20 text-gray-900 hover:bg-white/50 dark:bg-[#252525]"
+                            : " text-gray-900 font-medium hover:bg-[#bfc5e8] dark:bg-[#252525] dark:hover:bg-[#5a5858]"
+                            }`}
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-[#E4E7F4] flex items-center justify-center relative shrink-0 dark:bg-[#343434] ">
+                            <span className="text-sm font-semibold text-[#576CBC] ">
+                              {notification.senderName?.[0] || "N"}
+                            </span>
+                            {!notification.isRead && (
+                              <span className="absolute bottom-0 right-0 w-2 h-2 bg-[#68D391] rounded-full border-2 border-white dark:bg-[#68D391]"></span>
+                            )}
+                          </div>
+
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <h4 className="text-xs font-semibold dark:text-white">
+                                {notification.senderName?.toLowerCase() ||
+                                  "Unknown"}
+                              </h4>
+                              <span className="text-xs text-gray-500 dark:text-[#bbb0b099]">
+                                {new Date(notification.createdDate)
+                                  .toLocaleString("en-GB", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })
+                                  .replace(",", "")}
+                              </span>
+                            </div>
+                            <div className="text-xs mt-0.5 text-gray-800 flex items-center gap-1">
+                              <span>
+                                {getNotificationIcon(
+                                  notification.notificationType,
                                 )}
-                              </div>
+                              </span>
+                              <span
+                                onClick={() =>
+                                  handleNotificationRedirect(notification)
+                                }
+                                className="text-xs text-[#43424299] dark:text-[#bbb0b099] dark:hover:text-white cursor-pointer hover:underline transition"
+                              >
+                                {notification.messages}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                  ) : (
+                    <div className="p-6 text-center text-gray-800">
+                      <Bell size={40} className="mx-auto text-gray-300 mb-2" />
+                      <p className="text-gray-700">No notifications found</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -499,7 +526,10 @@ useEffect(() => {
       </div>
 
       {open && (
-        <div className="absolute right-5 mt-2 w-40 bg-white dark:bg-[#252525] shadow-lg rounded-lg py-2 z-50" ref={menuRef}>
+        <div
+          className="absolute right-5 mt-2 w-40 bg-white dark:bg-[#252525] shadow-lg rounded-lg py-2 z-50"
+          ref={menuRef}
+        >
           <div className="px-4 py-2 text-sm text-gray-800 dark:text-white font-semibold">
             {userName}
           </div>
@@ -513,10 +543,31 @@ useEffect(() => {
         </div>
       )}
 
-      {showAddPackage && <AddPackage onClose={() => setShowAddPackage(false)} />}
-      {showAddMeeting && <AddMeeting onClose={() => setShowAddMeeting(false)} onMeetingCreated={() => setShowAddMeeting(false)} />}
-      {showAddExpenses && <AddExpenses onClose={() => setShowAddExpenses(false)} refreshExpenses={() => {}} />}
-      {showKnowledge && <KnowledgeBaseForm onClose={()=> setShowKnowledge(false)}/>}
+      {showAddPackage && (
+        <AddPackage onClose={() => setShowAddPackage(false)} />
+      )}
+      {showAddMeeting && (
+        <AddMeeting
+          onClose={() => setShowAddMeeting(false)}
+          onMeetingCreated={() => setShowAddMeeting(false)}
+        />
+      )}
+      {showAddExpenses && (
+        <AddExpenses
+          onClose={() => setShowAddExpenses(false)}
+          refreshExpenses={() => { }}
+        />
+      )}
+      {showKnowledge && (
+        <KnowledgeBaseForm onClose={() => setShowKnowledge(false)} />
+      )}
+      {showRaiseTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-2xl overflow-hidden">
+            <RaiseTicketModal onClose={() => setShowRaiseTicket(false)} />
+          </div>
+        </div>
+      )}
       {showGenerateInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="relative bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -527,7 +578,7 @@ useEffect(() => {
       {showAddEmployee && (
         <AddEmployee
           onClose={() => setShowAddEmployee(false)}
-            onSuccess={() => {
+          onSuccess={() => {
             setShowAddEmployee(false);
             toast.success(appSuccessToastMessages.EMPLOYEE_CREATED);
           }}
