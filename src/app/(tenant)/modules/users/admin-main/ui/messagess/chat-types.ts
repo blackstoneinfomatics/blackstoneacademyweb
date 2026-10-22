@@ -65,6 +65,7 @@ export interface IMessage {
   deliveredAt?: string;
   isDeleted: boolean;
   deletedBy:string;
+  deletedByName:string | null;
   seenAt?: string;
   replyTo?: { messageId: string; messages: string; senderName: string; senderId: string };
   attachment?: { name: string; size: number; type: string; url?: string };

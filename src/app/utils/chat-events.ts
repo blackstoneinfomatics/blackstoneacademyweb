@@ -13,6 +13,7 @@ export const CHAT_EVENTS = {
   MESSAGE_SEEN: "chat:messageSeen",
   MESSAGE_DELETED: "chat:messageDeleted",
   ROOM_UPDATED: "chat:roomUpdated",
+  ROOM_LIST_UPDATED: "chat:roomListUpdated",
   MEMBER_ADDED: "chat:memberAdded",
   MEMBER_REMOVED: "chat:memberRemoved",
   CLEARED: "chat:cleared",

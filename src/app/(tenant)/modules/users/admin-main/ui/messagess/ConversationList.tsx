@@ -146,6 +146,10 @@ const ConversationList = ({
     return () => controller.abort();
   }, [activeCategory, categories, onRoomsLoaded, retryKey, roomsRefreshKey]);
 
+  useEffect(()=>{
+    
+  },[categoryRooms]);
+
   const retryRooms = () => setRetryKey((previous) => previous + 1);
 
   return (

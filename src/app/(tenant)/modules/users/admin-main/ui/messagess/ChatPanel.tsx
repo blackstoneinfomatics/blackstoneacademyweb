@@ -284,7 +284,7 @@ const apiMessageToLocal = (
     status: "Active",
     isDeleted: message.isDeleted ?? message.deletedForEveryone ?? false,
     deletedBy: message.deletedBy || "",
-    deletedByName: message.deletedByName,
+    deletedByName: message.deletedByName || null,
     side: message.senderId === userId ? 'right' : 'left',
     replyTo: message.replyTo
       ? {
@@ -998,6 +998,7 @@ const userId = resolveAdminUserId();
         deliveredAt: timeStr,
         isDeleted: false,
         deletedBy: "",
+        deletedByName:null,
         side: "right",
         canReply: true,
         ...(replyTo
