@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 type Notification = {
-  id: number;
+  id: string;
   requestId: string;
   tenantName: string;
   category: string;
@@ -12,114 +14,87 @@ type Notification = {
   seenDate: string;
 };
 
-const notificationData: Notification[] = [
-  {
-    id: 1,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Backup Request",
-    description: "Tenant data backup requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "-",
-  },
-  {
-    id: 2,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Plan Change Request",
-    description: "Upgrade request to Premium plan",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 3,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Add Portal",
-    description: "Teacher Portal activation requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 4,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Disable Portal",
-    description: "Student Portal deactivation request",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 5,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Add Feature",
-    description: "Additional user access requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 6,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Disable Feature",
-    description: "Additional user access requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 7,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Purchase Update",
-    description: "New product update available",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 8,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Purchase Update",
-    description: "Tenant data backup requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 9,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Purchase Update",
-    description: "Tenant data backup requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 10,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Purchase Update",
-    description: "Tenant data backup requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-  {
-    id: 11,
-    requestId: "REQ-1048",
-    tenantName: "Blackstone Academy",
-    category: "Purchase Update",
-    description: "Tenant data backup requested",
-    receivedDate: "Sep 12, 2023",
-    seenDate: "Sep 12, 2023",
-  },
-];
+type ApiRecord = Record<string, unknown>;
+
+function getString(record: ApiRecord, keys: string[], fallback = ""): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "number") return String(value);
+  }
+  return fallback;
+}
+
+function formatDate(value: string): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+}
+
+function normalizeRequest(item: unknown, index: number): Notification {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    throw new Error("Notification request contains an invalid item.");
+  }
+
+  const record = item as ApiRecord;
+  const tenant =
+    record.tenant && typeof record.tenant === "object"
+      ? (record.tenant as ApiRecord)
+      : {};
+  const id = getString(record, ["_id", "id"], `request-${index}`);
+
+  return {
+    id,
+    requestId: getString(record, ["requestId", "requestCode", "ticketId"], id),
+    tenantName:
+      getString(record, ["tenantName", "organizationName"]) ||
+      getString(tenant, ["name", "tenantName"], "-"),
+    category: getString(
+      record,
+      ["category", "notificationCategory", "requestType", "type"],
+      "-",
+    ),
+    description: getString(
+      record,
+      ["description", "messages", "message", "reason"],
+      "-",
+    ),
+    receivedDate: formatDate(
+      getString(record, ["receivedDate", "createdDate", "createdAt", "requestedAt"]),
+    ),
+    seenDate: formatDate(
+      getString(record, ["seenDate", "seenAt", "readAt"]),
+    ),
+  };
+}
+
+function getRequestRows(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Unexpected notification request-list response.");
+  }
+
+  const data = payload as ApiRecord;
+  for (const key of ["requests", "requestList", "notifications", "items"]) {
+    if (Array.isArray(data[key])) return data[key] as unknown[];
+  }
+
+  throw new Error("Notification request-list response does not contain a list.");
+}
 
 export default function NotificationTable() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const [page, setPage] = useState(1);
-  const [notifications, setNotifications] =
-    useState<Notification[]>(notificationData);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterForm, setFilterForm] = useState({
     requestId: "",
@@ -130,7 +105,7 @@ export default function NotificationTable() {
     seenDate: "",
   });
 
-  const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
@@ -139,9 +114,36 @@ export default function NotificationTable() {
 
   const pageSize = 10;
 
+  useEffect(() => {
+    const fetchRequestList = async () => {
+      const token = localStorage.getItem("SuperAdminAuthToken");
+      if (!token) {
+        setLoadError("Super-admin authentication token is missing.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data } = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.REQUEST_LIST}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const rows = getRequestRows(data?.data);
+        setNotifications(rows.map(normalizeRequest));
+      } catch (error) {
+        console.error("Failed to fetch notification request list:", error);
+        setLoadError("Unable to load notification requests.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchRequestList();
+  }, []);
+
   const categories = [
     "All Categories",
-    ...Array.from(new Set(notificationData.map((item) => item.category))),
+    ...Array.from(new Set(notifications.map((item) => item.category))),
   ];
 
   const openFilterModal = () => {
@@ -267,6 +269,11 @@ export default function NotificationTable() {
       <h2 className="mb-3 text-[14px] font-semibold text-[#142342] dark:text-slate-100">
         All Notifications
       </h2>
+      {loadError && (
+        <p className="mb-3 text-[12px] text-red-600 dark:text-red-400" role="alert">
+          {loadError}
+        </p>
+      )}
 
       {/* Search and filter bar */}
       <div className="grid grid-cols-1 overflow-visible rounded-t-[6px] bg-[#fafafa] dark:bg-[#313131] sm:grid-cols-[1.1fr_1.05fr_1.05fr]">
@@ -427,7 +434,18 @@ export default function NotificationTable() {
               </tr>
             ))}
 
-            {currentData.length === 0 && (
+            {loading && (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="h-24 text-center text-[12px] text-[#888] dark:text-slate-300"
+                >
+                  Loading notification requests…
+                </td>
+              </tr>
+            )}
+
+            {!loading && !loadError && currentData.length === 0 && (
               <tr>
                 <td
                   colSpan={7}
@@ -511,17 +529,17 @@ export default function NotificationTable() {
           onClick={() => setShowFilterModal(false)}
         >
           <div
-            className="w-full max-w-[700px] rounded-[10px] border border-[#343b4d] bg-[#171b26] p-[18px] shadow-2xl"
+            className="w-full max-w-[700px] rounded-[10px] border border-gray-200 bg-white p-[18px] shadow-2xl dark:border-[#343b4d] dark:bg-[#171b26]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-[18px] flex items-center justify-between gap-3">
-              <h2 className="text-[15px] font-semibold text-white">
+              <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">
                 Filter Notifications
               </h2>
               <button
                 type="button"
                 onClick={() => setShowFilterModal(false)}
-                className="text-[18px] text-slate-400 transition hover:text-white"
+                className="text-[18px] text-gray-500 transition hover:text-gray-900 dark:text-slate-400 dark:hover:text-white"
                 aria-label="Close filter dialog"
               >
                 ×
@@ -530,7 +548,7 @@ export default function NotificationTable() {
 
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
               <div>
-                <label className="mb-[5px] block text-[12px] text-[#d5dced]">
+                <label className="mb-[5px] block text-[12px] text-gray-700 dark:text-[#d5dced]">
                   Request ID
                 </label>
                 <input
@@ -539,13 +557,13 @@ export default function NotificationTable() {
                   onChange={(event) =>
                     updateFilterForm("requestId", event.target.value)
                   }
-                  className="h-[34px] w-full rounded-[6px] border border-[#41495c] bg-[#222838] px-[10px] text-[11px] text-[#e2e8f0] outline-none"
+                  className="h-[34px] w-full rounded-[6px] border border-gray-300 bg-white px-[10px] text-[11px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#586fc3] dark:border-[#41495c] dark:bg-[#222838] dark:text-[#e2e8f0] dark:placeholder:text-slate-500"
                   placeholder="REQ-1048"
                 />
               </div>
 
               <div>
-                <label className="mb-[5px] block text-[12px] text-[#d5dced]">
+                <label className="mb-[5px] block text-[12px] text-gray-700 dark:text-[#d5dced]">
                   Tenant Name
                 </label>
                 <input
@@ -554,13 +572,13 @@ export default function NotificationTable() {
                   onChange={(event) =>
                     updateFilterForm("tenantName", event.target.value)
                   }
-                  className="h-[34px] w-full rounded-[6px] border border-[#41495c] bg-[#222838] px-[10px] text-[11px] text-[#e2e8f0] outline-none"
+                  className="h-[34px] w-full rounded-[6px] border border-gray-300 bg-white px-[10px] text-[11px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#586fc3] dark:border-[#41495c] dark:bg-[#222838] dark:text-[#e2e8f0] dark:placeholder:text-slate-500"
                   placeholder="Blackstone Academy"
                 />
               </div>
 
               <div>
-                <label className="mb-[5px] block text-[12px] text-[#d5dced]">
+                <label className="mb-[5px] block text-[12px] text-gray-700 dark:text-[#d5dced]">
                   Notification Category
                 </label>
                 <select
@@ -568,13 +586,13 @@ export default function NotificationTable() {
                   onChange={(event) =>
                     updateFilterForm("category", event.target.value)
                   }
-                  className="h-[34px] w-full rounded-[6px] border border-[#41495c] bg-[#222838] px-[10px] text-[11px] text-[#e2e8f0] outline-none"
+                  className="h-[34px] w-full rounded-[6px] border border-gray-300 bg-white px-[10px] text-[11px] text-gray-900 outline-none focus:border-[#586fc3] dark:border-[#41495c] dark:bg-[#222838] dark:text-[#e2e8f0]"
                 >
                   {categories.map((item) => (
                     <option
                       key={item}
                       value={item}
-                      className="bg-[#222838] text-[#e2e8f0]"
+                      className="bg-white text-gray-900 dark:bg-[#222838] dark:text-[#e2e8f0]"
                     >
                       {item}
                     </option>
@@ -583,7 +601,7 @@ export default function NotificationTable() {
               </div>
 
               <div>
-                <label className="mb-[5px] block text-[12px] text-[#d5dced]">
+                <label className="mb-[5px] block text-[12px] text-gray-700 dark:text-[#d5dced]">
                   Description
                 </label>
                 <input
@@ -592,13 +610,13 @@ export default function NotificationTable() {
                   onChange={(event) =>
                     updateFilterForm("description", event.target.value)
                   }
-                  className="h-[34px] w-full rounded-[6px] border border-[#41495c] bg-[#222838] px-[10px] text-[11px] text-[#e2e8f0] outline-none"
+                  className="h-[34px] w-full rounded-[6px] border border-gray-300 bg-white px-[10px] text-[11px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#586fc3] dark:border-[#41495c] dark:bg-[#222838] dark:text-[#e2e8f0] dark:placeholder:text-slate-500"
                   placeholder="Backup requested"
                 />
               </div>
 
               <div>
-                <label className="mb-[5px] block text-[12px] text-[#d5dced]">
+                <label className="mb-[5px] block text-[12px] text-gray-700 dark:text-[#d5dced]">
                   Received Date
                 </label>
                 <input
@@ -607,13 +625,13 @@ export default function NotificationTable() {
                   onChange={(event) =>
                     updateFilterForm("receivedDate", event.target.value)
                   }
-                  className="h-[34px] w-full rounded-[6px] border border-[#41495c] bg-[#222838] px-[10px] text-[11px] text-[#e2e8f0] outline-none"
+                  className="h-[34px] w-full rounded-[6px] border border-gray-300 bg-white px-[10px] text-[11px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#586fc3] dark:border-[#41495c] dark:bg-[#222838] dark:text-[#e2e8f0] dark:placeholder:text-slate-500"
                   placeholder="Sep 12, 2023"
                 />
               </div>
 
               <div>
-                <label className="mb-[5px] block text-[12px] text-[#d5dced]">
+                <label className="mb-[5px] block text-[12px] text-gray-700 dark:text-[#d5dced]">
                   Seen Date
                 </label>
                 <input
@@ -622,7 +640,7 @@ export default function NotificationTable() {
                   onChange={(event) =>
                     updateFilterForm("seenDate", event.target.value)
                   }
-                  className="h-[34px] w-full rounded-[6px] border border-[#41495c] bg-[#222838] px-[10px] text-[11px] text-[#e2e8f0] outline-none"
+                  className="h-[34px] w-full rounded-[6px] border border-gray-300 bg-white px-[10px] text-[11px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#586fc3] dark:border-[#41495c] dark:bg-[#222838] dark:text-[#e2e8f0] dark:placeholder:text-slate-500"
                   placeholder="Sep 12, 2023"
                 />
               </div>
@@ -632,7 +650,7 @@ export default function NotificationTable() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="h-[32px] min-w-[86px] rounded-[6px] border border-[#5668a9] bg-[#252c40] px-[15px] text-[11px] font-medium text-[#b9c7ff] hover:bg-[#303a54]"
+                className="h-[32px] min-w-[86px] rounded-[6px] border border-gray-300 bg-gray-100 px-[15px] text-[11px] font-medium text-gray-700 hover:bg-gray-200 dark:border-[#5668a9] dark:bg-[#252c40] dark:text-[#b9c7ff] dark:hover:bg-[#303a54]"
               >
                 Clear
               </button>
@@ -741,27 +759,7 @@ export default function NotificationTable() {
           onClick={() => setShowDetailsModal(false)}
           className="h-[32px] min-w-[76px] rounded-[6px] border border-[#5668a9] bg-[#252c40] px-[17px] text-[11px] font-medium text-[#b9c7ff] hover:bg-[#303a54]"
         >
-          Cancel
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setNotifications((previous) =>
-              previous.map((notification) =>
-                notification.id === selectedNotification.id
-                  ? {
-                      ...notification,
-                      seenDate: "Oct 10, 2026",
-                    }
-                  : notification
-              )
-            );
-            setShowDetailsModal(false);
-          }}
-          className="h-[32px] min-w-[79px] rounded-[6px] bg-[#586fc3] px-[17px] text-[11px] font-medium text-white hover:bg-[#465db0]"
-        >
-          Process
+          Close
         </button>
       </div>
     </div>

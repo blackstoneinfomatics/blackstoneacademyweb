@@ -17,13 +17,8 @@ export const CATEGORY_OPTIONS = [
 
 export const PRIORITY_OPTIONS = ["Low", "Medium", "High"] as const;
 
-const UNASSIGNED_PLAN = "Unassigned";
-const TENANTS_PAGE_LIMIT = 1000;
-
-const SUPER_ADMIN_TENANT_NAME = "SuperAdmin";
-const SUPER_ADMIN_TENANT_CODE = "TEN00000";
-const SUPER_ADMIN_PLAN = "Super";
-const EXCLUDED_STATUSES = ["completed", "inactive", "deleted"];
+const EXCLUDED_TENANT_NAMES = ["SuperAdmin", "Super Admin"];
+const EXCLUDED_TENANT_CODES = ["TEN00000"];
 
 /* ──────────────────────────────────────────────────────────────
    Types
@@ -43,15 +38,14 @@ export interface UpdateFormData {
 }
 
 interface TenantOption {
-  id: string;
-  name: string;
-  plan: string;
-  planId: string | undefined;
+  id: string;      // tenantCode (e.g. "TEN000075")
+  name: string;    // tenantName (e.g. "jeevitha")
+  plan: string;    // planName (e.g. "Standard")
 }
 
 interface PlanOption {
-  id: string;
-  name: string;
+  id: string;      // _id
+  name: string;    // planName
 }
 
 interface CreateUpdateFormProps {
@@ -83,7 +77,8 @@ interface CreateUpdateFormProps {
    API endpoints
    ────────────────────────────────────────────────────────────── */
 const API_URL = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.CREATE}`;
-const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}/tenantsubscription`;
+const PLANS_API = `${AppApiEndpoints.API_END_POINT}/api/plans/active`;
 
 /* ──────────────────────────────────────────────────────────────
    Styles
@@ -116,32 +111,13 @@ const resolveAudience = (formData: UpdateFormData): string[] => {
   }
 };
 
-const resolvePlanName = (t: any): string =>
-  t.plan ?? t.planName ?? t.subscriptionPlan ?? UNASSIGNED_PLAN;
-
-const resolvePlanId = (t: any): string | undefined =>
-  t.planId ?? t.plan_id ?? undefined;
-
-const resolveTenantId = (t: any): string =>
-  t.tenantCode ?? t._id ?? t.id ?? "";
-
-const resolveTenantName = (t: any): string => t.tenantName ?? t.name ?? "";
-
-const isActiveTenant = (t: any): boolean => {
-  const status = (t.status ?? "").toString().trim().toLowerCase();
-  if (!status) return false;
-  return !EXCLUDED_STATUSES.includes(status);
-};
-
-const isNotSuperAdmin = (t: any): boolean => {
-  const name = (t.tenantName ?? t.name ?? "").toString().trim().toLowerCase();
-  const plan = (t.plan ?? "").toString().trim().toLowerCase();
-  const code = (t.tenantCode ?? "").toString().trim().toLowerCase();
-
-  if (name === SUPER_ADMIN_TENANT_NAME.toLowerCase()) return false;
-  if (plan === SUPER_ADMIN_PLAN.toLowerCase()) return false;
-  if (code === SUPER_ADMIN_TENANT_CODE.toLowerCase()) return false;
-  return true;
+const isExcludedTenant = (name: string, code: string): boolean => {
+  const n = (name ?? "").trim().toLowerCase();
+  const c = (code ?? "").trim();
+  return (
+    EXCLUDED_TENANT_NAMES.some((x) => x.toLowerCase() === n) ||
+    EXCLUDED_TENANT_CODES.includes(c)
+  );
 };
 
 /* ──────────────────────────────────────────────────────────────
@@ -170,6 +146,7 @@ const CreateUpdateForm = ({
   const [tenantsError, setTenantsError] = useState<string | null>(null);
   const [searchTenant, setSearchTenant] = useState("");
 
+  /* ── Fetch tenants + plans in parallel ── */
   useEffect(() => {
     let cancelled = false;
 
@@ -178,54 +155,48 @@ const CreateUpdateForm = ({
       setTenantsError(null);
 
       try {
-        // ✅ No query params — backend rejects them
-        const res = await fetch(TENANTS_API, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-        });
+        const [tenantRes, planRes] = await Promise.all([
+          fetch(TENANTS_API),
+          fetch(PLANS_API),
+        ]);
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!tenantRes.ok) throw new Error(`Tenants HTTP ${tenantRes.status}`);
+        if (!planRes.ok) throw new Error(`Plans HTTP ${planRes.status}`);
 
-        const json = await res.json();
+        const tenantJson = await tenantRes.json();
+        const planJson = await planRes.json();
 
-        // Response shape: { total, tenants: [...] }
-        const items: any[] = Array.isArray(json)
-          ? json
-          : json?.tenants ?? json?.data?.tenants ?? json?.data?.items ?? [];
+        /* ── Tenants ── */
+        const rawTenants: any[] = Array.isArray(tenantJson)
+          ? tenantJson
+          : tenantJson?.data?.tenants ?? tenantJson?.data ?? tenantJson?.tenants ?? [];
 
-        const list: TenantOption[] = items
-          .filter(isActiveTenant)
-          .filter(isNotSuperAdmin)
-          .reduce<TenantOption[]>((acc, t) => {
-            const id = resolveTenantId(t);
-            const name = resolveTenantName(t);
-            if (!id || !name) return acc;
-            acc.push({
-              id,
-              name,
-              plan: resolvePlanName(t),
-              planId: resolvePlanId(t),
-            });
-            return acc;
-          }, []);
+        const tenants: TenantOption[] = rawTenants
+          .map((t: any) => {
+            // The response may wrap tenant info under `t.tenant`
+            const tenantObj = t?.tenant ?? t;
+            const id = tenantObj?.tenantCode ?? tenantObj?.tenantId ?? "";
+            const name = tenantObj?.tenantName ?? "";
+            const plan =
+              t?.planName ?? tenantObj?.plan ?? t?.plan?.planName ?? "";
+            return { id, name, plan };
+          })
+          .filter((t) => t.id && t.name)
+          .filter((t) => !isExcludedTenant(t.name, t.id))
+          .filter((t) => (t.plan ?? "").toLowerCase() !== "super");
+
+        /* ── Plans ── */
+        const rawPlans: any[] = Array.isArray(planJson?.data)
+          ? planJson.data
+          : [];
+
+        const plans: PlanOption[] = rawPlans
+          .map((p: any) => ({ id: p._id ?? p.planId ?? p.planName, name: p.planName }))
+          .filter((p) => p.name);
 
         if (cancelled) return;
-        setAllTenants(list);
-
-        const planMap = new Map<string, PlanOption>();
-        list.forEach((t) => {
-          if (t.plan.toLowerCase() === SUPER_ADMIN_PLAN.toLowerCase()) return;
-          if (!planMap.has(t.plan)) {
-            planMap.set(t.plan, { id: t.planId ?? t.plan, name: t.plan });
-          }
-        });
-
-        setPlanOptions(
-          Array.from(planMap.values()).sort((a, b) =>
-            a.name.localeCompare(b.name),
-          ),
-        );
+        setAllTenants(tenants);
+        setPlanOptions(plans);
       } catch (e: any) {
         if (!cancelled) setTenantsError(e?.message ?? "Failed to load tenants");
       } finally {
@@ -254,7 +225,6 @@ const CreateUpdateForm = ({
     onFileChange(e.target.files?.[0] ?? null);
   };
 
-  /* ⭐ Build payload reads `formData.selectedTenants` — the parent keeps it fresh ── */
   const buildPayload = () => {
     const categoryValue =
       CATEGORY_OPTIONS.find((o) => o.label === formData.category)?.value ??
@@ -262,7 +232,7 @@ const CreateUpdateForm = ({
 
     const audienceArr = resolveAudience(formData);
 
-    // Backend wants string[] — send plain names
+    // Backend expects string[] of tenant names
     const selectedTenantsArr =
       formData.audience === "selectTenants" ? formData.selectedTenants : [];
 
@@ -312,12 +282,6 @@ const CreateUpdateForm = ({
       const payload = buildPayload();
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(
-          "🧪 At submit — selectedTenants:",
-          formData.selectedTenants,
-          "length:",
-          formData.selectedTenants.length,
-        );
         console.log("📤 POST /api/updates →", JSON.stringify(payload, null, 2));
       }
 
@@ -397,16 +361,8 @@ const CreateUpdateForm = ({
               disabled={isWorking}
               className="text-[#A5AAB4] hover:text-[#101B41] dark:text-gray-400 dark:hover:text-white disabled:opacity-50"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
@@ -417,29 +373,18 @@ const CreateUpdateForm = ({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClassName}>Update Title</label>
-                <input
-                  type="text"
-                  name="updateTitle"
-                  value={formData.updateTitle}
-                  onChange={onInputChange}
-                  placeholder="Enter Update Title"
-                  className={inputClassName}
-                />
+                <input type="text" name="updateTitle"
+                  value={formData.updateTitle} onChange={onInputChange}
+                  placeholder="Enter Update Title" className={inputClassName} />
               </div>
 
               <div>
                 <label className={labelClassName}>Category</label>
                 <div className="relative">
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={onInputChange}
-                    className={selectClassName}
-                  >
+                  <select name="category" value={formData.category}
+                    onChange={onInputChange} className={selectClassName}>
                     {CATEGORY_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.label}>
-                        {opt.label}
-                      </option>
+                      <option key={opt.value} value={opt.label}>{opt.label}</option>
                     ))}
                   </select>
                   <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
@@ -452,51 +397,35 @@ const CreateUpdateForm = ({
               <label className={labelClassName}>Audience</label>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-3 pt-1">
                 <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200">
-                  <input
-                    type="radio"
-                    name="audienceType"
+                  <input type="radio" name="audienceType"
                     checked={formData.audience === "allTenants"}
                     onChange={() => onAudienceChange("allTenants")}
-                    className="h-3.5 w-3.5 accent-[#5872C5]"
-                  />
+                    className="h-3.5 w-3.5 accent-[#5872C5]" />
                   All Tenants
                 </label>
 
                 <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200">
-                  <input
-                    type="radio"
-                    name="audienceType"
+                  <input type="radio" name="audienceType"
                     checked={formData.audience === "selectTenants"}
                     onChange={() => onAudienceChange("selectTenants")}
-                    className="h-3.5 w-3.5 accent-[#5872C5]"
-                  />
+                    className="h-3.5 w-3.5 accent-[#5872C5]" />
                   Select Tenants
                 </label>
 
                 {tenantsLoading ? (
-                  <span className="text-[12px] text-gray-400">
-                    Loading plans...
-                  </span>
+                  <span className="text-[12px] text-gray-400">Loading plans...</span>
                 ) : (
                   planOptions.map((plan) => {
                     const count = allTenants.filter(
-                      (t) => t.plan === plan.name,
+                      (t) => t.plan.toLowerCase() === plan.name.toLowerCase(),
                     ).length;
                     return (
-                      <label
-                        key={plan.id}
-                        className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200"
-                      >
-                        <input
-                          type="radio"
-                          name="audienceType"
-                          checked={
-                            formData.audience === "byPlan" &&
-                            formData.selectedPlan === plan.name
-                          }
+                      <label key={plan.id}
+                        className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200">
+                        <input type="radio" name="audienceType"
+                          checked={formData.audience === "byPlan" && formData.selectedPlan === plan.name}
                           onChange={() => onPlanChange(plan.name)}
-                          className="h-3.5 w-3.5 accent-[#5872C5]"
-                        />
+                          className="h-3.5 w-3.5 accent-[#5872C5]" />
                         {plan.name} ({count})
                       </label>
                     );
@@ -505,7 +434,7 @@ const CreateUpdateForm = ({
               </div>
             </div>
 
-            {/* Select Tenants list */}
+            {/* Select Tenants */}
             {isSelectTenants && (
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -517,33 +446,20 @@ const CreateUpdateForm = ({
                   </span>
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="Search tenants..."
+                <input type="text" placeholder="Search tenants..."
                   value={searchTenant}
                   onChange={(e) => setSearchTenant(e.target.value)}
-                  className={`${inputClassName} mb-2`}
-                />
+                  className={`${inputClassName} mb-2`} />
 
                 {formData.selectedTenants.length > 0 && (
                   <div className="mb-2 flex flex-wrap gap-1.5 rounded-md border border-[#D5D9E2] bg-[#F8F9FC] p-2 dark:border-[#555] dark:bg-[#333]">
                     {formData.selectedTenants.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
+                      <button key={name} type="button"
                         onClick={() => onTenantToggle(name)}
-                        className="inline-flex items-center gap-1 rounded-md bg-[#E6EAF2] px-2 py-1 text-[11px] font-medium text-[#576CBC] hover:bg-[#D6DDF0] dark:bg-[#3A4570] dark:text-[#A8B7E8]"
-                      >
+                        className="inline-flex items-center gap-1 rounded-md bg-[#E6EAF2] px-2 py-1 text-[11px] font-medium text-[#576CBC] hover:bg-[#D6DDF0] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
                         {name}
-                        <svg
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                        >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                           <line x1="18" y1="6" x2="6" y2="18" />
                           <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
@@ -554,37 +470,22 @@ const CreateUpdateForm = ({
 
                 <div className="max-h-[180px] overflow-y-auto rounded-md border border-[#D5D9E2] bg-white p-2 dark:border-[#555] dark:bg-[#3A3A3A]">
                   {tenantsLoading ? (
-                    <p className="py-4 text-center text-[12px] text-gray-400">
-                      Loading tenants...
-                    </p>
+                    <p className="py-4 text-center text-[12px] text-gray-400">Loading tenants...</p>
                   ) : tenantsError ? (
-                    <p className="py-4 text-center text-[12px] text-red-500">
-                      {tenantsError}
-                    </p>
+                    <p className="py-4 text-center text-[12px] text-red-500">{tenantsError}</p>
                   ) : filteredTenants.length === 0 ? (
-                    <p className="py-4 text-center text-[12px] text-gray-400">
-                      No tenants found
-                    </p>
+                    <p className="py-4 text-center text-[12px] text-gray-400">No tenants found</p>
                   ) : (
                     filteredTenants.map((t) => {
-                      const isChecked = formData.selectedTenants.includes(
-                        t.name,
-                      );
+                      const isChecked = formData.selectedTenants.includes(t.name);
                       return (
-                        <label
-                          key={t.id}
-                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] text-[#101B41] hover:bg-[#F5F6FA] dark:text-gray-200 dark:hover:bg-[#444]"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
+                        <label key={t.id}
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12px] text-[#101B41] hover:bg-[#F5F6FA] dark:text-gray-200 dark:hover:bg-[#444]">
+                          <input type="checkbox" checked={isChecked}
                             onChange={() => onTenantToggle(t.name)}
-                            className="h-3.5 w-3.5 accent-[#5872C5]"
-                          />
+                            className="h-3.5 w-3.5 accent-[#5872C5]" />
                           {t.name}
-                          <span className="ml-auto text-[10px] text-gray-400">
-                            {t.plan}
-                          </span>
+                          <span className="ml-auto text-[10px] text-gray-400">{t.plan}</span>
                         </label>
                       );
                     })
@@ -593,7 +494,7 @@ const CreateUpdateForm = ({
               </div>
             )}
 
-            {/* Info banner */}
+            {/* Info */}
             <div className="flex items-start gap-3 rounded-md bg-[#EEF0FB] px-3 py-2.5 text-[12px] text-[#101B41] dark:bg-[#2A3550] dark:text-gray-200">
               <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#5872C5] text-[10px] font-bold text-white">
                 <FiInfo className="h-2.5 w-2.5" />
@@ -604,42 +505,27 @@ const CreateUpdateForm = ({
             {/* Description */}
             <div>
               <label className={labelClassName}>Description</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={onInputChange}
-                rows={6}
+              <textarea name="description" value={formData.description}
+                onChange={onInputChange} rows={6}
                 placeholder="Enter update description"
-                className={`${inputClassName} resize-none`}
-              />
+                className={`${inputClassName} resize-none`} />
             </div>
 
             {/* Publish Date + Priority */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClassName}>Publish Date</label>
-                <input
-                  type="date"
-                  name="publishDate"
-                  value={formData.publishDate}
-                  onChange={onInputChange}
-                  className={inputClassName}
-                />
+                <input type="date" name="publishDate"
+                  value={formData.publishDate} onChange={onInputChange}
+                  className={inputClassName} />
               </div>
-
               <div>
                 <label className={labelClassName}>Priority</label>
                 <div className="relative">
-                  <select
-                    name="priority"
-                    value={formData.priority}
-                    onChange={onInputChange}
-                    className={selectClassName}
-                  >
+                  <select name="priority" value={formData.priority}
+                    onChange={onInputChange} className={selectClassName}>
                     {PRIORITY_OPTIONS.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
+                      <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
                   <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
@@ -653,17 +539,11 @@ const CreateUpdateForm = ({
                 <label className={labelClassName}>Attachments</label>
                 <div className="flex items-center justify-between rounded-md border border-[#D5D9E2] bg-white px-3 py-2 dark:bg-[#3A3A3A] dark:border-[#555]">
                   <span className="truncate text-[12px] text-gray-400 dark:text-gray-500">
-                    {formData.attachments
-                      ? formData.attachments.name
-                      : "No file"}
+                    {formData.attachments ? formData.attachments.name : "No file"}
                   </span>
                   <label className="cursor-pointer text-[12px] font-medium text-[#5872C5] hover:underline dark:text-[#A8B7E8]">
                     Upload
-                    <input
-                      type="file"
-                      onChange={handleFileInput}
-                      className="hidden"
-                    />
+                    <input type="file" onChange={handleFileInput} className="hidden" />
                   </label>
                 </div>
               </div>
@@ -672,34 +552,24 @@ const CreateUpdateForm = ({
                 <label className={labelClassName}>Sent Notification</label>
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1.5">
                   <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200">
-                    <input
-                      type="checkbox"
-                      checked={formData.sendEmail}
+                    <input type="checkbox" checked={formData.sendEmail}
                       onChange={(e) => onSendEmailChange(e.target.checked)}
-                      className="h-3.5 w-3.5 accent-[#5872C5]"
-                    />
+                      className="h-3.5 w-3.5 accent-[#5872C5]" />
                     Email
                   </label>
                   <label className="flex cursor-pointer items-center gap-2 text-[12px] text-[#101B41] dark:text-gray-200">
-                    <input
-                      type="checkbox"
-                      checked={formData.sendInAppNotification}
+                    <input type="checkbox" checked={formData.sendInAppNotification}
                       onChange={(e) => onSendInAppChange(e.target.checked)}
-                      className="h-3.5 w-3.5 accent-[#5872C5]"
-                    />
+                      className="h-3.5 w-3.5 accent-[#5872C5]" />
                     In-App Notification
                   </label>
                 </div>
               </div>
             </div>
 
-            {/* Submit */}
             <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={isWorking}
-                className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#4D66B3] disabled:opacity-50 dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]"
-              >
+              <button type="submit" disabled={isWorking}
+                className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#4D66B3] disabled:opacity-50 dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]">
                 {isWorking ? "Publishing..." : "Publish Update"}
               </button>
             </div>

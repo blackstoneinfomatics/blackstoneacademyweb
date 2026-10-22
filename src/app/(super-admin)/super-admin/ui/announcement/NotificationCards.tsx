@@ -1,9 +1,19 @@
-import React from "react";
+"use client";
 
-const notifications = [
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+
+type NotificationCounts = {
+  total: number;
+  seen: number;
+  unseen: number;
+};
+
+const cardConfig = [
   {
+    key: "total",
     title: "Total Notifications",
-    count: 128,
     description: "Received this month",
     color: "#3192ff",
     bg: "#e2f0ff",
@@ -11,8 +21,8 @@ const notifications = [
     icon: "bell",
   },
   {
+    key: "seen",
     title: "Seen",
-    count: 28,
     description: "Notifications acknowledged",
     color: "#35bd65",
     bg: "#e2f5e8",
@@ -20,15 +30,63 @@ const notifications = [
     icon: "eye",
   },
   {
+    key: "unseen",
     title: "Unseen",
-    count: 28,
     description: "Needs attention",
     color: "#ff9f13",
     bg: "#fff3e2",
     darkBg: "#46351f",
     icon: "eye",
   },
-];
+] as const;
+
+function readCount(
+  source: Record<string, unknown>,
+  keys: string[],
+): number | undefined {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return undefined;
+}
+
+function parseNotificationCounts(payload: unknown): NotificationCounts {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Unexpected notification card-details response.");
+  }
+
+  const data = payload as Record<string, unknown>;
+  const nested =
+    data.data && typeof data.data === "object" && !Array.isArray(data.data)
+      ? (data.data as Record<string, unknown>)
+      : data;
+
+  const total = readCount(nested, [
+    "total",
+    "totalCount",
+    "totalNotifications",
+    "totalNotificationCount",
+  ]);
+  const seen = readCount(nested, [
+    "seen",
+    "seenCount",
+    "seenNotifications",
+    "readCount",
+  ]);
+  const unseen = readCount(nested, [
+    "unseen",
+    "unseenCount",
+    "unseenNotifications",
+    "unreadCount",
+  ]);
+
+  if (total === undefined || seen === undefined || unseen === undefined) {
+    throw new Error("Notification card-details response is missing count fields.");
+  }
+
+  return { total, seen, unseen };
+}
 
 function NotificationIcon({ type }: { type: string }) {
   if (type === "bell") {
@@ -56,11 +114,45 @@ function NotificationIcon({ type }: { type: string }) {
 }
 
 export default function NotificationCards() {
+  const [counts, setCounts] = useState<NotificationCounts>({
+    total: 0,
+    seen: 0,
+    unseen: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCardDetails = async () => {
+      const token = localStorage.getItem("SuperAdminAuthToken");
+      if (!token) {
+        setError("Super-admin authentication token is missing.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data } = await axios.get(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.CARD_DETAILS}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        setCounts(parseNotificationCounts(data?.data));
+      } catch (fetchError) {
+        console.error("Failed to fetch notification card details:", fetchError);
+        setError("Unable to load notification counts.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchCardDetails();
+  }, []);
+
   return (
     <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {notifications.map((item) => (
+      {cardConfig.map((item) => (
         <div
-          key={item.title}
+          key={item.key}
           className="flex h-[88px] min-w-0 flex-col justify-between rounded-[13px] bg-white px-3 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] transition-colors dark:border-[#30394b] dark:bg-[#343434] dark:shadow-md"
         >
           <div className="flex items-center gap-3">
@@ -74,7 +166,6 @@ export default function NotificationCards() {
               >
                 <NotificationIcon type={item.icon} />
               </div>
-
               <div
                 className="hidden h-full w-full items-center justify-center rounded-full dark:flex"
                 style={{ backgroundColor: item.darkBg }}
@@ -90,15 +181,18 @@ export default function NotificationCards() {
               >
                 {item.title}
               </p>
-
               <p className="mt-0.5 text-[14px] font-bold leading-5 text-[#202020] dark:text-white">
-                {item.count}
+                {loading ? "…" : counts[item.key]}
               </p>
             </div>
           </div>
 
-          <p className="truncate text-right text-[10px] text-[#555555] dark:text-[#aeb9ce]">
-            {item.description}
+          <p
+            className="truncate text-right text-[10px] text-[#555555] dark:text-[#aeb9ce]"
+            role={error ? "status" : undefined}
+            title={error ?? undefined}
+          >
+            {error ?? item.description}
           </p>
         </div>
       ))}

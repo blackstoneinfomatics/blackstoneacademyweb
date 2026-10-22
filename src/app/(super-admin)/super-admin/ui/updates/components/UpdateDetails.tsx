@@ -4,11 +4,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, Download, FileText } from "lucide-react";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}/tenantsubscription`;
 
-/* ──────────────────────────────────────────────────────────────
-   Types
-   ────────────────────────────────────────────────────────────── */
+const EXCLUDED_TENANT_NAMES = ["SuperAdmin", "Super Admin"];
+const EXCLUDED_TENANT_CODES = ["TEN00000"];
+
+interface TenantOption {
+  id: string;
+  name: string;
+  plan: string;
+  aliases: string[];
+}
+
 interface UpdateDetailsProps {
   updateId: string;
   update: any | null;
@@ -16,95 +23,121 @@ interface UpdateDetailsProps {
   error: string | null;
   fallbackSelectedTenants?: string[];
   totalTenantsCount?: number;
+  expectedCount?: number;   // ⭐ explicit count from parent
   onClose: () => void;
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Component
-   ────────────────────────────────────────────────────────────── */
+const isExcludedTenant = (name: string, code: string): boolean => {
+  const n = (name ?? "").trim().toLowerCase();
+  const c = (code ?? "").trim();
+  return (
+    EXCLUDED_TENANT_NAMES.some((x) => x.toLowerCase() === n) ||
+    EXCLUDED_TENANT_CODES.includes(c)
+  );
+};
+
 const UpdateDetails = ({
   update,
   loading,
   error,
   fallbackSelectedTenants = [],
   totalTenantsCount = 0,
+  expectedCount,
   onClose,
 }: UpdateDetailsProps) => {
-  // tenantMap: { [tenantCode | _id | tenantName] → tenantName }
-  const [tenantMap, setTenantMap] = useState<Record<string, string>>({});
+  const [allTenants, setAllTenants] = useState<TenantOption[]>([]);
+  const [tenantsLoading, setTenantsLoading] = useState(true);
 
-  /* ── Fetch tenants using XHR (bypasses window.fetch override) ── */
+  /* ── Fetch tenants from /tenantsubscription ── */
   useEffect(() => {
     let cancelled = false;
 
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", TENANTS_API, true);
+    (async () => {
+      setTenantsLoading(true);
+      try {
+        const res = await fetch(TENANTS_API);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    xhr.onload = () => {
-      if (cancelled) return;
+        const json = await res.json();
 
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const json = JSON.parse(xhr.responseText);
-          const items: any[] = Array.isArray(json)
-            ? json
-            : json?.tenants ?? json?.data?.tenants ?? json?.data?.items ?? [];
+        const rawTenants: any[] = Array.isArray(json)
+          ? json
+          : json?.data?.tenants ?? json?.data ?? json?.tenants ?? [];
 
-          const map: Record<string, string> = {};
+        const list: TenantOption[] = rawTenants.reduce<TenantOption[]>(
+          (acc, t) => {
+            const tenantObj = t?.tenant ?? t;
+            const id = tenantObj?.tenantCode ?? tenantObj?.tenantId ?? "";
+            const name = tenantObj?.tenantName ?? "";
+            const plan =
+              t?.planName ?? tenantObj?.plan ?? t?.plan?.planName ?? "";
 
-          items.forEach((t: any) => {
-            const name = t.tenantName ?? t.name;
-            if (!name) return;
+            if (!id || !name) return acc;
+            if (isExcludedTenant(name, id)) return acc;
+            if ((plan ?? "").toLowerCase() === "super") return acc;
 
-            // Store by every identifier we can find
-            const keys = [
-              t.tenantCode,
-              t._id,
-              t.id,
-              t.tenantJobCode,
-              t.tenantName,
-              t.name,
-            ].filter(Boolean);
+            const aliases = new Set<string>();
+            [
+              tenantObj?.tenantCode,
+              tenantObj?.tenantId,
+              tenantObj?._id,
+              tenantObj?.tenantName,
+              tenantObj?.tenantJobCode,
+              name,
+              id,
+            ]
+              .filter(Boolean)
+              .forEach((v: any) => {
+                const s = String(v).trim();
+                if (!s) return;
+                aliases.add(s);
+                aliases.add(s.toLowerCase());
+              });
 
-            keys.forEach((k: any) => {
-              const s = String(k).trim();
-              if (!s) return;
-              map[s] = name;
-              map[s.toLowerCase()] = name;
+            acc.push({
+              id,
+              name,
+              plan,
+              aliases: Array.from(aliases),
             });
-          });
+            return acc;
+          },
+          [],
+        );
 
-          if (process.env.NODE_ENV !== "production") {
-            console.log("✅ Tenants loaded:", items.length, map);
-          }
-
-          setTenantMap(map);
-        } catch (e) {
-          if (process.env.NODE_ENV !== "production") {
-            console.error("❌ Failed to parse tenants:", e);
-          }
-        }
-      } else {
+        if (!cancelled) setAllTenants(list);
+      } catch (e) {
         if (process.env.NODE_ENV !== "production") {
-          console.error("❌ Tenant XHR failed with status:", xhr.status);
+          console.error("❌ Tenant fetch failed:", e);
         }
+        if (!cancelled) setAllTenants([]);
+      } finally {
+        if (!cancelled) setTenantsLoading(false);
       }
-    };
-
-    xhr.onerror = () => {
-      if (process.env.NODE_ENV !== "production") {
-        console.error("❌ Tenant XHR network error");
-      }
-    };
-
-    xhr.send();
+    })();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  /* ── Resolve value → tenant name ── */
+  /* ── Lookup maps ── */
+  const { tenantByAlias, tenantByName } = useMemo(() => {
+    const byAlias: Record<string, TenantOption> = {};
+    const byName: Record<string, TenantOption> = {};
+
+    allTenants.forEach((t) => {
+      t.aliases.forEach((a) => {
+        byAlias[a] = t;
+        byAlias[a.toLowerCase()] = t;
+      });
+      byName[t.name.toLowerCase()] = t;
+    });
+
+    return { tenantByAlias: byAlias, tenantByName: byName };
+  }, [allTenants]);
+
+  /* ── Resolver ── */
   const resolveName = (value: string): string | null => {
     if (!value) return null;
     const trimmed = String(value).trim();
@@ -112,20 +145,19 @@ const UpdateDetails = ({
 
     const lower = trimmed.toLowerCase();
 
-    // Try full key
-    if (tenantMap[trimmed]) return tenantMap[trimmed];
-    if (tenantMap[lower]) return tenantMap[lower];
+    const byAlias = tenantByAlias[trimmed] ?? tenantByAlias[lower];
+    if (byAlias) return byAlias.name;
 
-    // Fuzzy match: does any map key contain this value or vice versa?
-    const foundKey = Object.keys(tenantMap).find(
-      (k) =>
-        k.toLowerCase() === lower ||
-        k.toLowerCase().includes(lower) ||
-        lower.includes(k.toLowerCase()),
+    const byName = tenantByName[lower];
+    if (byName) return byName.name;
+
+    const fuzzy = allTenants.find(
+      (t) =>
+        t.name.toLowerCase().includes(lower) ||
+        lower.includes(t.name.toLowerCase()),
     );
-    if (foundKey) return tenantMap[foundKey];
+    if (fuzzy) return fuzzy.name;
 
-    // Last resort: show raw value
     return trimmed;
   };
 
@@ -139,59 +171,86 @@ const UpdateDetails = ({
   const isSelectTenants = audienceJoined.includes("select tenant");
   const isByPlan = !isAllTenants && !isSelectTenants;
 
-  /* ── Tenant list (never drops a chip) ── */
+  /* ── Tenant list ── */
   const tenantList: string[] = useMemo(() => {
     if (!update) return [];
+    const collected: string[] = [];
 
-    const source: any[] =
-      Array.isArray(update.selectedTenants) && update.selectedTenants.length > 0
-        ? update.selectedTenants
-        : Array.isArray(update.selectedTenantDetails)
-          ? update.selectedTenantDetails
-          : [];
-
-    const resolved: string[] = source
-      .filter((t) => t !== null && t !== undefined && t !== "")
-      .map((t) => {
-        const raw =
-          typeof t === "string"
-            ? t
-            : t?.tenantCode ??
-            t?._id ??
-            t?.tenantName ??
-            t?.name ??
-            String(t);
+    // selectedTenantDetails first (authoritative)
+    if (Array.isArray(update.selectedTenantDetails)) {
+      update.selectedTenantDetails.forEach((t: any) => {
+        const raw = t?.tenantCode ?? t?._id ?? t?.tenantName ?? t?.name;
+        if (!raw) return;
         const name = resolveName(String(raw));
-        return name ?? String(raw); // never null → chip always shows
+        if (name) collected.push(name);
       });
+    }
+
+    // Then selectedTenants
+    if (Array.isArray(update.selectedTenants)) {
+      update.selectedTenants.forEach((t: any) => {
+        if (!t) return;
+        if (typeof t === "string") {
+          const name = resolveName(t);
+          if (name) collected.push(name);
+        } else {
+          const raw =
+            t?.tenantCode ?? t?._id ?? t?.tenantName ?? t?.name ?? "";
+          const name = resolveName(String(raw));
+          if (name) collected.push(name);
+        }
+      });
+    }
+
+    // By-plan fallback
+    if (isByPlan && collected.length === 0 && allTenants.length > 0) {
+      const planName = String(rawAudience[0] ?? "").trim().toLowerCase();
+      allTenants
+        .filter((t) => t.plan.toLowerCase() === planName)
+        .forEach((t) => collected.push(t.name));
+    }
+
+    // Parent fallback
+    if (collected.length === 0 && fallbackSelectedTenants.length > 0) {
+      fallbackSelectedTenants.forEach((n) => {
+        const name = resolveName(n);
+        if (name) collected.push(name);
+      });
+    }
 
     // Dedup
     const seen = new Set<string>();
-    return resolved.filter((n) => {
-      const k = n.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
+    return collected.filter((n) => {
+      const key = n.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [update, tenantMap, fallbackSelectedTenants]);
+  }, [
+    update,
+    allTenants,
+    isByPlan,
+    rawAudience,
+    fallbackSelectedTenants,
+    tenantByAlias,
+    tenantByName,
+  ]);
 
-  /* ── Count always matches backend array length ── */
-  const selectedCount = Array.isArray(update?.selectedTenants)
-    ? update.selectedTenants.length
-    : Array.isArray(update?.selectedTenantDetails)
-      ? update.selectedTenantDetails.length
+  /* ⭐ Count — prefer explicit expectedCount from parent ── */
+  const selectedCount =
+    typeof expectedCount === "number" && expectedCount >= 0
+      ? expectedCount
       : tenantList.length;
 
-  /* ── Labels ── */
+  const allTenantsCount =
+    totalTenantsCount > 0 ? totalTenantsCount : allTenants.length;
+
   const audienceLabel = isAllTenants
     ? "All Tenants"
     : isSelectTenants
       ? `Selected Tenants (${selectedCount})`
       : `${rawAudience[0] ?? "Plan"} Tenants (${selectedCount})`;
-
-  const allTenantsCount =
-    totalTenantsCount > 0 ? totalTenantsCount : Object.keys(tenantMap).length;
 
   /* ── Colors ── */
   const statusValue: string =
@@ -237,7 +296,6 @@ const UpdateDetails = ({
   const fieldBoxClass =
     "flex w-full items-center rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[12px] leading-5 text-[#101B41] min-h-[42px] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white";
 
-  /* ── Loading ── */
   if (loading) {
     return (
       <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl p-6">
@@ -245,26 +303,19 @@ const UpdateDetails = ({
           <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
             Update Details
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-500"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500">
             <X size={18} />
           </button>
         </div>
         <div className="space-y-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-10 w-full animate-pulse rounded-md bg-gray-200 dark:bg-[#454545]"
-            />
+            <div key={i} className="h-10 w-full animate-pulse rounded-md bg-gray-200 dark:bg-[#454545]" />
           ))}
         </div>
       </div>
     );
   }
 
-  /* ── Error ── */
   if (error || !update) {
     return (
       <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl p-6">
@@ -272,10 +323,7 @@ const UpdateDetails = ({
           <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
             Update Details
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-500"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500">
             <X size={18} />
           </button>
         </div>
@@ -283,11 +331,8 @@ const UpdateDetails = ({
           {error || "Failed to load update details"}
         </div>
         <div className="mt-5 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white hover:bg-[#4D66B3]"
-          >
+          <button type="button" onClick={onClose}
+            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white hover:bg-[#4D66B3]">
             Back
           </button>
         </div>
@@ -295,20 +340,14 @@ const UpdateDetails = ({
     );
   }
 
-  /* ──────────────────────────────────────────────────────────
-     Main render
-     ────────────────────────────────────────────────────────── */
   return (
     <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl">
       <div className="flex items-start justify-between px-6 pt-5 pb-4">
         <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
           Update Details
         </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-        >
+        <button type="button" onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
           <X size={18} />
         </button>
       </div>
@@ -344,7 +383,9 @@ const UpdateDetails = ({
               <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
                 All Tenants
               </label>
-              <div className={fieldBoxClass}>{allTenantsCount}</div>
+              <div className={fieldBoxClass}>
+                {tenantsLoading ? "…" : allTenantsCount}
+              </div>
             </div>
             <div>
               <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
@@ -379,10 +420,8 @@ const UpdateDetails = ({
                 <div className="flex flex-wrap gap-2">
                   {tenantList.length > 0 ? (
                     tenantList.map((name, i) => (
-                      <span
-                        key={`${name}-${i}`}
-                        className="rounded-md bg-[#E6EAF2] px-3 py-1.5 text-[11px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]"
-                      >
+                      <span key={`${name}-${i}`}
+                        className="rounded-md bg-[#E6EAF2] px-3 py-1.5 text-[11px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
                         {name}
                       </span>
                     ))
@@ -406,9 +445,7 @@ const UpdateDetails = ({
                 <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
                   Priority
                 </label>
-                <div
-                  className={`${fieldBoxClass} font-medium ${priorityColor}`}
-                >
+                <div className={`${fieldBoxClass} font-medium ${priorityColor}`}>
                   {update.priority || "—"}
                 </div>
               </div>
@@ -440,10 +477,8 @@ const UpdateDetails = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                className="text-[#576CBC] hover:text-[#4D66B3] dark:text-[#A8B7E8]"
-              >
+              <button type="button"
+                className="text-[#576CBC] hover:text-[#4D66B3] dark:text-[#A8B7E8]">
                 <Download className="h-4 w-4" />
               </button>
             </div>
@@ -451,11 +486,8 @@ const UpdateDetails = ({
         )}
 
         <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#4D66B3] dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]"
-          >
+          <button type="button" onClick={onClose}
+            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#4D66B3] dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]">
             Back
           </button>
         </div>

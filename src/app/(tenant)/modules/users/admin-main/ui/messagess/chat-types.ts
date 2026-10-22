@@ -18,6 +18,37 @@ export interface DirectoryMember {
 
 export type RoomType = "TENANT" | "SEGMENT" | "GLOBAL";
 
+/* ⭐ Backend only accepts these two for the {source} path param */
+export type ChatSource = "TENANT" | "SUPER_ADMIN";
+
+/* ⭐ Shared filter type used by ConversationList + page */
+export type RoomListFilter = "ALL" | "GROUP" | "ADMIN" | "SUPERADMIN";
+
+export interface SendMessagePayload {
+  roomId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  messageType: "TEXT" | "IMAGE" | "FILE";
+  message: string;
+  replyTo?: {
+    messageId: string;
+    message: string;
+    senderId: string;
+    senderName: string;
+  };
+}
+
+export interface SendMessageResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    _id?: string;
+    messageId?: string;
+    message?: { _id?: string };
+  };
+}
+
 export interface IMessage {
   _id: string;
   messages: string;
@@ -33,6 +64,7 @@ export interface IMessage {
   status: "Active" | "Inactive";
   deliveredAt?: string;
   isDeleted: boolean;
+  deletedBy:string;
   seenAt?: string;
   replyTo?: { messageId: string; messages: string; senderName: string; senderId: string };
   attachment?: { name: string; size: number; type: string; url?: string };
@@ -41,6 +73,7 @@ export interface IMessage {
 }
 
 export interface IUser {
+  chatSource?: ChatSource;
   profileImage: string | null;
   _id: string;
   userName: any;
@@ -52,7 +85,7 @@ export interface IUser {
   isGroup: boolean;
   roomType: RoomType;
   plan: any;
-  members: { name: string; plan: any; tenantId?: string; isSelected?: boolean }[];
+  members: { name: string; plan: any; tenantId?: string; isSelected?: boolean; role?: string }[];
   groupSettings: "everyone" | "admins";
   lastMessage?: { text: string; time: string; senderName?: string };
   unreadCount: number;
@@ -63,4 +96,7 @@ export interface IUser {
   planName?: string;
   planId?: string;
   sendAccess?: "EVERYONE" | "ADMIN_ONLY";
+  /* ⭐ Optional so existing code that doesn't set them still compiles */
+  roomRole?: string;
+  roomCourse?: string;
 }

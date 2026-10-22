@@ -5,7 +5,7 @@ import BaseLayout4 from "../../components/BaseLayout4";
 
 import CurrentSubscription from "./components/CurrentSubscription";
 import AvailablePlans from "./components/AvailablePlans";
-import PortalAccess from "./components/PortalAccess";
+import PortalAccess from "./components/PortalAccess/PortalAccess";
 import Invoice from "./components/Invoice";
 import AdminHeader from "../../components/AdminHeader";
 import PlanChangeRequestModal from "./components/PlanChangeRequestModal";
