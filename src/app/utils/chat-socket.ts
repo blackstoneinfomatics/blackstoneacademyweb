@@ -29,6 +29,7 @@ type ChatEventHandlers = {
   [CHAT_EVENTS.MESSAGE_SEEN]: ChatEventPayload;
   [CHAT_EVENTS.MESSAGE_DELETED]: ChatEventPayload;
   [CHAT_EVENTS.ROOM_UPDATED]: ChatEventPayload;
+  [CHAT_EVENTS.ROOM_LIST_UPDATED]:ChatEventPayload;
   [CHAT_EVENTS.MEMBER_ADDED]: ChatEventPayload;
   [CHAT_EVENTS.MEMBER_REMOVED]: ChatEventPayload;
   [CHAT_EVENTS.CLEARED]: ChatEventPayload;
@@ -235,6 +236,11 @@ export const onChatRoomCreated = (
   userId: string,
   handler: ChatEventHandler<typeof CHAT_EVENTS.ROOM_CREATED>,
 ) => onChatEvent(userId, CHAT_EVENTS.ROOM_CREATED, handler);
+
+export const onRoomListUpdated = (
+  userId: string,
+  handler: ChatEventHandler<typeof CHAT_EVENTS.ROOM_LIST_UPDATED>,
+) => onChatEvent(userId, CHAT_EVENTS.ROOM_LIST_UPDATED, handler);
 
 export const onUnreadCountUpdated = (
   userId: string,

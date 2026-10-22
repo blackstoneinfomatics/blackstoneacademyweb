@@ -36,8 +36,8 @@ const resolveChatSource = (): "TENANT" | "SUPER_ADMIN" => {
 const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
 const API_DELETE_CHAT_ROOM = (roomId: string) =>
   `${API_BASE}/user/chat-room/${encodeURIComponent(roomId)}`;
-const API_GET_GROUP_DETAILS = (roomId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
+// const API_GET_GROUP_DETAILS = (source :string,  roomId: string) =>
+//   `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(source,roomId)}`;
 
 const ROOM_MESSAGES_PAGE_LIMIT = 10;
 
@@ -907,7 +907,7 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
               const last = list[list.length - 1];
               const preview = {
                 text: last.message ?? "",
-                time: formatMessageTime(last.createdAt ?? last.timestamp),
+                time: formatMessageTime(last.createdAt ?? ""),
                 senderName: last.senderName ?? "",
               };
               updates[room._id] = preview;
@@ -1025,42 +1025,42 @@ const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
     };
   }, [categoryRooms, readStateVersion]);
 
-  useEffect(() => {
-    if (!selectedUser) return;
-    if (!selectedUser.isGroup && !selectedUser.role.includes("Group")) return;
-    const roomId = selectedUser.roomId || selectedUser._id;
-    const token = resolveAuthToken();
-    const currentSelectedId = selectedUser._id;
-    const controller = new AbortController();
+  // useEffect(() => {
+  //   if (!selectedUser) return;
+  //   if (!selectedUser.isGroup && !selectedUser.role.includes("Group")) return;
+  //   const roomId = selectedUser.roomId || selectedUser._id;
+  //   const token = resolveAuthToken();
+  //   const currentSelectedId = selectedUser._id;
+  //   const controller = new AbortController();
 
-    (async () => {
-      try {
-        const res = await fetch(API_GET_GROUP_DETAILS(roomId), {
-          cache: "no-store",
-          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          signal: controller.signal,
-        });
-        if (!res.ok) return;
-        const json = await res.json();
-        const groupData = json?.data ?? json;
-        const rawMembers: any[] = Array.isArray(groupData?.members) ? groupData.members : [];
-        if (controller.signal.aborted || rawMembers.length === 0) return;
-        const removedIds = getRemovedTenants(roomId);
-        const freshMembers = rawMembers.map((m: any) => ({
-          name: m.tenantName || m.name || m.tenantId || "Unknown",
-          plan: groupData?.planName ?? selectedUser.planName ?? "",
-          tenantId: m.tenantId || m._id || "",
-          isSelected: removedIds.includes(m.tenantId || m._id)
-            ? false
-            : (m.isSelected !== undefined ? m.isSelected : true),
-        }));
-        mergeIntoRoomMembersCache(roomId, freshMembers.map((m) => ({ tenantId: m.tenantId, tenantName: m.name })));
-        setSelectedUser((prev) => (prev && prev._id === currentSelectedId ? { ...prev, members: freshMembers } : prev));
-      } catch { /* silent */ }
-    })();
+  //   (async () => {
+  //     try {
+  //       const res = await fetch(API_GET_GROUP_DETAILS(roomId), {
+  //         cache: "no-store",
+  //         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  //         signal: controller.signal,
+  //       });
+  //       if (!res.ok) return;
+  //       const json = await res.json();
+  //       const groupData = json?.data ?? json;
+  //       const rawMembers: any[] = Array.isArray(groupData?.members) ? groupData.members : [];
+  //       if (controller.signal.aborted || rawMembers.length === 0) return;
+  //       const removedIds = getRemovedTenants(roomId);
+  //       const freshMembers = rawMembers.map((m: any) => ({
+  //         name: m.tenantName || m.name || m.tenantId || "Unknown",
+  //         plan: groupData?.planName ?? selectedUser.planName ?? "",
+  //         tenantId: m.tenantId || m._id || "",
+  //         isSelected: removedIds.includes(m.tenantId || m._id)
+  //           ? false
+  //           : (m.isSelected !== undefined ? m.isSelected : true),
+  //       }));
+  //       mergeIntoRoomMembersCache(roomId, freshMembers.map((m) => ({ tenantId: m.tenantId, tenantName: m.name })));
+  //       setSelectedUser((prev) => (prev && prev._id === currentSelectedId ? { ...prev, members: freshMembers } : prev));
+  //     } catch { /* silent */ }
+  //   })();
 
-    return () => controller.abort();
-  }, [selectedUser?._id, selectedUser?.isGroup]);
+  //   return () => controller.abort();
+  // }, [selectedUser?._id, selectedUser?.isGroup]);
 
   /* ⭐ Fetch messages only when the room _id changes. Uses selectedUserRef
      so setSelectedUser({...prev}) inside the effect doesn't re-trigger it. */

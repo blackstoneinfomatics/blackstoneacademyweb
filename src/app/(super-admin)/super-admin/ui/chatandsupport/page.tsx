@@ -554,8 +554,15 @@ const MessageInfoModal = ({
   const [seenError, setSeenError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const userId = localStorage.getItem("SuperAdminUserId");
+   const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId")
+    : null;
 
     if (!token || !userId) {
       setSeenError("Super-admin authentication data is missing.");
@@ -869,9 +876,20 @@ const Message = () => {
 
     try {
       const fetchTab = async (tab: "ALL" | "UNREAD" | "GROUP") => {
-        const userId = localStorage.getItem("SuperAdminUserId") || "";
-        const tenantId = localStorage.getItem("tenantId") || "";
-        const token = localStorage.getItem("SuperAdminAuthToken");
+     const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") || ""
+    : "";
+
+const tenantId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("tenantId") || ""
+    : "";
+
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
 
         const res = await fetch(
           `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}&tab=${tab}&userId=${userId}&tenantId=${tenantId}`,
@@ -1032,8 +1050,10 @@ const Message = () => {
     (async () => {
       setPlansLoading(true);
       try {
-        const token = localStorage.getItem("SuperAdminAuthToken");
-
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
         const res = await fetch(API_ACTIVE_PLANS, {
           cache: "no-store",
           headers: {
@@ -1099,8 +1119,10 @@ const Message = () => {
     (async () => {
       setPlanTenantsLoading(true);
       try {
-        const token = localStorage.getItem("SuperAdminAuthToken");
-
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
         const res = await fetch(API_TENANTS_BY_PLAN(addGroupData.planId), {
           cache: "no-store",
           headers: {
@@ -1165,8 +1187,10 @@ const Message = () => {
     if (!selectedUser.isGroup && !selectedUser.role.includes("Group")) return;
 
     const roomId = selectedUser.roomId || selectedUser._id;
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const currentSelectedId = selectedUser._id;
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;    const currentSelectedId = selectedUser._id;
 
     const controller = new AbortController();
 
@@ -1263,8 +1287,10 @@ const Message = () => {
 
     const planId = selectedUser.planId;
     const roomId = selectedUser.roomId || selectedUser._id;
-    const token = localStorage.getItem("SuperAdminAuthToken");
-
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
     console.log("🟡 [Step 0] Group Details modal opened", { roomId, planId });
 
     let cancelled = false;
@@ -1507,8 +1533,10 @@ const apiMessageToLocal = (
 };
   const roomId =selectedUser?._id;
      const chatSource : ChatSource = "SUPER_ADMIN";
-    const userId = localStorage.getItem("SuperAdminUserId");
-
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") || ""
+    : "";
   useEffect(() => {
       if (!userId || !roomId || !chatSource) return;
     
@@ -1599,8 +1627,15 @@ if (localMessage.senderId !== userId) {
   useEffect(() => {
     if (!selectedUser) return;
 
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const userId = localStorage.getItem("SuperAdminUserId");
+  const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId")
+    : null;
     if (!token || !userId) {
       console.error("Super-admin authentication data is missing");
       return;
@@ -1739,10 +1774,20 @@ if (localMessage.senderId !== userId) {
       return Promise.resolve("Select a tenant or group before sending.");
     if (!text.trim()) return Promise.resolve("Enter a message before sending.");
 
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const senderId = localStorage.getItem("SuperAdminUserId") ?? "";
-    const senderName =
-      localStorage.getItem("SuperAdminPortalName") || currentUser.userName;
+   const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const senderId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") ?? ""
+    : "";
+
+const senderName =
+  (typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminPortalName")
+    : null) || currentUser.userName;
 
     const payload = {
       roomId: selectedUser._id,
@@ -1948,7 +1993,11 @@ if (localMessage.senderId !== userId) {
     if (!selectedUser) return;
     const deletedId = selectedUser._id;
     const roomId = selectedUser.roomId || deletedId;
-    const token = localStorage.getItem("SuperAdminAuthToken");
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
 
     try {
       const response = await fetch(API_UPDATE_CHAT_ROOM(roomId), {
@@ -1992,8 +2041,16 @@ if (localMessage.senderId !== userId) {
   const handleClearChat = async () => {
     if (!selectedUser) return;
 
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const userId = localStorage.getItem("SuperAdminUserId");
+   const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId")
+    : null;
+
     if (!token || !userId) {
       console.error("Super-admin authentication data is missing");
       return;
@@ -2058,8 +2115,12 @@ if (localMessage.senderId !== userId) {
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const userId = localStorage.getItem("SuperAdminUserId") || "";
-      const res = await fetch(
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") || ""
+    : "";     
+    
+    const res = await fetch(
         `${API_DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`,
         {
           method: "DELETE",
