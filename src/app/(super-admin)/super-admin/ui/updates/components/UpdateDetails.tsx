@@ -23,7 +23,7 @@ interface UpdateDetailsProps {
   error: string | null;
   fallbackSelectedTenants?: string[];
   totalTenantsCount?: number;
-  expectedCount?: number;   // ⭐ explicit count from parent
+  expectedCount?: number;
   onClose: () => void;
 }
 
@@ -176,7 +176,6 @@ const UpdateDetails = ({
     if (!update) return [];
     const collected: string[] = [];
 
-    // selectedTenantDetails first (authoritative)
     if (Array.isArray(update.selectedTenantDetails)) {
       update.selectedTenantDetails.forEach((t: any) => {
         const raw = t?.tenantCode ?? t?._id ?? t?.tenantName ?? t?.name;
@@ -186,7 +185,6 @@ const UpdateDetails = ({
       });
     }
 
-    // Then selectedTenants
     if (Array.isArray(update.selectedTenants)) {
       update.selectedTenants.forEach((t: any) => {
         if (!t) return;
@@ -202,7 +200,6 @@ const UpdateDetails = ({
       });
     }
 
-    // By-plan fallback
     if (isByPlan && collected.length === 0 && allTenants.length > 0) {
       const planName = String(rawAudience[0] ?? "").trim().toLowerCase();
       allTenants
@@ -210,7 +207,6 @@ const UpdateDetails = ({
         .forEach((t) => collected.push(t.name));
     }
 
-    // Parent fallback
     if (collected.length === 0 && fallbackSelectedTenants.length > 0) {
       fallbackSelectedTenants.forEach((n) => {
         const name = resolveName(n);
@@ -218,7 +214,6 @@ const UpdateDetails = ({
       });
     }
 
-    // Dedup
     const seen = new Set<string>();
     return collected.filter((n) => {
       const key = n.toLowerCase();
@@ -237,7 +232,6 @@ const UpdateDetails = ({
     tenantByName,
   ]);
 
-  /* ⭐ Count — prefer explicit expectedCount from parent ── */
   const selectedCount =
     typeof expectedCount === "number" && expectedCount >= 0
       ? expectedCount
@@ -295,6 +289,26 @@ const UpdateDetails = ({
 
   const fieldBoxClass =
     "flex w-full items-center rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[12px] leading-5 text-[#101B41] min-h-[42px] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white";
+
+  /* ⭐ Get the localStorage row FIRST to override backend values */
+  const local = (() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const rows = JSON.parse(
+        window.localStorage.getItem("blackstone_created_updates_v1") || "[]"
+      );
+      return rows.find(
+        (r: any) =>
+          r.title?.trim().toLowerCase() === update?.title?.trim().toLowerCase()
+      );
+    } catch {
+      return null;
+    }
+  })();
+
+  // ⭐ Prefer localStorage values (which hold the latest updates) over the backend API values
+  const monthlyPrice = local?.monthlyPrice ?? update?.monthlyPrice ?? "—";
+  const discount = local?.discount ?? update?.discount ?? "—";
 
   if (loading) {
     return (
@@ -374,6 +388,24 @@ const UpdateDetails = ({
           </label>
           <div className="w-full min-h-[120px] rounded-md border border-[#D5D9E2] bg-white px-3 py-3 text-[12px] leading-5 text-[#101B41] whitespace-pre-wrap dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
             {update.description || "—"}
+          </div>
+        </div>
+
+        {/* ⭐ Payment Details Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
+              Monthly Price
+            </label>
+            <div className={fieldBoxClass}>{monthlyPrice}</div>
+          </div>
+          <div>
+            <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
+              Discount (%)
+            </label>
+            <div className={fieldBoxClass}>
+              {discount !== "—" ? `${discount} %` : "—"}
+            </div>
           </div>
         </div>
 

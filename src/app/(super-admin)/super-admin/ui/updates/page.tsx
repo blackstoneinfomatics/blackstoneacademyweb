@@ -31,6 +31,8 @@ interface LocalUpdate {
   attachments: string[];
   sendNotification?: { email: boolean; inApp: boolean };
   createdAt: string;
+  monthlyPrice?: number;
+  discount?: number;
 }
 
 const loadLocalUpdates = (): LocalUpdate[] => {
@@ -89,6 +91,8 @@ interface ApiUpdateRow {
   attachments?: string[];
   sendNotification?: { email: boolean; inApp: boolean };
   createdAt?: string;
+  monthlyPrice?: number;
+  discount?: number;
 }
 
 interface UpdatesTableResponse {
@@ -121,7 +125,6 @@ const isApiRow = (row: ApiUpdateRow | LocalUpdate): row is ApiUpdateRow => {
   return (row as ApiUpdateRow)._id !== undefined;
 };
 
-/* ⭐ Build (code, name) pairs from any source — single source of truth */
 const buildTenantPairs = (
   row: any,
 ): { tenantCode: string; tenantName: string }[] => {
@@ -151,7 +154,6 @@ const buildTenantPairs = (
     });
   }
 
-  // Dedup by name (or code fallback)
   const seen = new Set<string>();
   return pairs.filter((p) => {
     const key = (p.tenantName || p.tenantCode).toLowerCase();
@@ -176,7 +178,6 @@ const normalizeRow = (
 
   const anyRow = row as any;
 
-  /* ⭐ Use the same source as the modal */
   const tenantPairs = buildTenantPairs(anyRow);
   const selectedNames = tenantPairs
     .map((p) => p.tenantName || p.tenantCode)
@@ -211,11 +212,13 @@ const normalizeRow = (
     affectedTenants: isAllTenants ? totalTenantsCount : count,
     rawAudience: audienceArr,
     rawSelectedTenants: selectedNames,
-    rawSelectedTenantDetails: tenantPairs,   // ⭐ NEW
+    rawSelectedTenantDetails: tenantPairs,
     attachments: row.attachments ?? [],
     sendNotification: row.sendNotification,
     publishDate: row.publishDate,
-  };
+    monthlyPrice: anyRow.monthlyPrice,
+    discount: anyRow.discount,
+  } as ProductUpdate;
 };
 
 const mergeRows = (
@@ -232,7 +235,6 @@ const mergeRows = (
     const key = api.title.trim().toLowerCase();
     const local = localByTitle.get(key);
 
-    // ⭐ Preserve selectedTenantDetails as the authoritative source
     let tenantPairs = buildTenantPairs(api as any);
 
     if (tenantPairs.length === 0 && local?.selectedTenants?.length) {
@@ -251,6 +253,8 @@ const mergeRows = (
           ? api.audience
           : local?.audience ?? ["All Tenants"],
       status: api.status ?? (local?.status as any) ?? "Scheduled",
+      monthlyPrice: api.monthlyPrice ?? local?.monthlyPrice,
+      discount: api.discount ?? local?.discount,
     };
 
     merged.push(normalizeRow(enriched, totalTenantsCount));
@@ -474,6 +478,8 @@ const page = () => {
     description: "",
     publishDate: "",
     priority: "Medium",
+    monthlyPrice: "",
+    discount: "",
     attachments: null,
     sendEmail: false,
     sendInAppNotification: false,
@@ -489,7 +495,6 @@ const page = () => {
   const filteredItems = applyFilters(updateList, search, appliedFilters);
   const previewFilteredItems = applyFilters(updateList, search, draftFilters);
 
-  /* ── Fetch tenant count from /tenantsubscription ── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -520,7 +525,6 @@ const page = () => {
     };
   }, []);
 
-  /* ── Fetch cards ── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -541,7 +545,6 @@ const page = () => {
     };
   }, []);
 
-  /* ── Fetch table ── */
   useEffect(() => {
     if (totalTenantsCount === 0) return;
 
@@ -572,7 +575,6 @@ const page = () => {
     };
   }, [totalTenantsCount]);
 
-  /* ── Fetch update by ID ── */
   useEffect(() => {
     if (!viewUpdateId) {
       setViewUpdateData(null);
@@ -603,7 +605,9 @@ const page = () => {
             ...json.data,
             status: json.data?.status ?? prev?.status,
             priority: json.data?.priority ?? prev?.priority,
-            // ⭐ Preserve expectedCount and fallback through the merge
+            // ⭐ Ensure payment fields from API merge with existing state
+            monthlyPrice: json.data?.monthlyPrice ?? prev?.monthlyPrice,
+            discount: json.data?.discount ?? prev?.discount,
             expectedCount: prev?.expectedCount,
           }));
         } else if (!cancelled) {
@@ -678,6 +682,8 @@ const page = () => {
           existingLocal.audience = isAllTenants
             ? ["All Tenants"]
             : ["Select Tenants"];
+          existingLocal.monthlyPrice = (payload as any).monthlyPrice;
+          existingLocal.discount = (payload as any).discount;
           saveLocalUpdates(localRows);
         }
 
@@ -695,6 +701,8 @@ const page = () => {
             tenantName: n,
           })),
           affectedTenants: nextSelectedNames.length,
+          monthlyPrice: (payload as any).monthlyPrice,
+          discount: (payload as any).discount,
         };
       }),
     );
@@ -763,6 +771,8 @@ const page = () => {
       description: "",
       publishDate: "",
       priority: "Medium",
+      monthlyPrice: "",
+      discount: "",
       attachments: null,
       sendEmail: false,
       sendInAppNotification: false,
@@ -862,6 +872,8 @@ const page = () => {
         attachments: payload.attachments || [],
         sendNotification: payload.sendNotification,
         createdAt: new Date().toISOString(),
+        monthlyPrice: payload.monthlyPrice,
+        discount: payload.discount,
       };
 
       upsertLocalUpdate(localRow);
@@ -1182,6 +1194,8 @@ const page = () => {
                                         item.affectedTenants ??
                                         totalTenantsCount,
                                       expectedCount,
+                                      monthlyPrice: (item as any).monthlyPrice ?? local?.monthlyPrice,
+                                      discount: (item as any).discount ?? local?.discount,
                                     });
 
                                     setViewUpdateId(item.updateId);
