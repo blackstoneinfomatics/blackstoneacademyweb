@@ -160,7 +160,7 @@ export default function AdminHeader({
   }, [userId]);
 
   useEffect(() => {
-    const socket = io("https://api.blackstoneinfomaticstech.com");
+    const socket = io(AppApiEndpoints.API_END_POINT);
 
     socket.on("notification", (data: any) => {
       setNotifications((prev) => [data, ...prev]);

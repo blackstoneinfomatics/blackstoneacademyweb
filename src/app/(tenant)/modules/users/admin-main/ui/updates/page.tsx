@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
     Search,
     SlidersHorizontal,
@@ -9,18 +9,20 @@ import {
     ChevronRight,
     X,
     Info,
+    Loader2,
 } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import AdminHeader from "../../components/AdminHeader";
 import BaseLayout4 from "../../components/BaseLayout4";
 
 interface UpdateItem {
+    id: string;
     updateTitle: string;
     description: string;
     category: string;
     publishDate: string;
-    status: "Published" | "Scheduled" | "Draft" | string;
-    purchaseStatus: "Purchased" | "Not Purchased" | "Requested" | string;
+    status: string;
+    purchaseStatus: string;
 }
 
 type FilterState = {
@@ -41,20 +43,8 @@ const INITIAL_FILTERS: FilterState = {
     toDate: "",
 };
 
-const SAMPLE_UPDATES: UpdateItem[] = [
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Feature Release", publishDate: "Today, 10.30 AM", status: "Published", purchaseStatus: "Requested" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Maintenance", publishDate: "Today, 10.30 AM", status: "Scheduled", purchaseStatus: "Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Security Update", publishDate: "Today, 10.30 AM", status: "Published", purchaseStatus: "Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Bug Fix", publishDate: "Today, 10.30 AM", status: "Scheduled", purchaseStatus: "Not Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Feature Release", publishDate: "Today, 10.30 AM", status: "Published", purchaseStatus: "Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Maintenance", publishDate: "Today, 10.30 AM", status: "Scheduled", purchaseStatus: "Not Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Security Update", publishDate: "Today, 10.30 AM", status: "Published", purchaseStatus: "Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Feature Release", publishDate: "Today, 10.30 AM", status: "Scheduled", purchaseStatus: "Not Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Bug Fix", publishDate: "Today, 10.30 AM", status: "Published", purchaseStatus: "Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Feature Release", publishDate: "Today, 10.30 AM", status: "Published", purchaseStatus: "Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Feature Release", publishDate: "Today, 10.30 AM", status: "Published", purchaseStatus: "Purchased" },
-    { updateTitle: "New Dashboard Released", description: "Storage usage tracking", category: "Maintenance", publishDate: "Today, 10.30 AM", status: "Scheduled", purchaseStatus: "Purchased" },
-];
+// ✅ Point to your local backend
+const API_BASE_URL = "http://localhost:5001/api";
 
 const categoryBadgeClass = (category: string) => {
     switch (category?.toLowerCase()) {
@@ -85,6 +75,13 @@ const purchaseBadgeClass = (status: string) => {
 };
 
 const Updates = () => {
+    // API Data State
+    const [updatesData, setUpdatesData] = useState<UpdateItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [tenantId, setTenantId] = useState<string>("");
+
+    // UI State
     const [search, setSearch] = useState("");
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [draftFilters, setDraftFilters] = useState<FilterState>(INITIAL_FILTERS);
@@ -100,45 +97,109 @@ const Updates = () => {
 
     const itemsPerPage = 10;
 
-    const categoryOptions = useMemo(() => Array.from(new Set(SAMPLE_UPDATES.map((u) => u.category))).filter(Boolean), []);
-    const statusOptions = useMemo(() => Array.from(new Set(SAMPLE_UPDATES.map((u) => u.status))).filter(Boolean), []);
-    const purchaseOptions = useMemo(() => Array.from(new Set(SAMPLE_UPDATES.map((u) => u.purchaseStatus))).filter(Boolean), []);
+    // 1. Fetch Tenant ID on Mount
+    useEffect(() => {
+        // Try to get from localStorage (adjust the key if your app uses a different one)
+        const storedId = localStorage.getItem("tenantId")
+            || localStorage.getItem("tenant_id")
+            || localStorage.getItem("user");
+
+        if (storedId) {
+            try {
+                // If it's a JSON object, parse it
+                const parsed = JSON.parse(storedId);
+                setTenantId(parsed.tenantId || parsed.tenant_id || parsed.id || "");
+            } catch {
+                // If it's just a plain string, use it directly
+                setTenantId(storedId);
+            }
+        } else {
+            // Fallback: hardcode a test ID here if you just want to test the API immediately
+            setTenantId("64f1b2c3d4e5f6a7b8c9d0e1");
+        }
+    }, []);
+
+    // 2. Fetch Live Data from API
+    useEffect(() => {
+        if (!tenantId) return; // Don't fetch if no ID
+
+        const fetchUpdates = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const response = await fetch(`${API_BASE_URL}/updates/tenant/${tenantId}`);
+
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch updates: ${response.statusText}`);
+                }
+
+                const json = await response.json();
+                const rawData = json.data || json;
+
+                const mappedData: UpdateItem[] = rawData.map((item: any) => ({
+                    id: item._id || item.id || String(Math.random()),
+                    updateTitle: item.title || item.updateTitle || "Untitled",
+                    description: item.description || "",
+                    category: item.category || "General",
+                    publishDate: item.publishDate || item.releaseDate
+                        ? new Date(item.publishDate || item.releaseDate).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' })
+                        : "N/A",
+                    status: item.status || "Draft",
+                    purchaseStatus: item.purchaseStatus || "Not Purchased",
+                }));
+
+                setUpdatesData(mappedData);
+            } catch (err: any) {
+                console.error("API Error:", err);
+                setError(err.message || "An unexpected error occurred.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchUpdates();
+    }, [tenantId]);
+
+    // Dynamic Filter Options
+    const categoryOptions = useMemo(() => Array.from(new Set(updatesData.map((u) => u.category))).filter(Boolean), [updatesData]);
+    const statusOptions = useMemo(() => Array.from(new Set(updatesData.map((u) => u.status))).filter(Boolean), [updatesData]);
+    const purchaseOptions = useMemo(() => Array.from(new Set(updatesData.map((u) => u.purchaseStatus))).filter(Boolean), [updatesData]);
 
     const filteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return SAMPLE_UPDATES.filter((item) => {
+        return updatesData.filter((item) => {
             const matchesSearch = !term || [item.updateTitle, item.description, item.category, item.publishDate, item.status, item.purchaseStatus].join(" ").toLowerCase().includes(term);
             const matchesTitle = !appliedFilters.title || item.updateTitle.toLowerCase().includes(appliedFilters.title.toLowerCase());
             const matchesCategory = appliedFilters.category === "All" || item.category === appliedFilters.category;
             const matchesStatus = appliedFilters.status === "All" || item.status === appliedFilters.status;
             const matchesPurchase = appliedFilters.purchaseStatus === "All" || item.purchaseStatus === appliedFilters.purchaseStatus;
 
-            const rowDate = item.publishDate ? new Date(item.publishDate) : null;
+            const rowDate = item.publishDate && item.publishDate !== "N/A" ? new Date(item.publishDate) : null;
             const fromDate = appliedFilters.fromDate ? new Date(appliedFilters.fromDate) : null;
             const toDate = appliedFilters.toDate ? new Date(`${appliedFilters.toDate}T23:59:59`) : null;
             const matchesDate = (!fromDate || (rowDate && rowDate >= fromDate)) && (!toDate || (rowDate && rowDate <= toDate));
 
             return matchesSearch && matchesTitle && matchesCategory && matchesStatus && matchesPurchase && matchesDate;
         });
-    }, [search, appliedFilters]);
+    }, [updatesData, search, appliedFilters]);
 
     const previewFilteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return SAMPLE_UPDATES.filter((item) => {
+        return updatesData.filter((item) => {
             const matchesSearch = !term || [item.updateTitle, item.description, item.category, item.publishDate, item.status, item.purchaseStatus].join(" ").toLowerCase().includes(term);
             const matchesTitle = !draftFilters.title || item.updateTitle.toLowerCase().includes(draftFilters.title.toLowerCase());
             const matchesCategory = draftFilters.category === "All" || item.category === draftFilters.category;
             const matchesStatus = draftFilters.status === "All" || item.status === draftFilters.status;
             const matchesPurchase = draftFilters.purchaseStatus === "All" || item.purchaseStatus === draftFilters.purchaseStatus;
 
-            const rowDate = item.publishDate ? new Date(item.publishDate) : null;
+            const rowDate = item.publishDate && item.publishDate !== "N/A" ? new Date(item.publishDate) : null;
             const fromDate = draftFilters.fromDate ? new Date(draftFilters.fromDate) : null;
             const toDate = draftFilters.toDate ? new Date(`${draftFilters.toDate}T23:59:59`) : null;
             const matchesDate = (!fromDate || (rowDate && rowDate >= fromDate)) && (!toDate || (rowDate && rowDate <= toDate));
 
             return matchesSearch && matchesTitle && matchesCategory && matchesStatus && matchesPurchase && matchesDate;
         });
-    }, [search, draftFilters]);
+    }, [updatesData, search, draftFilters]);
 
     const activeFilterCount = Object.entries(appliedFilters).filter(([, value]) => value && value !== "All").length;
     const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
@@ -151,21 +212,20 @@ const Updates = () => {
     const handleOpenView = (item: UpdateItem) => {
         setSelectedItem(item);
         setIsViewModalOpen(true);
-        setOpenMenu(null); // Close dropdown
+        setOpenMenu(null);
     };
 
     const handleOpenPurchase = (item: UpdateItem) => {
         setSelectedItem(item);
         setPurchaseSchedule("next-plan");
         setIsPurchaseModalOpen(true);
-        setOpenMenu(null); // Close dropdown
+        setOpenMenu(null);
     };
 
     return (
         <BaseLayout4>
             <AdminHeader currentSection={"Updates"} />
             <div className="flex flex-col space-y-6">
-                {/* Table card */}
                 <div className="bg-white rounded-xl shadow-lg dark:bg-[#343434] overflow-hidden border-t border-[#E6EAF2] dark:border-[#3F3F3F]">
                     <div className="grid grid-cols-1 border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:grid-cols-3">
                         <div className="flex h-12 items-center border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F] md:border-b-0 md:border-r">
@@ -204,7 +264,15 @@ const Updates = () => {
                         </div>
 
                         <div className="flex h-12 items-center px-4 text-sm text-[#80848E] dark:text-[#B5B5B5]">
-                            Showing {showingStart}-{showingEnd} of {filteredItems.length}
+                            {isLoading ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 size={16} className="animate-spin" /> Loading...
+                                </span>
+                            ) : error ? (
+                                <span className="text-red-500">{error}</span>
+                            ) : (
+                                <>Showing {showingStart}-{showingEnd} of {filteredItems.length}</>
+                            )}
                         </div>
                     </div>
 
@@ -222,61 +290,68 @@ const Updates = () => {
                                 </thead>
 
                                 <tbody>
-                                    {paginatedItems.length > 0 ? (
-                                        paginatedItems.map((item, index) => {
-                                            const rowId = `${item.updateTitle}-${index}`;
-                                            return (
-                                                <tr key={rowId} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
-                                                    <td className="py-4 px-2 font-medium">{item.updateTitle}</td>
-                                                    <td className="py-4 px-2">{item.description}</td>
-                                                    <td className="py-4 px-2">
-                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}>
-                                                            {item.category}
-                                                        </span>
+                                    {isLoading ? (
+                                        Array.from({ length: 5 }).map((_, idx) => (
+                                            <tr key={idx} className="text-[12px] odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
+                                                {Array.from({ length: 7 }).map((__, j) => (
+                                                    <td key={j} className="py-4 px-2">
+                                                        <div className="h-4 w-full animate-pulse rounded bg-gray-200 dark:bg-[#454545]" />
                                                     </td>
-                                                    <td className="py-4 px-2">{item.publishDate}</td>
-                                                    <td className="py-4 px-2">
-                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>
-                                                            {item.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-4 px-2">
-                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${purchaseBadgeClass(item.purchaseStatus)}`}>
-                                                            {item.purchaseStatus}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-4 px-2 relative">
-                                                        <button
-                                                            onClick={() => setOpenMenu(openMenu === rowId ? null : rowId)}
-                                                            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
-                                                        >
-                                                            <BsThreeDotsVertical size={16} />
-                                                        </button>
+                                                ))}
+                                            </tr>
+                                        ))
+                                    ) : paginatedItems.length > 0 ? (
+                                        paginatedItems.map((item) => (
+                                            <tr key={item.id} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
+                                                <td className="py-4 px-2 font-medium">{item.updateTitle}</td>
+                                                <td className="py-4 px-2 truncate max-w-[200px]" title={item.description}>{item.description}</td>
+                                                <td className="py-4 px-2">
+                                                    <span className={`px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}>
+                                                        {item.category}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2">{item.publishDate}</td>
+                                                <td className="py-4 px-2">
+                                                    <span className={`px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>
+                                                        {item.status}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2">
+                                                    <span className={`px-2 text-[11px] py-[3px] rounded-md ${purchaseBadgeClass(item.purchaseStatus)}`}>
+                                                        {item.purchaseStatus}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2 relative">
+                                                    <button
+                                                        onClick={() => setOpenMenu(openMenu === item.id ? null : item.id)}
+                                                        className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
+                                                    >
+                                                        <BsThreeDotsVertical size={16} />
+                                                    </button>
 
-                                                        {openMenu === rowId && (
-                                                            <div className="absolute right-8 top-10 z-50 w-[160px] rounded-lg border border-gray-200 bg-white text-gray-800 shadow-xl dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100 flex flex-col overflow-hidden">
-                                                                <button
-                                                                    className="w-full border-b px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
-                                                                    onClick={() => handleOpenPurchase(item)}
-                                                                >
-                                                                    Purchase Update
-                                                                </button>
-                                                                <button
-                                                                    className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                                                    onClick={() => handleOpenView(item)}
-                                                                >
-                                                                    View Details
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
+                                                    {openMenu === item.id && (
+                                                        <div className="absolute right-8 top-10 z-50 w-[160px] rounded-lg border border-gray-200 bg-white text-gray-800 shadow-xl dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100 flex flex-col overflow-hidden">
+                                                            <button
+                                                                className="w-full border-b px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
+                                                                onClick={() => handleOpenPurchase(item)}
+                                                            >
+                                                                Purchase Update
+                                                            </button>
+                                                            <button
+                                                                className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                onClick={() => handleOpenView(item)}
+                                                            >
+                                                                View Details
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
                                     ) : (
                                         <tr>
                                             <td colSpan={7} className="p-4 text-center text-gray-500 dark:text-gray-300">
-                                                No updates found
+                                                {error ? "Failed to load data." : "No updates found."}
                                             </td>
                                         </tr>
                                     )}
@@ -290,7 +365,7 @@ const Updates = () => {
                 <div className="flex justify-end gap-2 border-t border-[#E6EAF2] px-4 py-3 dark:border-[#3F3F3F]">
                     <button
                         onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                        disabled={currentPageSafe === 1}
+                        disabled={currentPageSafe === 1 || isLoading}
                         className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
                     >
                         <ChevronLeft size={18} />
@@ -300,6 +375,7 @@ const Updates = () => {
                         <button
                             key={p}
                             onClick={() => setCurrentPage(p)}
+                            disabled={isLoading}
                             className={`flex h-8 w-8 items-center justify-center rounded border font-medium ${currentPageSafe === p
                                 ? "border-[#496A96] bg-white text-[#496A96] dark:border-[#7FA7E8] dark:bg-[#343434] dark:text-[#B8D0FF]"
                                 : "border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
@@ -311,14 +387,14 @@ const Updates = () => {
 
                     <button
                         onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                        disabled={currentPageSafe === totalPages}
+                        disabled={currentPageSafe === totalPages || isLoading}
                         className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]"
                     >
                         <ChevronRight size={18} />
                     </button>
                 </div>
 
-                {/* Filter panel */}
+                {/* Filter Panel */}
                 {showFilterPanel && (
                     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4">
                         <div className="w-full max-w-[360px] rounded-2xl border border-[#E6EAF2] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c] p-5 shadow-2xl">
@@ -425,9 +501,7 @@ const Updates = () => {
                     </div>
                 )}
 
-                {/* ======================================================= */}
-                {/* VIEW DETAILS MODAL */}
-                {/* ======================================================= */}
+                {/* View Details Modal */}
                 {isViewModalOpen && selectedItem && (
                     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
                         <div className="w-full max-w-[800px] rounded-xl bg-white shadow-2xl overflow-hidden flex flex-col">
@@ -476,9 +550,7 @@ const Updates = () => {
                     </div>
                 )}
 
-                {/* ======================================================= */}
-                {/* PURCHASE UPDATE MODAL */}
-                {/* ======================================================= */}
+                {/* Purchase Update Modal */}
                 {isPurchaseModalOpen && selectedItem && (
                     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
                         <div className="w-full max-w-[760px] rounded-xl bg-white shadow-2xl overflow-hidden flex flex-col">

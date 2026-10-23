@@ -154,7 +154,7 @@ export default function PurchaseUpdateModal({
                     </button>
                     <button
                         onClick={() => onConfirm(scheduleType)}
-                        className="px-6 py-2 rounded-lg bg-[#4C6993] text-sm font-medium text-white hover:bg-[#3d5578] dark:bg-[#7FA7E8] dark:text-[#2c2c2c] dark:hover:bg-[#6a91d1] transition-colors"
+                        className="px-6 py-2 rounded-lg bg-[#576CBC] text-sm font-medium text-white hover:bg-[#576CBC] dark:bg-[#7FA7E8] dark:text-[#2c2c2c] dark:hover:bg-[#6a91d1] cursor-pointer"
                     >
                         Submit
                     </button>
