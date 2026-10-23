@@ -132,7 +132,7 @@ const Invoice = () => {
     `₹${amount.toLocaleString("en-IN")}`;
 
   return (
-    <div className="w-full min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-[0_6px_20px_rgba(153,153,153,0.12)] transition-colors sm:p-6 dark:border-[#353a49] dark:bg-[#22252f] dark:shadow-[0_6px_24px_rgba(0,0,0,0.2)]">
+    <div className="w-full min-w-0 rounded-xl bg-white p-4 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] transition-colors sm:p-6 dark:border-[#353a49] dark:bg-[#22252f] dark:shadow-xl">
 
       {/* Search and filter toolbar */}
       <div className="relative mb-0 flex flex-col gap-2 rounded-t-lg border border-gray-200 bg-[#fafafa] sm:flex-row dark:border-[#3b4050] dark:bg-[#292d39]">

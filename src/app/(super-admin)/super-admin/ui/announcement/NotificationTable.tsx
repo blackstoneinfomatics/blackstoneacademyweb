@@ -2,10 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import { getNotificationTypeRoute } from "@/lib/notification";
 
 type Notification = {
   id: string;
+  _id: string;
   requestId: string;
   tenantName: string;
   category: string;
@@ -15,6 +18,23 @@ type Notification = {
 };
 
 type ApiRecord = Record<string, unknown>;
+
+const SEEN_DATE_STORAGE_KEY = "SuperAdminNotificationSeenDates";
+
+function getStoredSeenDates(): Record<string, string> {
+  try {
+    const value: unknown = JSON.parse(
+      localStorage.getItem(SEEN_DATE_STORAGE_KEY) || "{}",
+    );
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, string>;
+    }
+  } catch (error) {
+    console.error("Failed to read stored notification seen dates:", error);
+  }
+
+  return {};
+}
 
 function getString(record: ApiRecord, keys: string[], fallback = ""): string {
   for (const key of keys) {
@@ -37,7 +57,11 @@ function formatDate(value: string): string {
       });
 }
 
-function normalizeRequest(item: unknown, index: number): Notification {
+function normalizeRequest(
+  item: unknown,
+  index: number,
+  savedSeenDates: Record<string, string>,
+): Notification {
   if (!item || typeof item !== "object" || Array.isArray(item)) {
     throw new Error("Notification request contains an invalid item.");
   }
@@ -47,17 +71,29 @@ function normalizeRequest(item: unknown, index: number): Notification {
     record.tenant && typeof record.tenant === "object"
       ? (record.tenant as ApiRecord)
       : {};
-  const id = getString(record, ["_id", "id"], `request-${index}`);
+  const _id = getString(record, ["_id", "id"]);
+  const id = _id || getString(record, ["id"], `request-${index}`);
+  const isSeen =
+    record.isRead === true ||
+    record.notificationStatus === "Seen" ||
+    record.status === "Seen";
+  const seenDateValue = getString(
+    record,
+    ["seenDate", "seenAt", "readAt", "readDate"],
+    isSeen ? getString(record, ["updatedAt", "updatedDate"]) : "",
+  );
+  const storedSeenDate = _id ? savedSeenDates[_id] : undefined;
 
   return {
     id,
+    _id,
     requestId: getString(record, ["requestId", "requestCode", "ticketId"], id),
     tenantName:
       getString(record, ["tenantName", "organizationName"]) ||
       getString(tenant, ["name", "tenantName"], "-"),
     category: getString(
       record,
-      ["category", "notificationCategory", "requestType", "type"],
+      ["category", "notificationCategory", "notificationType", "requestType", "type"],
       "-",
     ),
     description: getString(
@@ -68,9 +104,7 @@ function normalizeRequest(item: unknown, index: number): Notification {
     receivedDate: formatDate(
       getString(record, ["receivedDate", "createdDate", "createdAt", "requestedAt"]),
     ),
-    seenDate: formatDate(
-      getString(record, ["seenDate", "seenAt", "readAt"]),
-    ),
+    seenDate: formatDate(seenDateValue || storedSeenDate || ""),
   };
 }
 
@@ -89,12 +123,14 @@ function getRequestRows(payload: unknown): unknown[] {
 }
 
 export default function NotificationTable() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All Categories");
   const [page, setPage] = useState(1);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterForm, setFilterForm] = useState({
     requestId: "",
@@ -108,6 +144,7 @@ export default function NotificationTable() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isProcessingNotification, setIsProcessingNotification] = useState(false);
 
   const [selectedNotification, setSelectedNotification] =
     useState<Notification | null>(null);
@@ -125,11 +162,18 @@ export default function NotificationTable() {
 
       try {
         const { data } = await axios.get(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.REQUEST_LIST}`,
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.REQUEST_LIST}?page=1&limit=1000`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
+        console.log("notification request-list response", data);
         const rows = getRequestRows(data?.data);
-        setNotifications(rows.map(normalizeRequest));
+        console.log("row record",rows);
+        const savedSeenDates = getStoredSeenDates();
+        setNotifications(
+          rows.map((row, index) =>
+            normalizeRequest(row, index, savedSeenDates),
+          ),
+        );
       } catch (error) {
         console.error("Failed to fetch notification request list:", error);
         setLoadError("Unable to load notification requests.");
@@ -259,6 +303,122 @@ export default function NotificationTable() {
     startIndex + pageSize
   );
 
+  const handleViewNotification = async (notification: Notification) => {
+    console.log("notification", notification);
+    const seenDateTime = new Date().toISOString();
+    const seenDate =
+      notification.seenDate === "-" ? formatDate(seenDateTime) : notification.seenDate;
+    const updatedNotification = { ...notification, seenDate };
+
+    setSelectedNotification(notification);
+    setIsProcessingNotification(false);
+    setShowDetailsModal(true);
+    setOpenMenu(null);
+    setActionError(null);
+
+    if (notification.seenDate !== "-") return;
+
+    setNotifications((previous) =>
+      previous.map((item) =>
+        item.id === notification.id ? updatedNotification : item,
+      ),
+    );
+    setSelectedNotification(updatedNotification);
+
+    if (!notification._id) {
+      setActionError("Unable to mark notification as seen: notification ID is missing.");
+      return;
+    }
+
+    const token = localStorage.getItem("SuperAdminAuthToken");
+    if (!token) {
+      setActionError("Unable to mark notification as seen: authentication token is missing.");
+      return;
+    }
+
+    try {
+      const response = await axios.put(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.UPDATE}/${notification._id}`,
+        {
+          isRead: true,
+          notificationStatus: "Seen",
+          seenDate: seenDateTime,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      try {
+        const savedSeenDates = getStoredSeenDates();
+        localStorage.setItem(
+          SEEN_DATE_STORAGE_KEY,
+          JSON.stringify({
+            ...savedSeenDates,
+            [notification._id]: seenDateTime,
+          }),
+        );
+      } catch (storageError) {
+        console.error("Failed to store notification seen date locally:", storageError);
+      }
+
+      const responseBody =
+        response.data && typeof response.data === "object"
+          ? (response.data as ApiRecord)
+          : {};
+      const responseData =
+        responseBody.data && typeof responseBody.data === "object"
+          ? (responseBody.data as ApiRecord)
+          : responseBody;
+      const confirmedSeenDate = formatDate(
+        getString(responseData, ["seenDate", "seenAt", "readAt", "readDate", "updatedAt"], seenDate),
+      );
+      const confirmedNotification = {
+        ...notification,
+        seenDate: confirmedSeenDate,
+      };
+      setNotifications((previous) =>
+        previous.map((item) =>
+          item.id === notification.id ? confirmedNotification : item,
+        ),
+      );
+      setSelectedNotification(confirmedNotification);
+    } catch (error) {
+      console.error("Failed to mark notification as seen:", error);
+      setNotifications((previous) =>
+        previous.map((item) =>
+          item.id === notification.id ? notification : item,
+        ),
+      );
+      setSelectedNotification(notification);
+      const responseData =
+        axios.isAxiosError(error) &&
+        error.response?.data &&
+        typeof error.response.data === "object"
+          ? (error.response.data as ApiRecord)
+          : {};
+      const message = getString(responseData, ["message", "error"]);
+      setActionError(
+        message
+          ? `Unable to mark notification as seen: ${message}`
+          : "Unable to mark notification as seen. Please try again.",
+      );
+    }
+  };
+
+  const processSelectedNotification = () => {
+    if (!selectedNotification || isProcessingNotification) return;
+
+    const route = getNotificationTypeRoute(selectedNotification.category);
+    if (route) {
+      setIsProcessingNotification(true);
+      router.push(route);
+    }
+  };
+
   function updateSearch(value: string) {
     setSearch(value);
     setPage(1);
@@ -266,7 +426,7 @@ export default function NotificationTable() {
 
   return (
     <section className="flex min-w-0 flex-col rounded-[9px] bg-white p-4 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#343434] dark:shadow-md">
-      <h2 className="mb-3 text-[14px] font-semibold text-[#142342] dark:text-slate-100">
+      <h2 className="mb-2 text-[14px] font-semibold text-[#142342] dark:text-slate-100">
         All Notifications
       </h2>
       {loadError && (
@@ -276,7 +436,7 @@ export default function NotificationTable() {
       )}
 
       {/* Search and filter bar */}
-      <div className="grid grid-cols-1 overflow-visible rounded-t-[6px] bg-[#fafafa] dark:bg-[#313131] sm:grid-cols-[1.1fr_1.05fr_1.05fr]">
+      <div className="grid grid-cols-1 p-1.5 overflow-visible rounded-t-[6px] bg-[#FAFAFB] dark:bg-[#313131] sm:grid-cols-[1.1fr_1.05fr_1.05fr]">
         <div className="flex h-[29px] items-center gap-1.5 border-b border-[#eeeeee] px-2 dark:border-slate-700 sm:border-b-0 sm:border-r">
           <svg
             viewBox="0 0 24 24"
@@ -294,7 +454,7 @@ export default function NotificationTable() {
             value={search}
             onChange={(e) => updateSearch(e.target.value)}
             placeholder="Search by keyword"
-            className="h-full w-full min-w-0 bg-transparent text-[10px] text-[#333] outline-none placeholder:text-[#999] dark:text-slate-200 dark:placeholder:text-slate-400"
+            className="h-full w-full min-w-0 bg-transparent text-[11px] text-[#333] outline-none placeholder:text-[#999] dark:text-slate-200 dark:placeholder:text-slate-400"
           />
         </div>
 
@@ -315,7 +475,7 @@ export default function NotificationTable() {
             <path d="M7 3v6M14 9v6M11 15v6" />
           </svg>
 
-          <span className="min-w-0 flex-1 truncate text-[10px] text-[#999] dark:text-slate-300">
+          <span className="min-w-0 flex-1 truncate text-[11px] text-[#8f8f8f] dark:text-slate-300">
             {category === "All Categories" ? "Filter" : category}
           </span>
 
@@ -328,7 +488,7 @@ export default function NotificationTable() {
           </svg>
         </button>
 
-        <div className="flex h-[29px] items-center px-3 text-[10px] text-[#999] dark:text-slate-400">
+        <div className="flex h-[29px] items-center px-3 text-[11px] text-[#999] dark:text-slate-400">
           Showing {filteredData.length === 0 ? 0 : startIndex + 1}–
           {Math.min(startIndex + pageSize, filteredData.length)} of{" "}
           {filteredData.length}
@@ -340,11 +500,11 @@ export default function NotificationTable() {
         <table className="w-full min-w-full table-fixed border-collapse text-left">
           <colgroup>
             <col className="w-[8%]" />
-            <col className="w-[15%]" />
-            <col className="w-[17%]" />
+            <col className="w-[13%]" />
+            <col className="w-[21%]" />
             <col className="w-[28%]" />
             <col className="w-[12%]" />
-            <col className="w-[11%]" />
+            <col className="w-[9%]" />
             <col className="w-[9%]" />
           </colgroup>
 
@@ -361,7 +521,7 @@ export default function NotificationTable() {
               ].map((heading) => (
                 <th
                   key={heading}
-                  className="whitespace-nowrap px-2 text-[11px] font-medium"
+                  className="whitespace-nowrap px-2 py-3 text-[13px] font-medium"
                 >
                   {heading}
                 </th>
@@ -373,33 +533,33 @@ export default function NotificationTable() {
             {currentData.map((item, index) => (
               <tr
                 key={item.id}
-                className={`h-[35px] border-b border-transparent ${
+                className={`border-b border-transparent ${
                   index % 2 === 0
                     ? "bg-white dark:bg-[#343434]"
                     : "bg-[#f7f7f7] dark:bg-[#3c3c3c]"
                 }`}
               >
-                <td className="whitespace-nowrap px-2 text-[10px] font-medium text-[#142342] dark:text-slate-100">
+                <td className="whitespace-nowrap px-2 py-4 text-[11px] font-medium text-[#142342] dark:text-slate-100">
                   {item.requestId}
                 </td>
 
-                <td className="truncate px-2 text-[10px] font-medium text-[#142342] dark:text-slate-100">
+                <td className="truncate px-2 text-[11px] font-medium text-[#142342] dark:text-slate-100">
                   {item.tenantName}
                 </td>
 
-                <td className="truncate px-2 text-[10px] text-[#263755] dark:text-slate-300">
+                <td className="truncate px-2 text-[11px] text-[#263755] dark:text-slate-300" title={item.category}>
                   {item.category}
                 </td>
 
-                <td className="truncate px-2 text-[10px] text-[#142342] dark:text-slate-200">
+                <td className="truncate px-2 text-[11px] text-[#142342] dark:text-slate-200" title={item.description}>
                   {item.description}
                 </td>
 
-                <td className="whitespace-nowrap px-2 text-[10px] text-[#426ba5] dark:text-sky-300">
+                <td className="whitespace-nowrap px-2 text-[11px] text-[#426ba5] dark:text-sky-300">
                   {item.receivedDate}
                 </td>
 
-                <td className="whitespace-nowrap px-2 text-[10px] text-[#426ba5] dark:text-sky-300">
+                <td className="whitespace-nowrap px-2 text-[11px] text-[#426ba5] dark:text-sky-300">
                   {item.seenDate}
                 </td>
 
@@ -419,11 +579,7 @@ export default function NotificationTable() {
                     <div className="absolute right-10 top-6 z-50 w-full rounded-md border border-[#e5e7eb] bg-white shadow-lg dark:border-slate-700 dark:bg-[#2b2b2b]">
                       <button
                         type="button"
-                        onClick={() => {
-                          setSelectedNotification(item);
-                          setShowDetailsModal(true);
-                          setOpenMenu(null);
-                        }}
+                        onClick={() => void handleViewNotification(item)}
                         className="block w-full rounded-md px-0 py-1 text-center text-[11px] text-[#263755] dark:text-slate-200"
                       >
                         View
@@ -674,78 +830,86 @@ export default function NotificationTable() {
     onClick={() => setShowDetailsModal(false)}
   >
     <div
-      className="w-full max-w-[600px] rounded-[8px] border border-[#343b4d] bg-[#171b26] p-[14px] shadow-2xl"
+      className="w-full max-w-[600px] rounded-[8px] border border-[#343b4d] bg-[#fff] p-[14px] shadow-2xl"
       onClick={(e) => e.stopPropagation()}
     >
-      <h2 className="mb-[16px] text-[14px] font-semibold text-white">
+      <h2 className="mb-[16px] text-[16px] font-semibold dark:text-white">
         Notifications Details
       </h2>
 
-      <div className="rounded-[8px] border border-[#343b4d] p-[13px]">
+      {actionError && (
+        <p className="mb-3 text-[12px] text-red-600" role="alert">
+          {actionError}
+        </p>
+      )}
+
+      <div className="rounded-[8px] border border-[#ccc] dark:border-[#343b4d] p-[13px]">
         <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-3">
           <div>
-            <label className="mb-[5px] block text-[13px] text-[#d5dced]">
+            <label className="mb-[5px] block text-[13px] dark:text-[#d5dced] text-[#031230]">
               Notification Category
             </label>
             <input
               value={selectedNotification.category}
               readOnly
-              className="h-[29px] w-full rounded-[4px] border border-[#41495c] bg-[#222838] px-[8px] text-[10px] text-[#e2e8f0] outline-none"
+              title={selectedNotification.category}
+              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#41495c] dark:bg-[#222838] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-[5px] block text-[13px] text-[#d5dced]">
+            <label className="mb-[5px] block text-[13px] dark:text-[#d5dced]">
               Tenant Name
             </label>
             <input
               value={selectedNotification.tenantName}
               readOnly
-              className="h-[29px] w-full rounded-[4px] border border-[#41495c] bg-[#222838] px-[8px] text-[10px] text-[#e2e8f0] outline-none"
+              title={selectedNotification.tenantName}
+              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#41495c] dark:bg-[#222838] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-[5px] block text-[13px] text-[#d5dced]">
+            <label className="mb-[5px] block text-[13px] dark:text-[#d5dced]">
               Received Date
             </label>
             <input
               value={selectedNotification.receivedDate}
               readOnly
-              className="h-[29px] w-full rounded-[4px] border border-[#41495c] bg-[#222838] px-[8px] text-[10px] text-[#e2e8f0] outline-none"
+              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#41495c] dark:bg-[#222838] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
             />
           </div>
         </div>
 
-        <div className="mt-[11px] rounded-[8px] bg-[#222735] p-[11px]">
-          <h3 className="mb-[10px] text-[11px] font-medium text-white">
+        <div className="mt-[11px] rounded-[8px] bg-[#F4F4F4] dark:bg-[#222735] p-[11px]">
+          <h3 className="mb-[10px] text-[11px] font-medium dark:text-white text-[#010e30]">
             Requested Details
           </h3>
 
           <div className="grid grid-cols-1 gap-[15px] sm:grid-cols-2">
             <div>
-              <p className="mb-[6px] text-[11px] text-[#d5dced]">
+              <p className="mb-[6px] text-[11px] dark:text-[#d5dced] text-[#010e30]">
                 Data Range
               </p>
-              <p className="text-[10px] text-[#aeb9ce]">
+              <p className="text-[10px] text-[#323c57] dark:text-[#aeb9ce]">
                 Last 30 Days
               </p>
             </div>
 
             <div>
-              <p className="mb-[6px] text-[11px] text-[#d5dced]">
+              <p className="mb-[6px] text-[11px] dark:text-[#d5dced] text-[#010e30]">
                 Requested By
               </p>
-              <p className="text-[10px] text-[#aeb9ce]">
+              <p className="text-[10px] text-[#323c57] dark:text-[#aeb9ce]">
                 Admin
               </p>
             </div>
 
             <div className="sm:col-span-2">
-              <p className="mb-[6px] text-[11px] text-[#d5dced]">
+              <p className="mb-[6px] text-[11px] dark:text-[#d5dced] text-[#010e30]">
                 Description
               </p>
-              <p className="text-[10px] leading-[17px] text-[#aeb9ce]">
+              <p className="text-[10px] leading-[17px] text-[#323c57] dark:text-[#aeb9ce]">
                 {selectedNotification.description}
               </p>
             </div>
@@ -757,9 +921,31 @@ export default function NotificationTable() {
         <button
           type="button"
           onClick={() => setShowDetailsModal(false)}
-          className="h-[32px] min-w-[76px] rounded-[6px] border border-[#5668a9] bg-[#252c40] px-[17px] text-[11px] font-medium text-[#b9c7ff] hover:bg-[#303a54]"
+          className="h-[32px] min-w-[76px] rounded-[6px] border border-[#576CBC] bg-[#eff1f9] px-[17px] text-[11px] font-medium text-[#576cdc]"
         >
-          Close
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={processSelectedNotification}
+          disabled={
+            isProcessingNotification ||
+            !getNotificationTypeRoute(selectedNotification.category)
+          }
+          className="h-[32px] min-w-[76px] rounded-[6px] border border-[#5668a9] bg-[#576CBC] px-[17px] text-[11px] font-medium text-[#fff] disabled:cursor-not-allowed disabled:opacity-50"
+          aria-live="polite"
+        >
+          {isProcessingNotification ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <span
+                className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                aria-hidden="true"
+              />
+              Processing…
+            </span>
+          ) : (
+            "Process"
+          )}
         </button>
       </div>
     </div>
