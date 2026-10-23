@@ -3,6 +3,15 @@
 import React, { useState } from "react";
 import { X, ChevronDown, UploadCloud } from "lucide-react";
 import { toast } from "react-toastify";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+
+interface CreateTicketResponse {
+    success?: boolean;
+    message?: string;
+    data?: {
+        ticketNumber?: string;
+    };
+}
 
 interface RaiseTicketModalProps {
     onClose: () => void;
@@ -11,17 +20,13 @@ interface RaiseTicketModalProps {
 export default function RaiseTicketModal({ onClose }: RaiseTicketModalProps) {
     const [formData, setFormData] = useState({
         subject: "",
-        priority: "",
-        category: "",
-        relatedTo: "",
+        priority: "Medium",
+        category: "TECHNICAL_ISSUE",
         description: "",
     });
 
-    // Mocked file to show the UI instantly
-    const [file, setFile] = useState<{ name: string; size: string } | null>({
-        name: "refund-request.pdf",
-        size: "156 KB",
-    });
+    const [file, setFile] = useState<{ name: string; size: string } | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleChange = (
         e: React.ChangeEvent<
@@ -42,14 +47,71 @@ export default function RaiseTicketModal({ onClose }: RaiseTicketModalProps) {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.subject.trim()) {
-            toast.error("Please enter a subject.");
+        if (
+            !formData.subject.trim() ||
+            !formData.category ||
+            !formData.priority ||
+            !formData.description.trim()
+        ) {
+            toast.error("Please complete all required ticket fields.");
             return;
         }
-        toast.success("Ticket submitted successfully!");
-        onClose();
+        if (file) {
+            toast.error("Attachments are not supported by the ticket API yet.");
+            return;
+        }
+
+        const token = localStorage.getItem("AdminAuthToken");
+        if (!token) {
+            toast.error("Your session has expired. Please sign in again.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch(
+                `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}/tickets`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        subject: formData.subject.trim(),
+                        category: formData.category,
+                        priority: formData.priority,
+                        description: formData.description.trim(),
+                        attachments: [],
+                    }),
+                },
+            );
+
+            const result: CreateTicketResponse = await response.json();
+            if (!response.ok || result.success !== true) {
+                throw new Error(
+                    result.message || `Ticket submission failed (HTTP ${response.status}).`,
+                );
+            }
+
+            toast.success(
+                result.data?.ticketNumber
+                    ? `Ticket ${result.data.ticketNumber} created successfully.`
+                    : result.message || "Ticket created successfully.",
+            );
+            onClose();
+        } catch (error) {
+            console.error("Failed to create ticket:", error);
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : "Unable to submit ticket. Please try again.",
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -102,6 +164,7 @@ export default function RaiseTicketModal({ onClose }: RaiseTicketModalProps) {
                                         <option value="Low">Low</option>
                                         <option value="Medium">Medium</option>
                                         <option value="High">High</option>
+                                        <option value="Critical">Critical</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 w-4 h-4 pointer-events-none" />
                                 </div>
@@ -109,7 +172,7 @@ export default function RaiseTicketModal({ onClose }: RaiseTicketModalProps) {
                         </div>
 
                         {/* Row 2: Category & Related To */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                             <div>
                                 <label className="block text-[14px] font-medium text-[#1a1a1a] dark:text-gray-300 mb-1.5">
                                     Category
@@ -122,29 +185,15 @@ export default function RaiseTicketModal({ onClose }: RaiseTicketModalProps) {
                                         className="w-full px-3 py-2 border border-[#D1D5DB] dark:border-[#555] rounded-md text-[13px] text-[#1a1a1a] dark:text-white focus:outline-none focus:border-[#576CBC] appearance-none bg-white dark:bg-[#2C2C2C]"
                                     >
                                         <option value="" disabled>Select category</option>
-                                        <option value="Technical">Technical Issue</option>
-                                        <option value="Billing">Billing & Payments</option>
-                                        <option value="Account">Account Access</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 w-4 h-4 pointer-events-none" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-[14px] font-medium text-[#1a1a1a] dark:text-gray-300 mb-1.5">
-                                    Related To
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        name="relatedTo"
-                                        value={formData.relatedTo}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 border border-[#D1D5DB] dark:border-[#555] rounded-md text-[13px] text-[#1a1a1a] dark:text-white focus:outline-none focus:border-[#576CBC] appearance-none bg-white dark:bg-[#2C2C2C]"
-                                    >
-                                        <option value="" disabled>Select priority</option>
-                                        <option value="Feature">Feature</option>
-                                        <option value="Course">Course</option>
-                                        <option value="Student">Student</option>
+                                        <option value="TECHNICAL_ISSUE">Technical Issue</option>
+                                        <option value="STUDENT_MANAGEMENT">Student Management</option>
+                                        <option value="TEACHER_MANAGEMENT">Teacher Management</option>
+                                        <option value="ADMIN_MANAGEMENT">Admin Management</option>
+                                        <option value="ATTENDANCE_MANAGEMENT">Attendance Management</option>
+                                        <option value="PAYMENT_INVOICE">Payment / Invoice</option>
+                                        <option value="SUBSCRIPTION_PLAN">Subscription Plan</option>
+                                        <option value="FEATURE_REQUEST">Feature Request</option>
+                                        <option value="OTHERS">Others</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 w-4 h-4 pointer-events-none" />
                                 </div>
@@ -231,9 +280,10 @@ export default function RaiseTicketModal({ onClose }: RaiseTicketModalProps) {
                 <button
                     type="submit"
                     form="raise-ticket-form"
+                    disabled={isSubmitting}
                     className="px-6 py-2 rounded-md bg-[#576CBC] dark:bg-[#7B92D9] text-white text-[14px] font-medium hover:bg-[#3a4f8a] dark:hover:bg-[#6A82CC] transition-colors"
                 >
-                    Submit Ticket
+                    {isSubmitting ? "Submitting..." : "Submit Ticket"}
                 </button>
             </div>
         </div>
