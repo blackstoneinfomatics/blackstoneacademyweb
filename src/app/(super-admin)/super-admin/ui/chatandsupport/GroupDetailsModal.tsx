@@ -68,10 +68,7 @@ export function GroupDetailsModal({
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Sync local members when parent data changes
   useEffect(() => {
-    // ✅ Merge the parent's members with the FULL available tenant list
-    // so that any tenant that isn't in the group still appears (unticked)
     const existingIds = new Set(data.members.map((m) => m.tenantId));
     const missingFromPlan = availableTenants
       .filter((t) => !existingIds.has(t.tenantId))
@@ -80,12 +77,10 @@ export function GroupDetailsModal({
         tenantName: t.tenantName,
         isSelected: false,
       }));
-
     setLocalMembers([...data.members, ...missingFromPlan]);
     setAccess(data.sendAccess);
   }, [data.members, data.sendAccess, availableTenants]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -122,7 +117,6 @@ export function GroupDetailsModal({
     }
   };
 
-  // Soft remove — untick only
   const handleRemoveMember = (tenantId: string) => {
     const member = localMembers.find((m) => m.tenantId === tenantId);
     if (!member || !member.isSelected) return;
@@ -144,7 +138,6 @@ export function GroupDetailsModal({
     onUpdateAccess(newAccess);
   };
 
-  // Only show tenants not already in the group
   const existingIds = new Set(localMembers.map((m) => m.tenantId));
   const addableTenants = availableTenants.filter(
     (t) => !existingIds.has(t.tenantId)
@@ -202,11 +195,11 @@ export function GroupDetailsModal({
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-[500px] max-h-[92vh] bg-white rounded-t-[20px] sm:rounded-[16px] shadow-2xl flex flex-col overflow-hidden"
+        className="w-full sm:max-w-[500px] max-h-[92vh] bg-white dark:bg-[#2c2c2c] rounded-t-[20px] sm:rounded-[16px] shadow-2xl flex flex-col overflow-hidden"
       >
         {/* Header */}
         <div className="px-6 pt-6 pb-2">
-          <h2 className="text-[18px] font-bold text-[#101828] tracking-tight">
+          <h2 className="text-[18px] font-bold text-[#101828] dark:text-white tracking-tight">
             Group Details
           </h2>
         </div>
@@ -215,7 +208,7 @@ export function GroupDetailsModal({
           {/* Avatar + Name */}
           <div className="flex gap-4 items-start">
             <label className="cursor-pointer block relative shrink-0 mt-1">
-              <div className="w-[60px] h-[60px] rounded-[8px] overflow-hidden bg-gray-100 flex items-center justify-center">
+              <div className="w-[60px] h-[60px] rounded-[8px] overflow-hidden bg-gray-100 dark:bg-[#3A3A3A] flex items-center justify-center">
                 {imagePreview ? (
                   <Image
                     src={imagePreview}
@@ -226,7 +219,7 @@ export function GroupDetailsModal({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-[24px] font-medium text-gray-400">
+                  <span className="text-[24px] font-medium text-gray-400 dark:text-[#B5B5B5]">
                     {data.groupName?.charAt(0)?.toUpperCase() ?? "G"}
                   </span>
                 )}
@@ -250,20 +243,20 @@ export function GroupDetailsModal({
             </label>
 
             <div className="flex-1">
-              <label className="mb-1.5 block text-[15px] font-medium text-[#101B41]">
+              <label className="mb-1.5 block text-[15px] font-medium text-[#101B41] dark:text-white">
                 Group Name
               </label>
               <input
                 type="text"
                 value={data.groupName || ""}
                 readOnly
-                className="w-full h-[42px] rounded-[6px] border border-[#D0D5DD] px-3 text-[13px] text-[#101B41] outline-none focus:border-[#576CBC] transition-colors"
+                className="w-full h-[42px] rounded-[6px] border border-[#D0D5DD] px-3 text-[13px] text-[#101B41] outline-none focus:border-[#576CBC] transition-colors dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A] dark:focus:border-[#7B8FD4]"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[15px] font-medium text-[#101B41]">
+            <label className="mb-1.5 block text-[15px] font-medium text-[#101B41] dark:text-white">
               Description
             </label>
             <textarea
@@ -271,20 +264,22 @@ export function GroupDetailsModal({
               placeholder="Enter group description"
               rows={2}
               readOnly
-              className="w-full rounded-[6px] border border-[#D0D5DD] px-3 py-2 text-[13px] text-[#101B41] outline-none focus:border-[#576CBC] transition-colors resize-none"
+              className="w-full rounded-[6px] border border-[#D0D5DD] px-3 py-2 text-[13px] text-[#101B41] outline-none focus:border-[#576CBC] transition-colors resize-none dark:bg-[#343434] dark:text-white dark:border-[#4A4A4A] dark:focus:border-[#7B8FD4] dark:placeholder:text-[#8a8a8a]"
             />
           </div>
 
           {/* Members List */}
-          <div className="rounded-[8px] border border-[#E6EAF2] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[#E6EAF2] px-4 py-2.5">
-              <span className="text-[13px] font-medium text-[#101B41]">
+          <div className="rounded-[8px] border border-[#E6EAF2] dark:border-[#4A4A4A] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#E6EAF2] dark:border-[#4A4A4A] px-4 py-2.5">
+              <span className="text-[13px] font-medium text-[#101B41] dark:text-white">
                 {data.planName || "Basic Plans"} Members
               </span>
               <div className="flex items-center gap-2">
-                <span className="rounded-[4px] bg-[#E6F0EC] text-[#2F7A5C] px-1.5 py-0.5 text-[11px] font-bold">
-                  {String(selectedCount).padStart(2, "0")}
-                </span>
+                {selectedCount > 0 && (
+                  <span className="rounded-[4px] bg-[#E6F0EC] text-[#2F7A5C] px-1.5 py-0.5 text-[11px] font-bold dark:bg-[#1F3A2B] dark:text-[#68D391]">
+                    {String(selectedCount).padStart(2, "0")}
+                  </span>
+                )}
                 {availableTenants.length > 0 && (
                   <button
                     type="button"
@@ -310,14 +305,13 @@ export function GroupDetailsModal({
               </div>
             </div>
 
-            {/* Add Member Dropdown */}
             {showAddDropdown && (
               <div
                 ref={dropdownRef}
-                className="border-b border-[#E6EAF2] bg-[#F8F9FC] p-2 max-h-[180px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                className="border-b border-[#E6EAF2] dark:border-[#4A4A4A] bg-[#F8F9FC] dark:bg-[#2c2c2c] p-2 max-h-[180px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
               >
                 {addableTenants.length === 0 ? (
-                  <p className="py-3 text-center text-[11px] text-[#98A2B3]">
+                  <p className="py-3 text-center text-[11px] text-[#98A2B3] dark:text-[#8a8a8a]">
                     All available tenants are already in this group.
                   </p>
                 ) : (
@@ -328,12 +322,12 @@ export function GroupDetailsModal({
                         <div
                           key={t.tenantId}
                           onClick={() => toggleSelectedToAdd(t.tenantId)}
-                          className="flex items-center gap-2 rounded-[4px] px-2 py-1.5 cursor-pointer hover:bg-white transition-colors"
+                          className="flex items-center gap-2 rounded-[4px] px-2 py-1.5 cursor-pointer hover:bg-white dark:hover:bg-[#3A3A3A] transition-colors"
                         >
                           <div
                             className={`flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-[3px] border transition-colors ${isChecked
-                                ? "bg-[#576CBC] border-[#576CBC]"
-                                : "bg-white border-[#D0D5DD]"
+                              ? "bg-[#576CBC] border-[#576CBC]"
+                              : "bg-white border-[#D0D5DD] dark:bg-[#343434] dark:border-[#4A4A4A]"
                               }`}
                           >
                             {isChecked && (
@@ -351,20 +345,20 @@ export function GroupDetailsModal({
                               </svg>
                             )}
                           </div>
-                          <span className="text-[12px] text-[#101B41] truncate">
+                          <span className="text-[12px] text-[#101B41] dark:text-white truncate">
                             {t.tenantName}
                           </span>
                         </div>
                       );
                     })}
-                    <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-[#E6EAF2]">
+                    <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-[#E6EAF2] dark:border-[#4A4A4A]">
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedToAdd([]);
                           setShowAddDropdown(false);
                         }}
-                        className="h-[28px] rounded-[4px] border border-[#D0D5DD] bg-white px-3 text-[11px] font-semibold text-[#344054] hover:bg-gray-50"
+                        className="h-[28px] rounded-[4px] border border-[#D0D5DD] bg-white px-3 text-[11px] font-semibold text-[#344054] hover:bg-gray-50 dark:bg-[#343434] dark:border-[#4A4A4A] dark:text-gray-200 dark:hover:bg-[#3F3F3F] transition-colors"
                       >
                         Cancel
                       </button>
@@ -373,8 +367,8 @@ export function GroupDetailsModal({
                         onClick={handleConfirmAdd}
                         disabled={selectedToAdd.length === 0}
                         className={`h-[28px] rounded-[4px] px-3 text-[11px] font-semibold text-white transition-colors ${selectedToAdd.length === 0
-                            ? "bg-[#98A2B3] cursor-not-allowed"
-                            : "bg-[#576CBC] hover:bg-[#4659a3]"
+                          ? "bg-[#98A2B3] cursor-not-allowed"
+                          : "bg-[#576CBC] hover:bg-[#4659a3]"
                           }`}
                       >
                         Add ({selectedToAdd.length})
@@ -387,21 +381,21 @@ export function GroupDetailsModal({
 
             <div className="max-h-[220px] overflow-y-auto p-2 space-y-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {localMembers.length === 0 ? (
-                <p className="py-4 text-center text-[11px] text-[#98A2B3]">
+                <p className="py-4 text-center text-[11px] text-[#98A2B3] dark:text-[#8a8a8a]">
                   No members yet. Click "+ Add" to add tenants.
                 </p>
               ) : (
                 localMembers.map((member) => (
                   <div
                     key={member.tenantId}
-                    className="flex items-center gap-2 rounded-[4px] px-2 py-1.5 hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-2 rounded-[4px] px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-[#3A3A3A] transition-colors"
                   >
                     <button
                       type="button"
                       onClick={() => handleToggleMember(member.tenantId)}
                       className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] transition-colors ${member.isSelected
-                          ? "bg-[#576CBC]"
-                          : "border border-[#D0D5DD] bg-white"
+                        ? "bg-[#576CBC]"
+                        : "border border-[#D0D5DD] bg-white dark:bg-[#343434] dark:border-[#4A4A4A]"
                         }`}
                     >
                       {member.isSelected && (
@@ -423,14 +417,14 @@ export function GroupDetailsModal({
                     <div className="flex-1 flex items-center gap-2 truncate">
                       <span
                         className={`text-[13px] truncate ${member.isSelected
-                            ? "font-normal text-[#101B41]"
-                            : "font-normal text-[#98A2B3] line-through"
+                          ? "font-normal text-[#101B41] dark:text-white"
+                          : "font-normal text-[#98A2B3] dark:text-[#6a6a6a] line-through"
                           }`}
                       >
                         {member.tenantName}
                       </span>
                       {data.planName && (
-                        <span className="text-[11px] font-normal text-[#98A2B3] truncate">
+                        <span className="text-[11px] font-normal text-[#98A2B3] dark:text-[#8a8a8a] truncate">
                           ({data.planName})
                         </span>
                       )}
@@ -441,8 +435,8 @@ export function GroupDetailsModal({
                       onClick={() => handleRemoveMember(member.tenantId)}
                       disabled={!member.isSelected}
                       className={`p-1 transition-colors ${member.isSelected
-                          ? "text-[#9EA3AE] hover:text-[#D14343]"
-                          : "text-[#E4E7EC] cursor-not-allowed"
+                        ? "text-[#9EA3AE] hover:text-[#D14343] dark:text-[#8a8a8a] dark:hover:text-[#F89B9B]"
+                        : "text-[#E4E7EC] dark:text-[#3F3F3F] cursor-not-allowed"
                         }`}
                     >
                       <svg
@@ -465,11 +459,11 @@ export function GroupDetailsModal({
           </div>
 
           {/* Group Settings */}
-          <div className="rounded-[8px] border border-[#E6EAF2] p-3.5">
-            <h3 className="text-[13px] font-medium text-[#101B41] mb-1">
+          <div className="rounded-[8px] border border-[#E6EAF2] dark:border-[#4A4A4A] p-3.5">
+            <h3 className="text-[13px] font-medium text-[#101B41] dark:text-white mb-1">
               Group Settings
             </h3>
-            <p className="text-[13px] text-[#101B41] mb-3">
+            <p className="text-[13px] text-[#101B41] dark:text-white mb-3">
               Who can send messages
             </p>
 
@@ -478,30 +472,32 @@ export function GroupDetailsModal({
                 <div
                   onClick={() => handleAccessChange("EVERYONE")}
                   className={`w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center cursor-pointer ${access === "EVERYONE"
-                      ? "border-[#576CBC]"
-                      : "border-[#D0D5DD]"
+                    ? "border-[#576CBC]"
+                    : "border-[#D0D5DD] dark:border-[#4A4A4A]"
                     }`}
                 >
                   {access === "EVERYONE" && (
                     <div className="w-[8px] h-[8px] rounded-full bg-[#576CBC]" />
                   )}
                 </div>
-                <span className="text-[13px] text-[#101B41]">Everyone</span>
+                <span className="text-[13px] text-[#101B41] dark:text-white">
+                  Everyone
+                </span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <div
                   onClick={() => handleAccessChange("ADMIN_ONLY")}
                   className={`w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center cursor-pointer ${access === "ADMIN_ONLY"
-                      ? "border-[#576CBC]"
-                      : "border-[#D0D5DD]"
+                    ? "border-[#576CBC]"
+                    : "border-[#D0D5DD] dark:border-[#4A4A4A]"
                     }`}
                 >
                   {access === "ADMIN_ONLY" && (
                     <div className="w-[8px] h-[8px] rounded-full bg-[#576CBC]" />
                   )}
                 </div>
-                <span className="text-[13px] text-[#101B41]">
+                <span className="text-[13px] text-[#101B41] dark:text-white">
                   Admins only
                 </span>
               </label>
@@ -509,18 +505,18 @@ export function GroupDetailsModal({
           </div>
 
           {/* Delete Group */}
-          <div className="rounded-[8px] border border-[#F5D0D0] bg-[#FFF8F8] p-4">
-            <p className="mb-1 text-[14px] font-bold text-[#D14343]">
+          <div className="rounded-[8px] border border-[#F5D0D0] bg-[#FFF8F8] p-4 dark:border-[#5A2A2A] dark:bg-[#2E1F1F]">
+            <p className="mb-1 text-[14px] font-bold text-[#D14343] dark:text-[#F89B9B]">
               Delete Group
             </p>
-            <p className="mb-4 text-[12px] text-[#8C919C]">
+            <p className="mb-4 text-[12px] text-[#8C919C] dark:text-[#8a8a8a]">
               Once deleted, this group and all messages will be permanently
               removed.
             </p>
             {!showDeleteConfirm ? (
               <button
                 onClick={() => onToggleDeleteConfirm(true)}
-                className="h-[36px] rounded-[6px] border border-[#D14343] text-[#D14343] px-4 text-[13px] font-semibold hover:bg-red-50 transition-colors"
+                className="h-[36px] rounded-[6px] border border-[#D14343] text-[#D14343] px-4 text-[13px] font-semibold hover:bg-red-50 dark:border-[#F89B9B] dark:text-[#F89B9B] dark:hover:bg-[#3A2A2A] transition-colors"
               >
                 Delete Group
               </button>
@@ -528,13 +524,13 @@ export function GroupDetailsModal({
               <div className="flex gap-2">
                 <button
                   onClick={() => onToggleDeleteConfirm(false)}
-                  className="flex-1 h-[36px] rounded-[6px] border border-[#D0D5DD] bg-white px-3 text-[13px] font-semibold text-[#344054] hover:bg-gray-50 transition-colors"
+                  className="flex-1 h-[36px] rounded-[6px] border border-[#D0D5DD] bg-white px-3 text-[13px] font-semibold text-[#344054] hover:bg-gray-50 dark:bg-[#343434] dark:border-[#4A4A4A] dark:text-gray-200 dark:hover:bg-[#3F3F3F] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={onDelete}
-                  className="flex-1 h-[36px] rounded-[6px] bg-[#D14343] text-white px-3 text-[13px] font-semibold hover:bg-red-700 transition-colors"
+                  className="flex-1 h-[36px] rounded-[6px] bg-[#D14343] text-white px-3 text-[13px] font-semibold hover:bg-red-700 dark:bg-[#B03535] dark:hover:bg-[#8F2A2A] transition-colors"
                 >
                   Yes, Delete
                 </button>
@@ -544,16 +540,16 @@ export function GroupDetailsModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#F0F1F4] bg-white">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#F0F1F4] dark:border-[#3F3F3F] bg-white dark:bg-[#2c2c2c]">
           <button
             onClick={onClose}
-            className="h-[40px] rounded-[6px] border border-[#576CBC] text-[#576CBC] px-6 text-[13px] font-semibold hover:bg-blue-50 transition-colors"
+            className="h-[40px] rounded-[6px] border border-[#576CBC] text-[#576CBC] px-6 text-[13px] font-semibold hover:bg-blue-50 dark:border-[#7B8FD4] dark:text-[#A8B7E8] dark:hover:bg-[#3A4570] transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={onSave}
-            className="h-[40px] rounded-[6px] bg-[#576CBC] text-white px-6 text-[13px] font-semibold hover:bg-[#4659a3] transition-colors"
+            className="h-[40px] rounded-[6px] bg-[#576CBC] text-white px-6 text-[13px] font-semibold hover:bg-[#4659a3] dark:bg-[#576CBC] dark:hover:bg-[#4659a3] transition-colors"
           >
             Done
           </button>

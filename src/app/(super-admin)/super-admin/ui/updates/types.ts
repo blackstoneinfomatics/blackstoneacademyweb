@@ -10,10 +10,11 @@ export interface ProductUpdate {
   audience: string;
   releaseDate: string;
   status: UpdateStatus;
-  affectedTenants?: number;
-  rawAudience?: string[];
-  rawSelectedTenants?: string[];
-  attachments?: string[];
+  affectedTenants: number;
+  rawAudience: string[];
+  rawSelectedTenants: string[];
+  rawSelectedTenantDetails?: { tenantCode: string; tenantName: string }[];  // ⭐
+  attachments: string[];
   sendNotification?: { email: boolean; inApp: boolean };
   publishDate?: string;
 }
@@ -29,6 +30,7 @@ export interface Tenant {
 }
 
 export interface UpdateFeaturePayload {
+  paymentDetails: any;
   updateId: string;
   title: string;
   category: string;

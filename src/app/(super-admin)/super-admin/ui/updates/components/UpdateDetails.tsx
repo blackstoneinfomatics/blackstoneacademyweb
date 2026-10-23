@@ -1,9 +1,20 @@
 "use client";
-import React, { useEffect, useState } from "react";
+
+import React, { useEffect, useMemo, useState } from "react";
 import { X, Download, FileText } from "lucide-react";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}/tenantsubscription`;
+
+const EXCLUDED_TENANT_NAMES = ["SuperAdmin", "Super Admin"];
+const EXCLUDED_TENANT_CODES = ["TEN00000"];
+
+interface TenantOption {
+  id: string;
+  name: string;
+  plan: string;
+  aliases: string[];
+}
 
 interface UpdateDetailsProps {
   updateId: string;
@@ -12,8 +23,18 @@ interface UpdateDetailsProps {
   error: string | null;
   fallbackSelectedTenants?: string[];
   totalTenantsCount?: number;
+  expectedCount?: number;
   onClose: () => void;
 }
+
+const isExcludedTenant = (name: string, code: string): boolean => {
+  const n = (name ?? "").trim().toLowerCase();
+  const c = (code ?? "").trim();
+  return (
+    EXCLUDED_TENANT_NAMES.some((x) => x.toLowerCase() === n) ||
+    EXCLUDED_TENANT_CODES.includes(c)
+  );
+};
 
 const UpdateDetails = ({
   update,
@@ -21,130 +42,145 @@ const UpdateDetails = ({
   error,
   fallbackSelectedTenants = [],
   totalTenantsCount = 0,
+  expectedCount,
   onClose,
 }: UpdateDetailsProps) => {
-  // ✅ Tenant ID → Name map
-  const [tenantMap, setTenantMap] = useState<Record<string, string>>({});
+  const [allTenants, setAllTenants] = useState<TenantOption[]>([]);
+  const [tenantsLoading, setTenantsLoading] = useState(true);
 
+  /* ── Fetch tenants from /tenantsubscription ── */
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
+      setTenantsLoading(true);
       try {
-        const res = await fetch(`${TENANTS_API}?limit=1000`);
+        const res = await fetch(TENANTS_API);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const json = await res.json();
 
-        const items = Array.isArray(json)
+        const rawTenants: any[] = Array.isArray(json)
           ? json
-          : json?.data?.items ??
-          json?.data?.tenants ??
-          json?.tenants ??
-          json?.data ??
-          json?.items ??
-          [];
+          : json?.data?.tenants ?? json?.data ?? json?.tenants ?? [];
 
-        const map: Record<string, string> = {};
-        items.forEach((t: any) => {
-          const code = t.tenantCode ?? t._id ?? t.id;
-          const name = t.tenantName ?? t.name;
-          if (code && name) {
-            map[code] = name;
-            if (t._id) map[t._id] = name;
-          }
-        });
+        const list: TenantOption[] = rawTenants.reduce<TenantOption[]>(
+          (acc, t) => {
+            const tenantObj = t?.tenant ?? t;
+            const id = tenantObj?.tenantCode ?? tenantObj?.tenantId ?? "";
+            const name = tenantObj?.tenantName ?? "";
+            const plan =
+              t?.planName ?? tenantObj?.plan ?? t?.plan?.planName ?? "";
 
-        if (!cancelled) setTenantMap(map);
+            if (!id || !name) return acc;
+            if (isExcludedTenant(name, id)) return acc;
+            if ((plan ?? "").toLowerCase() === "super") return acc;
+
+            const aliases = new Set<string>();
+            [
+              tenantObj?.tenantCode,
+              tenantObj?.tenantId,
+              tenantObj?._id,
+              tenantObj?.tenantName,
+              tenantObj?.tenantJobCode,
+              name,
+              id,
+            ]
+              .filter(Boolean)
+              .forEach((v: any) => {
+                const s = String(v).trim();
+                if (!s) return;
+                aliases.add(s);
+                aliases.add(s.toLowerCase());
+              });
+
+            acc.push({
+              id,
+              name,
+              plan,
+              aliases: Array.from(aliases),
+            });
+            return acc;
+          },
+          [],
+        );
+
+        if (!cancelled) setAllTenants(list);
       } catch (e) {
-        console.error("Failed to load tenant map:", e);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("❌ Tenant fetch failed:", e);
+        }
+        if (!cancelled) setAllTenants([]);
+      } finally {
+        if (!cancelled) setTenantsLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl p-6">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
-            Update Details
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-500"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="space-y-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-10 w-full animate-pulse rounded-md bg-gray-200 dark:bg-[#454545]"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  /* ── Lookup maps ── */
+  const { tenantByAlias, tenantByName } = useMemo(() => {
+    const byAlias: Record<string, TenantOption> = {};
+    const byName: Record<string, TenantOption> = {};
 
-  if (error || !update) {
-    return (
-      <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl p-6">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
-            Update Details
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-500"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="rounded-md bg-red-50 px-4 py-3 text-[12px] text-red-600 dark:bg-red-900/30 dark:text-red-300">
-          {error || "Failed to load update details"}
-        </div>
-        <div className="mt-5 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white hover:bg-[#4D66B3]"
-          >
-            Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+    allTenants.forEach((t) => {
+      t.aliases.forEach((a) => {
+        byAlias[a] = t;
+        byAlias[a.toLowerCase()] = t;
+      });
+      byName[t.name.toLowerCase()] = t;
+    });
 
-  // ─────────────────────────────────────────────
-  // Audience analysis
-  // ─────────────────────────────────────────────
-  const rawAudience: string[] = Array.isArray(update.audience)
+    return { tenantByAlias: byAlias, tenantByName: byName };
+  }, [allTenants]);
+
+  /* ── Resolver ── */
+  const resolveName = (value: string): string | null => {
+    if (!value) return null;
+    const trimmed = String(value).trim();
+    if (!trimmed) return null;
+
+    const lower = trimmed.toLowerCase();
+
+    const byAlias = tenantByAlias[trimmed] ?? tenantByAlias[lower];
+    if (byAlias) return byAlias.name;
+
+    const byName = tenantByName[lower];
+    if (byName) return byName.name;
+
+    const fuzzy = allTenants.find(
+      (t) =>
+        t.name.toLowerCase().includes(lower) ||
+        lower.includes(t.name.toLowerCase()),
+    );
+    if (fuzzy) return fuzzy.name;
+
+    return trimmed;
+  };
+
+  /* ── Audience analysis ── */
+  const rawAudience: string[] = Array.isArray(update?.audience)
     ? update.audience
-    : [update.audience ?? "All Tenants"];
+    : [update?.audience ?? "All Tenants"];
 
   const audienceJoined = rawAudience.join(" ").toLowerCase();
   const isAllTenants = audienceJoined.includes("all tenant");
   const isSelectTenants = audienceJoined.includes("select tenant");
   const isByPlan = !isAllTenants && !isSelectTenants;
 
-  // Resolve value → tenant name
-  const resolveName = (value: string): string => {
-    if (!value) return "";
-    if (tenantMap[value]) return tenantMap[value];
-    return value;
-  };
-
-  const tenantList: string[] = (() => {
+  /* ── Tenant list ── */
+  const tenantList: string[] = useMemo(() => {
+    if (!update) return [];
     const collected: string[] = [];
 
     if (Array.isArray(update.selectedTenantDetails)) {
       update.selectedTenantDetails.forEach((t: any) => {
-        const raw = t?.tenantName ?? t?.name ?? t?.tenantCode ?? t?._id;
-        const name = resolveName(String(raw ?? ""));
+        const raw = t?.tenantCode ?? t?._id ?? t?.tenantName ?? t?.name;
+        if (!raw) return;
+        const name = resolveName(String(raw));
         if (name) collected.push(name);
       });
     }
@@ -157,11 +193,18 @@ const UpdateDetails = ({
           if (name) collected.push(name);
         } else {
           const raw =
-            t?.tenantName ?? t?.name ?? t?.tenantCode ?? t?._id ?? "";
+            t?.tenantCode ?? t?._id ?? t?.tenantName ?? t?.name ?? "";
           const name = resolveName(String(raw));
           if (name) collected.push(name);
         }
       });
+    }
+
+    if (isByPlan && collected.length === 0 && allTenants.length > 0) {
+      const planName = String(rawAudience[0] ?? "").trim().toLowerCase();
+      allTenants
+        .filter((t) => t.plan.toLowerCase() === planName)
+        .forEach((t) => collected.push(t.name));
     }
 
     if (collected.length === 0 && fallbackSelectedTenants.length > 0) {
@@ -171,28 +214,41 @@ const UpdateDetails = ({
       });
     }
 
-    return Array.from(new Set(collected));
-  })();
+    const seen = new Set<string>();
+    return collected.filter((n) => {
+      const key = n.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    update,
+    allTenants,
+    isByPlan,
+    rawAudience,
+    fallbackSelectedTenants,
+    tenantByAlias,
+    tenantByName,
+  ]);
+
+  const selectedCount =
+    typeof expectedCount === "number" && expectedCount >= 0
+      ? expectedCount
+      : tenantList.length;
 
   const allTenantsCount =
-    totalTenantsCount > 0
-      ? totalTenantsCount
-      : update.affectedTenants ?? update.audienceCount ?? 0;
-
-  const planTenantsCount =
-    update.affectedTenants ??
-    update.planTenantCount ??
-    update.audienceCount ??
-    tenantList.length;
+    totalTenantsCount > 0 ? totalTenantsCount : allTenants.length;
 
   const audienceLabel = isAllTenants
-    ? `All Tenants`
+    ? "All Tenants"
     : isSelectTenants
-      ? `Selected Tenants (${tenantList.length})`
-      : rawAudience[0] ?? "Plan";
+      ? `Selected Tenants (${selectedCount})`
+      : `${rawAudience[0] ?? "Plan"} Tenants (${selectedCount})`;
 
+  /* ── Colors ── */
   const statusValue: string =
-    update.status ?? update.updateStatus ?? update.state ?? "—";
+    update?.status ?? update?.updateStatus ?? update?.state ?? "—";
 
   const statusColor =
     statusValue === "Published"
@@ -204,9 +260,9 @@ const UpdateDetails = ({
           : "text-[#576CBC] dark:text-[#8296E6]";
 
   const priorityColor =
-    update.priority === "High"
+    update?.priority === "High"
       ? "text-[#EA4F4F] dark:text-[#FC8181]"
-      : update.priority === "Medium"
+      : update?.priority === "Medium"
         ? "text-[#EFA133] dark:text-[#F5C97B]"
         : "text-[#40BD5F] dark:text-[#68D391]";
 
@@ -225,13 +281,78 @@ const UpdateDetails = ({
     }
   };
 
-  const publishDate = formatDate(update.publishDate || update.releaseDate);
-  const attachments: string[] = Array.isArray(update.attachments)
+  const publishDate = formatDate(update?.publishDate || update?.releaseDate);
+
+  const attachments: string[] = Array.isArray(update?.attachments)
     ? update.attachments
     : [];
 
   const fieldBoxClass =
     "flex w-full items-center rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[12px] leading-5 text-[#101B41] min-h-[42px] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white";
+
+  /* ⭐ Get the localStorage row FIRST to override backend values */
+  const local = (() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const rows = JSON.parse(
+        window.localStorage.getItem("blackstone_created_updates_v1") || "[]"
+      );
+      return rows.find(
+        (r: any) =>
+          r.title?.trim().toLowerCase() === update?.title?.trim().toLowerCase()
+      );
+    } catch {
+      return null;
+    }
+  })();
+
+  // ⭐ Prefer localStorage values (which hold the latest updates) over the backend API values
+  const monthlyPrice = local?.monthlyPrice ?? update?.monthlyPrice ?? "—";
+  const discount = local?.discount ?? update?.discount ?? "—";
+
+  if (loading) {
+    return (
+      <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
+            Update Details
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-10 w-full animate-pulse rounded-md bg-gray-200 dark:bg-[#454545]" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !update) {
+    return (
+      <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
+            Update Details
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="rounded-md bg-red-50 px-4 py-3 text-[12px] text-red-600 dark:bg-red-900/30 dark:text-red-300">
+          {error || "Failed to load update details"}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <button type="button" onClick={onClose}
+            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white hover:bg-[#4D66B3]">
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-[14px] bg-white dark:bg-[#343434] dark:border dark:border-[#454545] shadow-2xl">
@@ -239,11 +360,8 @@ const UpdateDetails = ({
         <h2 className="text-[16px] font-bold text-[#101B41] dark:text-white">
           Update Details
         </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-        >
+        <button type="button" onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
           <X size={18} />
         </button>
       </div>
@@ -273,14 +391,33 @@ const UpdateDetails = ({
           </div>
         </div>
 
-        {/* All Tenants layout */}
+        {/* ⭐ Payment Details Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
+              Monthly Price
+            </label>
+            <div className={fieldBoxClass}>{monthlyPrice}</div>
+          </div>
+          <div>
+            <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
+              Discount (%)
+            </label>
+            <div className={fieldBoxClass}>
+              {discount !== "—" ? `${discount} %` : "—"}
+            </div>
+          </div>
+        </div>
+
         {isAllTenants ? (
           <div className="grid grid-cols-4 gap-4">
             <div>
               <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
                 All Tenants
               </label>
-              <div className={fieldBoxClass}>{allTenantsCount}</div>
+              <div className={fieldBoxClass}>
+                {tenantsLoading ? "…" : allTenantsCount}
+              </div>
             </div>
             <div>
               <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
@@ -305,7 +442,7 @@ const UpdateDetails = ({
               </div>
             </div>
           </div>
-        ) : isSelectTenants ? (
+        ) : (
           <>
             <div>
               <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
@@ -315,10 +452,8 @@ const UpdateDetails = ({
                 <div className="flex flex-wrap gap-2">
                   {tenantList.length > 0 ? (
                     tenantList.map((name, i) => (
-                      <span
-                        key={`${name}-${i}`}
-                        className="rounded-md bg-[#E6EAF2] px-3 py-1.5 text-[11px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]"
-                      >
+                      <span key={`${name}-${i}`}
+                        className="rounded-md bg-[#E6EAF2] px-3 py-1.5 text-[11px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
                         {name}
                       </span>
                     ))
@@ -342,63 +477,7 @@ const UpdateDetails = ({
                 <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
                   Priority
                 </label>
-                <div
-                  className={`${fieldBoxClass} font-medium ${priorityColor}`}
-                >
-                  {update.priority || "—"}
-                </div>
-              </div>
-              <div>
-                <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                  Status
-                </label>
-                <div className={`${fieldBoxClass} font-medium ${statusColor}`}>
-                  {statusValue}
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          /* Plan layout — with tenant list + count */
-          <>
-            <div>
-              <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                {audienceLabel} Tenants ({tenantList.length})
-              </label>
-              <div className="w-full min-h-[100px] rounded-md border border-[#D5D9E2] bg-white px-3 py-3 dark:border-[#555] dark:bg-[#3A3A3A]">
-                <div className="flex flex-wrap gap-2">
-                  {tenantList.length > 0 ? (
-                    tenantList.map((name, i) => (
-                      <span
-                        key={`${name}-${i}`}
-                        className="rounded-md bg-[#E6EAF2] px-3 py-1.5 text-[11px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]"
-                      >
-                        {name}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-[12px] text-gray-400">
-                      No tenants on this plan
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                  Publish Date
-                </label>
-                <div className={fieldBoxClass}>{publishDate}</div>
-              </div>
-              <div>
-                <label className="mb-2 block text-[12px] font-medium text-[#101B41] dark:text-gray-200">
-                  Priority
-                </label>
-                <div
-                  className={`${fieldBoxClass} font-medium ${priorityColor}`}
-                >
+                <div className={`${fieldBoxClass} font-medium ${priorityColor}`}>
                   {update.priority || "—"}
                 </div>
               </div>
@@ -428,15 +507,10 @@ const UpdateDetails = ({
                   <p className="text-[12px] font-medium text-[#101B41] dark:text-white">
                     {attachments[0]}
                   </p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                    156 KB
-                  </p>
                 </div>
               </div>
-              <button
-                type="button"
-                className="text-[#576CBC] hover:text-[#4D66B3] dark:text-[#A8B7E8]"
-              >
+              <button type="button"
+                className="text-[#576CBC] hover:text-[#4D66B3] dark:text-[#A8B7E8]">
                 <Download className="h-4 w-4" />
               </button>
             </div>
@@ -444,11 +518,8 @@ const UpdateDetails = ({
         )}
 
         <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#4D66B3] dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]"
-          >
+          <button type="button" onClick={onClose}
+            className="rounded-md bg-[#5872C5] px-6 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#4D66B3] dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]">
             Back
           </button>
         </div>

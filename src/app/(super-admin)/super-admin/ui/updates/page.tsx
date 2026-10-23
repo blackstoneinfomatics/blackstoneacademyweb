@@ -1,6 +1,5 @@
 'use client';
 import React, { useEffect, useState } from 'react'
-import BaseLayout3 from '../../components/BaseSuperLayout'
 import SuperAdminHeader from '../../components/SuperAdminHeader'
 import {
   X, ChevronDown, Search, ChevronRight, SlidersHorizontal, ChevronLeft,
@@ -15,48 +14,7 @@ import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 const DASHBOARD_CARDS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`;
 const UPDATES_TABLE_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_TABLE}`;
 const UPDATE_BY_ID_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_BY_ID}`;
-const TENANTS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT.GET_TENANT}`;
-
-const LOCAL_UPDATES_KEY = "blackstone_created_updates_v1";
-
-interface LocalUpdate {
-  updateId: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: "Low" | "Medium" | "High";
-  audience: string[];
-  selectedTenants: string[];
-  publishDate: string;
-  status: string;
-  attachments: string[];
-  sendNotification?: { email: boolean; inApp: boolean };
-  createdAt: string;
-}
-
-const loadLocalUpdates = (): LocalUpdate[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(LOCAL_UPDATES_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveLocalUpdates = (rows: LocalUpdate[]) => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(LOCAL_UPDATES_KEY, JSON.stringify(rows));
-  } catch { }
-};
-
-const upsertLocalUpdate = (row: LocalUpdate) => {
-  const rows = loadLocalUpdates();
-  const filtered = rows.filter((r) => r.title !== row.title);
-  filtered.unshift(row);
-  saveLocalUpdates(filtered.slice(0, 100));
-};
+const TENANTS_API = `${AppApiEndpoints.API_END_POINT}/tenantsubscription`;
 
 interface CardMetric {
   count: number;
@@ -90,6 +48,8 @@ interface ApiUpdateRow {
   attachments?: string[];
   sendNotification?: { email: boolean; inApp: boolean };
   createdAt?: string;
+  monthlyPrice?: number;
+  discount?: number;
 }
 
 interface UpdatesTableResponse {
@@ -107,10 +67,8 @@ const CARD_ICONS = {
 
 const formatReleaseDate = (value: string) => {
   if (!value) return "-";
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -118,12 +76,46 @@ const formatReleaseDate = (value: string) => {
   });
 };
 
-const isApiRow = (row: ApiUpdateRow | LocalUpdate): row is ApiUpdateRow => {
-  return (row as ApiUpdateRow)._id !== undefined;
+const buildTenantPairs = (
+  row: any,
+): { tenantCode: string; tenantName: string }[] => {
+  const pairs: { tenantCode: string; tenantName: string }[] = [];
+
+  if (Array.isArray(row?.selectedTenantDetails)) {
+    row.selectedTenantDetails.forEach((t: any) => {
+      const tenantCode = t?.tenantCode ?? t?._id ?? "";
+      const tenantName = t?.tenantName ?? t?.name ?? "";
+      if (tenantCode || tenantName) {
+        pairs.push({ tenantCode, tenantName });
+      }
+    });
+  }
+
+  if (pairs.length === 0 && Array.isArray(row?.selectedTenants)) {
+    row.selectedTenants.forEach((t: any) => {
+      if (typeof t === "string") {
+        pairs.push({ tenantCode: t, tenantName: t });
+      } else if (t) {
+        const tenantCode = t?.tenantCode ?? t?._id ?? "";
+        const tenantName = t?.tenantName ?? t?.name ?? "";
+        if (tenantCode || tenantName) {
+          pairs.push({ tenantCode, tenantName });
+        }
+      }
+    });
+  }
+
+  const seen = new Set<string>();
+  return pairs.filter((p) => {
+    const key = (p.tenantName || p.tenantCode).toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 const normalizeRow = (
-  row: ApiUpdateRow | LocalUpdate,
+  row: ApiUpdateRow,
   totalTenantsCount: number = 0,
 ): ProductUpdate => {
   const audienceArr: string[] =
@@ -136,39 +128,28 @@ const normalizeRow = (
   const isSelectTenants = audienceJoined.includes("select tenant");
 
   const anyRow = row as any;
-  let selectedNames: string[] = [];
 
-  if (Array.isArray(anyRow.selectedTenantDetails)) {
-    selectedNames = anyRow.selectedTenantDetails
-      .map((t: any) => t?.tenantName ?? t?.tenantCode ?? "")
-      .filter(Boolean);
-  } else if (Array.isArray(anyRow.selectedTenants)) {
-    selectedNames = anyRow.selectedTenants
-      .map((t: any) =>
-        typeof t === "string"
-          ? t
-          : t?.tenantName ?? t?.name ?? t?.tenantCode ?? "",
-      )
-      .filter(Boolean);
-  }
+  const tenantPairs = buildTenantPairs(anyRow);
+  const selectedNames = tenantPairs
+    .map((p) => p.tenantName || p.tenantCode)
+    .filter(Boolean);
+
+  const count = tenantPairs.length;
 
   let audienceDisplay: string;
   if (isAllTenants) {
     audienceDisplay = `All Tenants (${totalTenantsCount})`;
   } else if (isSelectTenants) {
-    audienceDisplay = `Selected Tenants (${selectedNames.length})`;
+    audienceDisplay = `Selected Tenants (${count})`;
   } else {
     const planLabel = audienceArr[0] ?? anyRow.planName ?? "Plan";
-    audienceDisplay = `${planLabel} (${selectedNames.length})`;
+    audienceDisplay = `${planLabel} (${count})`;
   }
 
-  const rowId = isApiRow(row) ? row._id : row.updateId;
-  const releaseDate = isApiRow(row)
-    ? row.releaseDate ?? row.publishDate ?? row.createdAt ?? ""
-    : row.publishDate ?? row.createdAt ?? "";
+  const releaseDate = row.releaseDate ?? row.publishDate ?? row.createdAt ?? "";
 
   return {
-    updateId: rowId,
+    updateId: row._id,
     title: row.title,
     description: row.description,
     category: row.category,
@@ -176,74 +157,16 @@ const normalizeRow = (
     audience: audienceDisplay,
     releaseDate,
     status: (row.status ?? "Draft") as UpdateStatus,
-    affectedTenants: isAllTenants
-      ? totalTenantsCount
-      : isSelectTenants
-        ? selectedNames.length
-        : selectedNames.length,
+    affectedTenants: isAllTenants ? totalTenantsCount : count,
     rawAudience: audienceArr,
     rawSelectedTenants: selectedNames,
+    rawSelectedTenantDetails: tenantPairs,
     attachments: row.attachments ?? [],
     sendNotification: row.sendNotification,
     publishDate: row.publishDate,
-  };
-};
-
-const mergeRows = (
-  apiRows: ApiUpdateRow[],
-  localRows: LocalUpdate[],
-  totalTenantsCount: number,
-): ProductUpdate[] => {
-  const localByTitle = new Map<string, LocalUpdate>();
-  localRows.forEach((l) => localByTitle.set(l.title.trim().toLowerCase(), l));
-
-  const merged: ProductUpdate[] = [];
-
-  apiRows.forEach((api) => {
-    const key = api.title.trim().toLowerCase();
-    const local = localByTitle.get(key);
-
-    const apiTenants = (() => {
-      if (Array.isArray(api.selectedTenantDetails)) {
-        return api.selectedTenantDetails
-          .map((t) => t.tenantName ?? t.tenantCode ?? "")
-          .filter(Boolean);
-      }
-      if (Array.isArray(api.selectedTenants)) {
-        return api.selectedTenants
-          .map((t: any) =>
-            typeof t === "string"
-              ? t
-              : t?.tenantName ?? t?.name ?? t?.tenantCode ?? "",
-          )
-          .filter(Boolean);
-      }
-      return [];
-    })();
-
-    const effectiveTenants =
-      apiTenants.length > 0 ? apiTenants : local?.selectedTenants ?? [];
-
-    const enriched: ApiUpdateRow = {
-      ...api,
-      selectedTenants: effectiveTenants,
-      audience:
-        Array.isArray(api.audience) && api.audience.length > 0
-          ? api.audience
-          : local?.audience ?? ["All Tenants"],
-      status: api.status ?? (local?.status as any) ?? "Scheduled",
-    };
-
-    merged.push(normalizeRow(enriched, totalTenantsCount));
-
-    if (local) localByTitle.delete(key);
-  });
-
-  localByTitle.forEach((local) => {
-    merged.unshift(normalizeRow(local, totalTenantsCount));
-  });
-
-  return merged;
+    monthlyPrice: anyRow.monthlyPrice,
+    discount: anyRow.discount,
+  } as ProductUpdate;
 };
 
 const buildCardsFromApi = (
@@ -290,7 +213,7 @@ const buildCardsFromApi = (
       trend: "vs last Month",
     },
     {
-      title: "Total Views",
+      title: "Total Request",
       value: "-",
       percentage: undefined,
       direction: undefined,
@@ -455,6 +378,8 @@ const page = () => {
     description: "",
     publishDate: "",
     priority: "Medium",
+    monthlyPrice: "",
+    discount: "",
     attachments: null,
     sendEmail: false,
     sendInAppNotification: false,
@@ -470,27 +395,24 @@ const page = () => {
   const filteredItems = applyFilters(updateList, search, appliedFilters);
   const previewFilteredItems = applyFilters(updateList, search, draftFilters);
 
-  // Fetch tenant count
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${TENANTS_API}?limit=1000`);
+        const res = await fetch(TENANTS_API);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
-        const items = Array.isArray(json)
+        const items: any[] = Array.isArray(json)
           ? json
-          : json?.data?.items ??
-          json?.data?.tenants ??
-          json?.tenants ??
-          json?.data ??
-          json?.items ??
-          [];
+          : json?.data?.tenants ?? json?.data ?? json?.tenants ?? [];
 
-        const activeItems = items.filter(
-          (t: any) => (t.status ?? "").toLowerCase() === "active",
-        );
+        const activeItems = items.filter((t: any) => {
+          const status = (t?.status ?? t?.tenant?.status ?? "")
+            .toString()
+            .toLowerCase();
+          return status === "active";
+        });
 
         if (!cancelled) setTotalTenantsCount(activeItems.length);
       } catch (e) {
@@ -503,15 +425,12 @@ const page = () => {
     };
   }, []);
 
-  // Fetch cards
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setCardsLoading(true);
       try {
-        const res = await fetch(
-          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`,
-        );
+        const res = await fetch(DASHBOARD_CARDS_API);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: DashboardCardsResponse = await res.json();
         if (!cancelled && json.success) setCardsData(json.data);
@@ -526,7 +445,7 @@ const page = () => {
     };
   }, []);
 
-  // Fetch table
+  // Fetch purely from API - No local storage
   useEffect(() => {
     if (totalTenantsCount === 0) return;
 
@@ -534,17 +453,20 @@ const page = () => {
     const load = async () => {
       setTableLoading(true);
       try {
-        const localRows = loadLocalUpdates();
         const res = await fetch(`${UPDATES_TABLE_API}?limit=100`);
         const json: UpdatesTableResponse = await res.json();
         if (cancelled) return;
-        const apiRows: ApiUpdateRow[] = json.success ? json.data ?? [] : [];
-        const merged = mergeRows(apiRows, localRows, totalTenantsCount);
-        setUpdateList(merged);
+
+        if (!json.success) throw new Error(json.message || "Failed to load data");
+
+        const apiRows: ApiUpdateRow[] = json.data ?? [];
+        const normalized = apiRows.map((row) =>
+          normalizeRow(row, totalTenantsCount),
+        );
+        setUpdateList(normalized);
       } catch (e: any) {
         if (!cancelled) {
-          const localRows = loadLocalUpdates();
-          setUpdateList(mergeRows([], localRows, totalTenantsCount));
+          setUpdateList([]); // Clear table on error
           setTableError(e.message ?? "Failed to load updates");
         }
       } finally {
@@ -557,19 +479,9 @@ const page = () => {
     };
   }, [totalTenantsCount]);
 
-  // Fetch update by ID
   useEffect(() => {
     if (!viewUpdateId) {
       setViewUpdateData(null);
-      setViewError(null);
-      return;
-    }
-
-    if (
-      viewUpdateId.startsWith("temp-") ||
-      viewUpdateId.startsWith("local-")
-    ) {
-      setViewLoading(false);
       setViewError(null);
       return;
     }
@@ -588,6 +500,9 @@ const page = () => {
             ...json.data,
             status: json.data?.status ?? prev?.status,
             priority: json.data?.priority ?? prev?.priority,
+            monthlyPrice: json.data?.monthlyPrice ?? prev?.monthlyPrice,
+            discount: json.data?.discount ?? prev?.discount,
+            expectedCount: prev?.expectedCount,
           }));
         } else if (!cancelled) {
           throw new Error(json.message || "Failed");
@@ -611,7 +526,7 @@ const page = () => {
         if (u.updateId !== payload.updateId) return u;
 
         const incoming = (payload.audience ?? "").trim();
-        const PLAN_LABELS = ["Standard", "Premium", "Basic"];
+        const PLAN_LABELS = ["Standard", "Premium", "Basic", "premium"];
         const isAllTenants = incoming === "All Tenants";
 
         let nextSelectedNames: string[] = u.rawSelectedTenants ?? [];
@@ -643,27 +558,6 @@ const page = () => {
           ? `All Tenants (${totalTenantsCount})`
           : `Selected Tenants (${nextSelectedNames.length})`;
 
-        const localRows = loadLocalUpdates();
-        const existingLocal = localRows.find(
-          (l) =>
-            l.title.trim().toLowerCase() === u.title.trim().toLowerCase(),
-        );
-        if (existingLocal) {
-          existingLocal.title = payload.title?.trim() || u.title;
-          existingLocal.description = payload.description ?? u.description;
-          existingLocal.category = payload.category ?? u.category;
-          existingLocal.priority = (payload.priority ?? u.priority) as
-            | "Low"
-            | "Medium"
-            | "High";
-          existingLocal.publishDate = payload.publishDate || u.releaseDate;
-          existingLocal.selectedTenants = nextSelectedNames;
-          existingLocal.audience = isAllTenants
-            ? ["All Tenants"]
-            : ["Select Tenants"];
-          saveLocalUpdates(localRows);
-        }
-
         return {
           ...u,
           title: payload.title?.trim() || u.title,
@@ -673,7 +567,13 @@ const page = () => {
           releaseDate: payload.publishDate || u.releaseDate,
           audience: nextAudienceDisplay,
           rawSelectedTenants: nextSelectedNames,
+          rawSelectedTenantDetails: nextSelectedNames.map((n) => ({
+            tenantCode: n,
+            tenantName: n,
+          })),
           affectedTenants: nextSelectedNames.length,
+          monthlyPrice: (payload as any).monthlyPrice,
+          discount: (payload as any).discount,
         };
       }),
     );
@@ -742,6 +642,8 @@ const page = () => {
       description: "",
       publishDate: "",
       priority: "Medium",
+      monthlyPrice: "",
+      discount: "",
       attachments: null,
       sendEmail: false,
       sendInAppNotification: false,
@@ -753,7 +655,6 @@ const page = () => {
     resetUpdateForm();
   };
 
-  // Create handler — resolves plan tenants too
   const handleCreateUpdateSubmit = async (
     e: React.FormEvent,
     payload: any,
@@ -763,96 +664,20 @@ const page = () => {
     setIsPublishing(true);
 
     try {
-      const categoryLabelMap: Record<string, string> = {
-        Feature: "Feature Release",
-        "Bug Fix": "Bug Fix",
-        Maintenance: "Maintenance",
-        Announcement: "Announcement",
-      };
+      // Refresh purely from DB API
+      const res = await fetch(`${UPDATES_TABLE_API}?limit=1000`);
+      const json: UpdatesTableResponse = await res.json();
 
-      const audienceType = Array.isArray(payload.audience)
-        ? payload.audience[0]
-        : "";
-
-      const isAllTenants = audienceType.toLowerCase().includes("all tenant");
-      const isSelectTenants = audienceType
-        .toLowerCase()
-        .includes("select tenant");
-      const isByPlan = !isAllTenants && !isSelectTenants;
-
-      // Resolve plan tenant names
-      let planTenantNames: string[] = [];
-      if (isByPlan && audienceType) {
-        try {
-          const tRes = await fetch(`${TENANTS_API}?limit=1000`);
-          const tJson = await tRes.json();
-          const items = Array.isArray(tJson)
-            ? tJson
-            : tJson?.data?.items ??
-            tJson?.data?.tenants ??
-            tJson?.tenants ??
-            tJson?.data ??
-            tJson?.items ??
-            [];
-
-          planTenantNames = items
-            .filter(
-              (t: any) =>
-                (t.status ?? "").toLowerCase() === "active" &&
-                t.plan === audienceType,
-            )
-            .map((t: any) => t.tenantName ?? t.name ?? "")
-            .filter(Boolean);
-
-          console.log(
-            `✅ Resolved ${planTenantNames.length} tenants on "${audienceType}" plan`,
-          );
-        } catch (err) {
-          console.warn("Failed to resolve plan tenants:", err);
-        }
-      }
-
-      const selectedNames: string[] =
-        isSelectTenants && Array.isArray(payload.selectedTenants)
-          ? payload.selectedTenants
-          : isByPlan
-            ? planTenantNames
-            : [];
-
-      const localRow: LocalUpdate = {
-        updateId:
-          response?.data?._id ??
-          response?.data?.update?._id ??
-          `local-${Date.now()}`,
-        title: payload.title,
-        description: payload.description,
-        category: categoryLabelMap[payload.category] ?? payload.category,
-        priority: payload.priority,
-        audience: payload.audience,
-        selectedTenants: selectedNames,
-        publishDate:
-          payload.publishDate || new Date().toISOString().slice(0, 10),
-        status: payload.status || "Scheduled",
-        attachments: payload.attachments || [],
-        sendNotification: payload.sendNotification,
-        createdAt: new Date().toISOString(),
-      };
-
-      upsertLocalUpdate(localRow);
-
-      const localRows = loadLocalUpdates();
-      try {
-        const res = await fetch(`${UPDATES_TABLE_API}?limit=1000`);
-        const json: UpdatesTableResponse = await res.json();
-        const apiRows: ApiUpdateRow[] = json.success ? json.data ?? [] : [];
-        setUpdateList(mergeRows(apiRows, localRows, totalTenantsCount));
-      } catch {
-        setUpdateList(mergeRows([], localRows, totalTenantsCount));
+      if (json.success && json.data) {
+        const normalized = json.data.map((row) =>
+          normalizeRow(row, totalTenantsCount),
+        );
+        setUpdateList(normalized);
       }
 
       closeCreateUpdateModal();
     } catch (error) {
-      console.error("Create failed:", error);
+      console.error("Failed to refresh table after create:", error);
     } finally {
       setIsPublishing(false);
     }
@@ -1042,6 +867,12 @@ const page = () => {
                           ))}
                         </tr>
                       ))
+                    ) : tableError ? (
+                      <tr>
+                        <td colSpan={8} className="p-4 text-center text-red-500">
+                          Error: {tableError}
+                        </td>
+                      </tr>
                     ) : paginatedItems.length > 0 ? (
                       paginatedItems.map((item) => (
                         <tr
@@ -1104,48 +935,35 @@ const page = () => {
                                   onClick={() => {
                                     setOpenMenu(null);
 
-                                    const local = loadLocalUpdates().find(
-                                      (l) =>
-                                        l.title.trim().toLowerCase() ===
-                                        item.title.trim().toLowerCase(),
-                                    );
-
                                     const rowFallback =
                                       item.rawSelectedTenants ?? [];
-                                    const localFallback =
-                                      local?.selectedTenants ?? [];
-                                    const fallback =
-                                      rowFallback.length > 0
-                                        ? rowFallback
-                                        : localFallback;
+                                    setViewRowFallback(rowFallback);
 
-                                    setViewRowFallback(fallback);
+                                    const details =
+                                      item.rawSelectedTenantDetails ?? [];
+                                    const expectedCount =
+                                      details.length > 0
+                                        ? details.length
+                                        : (item.rawSelectedTenants ?? []).length;
 
                                     setViewUpdateData({
                                       title: item.title,
                                       description: item.description,
                                       category: item.category,
-                                      priority:
-                                        item.priority ??
-                                        local?.priority ??
-                                        "Low",
-                                      status:
-                                        item.status ?? local?.status ?? "—",
-                                      publishDate:
-                                        item.publishDate ??
-                                        local?.publishDate,
+                                      priority: item.priority ?? "Low",
+                                      status: item.status ?? "—",
+                                      publishDate: item.publishDate,
                                       releaseDate: item.releaseDate,
-                                      audience:
-                                        item.rawAudience ??
-                                        local?.audience ?? ["All Tenants"],
-                                      selectedTenants: fallback,
-                                      attachments:
-                                        item.attachments ??
-                                        local?.attachments ??
-                                        [],
+                                      audience: item.rawAudience ?? ["All Tenants"],
+                                      selectedTenantDetails: details,
+                                      selectedTenants: rowFallback,
+                                      attachments: item.attachments ?? [],
                                       affectedTenants:
                                         item.affectedTenants ??
                                         totalTenantsCount,
+                                      expectedCount,
+                                      monthlyPrice: (item as any).monthlyPrice,
+                                      discount: (item as any).discount,
                                     });
 
                                     setViewUpdateId(item.updateId);
@@ -1346,6 +1164,7 @@ const page = () => {
                   error={viewError}
                   fallbackSelectedTenants={viewRowFallback}
                   totalTenantsCount={totalTenantsCount}
+                  expectedCount={viewUpdateData?.expectedCount}
                   onClose={() => {
                     setViewUpdateId(null);
                     setViewUpdateData(null);
@@ -1373,7 +1192,6 @@ const page = () => {
             <CreateUpdateForm
               formData={updateFormData}
               isLoading={isPublishing}
-              totalTenants={totalTenantsCount}
               onClose={closeCreateUpdateModal}
               onReset={resetUpdateForm}
               onSubmit={handleCreateUpdateSubmit}

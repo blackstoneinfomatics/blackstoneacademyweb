@@ -1,791 +1,1604 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
-import { GrAttachment } from "react-icons/gr";
-import { FaTelegramPlane } from "react-icons/fa";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiSearch } from "react-icons/fi";
-import axios from "axios";
-import { io } from "socket.io-client";
-import { Bell } from "lucide-react";
-import AdminHeader from "../../components/AdminHeader";
+
 import BaseLayout4 from "../../components/BaseLayout4";
+import AdminHeader from "../../components/AdminHeader";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import ConversationList from "./ConversationList";
+import ChatPanel from "./ChatPanel";
+import NewChatModal from "./forms/NewChatModal";
+import NewGroupModal from "./forms/NewGroupModal";
+import type {
+  CategoryDef,
+  CategoryKey,
+  DirectoryMember,
+  IMessage,
+  IUser,
+  RoomType,
+} from "./chat-types";
+import UserGroupDetails from "./UserGroupDetails";
 
-// Define your interfaces
-interface IMessage {
-  _id: string;
-  messages: string;
-  senderId: string;
-  senderName: string;
-  receiverId: string;
-  receiverName: string;
-  createdDate: string;
-  time: string;
-  notificationStatus: "Unseen" | "Seen";
-  isRead: boolean;
-  status: "Active" | "Inactive";
+const API_BASE = AppApiEndpoints.API_END_POINT;
+
+const resolveChatSource = (): "TENANT" | "SUPER_ADMIN" => {
+  if (typeof window === "undefined") return "SUPER_ADMIN";
+  const explicit = (localStorage.getItem("chatSource") || "").trim().toUpperCase();
+  if (explicit === "SUPER_ADMIN" || explicit === "TENANT") {
+    return explicit as "TENANT" | "SUPER_ADMIN";
+  }
+  return window.location.pathname.toLowerCase().startsWith("/super-admin")
+    ? "SUPER_ADMIN"
+    : "TENANT";
+};
+
+const API_CREATE_CHAT_ROOM = `${API_BASE}/user/chat-room`;
+const API_DELETE_CHAT_ROOM = (roomId: string) =>
+  `${API_BASE}/user/chat-room/${encodeURIComponent(roomId)}`;
+// const API_GET_GROUP_DETAILS = (source :string,  roomId: string) =>
+//   `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(source,roomId)}`;
+
+const ROOM_MESSAGES_PAGE_LIMIT = 10;
+
+const API_ROOM_MESSAGES = (
+  source: "TENANT" | "SUPER_ADMIN",
+  roomId: string,
+  userId: string,
+) =>
+  `${API_BASE}/user/chat/${source}/${roomId}/messages?userId=${encodeURIComponent(userId)}&page=1&limit=${ROOM_MESSAGES_PAGE_LIMIT}`;
+
+const postChatRoom = (tenantId: string, request: RequestInit) => {
+  const headers = new Headers(request.headers);
+  headers.set("tenantId", tenantId);
+  return fetch(API_CREATE_CHAT_ROOM, { ...request, headers });
+};
+
+const API_GET_TENANT_ROLES = (tenantId: string) =>
+  `${API_BASE}/tenant-portal/${tenantId}/roles`;
+
+const API_GET_TENANT_USERS_BY_ROLE = (tenantId: string, role: string) =>
+  `${API_BASE}/tenant/${tenantId}/users?role=${encodeURIComponent(role)}`;
+
+const resolveTenantCode = (): string => {
+  if (typeof window === "undefined") return "";
+  const keys = [
+    "tenantId", "tenantCode", "TenantId", "TENANT_ID",
+    "selectedTenantId", "TENANT_CODE", "currentTenantId", "tenant",
+  ];
+  for (const k of keys) {
+    const v = window.localStorage.getItem(k);
+    if (!v || !v.trim()) continue;
+    const trimmed = v.trim();
+    if (trimmed.startsWith("{")) {
+      try {
+        const obj = JSON.parse(trimmed);
+        const id = obj.tenantId || obj.tenantCode || obj.id || obj._id;
+        if (id) return String(id);
+      } catch { /* ignore */ }
+    }
+    return trimmed;
+  }
+  return "";
+};
+
+const resolveAuthToken = (): string => {
+  if (typeof window === "undefined") return "";
+  const keys = ["AdminAuthToken", "authToken", "token", "accessToken", "jwt"];
+  for (const k of keys) {
+    const v = window.localStorage.getItem(k);
+    if (v && v.trim()) return v.trim();
+  }
+  return "";
+};
+
+const resolveAdminUserId = (): string => {
+  if (typeof window === "undefined") return "";
+  return (
+    window.localStorage.getItem("AdminPortalUserId") ||
+    window.localStorage.getItem("AdminPortalId") ||
+    ""
+  );
+};
+
+const MANDATORY_CATEGORIES: CategoryDef[] = [
+  { key: "ALL", label: "All", short: "AL", rawRole: "" },
+  { key: "GROUP", label: "Group", short: "GR", rawRole: "GROUP" },
+  { key: "ADMIN", label: "Admin", short: "AD", rawRole: "ADMIN" },
+  { key: "SUPERADMIN", label: "Super Admin", short: "SA", rawRole: "ADMIN" },
+];
+
+const ROLE_LABEL_OVERRIDES: Record<string, { label: string; short: string }> = {
+  SUPERADMIN: { label: "Admin", short: "AD" },
+  ACADEMICCOACH: { label: "Academic Coach", short: "AC" },
+  TEACHER: { label: "Teacher", short: "TE" },
+  SUPERVISOR: { label: "Supervisor", short: "SV" },
+  STUDENT: { label: "Student", short: "ST" },
+  ADMIN: { label: "Admin", short: "AD" },
+};
+
+const normalizeRoleKey = (raw: any): string =>
+  String(raw ?? "").toUpperCase().replace(/[\s_-]/g, "");
+
+const roleToLabel = (raw: string): string => {
+  const key = normalizeRoleKey(raw);
+  if (ROLE_LABEL_OVERRIDES[key]) return ROLE_LABEL_OVERRIDES[key].label;
+  return raw
+    .toLowerCase()
+    .split(/[\s_-]+/)
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+};
+
+const roleToShort = (raw: string): string => {
+  const key = normalizeRoleKey(raw);
+  if (ROLE_LABEL_OVERRIDES[key]) return ROLE_LABEL_OVERRIDES[key].short;
+  return (
+    raw
+      .split(/[\s_-]+/)
+      .map((w) => (w ? w[0].toUpperCase() : ""))
+      .join("")
+      .slice(0, 2) || "??"
+  );
+};
+
+const extractRoleNames = (json: unknown): string[] => {
+  const roleArrays: unknown[][] = [];
+  const visited = new Set<object>();
+  const findRoleArrays = (value: unknown, key = "") => {
+    if (!value || typeof value !== "object" || visited.has(value)) return;
+    visited.add(value);
+    if (Array.isArray(value)) {
+      if (/roles?|rolelist|tenantroles|userroles|employeeroles|roletypes|designations/i.test(key)) {
+        roleArrays.push(value);
+      }
+      value.forEach((item) => findRoleArrays(item));
+      return;
+    }
+    Object.entries(value as Record<string, unknown>).forEach(([childKey, child]) => {
+      if (/^(role|roleName|designation|designationName)$/i.test(childKey) && child) {
+        const nestedRole = child && typeof child === "object"
+          ? child as Record<string, unknown>
+          : null;
+        if (
+          typeof child === "string" ||
+          (nestedRole && ["name", "roleName", "designation", "value", "key"].some(
+            (nameKey) => typeof nestedRole[nameKey] === "string"
+          ))
+        ) {
+          roleArrays.push([child]);
+        }
+      }
+      findRoleArrays(child, childKey);
+    });
+  };
+  const response = json && typeof json === "object"
+    ? json as Record<string, unknown>
+    : {};
+  if (Array.isArray(response.data)) roleArrays.push(response.data);
+  findRoleArrays(json);
+  const extractRoleName = (value: unknown): string => {
+    if (typeof value === "string") return value.trim();
+    if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+    const role = value as Record<string, unknown>;
+    for (const key of [
+      "roleName",
+      "designationName",
+      "designation",
+      "displayName",
+      "name",
+      "value",
+      "key",
+      "roleType",
+      "role",
+      "title",
+    ]) {
+      const candidate = role[key];
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+      if (candidate && typeof candidate === "object") {
+        const nestedName = extractRoleName(candidate);
+        if (nestedName) return nestedName;
+      }
+    }
+    return "";
+  };
+  return Array.from(new Set(roleArrays.flatMap((roles) =>
+    roles.map(extractRoleName).filter(Boolean)
+  )));
+};
+
+const LS_KEY_REMOVED = "adminChatRoom.removedTenants.";
+const LS_KEY_ROOM_MEMBERS = "adminChatRoom.allMembers.";
+const LS_KEY_CLEARED_AT = "adminChatRoom.clearedAt.";
+const LS_KEY_READ_ROOMS = "adminChatRoom.readRooms";
+const LS_KEY_CREATED_ROOMS = "adminChatRoom.createdRooms.";
+const LS_KEY_LAST_MSG = "adminChatRoom.lastMessage.";
+
+const getCachedLastMessage = (
+  roomId: string,
+): { text: string; time: string; senderName?: string } | undefined => {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_LAST_MSG + roomId);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+const setCachedLastMessage = (
+  roomId: string,
+  preview: { text: string; time: string; senderName?: string },
+) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_KEY_LAST_MSG + roomId, JSON.stringify(preview));
+  } catch { /* ignore */ }
+};
+
+const getCreatedRoomsCache = (tenantId: string): IUser[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_CREATED_ROOMS + tenantId);
+    const rooms: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(rooms)
+      ? rooms.filter((room): room is IUser =>
+        Boolean(room && typeof room === "object" && typeof (room as IUser)._id === "string"),
+      )
+      : [];
+  } catch (error) {
+    console.error("Could not read cached chat rooms:", error);
+    return [];
+  }
+};
+
+const setCreatedRoomsCache = (tenantId: string, rooms: IUser[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LS_KEY_CREATED_ROOMS + tenantId, JSON.stringify(rooms));
+  } catch (error) {
+    console.error("Could not save created chat rooms:", error);
+  }
+};
+
+const cacheCreatedRoom = (tenantId: string, room: IUser) => {
+  const rooms = getCreatedRoomsCache(tenantId);
+  setCreatedRoomsCache(tenantId, [room, ...rooms.filter((existing) => existing._id !== room._id)]);
+};
+
+const removeCachedRoom = (tenantId: string, roomId: string) => {
+  setCreatedRoomsCache(
+    tenantId,
+    getCreatedRoomsCache(tenantId).filter((room) => room._id !== roomId),
+  );
+};
+
+const getChatClearedAt = (roomId: string): number | null => {
+  if (typeof window === "undefined") return null;
+  const value = Number(window.localStorage.getItem(LS_KEY_CLEARED_AT + roomId));
+  return Number.isFinite(value) && value > 0 ? value : null;
+};
+const setChatClearedAt = (roomId: string, timestamp: number) => {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(LS_KEY_CLEARED_AT + roomId, String(timestamp)); } catch { /* ignore */ }
+};
+const removeChatClearedAt = (roomId: string) => {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.removeItem(LS_KEY_CLEARED_AT + roomId); } catch { /* ignore */ }
+};
+
+const getRemovedTenants = (roomId: string): string[] => {
+  if (typeof window === "undefined") return [];
+  try { const raw = window.localStorage.getItem(LS_KEY_REMOVED + roomId); return raw ? JSON.parse(raw) : []; } catch { return []; }
+};
+const setRemovedTenants = (roomId: string, ids: string[]) => {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(LS_KEY_REMOVED + roomId, JSON.stringify(ids)); } catch { /* ignore */ }
+};
+const addRemovedTenant = (roomId: string, tenantId: string) => {
+  const current = getRemovedTenants(roomId);
+  if (!current.includes(tenantId)) setRemovedTenants(roomId, [...current, tenantId]);
+};
+const removeFromRemovedTenant = (roomId: string, tenantId: string) => {
+  const current = getRemovedTenants(roomId);
+  setRemovedTenants(roomId, current.filter((id) => id !== tenantId));
+};
+
+interface StoredMember { tenantId: string; tenantName: string; role?: string; isSelected?: boolean; }
+const getRoomMembersCache = (roomId: string): StoredMember[] => {
+  if (typeof window === "undefined") return [];
+  try { const raw = window.localStorage.getItem(LS_KEY_ROOM_MEMBERS + roomId); return raw ? JSON.parse(raw) : []; } catch { return []; }
+};
+const setRoomMembersCache = (roomId: string, members: StoredMember[]) => {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(LS_KEY_ROOM_MEMBERS + roomId, JSON.stringify(members)); } catch { /* ignore */ }
+};
+const mergeIntoRoomMembersCache = (roomId: string, newMembers: StoredMember[]) => {
+  const current = getRoomMembersCache(roomId);
+  const map = new Map(current.map((m) => [m.tenantId, m]));
+  newMembers.forEach((member) => {
+    const existing = map.get(member.tenantId);
+    map.set(member.tenantId, { ...existing, ...member });
+  });
+  setRoomMembersCache(roomId, Array.from(map.values()));
+};
+
+const getReadRooms = (): string[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LS_KEY_READ_ROOMS);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+};
+const setReadRooms = (ids: string[]) => {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(LS_KEY_READ_ROOMS, JSON.stringify(ids)); } catch { /* ignore */ }
+};
+const markRoomAsRead = (roomId: string) => {
+  const current = getReadRooms();
+  if (!current.includes(roomId)) setReadRooms([...current, roomId]);
+};
+
+// interface IRoomMessageResponse {
+//   _id?: string;
+//   roomId?: string;
+//   senderId?: string;
+//   senderName?: string;
+//   senderRole?: string;
+//   message?: string;
+//   messageType?: string;
+//   createdAt?: string;
+//   updatedAt?: string;
+//   timestamp?: string;
+//   isDeleted?: boolean;
+//   deletedForEveryone?: boolean;
+//   dateLabel?: string;
+//   side?: "left" | "right";
+//   replyTo?: { messageId?: string; message?: string; senderName?: string; senderId?: string } | null;
+//   attachments?: { name?: string; size?: number; type?: string; url?: string }[];
+// }
+interface IRoomMessageGroup {
+  date: string;
+  dateLabel: string;
+  messages: { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[];
+}
+interface IRoomMessagesResponse {
+  success?: boolean;
+  statusCode?: number;
+  message?: string;
+  data?: {
+    messagesByDate?: IRoomMessageGroup[];
+    messages?: { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[];
+  };
 }
 
-interface IMessageData {
-  _id: string;
-  messages: IMessage[];
-}
+const flattenMessageGroups = (
+  groups: IRoomMessageGroup[] | undefined,
+): { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[] => {
+  if (!Array.isArray(groups)) return [];
+  const out: { message? : string; createdAt?: string; timeStamp?: string; senderName?: string; }[] = [];
+  groups.forEach((group) => {
+    if (Array.isArray(group?.messages)) {
+      group.messages.forEach((m) => out.push(m));
+    }
+  });
+  return out;
+};
 
-interface IMessageResponse {
-  status: string;
-  message: string;
-  data: IMessageData[];
-}
+// const apiMessageToLocal = (
+//   message: IRoomMessageResponse,
+//   index: number,
+//   roomId: string,
+//   receiverName: string,
+// ): IMessage => {
+//   const createdDate = message.timestamp ?? message.createdAt ?? new Date().toISOString();
+//   const date = new Date(createdDate);
+//   const attachment = message.attachments?.[0];
+//   return {
+//     _id: message._id ?? `${roomId}-${index}`,
+//     messages: message.message ?? "",
+//     senderId: message.senderId ?? "",
+//     senderName: message.senderName ?? "",
+//     receiverId: roomId,
+//     receiverName,
+//     createdDate,
+//     dateLabel: message.dateLabel,
+//     time: Number.isNaN(date.getTime())
+//       ? ""
+//       : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+//     notificationStatus: "Unseen",
+//     isRead: false,
+//     status: "Active",
+//     isDeleted: message.isDeleted ?? message.deletedForEveryone ?? false,
+//     side: message.side,
+//     replyTo: message.replyTo
+//       ? {
+//         messageId: message.replyTo.messageId ?? "",
+//         messages: message.replyTo.message ?? "",
+//         senderName: message.replyTo.senderName ?? "",
+//         senderId: message.replyTo.senderId ?? "",
+//       }
+//       : undefined,
+//     attachment: attachment
+//       ? {
+//         name: attachment.name ?? "Attachment",
+//         size: attachment.size ?? 0,
+//         type: attachment.type ?? "application/octet-stream",
+//         url: attachment.url,
+//       }
+//       : undefined,
+//   };
+// };
 
-interface IUser {
-  _id: string;
-  userName: string;
-  email: string;
-  role: string[];
-  status: string;
-  lastLoginDate?: string;
-  lastSeen?: string;
-}
-interface IMessagesend {
-  messages: string;
-  isRead: boolean;
-  senderId: string;
-  senderName: string;
-  senderEmail: string;
-  receiverId: string;
-  receiverName: string;
-  receiverEmail: string;
-  notificationStatus: "Unseen" | "Seen";
-  status: "Active" | "Inactive";
-  createdDate: Date; // ISO date string
-  createdBy: string;
-  updatedDate: Date; // ISO date string
-  updatedBy: string;
-}
+const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  Premium: { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
+  Standard: { bg: "bg-[#E0F2FE] dark:bg-[#22375A]", text: "text-[#3B82F6] dark:text-[#7EB0FF]", dot: "#3B82F6" },
+  Basic: { bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]", text: "text-[#22C55E] dark:text-[#68D391]", dot: "#22C55E" },
+};
+const FALLBACK_COLORS = [
+  { bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]", text: "text-[#22C55E] dark:text-[#68D391]", dot: "#22C55E" },
+  { bg: "bg-[#E0F2FE] dark:bg-[#22375A]", text: "text-[#3B82F6] dark:text-[#7EB0FF]", dot: "#3B82F6" },
+  { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
+  { bg: "bg-[#FFF7E8] dark:bg-[#4A3B22]", text: "text-[#F4A429] dark:text-[#FCD68B]", dot: "#F4A429" },
+  { bg: "bg-[#FDEAEA] dark:bg-[#4A2A2A]", text: "text-[#E35D5D] dark:text-[#F89B9B]", dot: "#E35D5D" },
+  { bg: "bg-[#EAF8EC] dark:bg-[#1F3A2B]", text: "text-[#34A853] dark:text-[#7FD495]", dot: "#34A853" },
+];
+const hashString = (str: string): number => {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+  return Math.abs(h);
+};
+const getPlanColor = (plan?: string) => {
+  if (!plan) return { bg: "bg-gray-100 dark:bg-[#3A3A3A]", text: "text-gray-600 dark:text-gray-300", dot: "#9CA3AF" };
+  if (PLAN_COLORS[plan]) return PLAN_COLORS[plan];
+  const lower = plan.toLowerCase();
+  if (lower.includes("premium") || lower.includes("pro") || lower.includes("ultra")) return PLAN_COLORS.Premium;
+  if (lower.includes("standard")) return PLAN_COLORS.Standard;
+  if (lower.includes("basic")) return PLAN_COLORS.Basic;
+  return FALLBACK_COLORS[hashString(plan) % FALLBACK_COLORS.length];
+};
+
+const extractRoomId = (r: any): string => {
+  const raw = r?.roomId ?? r?.chatRoomId ?? r?._id ?? r?.id ?? "";
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object" && typeof raw.$oid === "string") return raw.$oid;
+  return raw ? String(raw) : "";
+};
+const normalizeRoomType = (raw: any): RoomType => {
+  const t = String(raw ?? "").toUpperCase();
+  if (t === "SEGMENT" || t === "GROUP") return "SEGMENT";
+  if (t === "GLOBAL") return "GLOBAL";
+  return "TENANT";
+};
+const formatMessageTime = (iso?: string) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays < 7) return d.toLocaleDateString("en-US", { weekday: "short" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+const normalizeUsersResponse = (json: any, fallbackRole: string): DirectoryMember[] => {
+  const usersRaw: any[] =
+    (json?.data && Array.isArray(json.data.users) && json.data.users) ||
+    (Array.isArray(json?.data) && json.data) ||
+    (Array.isArray(json?.users) && json.users) ||
+    [];
+
+  const getCourseName = (value: any): string => {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      return value.map(getCourseName).filter(Boolean).join(", ");
+    }
+    if (!value || typeof value !== "object") return "";
+    return String(
+      value.courseName ??
+      value.name ??
+      value.planName ??
+      value.title ??
+      "",
+    );
+  };
+
+  return usersRaw
+    .map((u: any) => {
+      const name = u?.name ?? u?.userName ?? "Unnamed";
+      const course = getCourseName(u?.course ?? u?.courseName ?? u?.planName ?? u?.plan);
+      return {
+        userId: String(u?.userId ?? u?._id ?? u?.id ?? ""),
+        name,
+        role: normalizeRoleKey(u?.role ?? fallbackRole),
+        planName: course,
+        planId: u?.planId ?? u?.courseId ?? u?.course?._id ?? u?.plan?._id ?? "",
+        avatarLetter: name.charAt(0).toUpperCase(),
+      };
+    })
+    .filter((u) => Boolean(u.userId));
+};
+
+const fetchMembersForCategory = async (category: CategoryDef): Promise<DirectoryMember[]> => {
+  const tenantId = resolveTenantCode();
+  if (!tenantId) throw new Error("Tenant ID not found in session.");
+
+  const token = resolveAuthToken();
+  const rawRole = category.rawRole || category.key;
+  const response = await fetch(API_GET_TENANT_USERS_BY_ROLE(tenantId, rawRole), {
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) throw new Error(`Failed to load members (HTTP ${response.status})`);
+
+  return normalizeUsersResponse(await response.json(), rawRole);
+};
+
+// const MessageInfoModal = ({ message, onClose }: { message: IMessage; onClose: () => void }) => {
+//   const [seenUsers, setSeenUsers] = useState<IMessageSeenUser[]>([]);
+//   const [seenLoading, setSeenLoading] = useState(true);
+//   const [seenError, setSeenError] = useState<string | null>(null);
+
+//   useEffect(() => {
+//     const token = resolveAuthToken();
+//     const userId = resolveAdminUserId();
+//     if (!token || !userId) { setSeenError("Admin authentication data is missing."); setSeenLoading(false); return; }
+//     const controller = new AbortController();
+//     setSeenLoading(true);
+//     setSeenError(null);
+//     (async () => {
+//       try {
+//         const response = await fetch(API_MESSAGE_SEEN_USERS(message._id, userId), {
+//           headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: "no-store",
+//         });
+//         const result: IMessageSeenResponse = await response.json();
+//         if (!response.ok || result.success === false) throw new Error(result.message || `Fetch seen users failed`);
+//         setSeenUsers(result.data?.seenUsers ?? []);
+//       } catch (error) {
+//         if (!controller.signal.aborted) setSeenError(error instanceof Error ? error.message : "Could not load seen info.");
+//       } finally { if (!controller.signal.aborted) setSeenLoading(false); }
+//     })();
+//     return () => controller.abort();
+//   }, [message._id]);
+
+//   return (
+//     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]" onClick={onClose}>
+//       <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}
+//         className="w-full max-w-[420px] overflow-hidden rounded-xl border border-[#E7EAF0] bg-white shadow-2xl dark:border-[#42464D] dark:bg-[#262A30]">
+//         <div className="flex items-center justify-between border-b border-[#ECEEF2] px-5 py-4 dark:border-[#3B4048]">
+//           <h3 className="mt-0.5 text-[15px] font-semibold text-[#172033] dark:text-white">Message info</h3>
+//           <button type="button" onClick={onClose} aria-label="Close message info"
+//             className="flex h-8 w-8 items-center justify-center rounded-md text-[#7C8492] transition hover:bg-[#F1F3F6] hover:text-[#172033] dark:hover:bg-[#383D45] dark:hover:text-white">
+//             <FiX size={16} />
+//           </button>
+//         </div>
+//         <div className="max-h-[min(70vh,560px)] space-y-5 overflow-y-auto p-5">
+//           <section>
+//             <div className="ml-auto max-w-[88%] rounded-xl rounded-br-sm bg-[#576CBC] px-3.5 py-3 text-white shadow-sm">
+//               <p className="whitespace-pre-wrap break-words text-[13px] leading-5">{message.messages || "Attachment"}</p>
+//               <p className="mt-2 text-right text-[10px] text-white/75">{message.time}</p>
+//             </div>
+//           </section>
+//           <div className="flex items-center justify-between border-t border-[#ECEEF2] pt-4 text-[12px] dark:border-[#3B4048]">
+//             <span className="text-[#7C8492]">Sent</span>
+//             <span className="font-medium text-[#172033] dark:text-[#E7EAF0]">{message.time || "—"}</span>
+//           </div>
+//           <section>
+//             <div className="mb-3 flex items-center justify-between border-b border-[#ECEEF2] pb-2 dark:border-[#3B4048]">
+//               <div className="flex items-center gap-2">
+//                 <FiCheck className="text-[#2F8F76]" size={14} />
+//                 <h4 className="text-[12px] font-semibold text-[#172033] dark:text-white">Seen by</h4>
+//               </div>
+//               {!seenLoading && !seenError && (
+//                 <span className="rounded-full bg-[#E5F3EF] px-2 py-0.5 text-[10px] font-semibold text-[#287A66] dark:bg-[#243D37] dark:text-[#83C8B4]">{seenUsers.length}</span>
+//               )}
+//             </div>
+//             {seenLoading ? (
+//               <div className="flex items-center gap-2 py-2 text-[11px] text-[#7C8492]"><FiClock size={13} /> Loading seen details…</div>
+//             ) : seenError ? (
+//               <p role="alert" className="py-2 text-[11px] text-red-500">{seenError}</p>
+//             ) : seenUsers.length === 0 ? (
+//               <p className="py-2 text-[11px] text-[#9299A5]">Not seen yet</p>
+//             ) : (
+//               <div className="divide-y divide-[#ECEEF2] dark:divide-[#3B4048]">
+//                 {seenUsers.map((user) => (
+//                   <div key={user.userId} className="flex items-center gap-3 py-2.5">
+//                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9EEF8] text-[11px] font-semibold text-[#4863A8] dark:bg-[#343D50] dark:text-[#B5C5F1]">
+//                       {user.name.trim().charAt(0).toUpperCase() || "?"}
+//                     </div>
+//                     <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#263044] dark:text-[#E7EAF0]">{user.name}</span>
+//                   </div>
+//                 ))}
+//               </div>
+//             )}
+//           </section>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 const Message = () => {
-  const [teachers, setTeachers] = useState<IUser[]>([]);
-  const [supervisors, setSupervisors] = useState<IUser[]>([]);
-  const [academicCoaches, setAcademicCoaches] = useState<IUser[]>([]);
-  const [activeTab, setActiveTab] = useState<
-    "supervisors" | "academicCoaches" | "teachers" | "all"
-  >("all");
+  const currentUser = {
+    userId: resolveAdminUserId() || "ADMIN_PORTAL_ID",
+    userName: typeof window !== "undefined" ? localStorage.getItem("AdminPortalName") ?? "Admin" : "Admin",
+    role: "Admin",
+  };
+
+  const [chatSource] = useState<"TENANT" | "SUPER_ADMIN">(() => resolveChatSource());
+
+  const [allRooms, setAllRooms] = useState<IUser[]>([]);
+  const [roomsRefreshKey, setRoomsRefreshKey] = useState(0);
+
+  const [categories, setCategories] = useState<CategoryDef[]>(MANDATORY_CATEGORIES);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>("ALL");
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+
   const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
-  const [messages, setMessages] = useState<IMessageData[]>([]);
-  const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [messageCount, setMessageCount] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<any>(null);
-  const [dashboardRead, setdashboardRead] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  let userId: string | null = null;
-  const userName =
-    typeof window !== "undefined"
-      ? localStorage.getItem("AdminPortalName")
-      : null;
-  if (typeof window !== "undefined") {
-    userId = localStorage.getItem("AdminPortalId");
-  }
+  const [showGroupDetails, setShowGroupDetails] = useState(false);
+  const [editGroupImagePreview, setEditGroupImagePreview] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showGroupMenu, setShowGroupMenu] = useState(false);
 
-  const fetchUsersByRole = async (role: string): Promise<IUser[]> => {
+
+  const [readStateVersion, setReadStateVersion] = useState(0);
+  const [previewsLoaded, setPreviewsLoaded] = useState(false);
+
+  const selectedUserRef = useRef<IUser | null>(null);
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
+
+  const fetchCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+
     try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("AdminAuthToken")
-          : null;
+      const tenantId = resolveTenantCode();
+      const token = resolveAuthToken();
 
-      if (!token) {
-        console.error("❌ AdminAuthToken not found");
-        return [];
-      }
-
-      const response = await axios.get<{ users: IUser[] }>(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.USER.GET}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // 🔥 Client-side filtering here
-      const allUsers = response.data.users;
-      const filtered = allUsers.filter((user) =>
-        user.role.some(
-          (r) => r.toLowerCase().replace(/_/g, "") === role.toLowerCase()
-        )
-      );
-      return filtered;
-    } catch (err) {
-      console.error(`❌ Failed to fetch users:`, err);
-      return [];
-    }
-  };
-
-  // Filter users based on search query
-  const combinedUsers =
-    activeTab === "all"
-      ? [...teachers, ...academicCoaches, ...supervisors]
-      : activeTab === "supervisors"
-      ? supervisors
-      : activeTab === "academicCoaches"
-      ? academicCoaches
-      : teachers;
-  const filteredUsers = combinedUsers.filter(
-    (user) =>
-      user.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  // Handle message selection
-  const handleUserClick = (user: IUser) => {
-    setSelectedUser(user);
-    setMessages([]);
-    fetchMessages(user._id);
-  };
-
-  // Fetch messages from API
-
-  const fetchMessages = async (receiverId: string) => {
-    try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("AdminAuthToken")
-          : null;
-
-      if (!token) {
-        console.error("❌ AdminAuthToken not found");
+      if (!tenantId) {
+        setCategories(MANDATORY_CATEGORIES);
+        setCategoriesLoading(false);
         return;
       }
 
-      const { data } = await axios.get<IMessageResponse>(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MESSAGES.GET}/${userId}/${receiverId}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const fetchedMessages = data?.data;
-      setMessages(fetchedMessages); // for rendering
-
-      // Count unread messages in all groups
-      const allMessages = fetchedMessages.flatMap((group) => group.messages);
-      const unreadCount = allMessages.filter((m) => !m.isRead).length;
-      setMessageCount(unreadCount);
-      // Update the unread message count
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-    }
-  };
-
-  useEffect(() => {
-    const container = document.querySelector(".chat-scroll-container");
-    if (container && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
+      const res = await fetch(API_GET_TENANT_ROLES(tenantId), {
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
-    }
-  }, [messages]);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      if (supervisors.length === 0) {
-        const result = await fetchUsersByRole("SUPERVISOR");
-        setSupervisors(result);
-      }
-      if (academicCoaches.length === 0) {
-        const result = await fetchUsersByRole("ACADEMICCOACH");
-        setAcademicCoaches(result);
-      }
-      if (teachers.length === 0) {
-        const result = await fetchUsersByRole("TEACHER");
-        setTeachers(result);
-      }
-    };
-    fetchUsers();
-  }, [activeTab]);
+      if (!res.ok) throw new Error(`Failed to load roles (HTTP ${res.status})`);
 
-  useEffect(() => {
-    setSelectedUser(null); // clear selected user on tab change
-  }, [activeTab]);
+      const json = await res.json();
+      const rawRoles= extractRoleNames(json);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const roleAccessRaw = localStorage.getItem("AdminRolePermission");
+      const seen = new Set<string>(["ALL", "GROUP", "SUPERADMIN"]);
+      const dynamicRoles: CategoryDef[] = [];
 
-      if (roleAccessRaw) {
-        try {
-          const roleAccess = JSON.parse(roleAccessRaw);
-          const hasRead = roleAccess?.messages?.write ?? false;
-          console.log(hasRead);
-          setdashboardRead(hasRead);
-        } catch (error) {
-          console.error("Invalid JSON in AdminRolePermission:", error);
-        }
-      }
+      rawRoles.forEach((raw) => {
+        const key = normalizeRoleKey(raw);
+        if (key === "ADMIN" || key === "SUPERADMIN") return;
+        if (key === "GROUP") return;
+        if (seen.has(key)) return;
+        seen.add(key);
+        dynamicRoles.push({
+          key,
+          label: roleToLabel(raw),
+          short: roleToShort(raw),
+          rawRole: raw,
+        });
+      });
+
+      const next: CategoryDef[] = [...MANDATORY_CATEGORIES, ...dynamicRoles];
+      setCategories(next);
+      setActiveCategory((prev) =>
+        next.some((c) => c.key === prev) ? prev : "ALL",
+      );
+    } catch (err: any) {
+      setCategoriesError(err?.message ?? "Failed to load roles");
+      setCategories(MANDATORY_CATEGORIES);
+    } finally {
+      setCategoriesLoading(false);
     }
   }, []);
 
-  // Initialize socket connection
+  useEffect(() => { void fetchCategories(); }, [fetchCategories]);
+
   useEffect(() => {
-    if (!socketRef.current) {
-      socketRef.current = io("https://api.blackstoneinfomaticstech.com", {
-        transports: ["websocket"],
-        withCredentials: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
-
-      socketRef.current.on("connect", () => {
-        console.log("Connected to Socket.IO with ID:", socketRef.current?.id);
-        socketRef.current?.emit("subscribe", userId);
-      });
-
-      socketRef.current.on("disconnect", () => {
-        console.log("Disconnected from Socket.IO");
-      });
-
-      socketRef.current.on("connect_error", (err: any) => {
-        console.error("Connection error:", err);
-      });
-    }
-    const handleNewMessage = (newMessage: IMessage) => {
-      console.log("Received new message:", newMessage);
-
-      // Check if message is relevant to current chat or should increment count
-      const isForCurrentChat =
-        (newMessage.senderId === userId &&
-          newMessage.receiverId === selectedUser?._id) ||
-        (newMessage.senderId === selectedUser?._id &&
-          newMessage.receiverId === userId);
-      console.log(userId);
-      console.log(selectedUser?._id);
-      // Always update message count for unread messages
-      if (newMessage.receiverId === userId && !newMessage.isRead) {
-        setMessageCount((prev) => prev + 1);
-      }
-
-      // Only update messages if it's for the current chat
-      if (isForCurrentChat) {
-        setMessages((prev) => {
-          const dateKey = new Date(newMessage.createdDate)
-            .toISOString()
-            .split("T")[0];
-          console.log("enter");
-          // Find if we already have messages for this date
-          const existingGroupIndex = prev.findIndex(
-            (group) => group._id === dateKey
-          );
-
-          // Create a new state array
-          const newState = [...prev];
-
-          if (existingGroupIndex !== -1) {
-            // Add to existing date group - append to maintain chronological order
-            newState[existingGroupIndex] = {
-              ...newState[existingGroupIndex],
-              messages: [...newState[existingGroupIndex].messages, newMessage],
-            };
-          } else {
-            // Create new date group at the beginning (since we're using flex-col-reverse)
-            newState.unshift({
-              _id: dateKey,
-              messages: [newMessage],
-            });
-          }
-
-          return newState;
-        });
-
-        // Scroll to bottom after new message
-        setTimeout(() => {
-          if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-          }
-        }, 100);
+    const handler = (e: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setCategoryDropdownOpen(false);
       }
     };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
-    socketRef.current.on("newmessage", handleNewMessage);
+  const mapRoomToUser = useCallback((r: any): IUser => {
+    const id = extractRoomId(r);
+    const roomType = normalizeRoomType(r?.type);
+    const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
 
-    return () => {
-      socketRef.current?.off("newmessage", handleNewMessage);
-    };
-  }, [userId, selectedUser]);
+    const clearedAt = getChatClearedAt(id);
+    const lastRoomMessageAt = new Date(r?.lastMessage?.createdAt ?? r?.lastMessageAt ?? "").getTime();
+    const hasMessageAfterClear = clearedAt !== null && Number.isFinite(lastRoomMessageAt) && lastRoomMessageAt > clearedAt;
+    const isChatCleared = clearedAt !== null && !hasMessageAfterClear;
+    if (hasMessageAfterClear) removeChatClearedAt(id);
 
-  const formatDateLabel = (dateString: string): string => {
-    const inputDate = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    const apiLast = r?.lastMessage
+      ? {
+        text: r.lastMessage.message ?? "",
+        time: formatMessageTime(r.lastMessage.createdAt ?? r.lastMessageAt),
+        senderName: r.lastMessage.senderName ?? "",
+      }
+      : undefined;
+    const cachedLast = getCachedLastMessage(id);
+    const lastMessage = !isChatCleared ? apiLast ?? cachedLast : undefined;
 
-    const sameDay = (d1: Date, d2: Date) =>
-      d1.getFullYear() === d2.getFullYear() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getDate() === d2.getDate();
+    const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
+      ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
+      : [];
+    const removedIds = getRemovedTenants(id);
+    const cachedMembers = getRoomMembersCache(id);
+    const cacheLookup = new Map(cachedMembers.map((member) => [member.tenantId, member]));
+    const rawMembers = Array.isArray(r?.members) ? r.members : [];
 
-    if (sameDay(inputDate, today)) return "Today";
-    if (sameDay(inputDate, yesterday)) return "Yesterday";
-    return inputDate.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+    const activeMembers = rawTenantIds.map((tid) => {
+      const found = rawMembers.find((m: any) => (m.tenantId || m._id || m.id) === tid);
+      const cached = cacheLookup.get(tid);
+      return {
+        name: found?.tenantName || found?.name || cached?.tenantName || tid,
+        plan: r?.planName ?? r?.course ?? "",
+        tenantId: tid,
+        isSelected: !removedIds.includes(tid),
+        role: found?.role ?? cached?.role,
+      };
     });
-  }; // Replace your current groupedMessages logic with:
-  const groupedMessages = messages
-    .flatMap((group) => group.messages)
-    .reduce((acc, msg) => {
-      const dateKey = new Date(msg.createdDate).toDateString();
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(msg);
-      return acc;
-    }, {} as Record<string, IMessage[]>);
+    const activeIds = new Set(activeMembers.map((m) => m.tenantId));
+    const cachedOnlyMembers = cachedMembers
+      .filter((cm) => !activeIds.has(cm.tenantId))
+      .map((member) => ({
+        name: member.tenantName,
+        plan: r?.planName ?? "",
+        tenantId: member.tenantId,
+        isSelected: member.isSelected ?? false,
+        role: member.role,
+      }));
 
-  // Handle sending messages
-  const handleSendMessage = async () => {
-    if (!selectedUser || !messageText.trim()) return;
+    const isSuperAdminSource = String(r?.source ?? "").toUpperCase() === "SUPER_ADMIN";
+    let roleKey: string = isSuperAdminSource
+      ? "SUPERADMIN"
+      : isGroup
+        ? "GROUP"
+        : normalizeRoleKey(r?.role);
 
-    // Create the message object in IMessagesend format
-    const newMessage: IMessagesend = {
-      messages: messageText,
-      senderId: userId ?? "",
-      senderName:  "userName",
-      receiverId: selectedUser._id,
-      receiverName: selectedUser.userName,
-      createdDate: new Date(),
-      notificationStatus: "Unseen",
-      isRead: false,
-      status: "Active",
-      senderEmail:"Blackstone@gmail.com",
-      receiverEmail: selectedUser.email,
-      createdBy: "System",
-      updatedDate: new Date(),
-      updatedBy: "System",
+    const readIds = getReadRooms();
+    const isReadLocally = readIds.includes(id);
+    const rawUnread = r?.unreadCount ?? 0;
+    const isUnread = !isReadLocally && (r?.isUnread ?? rawUnread > 0);
+
+    return {
+      _id: id || `room-${Math.random().toString(36).slice(2)}`,
+      chatSource: isSuperAdminSource ? "SUPER_ADMIN" : "TENANT",
+      userName: r?.name ?? r?.roomCode ?? "Untitled Room",
+      email: "room@example.com",
+      role: isGroup ? ["Group"] : ["Tenant"],
+      roleKey,
+      status: r?.isEnabled ? "online" : "offline",
+      lastSeen: isChatCleared ? "" : r?.lastMessageAt ? formatMessageTime(r.lastMessageAt) : "recently",
+      isGroup,
+      roomType,
+      plan: r?.planName ?? r?.course ?? "",
+      members: [...activeMembers, ...cachedOnlyMembers],
+      groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
+      lastMessage,
+      profileImage: null,
+      roomId: id,
+      roomCode: r?.roomCode ?? "",
+      unreadCount: isUnread ? Math.max(rawUnread, 1) : 0,
+      isUnread,
+      description: r?.description ?? "",
+      planName: r?.planName ?? r?.course ?? "",
+      planId: r?.planId ?? "",
+      roomRole: r?.role ?? (isGroup ? "GROUP" : "TENANT"),
+      roomCourse: r?.course ?? r?.planName ?? "",
+      sendAccess: r?.sendAccess === "ADMIN_ONLY" || r?.sendAccess === "ADMINS" ? "ADMIN_ONLY" : "EVERYONE",
+    };
+  }, []);
+
+  const handleRoomsLoaded = useCallback(
+    (apiRooms: unknown[], filter: string) => {
+      const mapped = apiRooms
+        .map((room) => mapRoomToUser(room))
+        .filter((room) => Boolean(room._id));
+      const tenantId = resolveTenantCode();
+      const cachedRooms = tenantId ? getCreatedRoomsCache(tenantId) : [];
+      const serverRoomIds = new Set(mapped.map((room) => room._id));
+const fixedRoleFilter = filter === "SUPERADMIN" || filter === "ADMIN";
+    const pendingCachedRooms = fixedRoleFilter
+      ? []
+      : cachedRooms.filter((room) =>
+          !serverRoomIds.has(room._id) &&
+          (filter === "GROUP"
+            ? room.isGroup
+            : filter === "ALL"
+              ? !room.isGroup
+              : !room.isGroup && room.roleKey === normalizeRoleKey(filter))
+        );
+
+      if (tenantId) setCreatedRoomsCache(tenantId, pendingCachedRooms);
+
+      setAllRooms((prev) => {
+        const prevById = new Map(prev.map((r) => [r._id, r]));
+        const merged = [...pendingCachedRooms, ...mapped].map((room) => {
+          const existing = prevById.get(room._id);
+          if (!room.lastMessage && existing?.lastMessage) {
+            return { ...room, lastMessage: existing.lastMessage };
+          }
+          return room;
+        });
+        const mergedById = new Map(merged.map((r) => [r._id, r]));
+        return Array.from(mergedById.values());
+      });
+    },
+    [mapRoomToUser],
+  );
+
+  /* ⭐ Prefetch last-message previews */
+  useEffect(() => {
+    if (previewsLoaded) return;
+    if (allRooms.length === 0) return;
+
+    const missing = allRooms.filter((r) => !r.lastMessage);
+    if (missing.length === 0) {
+      setPreviewsLoaded(true);
+      return;
+    }
+
+    const token = resolveAuthToken();
+    const userId = resolveAdminUserId();
+    if (!token || !userId) {
+      setPreviewsLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const CONCURRENCY = 6;
+      const updates: Record<string, { text: string; time: string; senderName?: string }> = {};
+
+      for (let i = 0; i < missing.length; i += CONCURRENCY) {
+        const batch = missing.slice(i, i + CONCURRENCY);
+        await Promise.all(
+          batch.map(async (room) => {
+            try {
+              const roomId = room.roomId || room._id;
+              const url = API_ROOM_MESSAGES(room.chatSource ?? chatSource, roomId, userId);
+              const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+              });
+              if (!res.ok) return;
+              const json: IRoomMessagesResponse = await res.json();
+              const flat = flattenMessageGroups(json?.data?.messagesByDate);
+              const fallback = Array.isArray(json?.data?.messages) ? json.data.messages : [];
+              const list = flat.length > 0 ? flat : fallback;
+              if (list.length === 0) return;
+              const last = list[list.length - 1];
+              const preview = {
+                text: last.message ?? "",
+                time: formatMessageTime(last.createdAt ?? ""),
+                senderName: last.senderName ?? "",
+              };
+              updates[room._id] = preview;
+              setCachedLastMessage(room._id, preview);
+            } catch { /* silent */ }
+          }),
+        );
+      }
+
+      if (cancelled) return;
+
+      if (Object.keys(updates).length > 0) {
+        setAllRooms((prev) =>
+          prev.map((r) => (updates[r._id] ? { ...r, lastMessage: updates[r._id] } : r)),
+        );
+      }
+      setPreviewsLoaded(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, [allRooms, previewsLoaded, chatSource]);
+
+  const addCreatedRoomToList = (
+    serverRoom: any,
+    defaults: {
+      type: "DIRECT" | "GROUP";
+      name: string;
+      role: string;
+      members: DirectoryMember[];
+    },
+  ): IUser => {
+    const roomId = extractRoomId(serverRoom);
+    if (!roomId) throw new Error("Chat room was created, but the response did not include a room ID.");
+
+    const room = mapRoomToUser({
+      ...serverRoom,
+      _id: roomId,
+      type: defaults.type,
+      name: defaults.type === "DIRECT" ? defaults.name : serverRoom?.name ?? defaults.name,
+      role: defaults.type === "DIRECT" ? defaults.role : serverRoom?.role ?? defaults.role,
+      tenantIds: Array.isArray(serverRoom?.tenantIds)
+        ? serverRoom.tenantIds
+        : defaults.members.map((member) => member.userId),
+      members: (Array.isArray(serverRoom?.members) ? serverRoom.members : [])
+        .map((member: any) => {
+          const memberId = String(member?.tenantId ?? member?.userId ?? member?._id ?? member?.id ?? "");
+          const directoryMember = defaults.members.find((candidate) => candidate.userId === memberId);
+          return {
+            ...member,
+            tenantId: memberId,
+            tenantName: member?.tenantName ?? member?.name ?? directoryMember?.name ?? memberId,
+            role: member?.role ?? directoryMember?.role,
+          };
+        })
+        .concat(
+          defaults.members
+            .filter((member) => !serverRoom?.members?.some((existing: any) =>
+              String(existing?.tenantId ?? existing?.userId ?? existing?._id ?? existing?.id ?? "") === member.userId,
+            ))
+            .map((member) => ({
+              tenantId: member.userId,
+              tenantName: member.name,
+              role: member.role,
+            })),
+        ),
+    });
+
+    const tenantId = resolveTenantCode();
+    mergeIntoRoomMembersCache(
+      roomId,
+      room.members
+        .filter((member) => Boolean(member.tenantId))
+        .map((member) => ({
+          tenantId: member.tenantId!,
+          tenantName: member.name,
+          role: member.role,
+          isSelected: member.isSelected ?? true,
+        })),
+    );
+    if (tenantId) cacheCreatedRoom(tenantId, room);
+    setAllRooms((previous) => [room, ...previous.filter((existing) => existing._id !== roomId)]);
+    return room;
+  };
+
+  const categoryRooms = useMemo(() => {
+    let result = allRooms;
+
+    if (activeCategory === "GROUP") {
+      result = result.filter(
+        (r) => r.roomType === "SEGMENT" || r.roomType === "GLOBAL" || r.isGroup,
+      );
+    } else if (activeCategory === "SUPERADMIN") {
+      result = result.filter((r) => r.roleKey === "SUPERADMIN");
+    } else if (activeCategory !== "ALL") {
+      result = result.filter((r) => !r.isGroup && r.roleKey === activeCategory);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.userName.toLowerCase().includes(q) ||
+          r.plan?.toLowerCase().includes(q) ||
+          r.members?.some((m: any) => m.name.toLowerCase().includes(q)),
+      );
+    }
+    return result;
+  }, [allRooms, activeCategory, searchQuery]);
+
+  const tabCounts = useMemo(() => {
+    void readStateVersion;
+    return {
+      total: categoryRooms.length,
+      unread: categoryRooms.filter((r) => r.isUnread).length,
+    };
+  }, [categoryRooms, readStateVersion]);
+
+  // useEffect(() => {
+  //   if (!selectedUser) return;
+  //   if (!selectedUser.isGroup && !selectedUser.role.includes("Group")) return;
+  //   const roomId = selectedUser.roomId || selectedUser._id;
+  //   const token = resolveAuthToken();
+  //   const currentSelectedId = selectedUser._id;
+  //   const controller = new AbortController();
+
+  //   (async () => {
+  //     try {
+  //       const res = await fetch(API_GET_GROUP_DETAILS(roomId), {
+  //         cache: "no-store",
+  //         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  //         signal: controller.signal,
+  //       });
+  //       if (!res.ok) return;
+  //       const json = await res.json();
+  //       const groupData = json?.data ?? json;
+  //       const rawMembers: any[] = Array.isArray(groupData?.members) ? groupData.members : [];
+  //       if (controller.signal.aborted || rawMembers.length === 0) return;
+  //       const removedIds = getRemovedTenants(roomId);
+  //       const freshMembers = rawMembers.map((m: any) => ({
+  //         name: m.tenantName || m.name || m.tenantId || "Unknown",
+  //         plan: groupData?.planName ?? selectedUser.planName ?? "",
+  //         tenantId: m.tenantId || m._id || "",
+  //         isSelected: removedIds.includes(m.tenantId || m._id)
+  //           ? false
+  //           : (m.isSelected !== undefined ? m.isSelected : true),
+  //       }));
+  //       mergeIntoRoomMembersCache(roomId, freshMembers.map((m) => ({ tenantId: m.tenantId, tenantName: m.name })));
+  //       setSelectedUser((prev) => (prev && prev._id === currentSelectedId ? { ...prev, members: freshMembers } : prev));
+  //     } catch { /* silent */ }
+  //   })();
+
+  //   return () => controller.abort();
+  // }, [selectedUser?._id, selectedUser?.isGroup]);
+
+  /* ⭐ Fetch messages only when the room _id changes. Uses selectedUserRef
+     so setSelectedUser({...prev}) inside the effect doesn't re-trigger it. */
+  // useEffect(() => {
+  //   const user = selectedUserRef.current;
+  //   if (!user) return;
+  //   setMessagesLoading(true);
+
+  //   setAllMessages((prev) =>
+  //     prev.map((g) => (g._id === user._id ? { ...g, messages: [] } : g)),
+  //   );
+
+  //   markRoomAsRead(user._id);
+  //   setReadStateVersion((v) => v + 1);
+  //   setAllRooms((prev) =>
+  //     prev.map((r) => (r._id === user._id ? { ...r, isUnread: false, unreadCount: 0 } : r)),
+  //   );
+
+  //   const token = resolveAuthToken();
+  //   const userId = resolveAdminUserId();
+  //   if (!token || !userId) { setMessagesLoading(false); return; }
+
+  //   const controller = new AbortController();
+  //   const roomId = user.roomId || user._id;
+
+  //   (async () => {
+  //     try {
+  //       const url = API_ROOM_MESSAGES(chatSource, roomId, userId);
+
+  //       if (process.env.NODE_ENV !== "production") {
+  //         console.log("🚨 MESSAGES-FETCH", { url });
+  //       }
+
+  //       const response = await fetch(url, {
+  //         headers: { Authorization: `Bearer ${token}` },
+  //         signal: controller.signal,
+  //         cache: "no-store",
+  //       });
+
+  //       const result: IRoomMessagesResponse = await response.json();
+
+  //       if (!response.ok || result.statusCode === 404) {
+  //         throw new Error(result.message || `Fetch messages failed`);
+  //       }
+
+  //       const flat = flattenMessageGroups(result.data?.messagesByDate);
+  //       const fallback = Array.isArray(result.data?.messages) ? result.data.messages : [];
+  //       const rawMessages = flat.length > 0 ? flat : fallback;
+
+  //       const messages = rawMessages.map((message, index) =>
+  //         apiMessageToLocal(message, index, roomId, user.userName),
+  //       );
+
+  //       const lastMessageId = messages[messages.length - 1]?._id;
+  //       if (lastMessageId) {
+  //         void fetch(API_MARK_CHAT_SEEN, {
+  //           method: "POST",
+  //           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  //           body: JSON.stringify({ roomId, userId, messageId: lastMessageId }),
+  //           signal: controller.signal,
+  //         }).catch(() => { /* silent */ });
+  //       }
+
+  //       setAllMessages((prev) => {
+  //         const others = prev.filter((g) => g._id !== user._id);
+  //         return [...others, { _id: user._id, messages }];
+  //       });
+
+  //       if (messages.length > 0) {
+  //         const lastMsg = messages[messages.length - 1];
+  //         const preview = {
+  //           text: lastMsg.messages,
+  //           time: lastMsg.time,
+  //           senderName: lastMsg.senderName,
+  //         };
+  //         setCachedLastMessage(user._id, preview);
+  //         setAllRooms((prev) =>
+  //           prev.map((r) => (r._id === user._id ? { ...r, lastMessage: preview } : r)),
+  //         );
+  //         setSelectedUser((prev) =>
+  //           prev && prev._id === user._id ? { ...prev, lastMessage: preview } : prev,
+  //         );
+  //       }
+  //     } catch (error) {
+  //       if (!controller.signal.aborted) {
+  //         console.error("Failed to fetch room messages:", error);
+  //       }
+  //     } finally {
+  //       if (!controller.signal.aborted) setMessagesLoading(false);
+  //     }
+  //   })();
+
+  //   return () => controller.abort();
+  // }, [selectedUser?._id, chatSource]);
+
+  // useEffect(() => {
+  //   if (messagesContainerRef.current) {
+  //     messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+  //   }
+  // }, [allMessages, selectedUser?._id]);
+
+  // const selectedMessages = useMemo(() => {
+  //   if (!selectedUser) return [];
+  //   return allMessages.find((g) => g._id === selectedUser._id)?.messages || [];
+  // }, [selectedUser, allMessages]);
+
+  // const canSend = useMemo(() => {
+  //   if (!selectedUser) return false;
+  //   const access = selectedUser.sendAccess ?? (selectedUser.groupSettings === "admins" ? "ADMIN_ONLY" : "EVERYONE");
+  //   if (access === "EVERYONE") return true;
+  //   const role = String(currentUser.role || "").toUpperCase();
+  //   return role.includes("ADMIN") || role.includes("SUPERADMIN");
+  // }, [selectedUser, currentUser.role]);
+
+  const handleMessageSent = useCallback((message: IMessage) => {
+    if (!selectedUser) return;
+
+    // setAllMessages((prev) => {
+    //   const existing = prev.find((g) => g._id === selectedUser._id);
+    //   if (existing) {
+    //     return prev.map((g) =>
+    //       g._id === selectedUser._id
+    //         ? { ...g, messages: [...g.messages, message] }
+    //         : g,
+    //     );
+    //   }
+    //   return [...prev, { _id: selectedUser._id, messages: [message] }];
+    // });
+
+    const preview = {
+      text: message.messages,
+      time: message.time,
+      senderName: message.senderName,
+    };
+
+    setCachedLastMessage(selectedUser._id, preview);
+
+    // setSelectedUser((prev) =>
+    //   prev ? { ...prev, lastMessage: preview } : prev,
+    // );
+
+    setAllRooms((prev) => {
+      const target = prev.find((r) => r._id === selectedUser._id);
+      if (!target) return prev;
+      const updated = { ...target, lastMessage: preview };
+      const rest = prev.filter((r) => r._id !== selectedUser._id);
+      return [updated, ...rest];
+    });
+  }, [selectedUser]);
+
+  const handleMessagesLoaded = useCallback((roomId: string, list: IMessage[]) => {
+    const last = list[list.length - 1];
+    if (!last) return;
+    const preview = {
+      text: last.messages,
+      time: last.time,
+      senderName: last.senderName,
+    };
+    setCachedLastMessage(roomId, preview);
+    setAllRooms((prev) =>
+      prev.map((r) => (r._id === roomId ? { ...r, lastMessage: preview } : r)),
+    );
+  }, []);
+
+
+  const handleLastMessageUpdated = useCallback(
+    (
+      roomId: string,
+      preview: { text: string; time: string; senderName?: string },
+    ) => {
+      setCachedLastMessage(roomId, preview);
+      setAllRooms((prev) =>
+        prev.map((r) => (r._id === roomId ? { ...r, lastMessage: preview } : r)),
+      );
+      setSelectedUser((prev) =>
+        prev && prev._id === roomId ? { ...prev, lastMessage: preview } : prev,
+      );
+    },
+    [],
+  );
+
+
+  /* ⭐ Called by ChatPanel after it clears a chat */
+  const handleChatCleared = useCallback((roomId: string) => {
+    setAllRooms((prev) =>
+      prev.map((r) =>
+        r._id === roomId ? { ...r, lastMessage: undefined, lastSeen: "" } : r,
+      ),
+    );
+    setSelectedUser((prev) =>
+      prev && prev._id === roomId ? { ...prev, lastMessage: undefined, lastSeen: "" } : prev,
+    );
+  }, []);
+
+  const createDirectChat = async (member: DirectoryMember) => {
+    if (member.userId === currentUser.userId) {
+      throw new Error("You cannot start a chat with yourself.");
+    }
+    const token = resolveAuthToken();
+    const tenantId = resolveTenantCode();
+    if (!tenantId) throw new Error("Tenant ID not found in session.");
+    const receiverRole = normalizeRoleKey(member.role);
+    const receiver = {
+      userId: member.userId,
+      name: member.name,
+      role: member.role,
+      ...(receiverRole === "TEACHER" || receiverRole === "STUDENT"
+        ? { course: member.planName }
+        : {}),
     };
 
     try {
-      // Send the new message to the backend API
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("AdminAuthToken")
-          : null;
-
-      if (!token) {
-        console.error("❌ AdminAuthToken not found");
-        return;
-      }
-      const response = await axios.post(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.MESSAGES.CREATE}`,
-        newMessage,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+      const response = await postChatRoom(tenantId, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          type: "DIRECT",
+          sender: {
+            userId: currentUser.userId,
+            name: currentUser.userName,
+            role: "ADMIN",
           },
-        }
-      );
+          receivers: [receiver],
+        }),
+      });
 
-      // Check if the message was successfully posted
-      if (response.data.status === "success") {
-        const convertedMessage: IMessage = {
-          _id: Date.now().toString(),
-          messages: newMessage.messages,
-          senderId: newMessage.senderId,
-          senderName: newMessage.senderName,
-          receiverId: newMessage.receiverId,
-          receiverName: newMessage.receiverName,
-          createdDate: newMessage.createdDate.toISOString(),
-          time: new Date().toLocaleTimeString(),
-          notificationStatus: newMessage.notificationStatus,
-          isRead: newMessage.isRead,
-          status: newMessage.status,
-        };
-
-        setMessages((prev) => {
-          const dateKey = new Date(convertedMessage.createdDate)
-            .toISOString()
-            .split("T")[0];
-          const existingGroupIndex = prev.findIndex(
-            (group) => group._id === dateKey
-          );
-
-          if (existingGroupIndex !== -1) {
-            // Append to existing group
-            const updated = [...prev];
-            updated[existingGroupIndex] = {
-              ...updated[existingGroupIndex],
-              messages: [
-                ...updated[existingGroupIndex].messages,
-                convertedMessage,
-              ], // Append to end
-            };
-            return updated;
-          } else {
-            // Add new group at the end
-            return [
-              ...prev,
-              {
-                _id: dateKey,
-                messages: [convertedMessage],
-              },
-            ];
-          }
-        });
-        setMessageText("");
-      } else {
-        console.error("Error posting message:", response.data.message);
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.success === false) {
+        throw new Error(result?.message || `Create direct chat failed: HTTP ${response.status}`);
       }
+
+      const serverRoom =
+        result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
+        result?.data ?? result?.room ?? result;
+      const room = addCreatedRoomToList(serverRoom, {
+        type: "DIRECT",
+        name: member.name,
+        role: member.role,
+        members: [member],
+      });
+      setSelectedUser(room);
+      setRoomsRefreshKey((previous) => previous + 1);
+      setShowNewChatModal(false);
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("[create direct chat] failed:", error);
+      throw error;
+    }
+  };
+
+  const handleCreateGroupFromDirectory = async (groupName: string, members: DirectoryMember[]) => {
+    const token = resolveAuthToken();
+    const tenantId = resolveTenantCode();
+    if (!tenantId) throw new Error("Tenant ID not found in session.");
+    const receivers = members.filter((member) => member.userId !== currentUser.userId);
+    if (receivers.length === 0) throw new Error("Select at least one member other than yourself.");
+
+    try {
+      const response = await postChatRoom(tenantId, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          type: "GROUP",
+          name: groupName,
+          description: "",
+          sender: {
+            userId: currentUser.userId,
+            name: currentUser.userName,
+            role: "ADMIN",
+          },
+          receivers: receivers.map((member) => ({
+            userId: member.userId,
+            name: member.name,
+            role: member.role,
+          })),
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.success === false) {
+        throw new Error(result?.message || `Create group failed: HTTP ${response.status}`);
+      }
+
+      const serverRoom =
+        result?.data?.room ?? result?.data?.chatRoom ?? result?.data?.data ??
+        result?.data ?? result?.room ?? result;
+      addCreatedRoomToList(serverRoom, {
+        type: "GROUP",
+        name: groupName,
+        role: "GROUP",
+        members: receivers,
+      });
+      setRoomsRefreshKey((previous) => previous + 1);
+      setShowNewGroupModal(false);
+      setActiveCategory("GROUP");
+    } catch (error) {
+      console.error("[create group] failed:", error);
+      throw error;
     }
   };
 
   const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "online":
-        return "bg-green-500";
-      case "offline":
-        return "bg-gray-400";
-      case "busy":
-        return "bg-yellow-500";
-      default:
-        return "bg-gray-400";
+    switch (status.toLowerCase()) {
+      case "online": return "bg-green-400";
+      case "busy": return "bg-yellow-400";
+      default: return "bg-gray-300";
     }
   };
+  // const formatDate = (value: string) => {
+  //   const date = new Date(value);
+  //   if (Number.isNaN(date.getTime())) return "";
+  //   const today = new Date();
+  //   const yesterday = new Date();
+  //   yesterday.setDate(today.getDate() - 1);
+  //   if (date.toDateString() === today.toDateString()) return "Today";
+  //   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  //   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // };
+  // const groupedMessages = selectedMessages.reduce((acc, message) => {
+  //   const date = message.dateLabel || formatDate(message.createdDate);
+  //   if (!acc[date]) acc[date] = [];
+  //   acc[date].push(message);
+  //   return acc;
+  // }, {} as Record<string, IMessage[]>);
 
- return (
+  const handleOpenGroupDetails = () => {
+    setShowGroupMenu(false);
+    setEditGroupImagePreview(selectedUser?.profileImage ?? null);
+    setShowGroupDetails(true);
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!selectedUser) return;
+    const deletedId = selectedUser._id;
+    const roomId = selectedUser.roomId || deletedId;
+    const token = resolveAuthToken();
+
+    try {
+      const url = API_DELETE_CHAT_ROOM(roomId);
+      const payload = { deletedBy: "ADMIN" };
+      console.info("[Message] Delete group request", { method: "DELETE", url, payload });
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload),
+      });
+      const responseText = await response.text();
+      let result: unknown = null;
+      if (responseText) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          result = responseText;
+        }
+      }
+      console.info("[Message] Delete group response", {
+        status: response.status,
+        ok: response.ok,
+        body: result,
+      });
+      if (!response.ok) {
+        const apiMessage = result && typeof result === "object" && "message" in result
+          ? result.message
+          : null;
+        throw new Error(
+          typeof apiMessage === "string" && apiMessage
+            ? apiMessage
+            : typeof result === "string" && result
+              ? result
+              : `Failed to delete group (HTTP ${response.status}).`,
+        );
+      }
+      if (result && typeof result === "object" && "success" in result && result.success === false) {
+        const apiMessage = "message" in result ? result.message : null;
+        throw new Error(
+          typeof apiMessage === "string" && apiMessage
+            ? apiMessage
+            : "The server rejected the group deletion.",
+        );
+      }
+    } catch (error) {
+      console.error("[Message] Delete group failed", error);
+      throw error;
+    }
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(LS_KEY_REMOVED + roomId);
+      window.localStorage.removeItem(LS_KEY_ROOM_MEMBERS + roomId);
+      window.localStorage.removeItem(LS_KEY_LAST_MSG + roomId);
+    }
+    const tenantId = resolveTenantCode();
+    if (tenantId) removeCachedRoom(tenantId, roomId);
+    removeChatClearedAt(roomId);
+    setAllRooms((prev) => prev.filter((u) => u._id !== deletedId));
+    // setAllMessages((prev) => prev.filter((g) => g._id !== deletedId));
+    setSelectedUser((prev) => (prev?._id === deletedId ? null : prev));
+    setShowDeleteConfirm(false);
+    setShowGroupDetails(false);
+    setShowGroupMenu(false);
+    setEditGroupImagePreview(null);
+  };
+
+  const handleClearChat = useCallback(() => {
+    if (!selectedUser) return;
+    const roomId = selectedUser.roomId || selectedUser._id;
+    setChatClearedAt(roomId, Date.now());
+    setShowGroupMenu(false);
+  }, [selectedUser]);
+
+
+  const handleDeleteChat = () => {
+    if (!selectedUser) return;
+    setAllRooms((prev) => prev.filter((r) => r._id !== selectedUser._id));
+    setShowGroupMenu(false);
+    setSelectedUser(null);
+  };
+
+  const handleSaveGroupDetails = () => {
+    if (!selectedUser) return;
+    setAllRooms((prev) =>
+      prev.map((u) =>
+        u._id === selectedUser._id ? { ...u, profileImage: editGroupImagePreview ?? u.profileImage } : u,
+      ),
+    );
+    setSelectedUser((prev) =>
+      prev ? { ...prev, profileImage: editGroupImagePreview ?? prev.profileImage } : prev,
+    );
+    setShowGroupDetails(false);
+  };
+
+  const handleSelectRoom = (room: IUser) => {
+    setSelectedUser(room);
+    markRoomAsRead(room._id);
+    setReadStateVersion((v) => v + 1);
+    setAllRooms((prev) =>
+      prev.map((r) => (r._id === room._id ? { ...r, isUnread: false, unreadCount: 0 } : r)),
+    );
+  };
+
+  const categoryHeading = useMemo(() => {
+    if (activeCategory === "ALL") return "All Chats";
+    const label = categories.find((c) => c.key === activeCategory)?.label ?? activeCategory;
+    return `${label} Chats`;
+  }, [activeCategory, categories]);
+
+  return (
     <BaseLayout4>
-      <AdminHeader currentSection={"Messages"} />
+      <AdminHeader currentSection="Messages" />
 
-      <div className="py-3 px-5">
-        <div className="flex flex-col md:flex-row gap-4 h-[85vh]">
-          {/* Left Panel */}
-          <motion.div
-            initial={{ x: -20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            className="w-full md:w-[350px] bg-[#fff] dark:bg-[#343434] dark:text-[#fff] p-4 rounded-[12px] shadow-md flex flex-col"
-          >
-            <div className="flex items-center space-x-3 p-2">
-              <motion.div whileHover={{ scale: 1.05 }}>
-             <img
-                  src="/assets/images/account.png"
-                  alt="Admin"
-                  className="w-12 h-12 rounded-lg"
-                />
-              </motion.div>
-              <div>
-                <div className="flex">
-                <h3 className="text-[18px] font-medium text-[#010E30] dark:text-[#fff]">
-                    {userName}
-                  </h3>
-                  <button className="ml-[4px] text-gray-500">
-                    {messageCount > 0 && (
-                      <span className=" -mt-2 ml-1 bg-red-600 text-white text-[8px] rounded-full h-3 w-3 flex items-center justify-center animate-pulse">
-                        {messageCount}
-                      </span>
-                    )}
-                  </button>
-                </div>
-                               <p className="text-[12px] text-[#010e30a7] font-medium dark:text-[#fff] dark:opacity-[60%]">Supervisor</p>
-
-              </div>
-            </div>
-
-            {/* Search Bar */}
-            <motion.div
-              whileHover={{ scale: 1.01 }}
-              className="relative mt-2 mb-3"
-            >
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="text-gray-400 text-xs dark:border " />
-              </div>
-              <input
-                type="text"
-                placeholder="Search messages..."
-                className="block w-full pl-10 pr-3 py-2 border border-[#CBCBCB] rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-[#576cbc] dark:text-[#fff] dark:opacity-[50%] dark:bg-[#343434] dark:border-[#504c4c]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </motion.div>
-
-            {/* Tabs */}
-            <div className="flex border-b dark:border-[#505050]">
-              <button
-                className={`px-2 py-1.5 text-[13px] ${
-                  activeTab === "all"
-                    ? "text-[#576CBC] border-b-2 border-[#576CBC]"
-                    : "text-[#010e30] dark:text-[#ffffff]"
-                }`}
-                onClick={() => setActiveTab("all")}
-              >
-                All
-              </button>
-              <button
-                className={`px-2 py-1.5 text-[12px] font-medium ${
-                  activeTab === "supervisors"
-                    ? "text-[#576CBC] border-b-2 border-[#576CBC]"
-                    : "text-[#010e30] dark:text-[#ffffff]"
-                }`}
-                onClick={() => setActiveTab("supervisors")}
-              >
-                Supervisors
-              </button>
-              <button
-                className={`px-2 py-1.5 text-[12px] font-medium ${
-                  activeTab === "academicCoaches"
-                    ? "text-[#576CBC] border-b-2 border-[#576CBC]"
-                    : "text-[#010e30] dark:text-[#ffffff]"
-                }`}
-                onClick={() => setActiveTab("academicCoaches")}
-              >
-                Academic Coaches
-              </button>
-              <button
-                className={`px-2 py-1.5 text-[12px] font-medium ${
-                  activeTab === "teachers"
-                    ? "text-[#576CBC] border-b-2 border-[#576CBC] font-medium dark:text-[#576CBC]"
-                    : "text-[#010e30] dark:text-[#ffffff]"
-                }`}
-                onClick={() => setActiveTab("teachers")}
-              >
-                Teachers
-              </button>
-            </div>
-
-            {/* User List */}
-            <div className="mt-2 flex-1 overflow-y-auto scrollbar-none scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-              <AnimatePresence>
-                {filteredUsers.map((user) => (
-                  <motion.button
-                    key={user._id}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className={`flex items-center border-b dark:border-b-[#505050] justify-between w-full p-2 cursor-pointer ${
-                      selectedUser?._id === user._id
-                        ? "bg-[#f0efef] dark:bg-[#3c3c3c] rounded"
-                        : "hover:bg-[#f0efef] dark:hover:bg-[#3c3c3c] hover:rounded"
-                    }`}
-                    onClick={() => handleUserClick(user)}
-                  >
-                    <div className="flex space-x-2 items-center">
-                      <div className="relative">
-                        <motion.div
-                          whileHover={{ scale: 1.05 }}
-                          className="w-9 h-9 bg-[#D0D0D0] dark:bg-[#444] rounded-lg flex items-center justify-center"
-                        >
-                          <span className="text-[#959595] dark:text-[#FFFFFF] font-medium text-[14px]">
-                            {user.userName.charAt(0)}
-                          </span>
-                        </motion.div>
-                        <div
-                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white ${getStatusColor(
-                            user.status ?? "offline"
-                          )}`}
-                        ></div>
-                      </div>
-                      <div className="text-left">
-                        <h5 className="font-medium  text-[12px] text-[#010E30] dark:text-[#fff]">
-                          {user.userName}
-                        </h5>
-                        <p className="text-[10px] text-gray-500 dark:text-[#fff] dark:text-opacity-[60%] truncate max-w-[180px]">
-                          {user.email}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-gray-500 dark:text-[#fff] dark:text-opacity-[60%] truncate max-w-[180px]">
-                      {user.lastSeen}
-                    </span>
-                  </motion.button>
-                ))}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-
-          {/* Chat Panel */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="w-full md:flex-1 bg-white dark:bg-[#2c2c2c] dark:text-[#fff] rounded-lg shadow-md flex flex-col overflow-hidden"
-          >
-            {selectedUser ? (
-              <>
-                <div className=" p-3">
-                  <div className="flex items-center space-x-2">
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      className="relative"
-                    >
-                      <div className="w-10 h-10 bg-[#D0D0D0] dark:bg-[#D0D0D0]  rounded-lg flex items-center justify-center">
-                        <span className="dark:text-[#959595] text-sm">
-                          {selectedUser.userName.charAt(0)}
-                        </span>
-                      </div>
-                      <div
-                        className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white ${getStatusColor(
-                          selectedUser.status ?? "offline"
-                        )}`}
-                      ></div>
-                    </motion.div>
-                    <div>
-                      <h3 className="text-xs font-medium">
-                        {selectedUser.userName}
-                      </h3>
-                      <div className="flex items-center">
-                        <p className="text-[10px] text-gray-400 capitalize">
-                          {selectedUser.status} • {selectedUser.role}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative flex-1 h-[calc(85vh-100px)]">
-                  <div className="absolute inset-0 overflow-y-auto p-3 flex flex-col bg-gray-50 dark:bg-[#2C2C2C] chat-scroll-container scrollbar-none">
-                    <AnimatePresence>
-                      {Object.entries(groupedMessages)
-                        .sort(
-                          (a, b) =>
-                            new Date(a[0]).getTime() - new Date(b[0]).getTime()
-                        )
-                        .map(([date, msgs]) => (
-                          <div key={date}>
-                            <div className="text-center text-[#010E30] dark:text-[#FFFFFF] opacity-60 text-xs my-2 font-medium">
-                              {formatDateLabel(date)}
-                            </div>
-                            {msgs
-                              .toSorted(
-                                (a, b) =>
-                                  new Date(a.createdDate).getTime() -
-                                  new Date(b.createdDate).getTime()
-                              )
-                              .map((msg) => (
-                                <motion.div
-                                  key={msg._id}
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.2 }}
-                                  className={`flex flex-col mb-3 ${
-                                    msg.senderId === userId
-                                      ? "items-end"
-                                      : "items-start"
-                                  }`}
-                                >
-                                  <motion.div
-                                    whileHover={{ scale: 1.01 }}
-                                    className={`p-2 rounded-lg max-w-[80%] ${
-                                      msg.senderId === userId
-                                        ? "bg-[#576CBC] text-[#FFFFFF]"
-                                        : "bg-[#F1F1F1] dark:bg-[#444] text-[#010E30] dark:text-[#FFFFFF]"
-                                    }`}
-                                  >
-                                    <p className="text-xs">{msg.messages}</p>
-                                    <div className="flex items-center justify-end mt-1 space-x-1">
-                                      <span className="text-[9px] opacity-70">
-                                        {new Date(
-                                          msg.createdDate
-                                        ).toLocaleTimeString([], {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })}
-                                      </span>
-                                      {msg.senderId === userId && (
-                                        <span className="text-[9px]">
-                                          {msg.isRead ? "✓✓" : "✓"}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </motion.div>
-                                </motion.div>
-                              ))}
-                          </div>
-                        ))}
-                    </AnimatePresence>
-                    <div ref={messagesEndRef} />
-                  </div>
-                </div>
-
-                <motion.div
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  className="border-t border-gray-200 dark:border-[#505050] p-3 bg-[#FAFAFB] dark:bg-[#343434]"
-                >
-                  <div className="flex items-center rounded-lg bg-gray-50 dark:bg-[#444] p-1">
-                    <button className="p-1 text-[#010E30] dark:text-[#FFFFFF] hover:text-gray-700 ml-1">
-                      <GrAttachment size={14} />
-                    </button>
-                    <input
-                      type="text"
-                      placeholder="Type a message..."
-                      className="flex-1 px-2 py-1.5 text-xs bg-transparent outline-none text-[#010E30] dark:text-[#FFFFFF]"
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (
-                          e.key === "Enter" &&
-                          selectedUser &&
-                          messageText.trim()
-                        ) {
-                          handleSendMessage();
-                        }
-                      }}
-                    />
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleSendMessage}
-                      disabled={!messageText.trim()}
-                      className={`p-1 rounded-lg flex items-center ${
-                        messageText.trim()
-                          ? "bg-[#576CBC] text-white"
-                          : "bg-gray-200 dark:bg-[#505050] text-gray-400 cursor-not-allowed"
-                      }`}
-                    >
-                      <FaTelegramPlane size={14} />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              </>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center justify-center h-full bg-gray-50 dark:bg-[#2C2C2C]"
-              >
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto bg-gray-200 dark:bg-[#444] rounded-full mb-3 flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-gray-400 dark:text-[#FFFFFF]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="1.5"
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      ></path>
-                    </svg>
-                  </div>
-                  <p className="text-xs text-[#010E30] dark:text-[#FFFFFF] opacity-60">
-                    Select a conversation to start chatting
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
+      <div className="h-[calc(100vh-80px)] flex flex-col rounded-2xl bg-[#F5F7FC] dark:bg-[#1F1F1F] p-3 md:p-4 overflow-hidden">
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <h1 className="text-[16px] font-semibold text-[#010E30] dark:text-white">Messages</h1>
         </div>
+
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 w-full overflow-hidden">
+          <ConversationList
+            currentUser={currentUser}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            categoryDropdownRef={categoryDropdownRef}
+            categories={categories}
+            categoriesLoading={categoriesLoading}
+            categoryDropdownOpen={categoryDropdownOpen}
+            setCategoryDropdownOpen={setCategoryDropdownOpen}
+            onRefreshCategories={() => void fetchCategories()}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            setSelectedUser={setSelectedUser}
+            categoryHeading={categoryHeading}
+            tabCounts={tabCounts}
+            setShowNewGroupModal={setShowNewGroupModal}
+            setShowNewChatModal={setShowNewChatModal}
+            roomsRefreshKey={roomsRefreshKey}
+            onRoomsLoaded={handleRoomsLoaded}
+            categoryRooms={categoryRooms}
+            selectedUser={selectedUser}
+            getPlanColor={getPlanColor}
+            getStatusColor={getStatusColor}
+            handleSelectRoom={handleSelectRoom}
+          />
+
+          <ChatPanel
+            selectedUser={selectedUser}
+            getStatusColor={getStatusColor}
+            currentUser={currentUser}
+            showGroupMenu={showGroupMenu}
+            setShowGroupMenu={setShowGroupMenu}
+            handleOpenGroupDetails={handleOpenGroupDetails}
+            handleDeleteChat={handleDeleteChat}
+            messagesContainerRef={messagesContainerRef}
+            messagesEndRef={messagesEndRef}
+            onMessageSent={handleMessageSent}
+            onMessagesLoaded={handleMessagesLoaded}
+            onLastMessageUpdated={handleLastMessageUpdated}
+            onChatCleared={handleChatCleared}
+          />
+        </div>
+
+        <AnimatePresence>
+          {showNewChatModal && (
+            <NewChatModal
+              key="new-chat-modal"
+              category={activeCategory}
+              categories={categories}
+              onClose={() => setShowNewChatModal(false)}
+              onCreateChat={createDirectChat}
+              getPlanColor={getPlanColor}
+              fetchMembersForCategory={fetchMembersForCategory}
+              currentUserId={currentUser.userId}
+            />
+          )}
+
+          {showNewGroupModal && (
+            <NewGroupModal
+              key="new-group-modal"
+              categories={categories}
+              onClose={() => setShowNewGroupModal(false)}
+              onCreate={handleCreateGroupFromDirectory}
+              getPlanColor={getPlanColor}
+              fetchMembersForCategory={fetchMembersForCategory}
+              currentUserId={currentUser.userId}
+            />
+          )}
+
+          {showGroupDetails && selectedUser && (
+            <UserGroupDetails
+              roomId={selectedUser.roomId || selectedUser._id}
+              source={selectedUser.chatSource ?? chatSource}
+              onClose={() => setShowGroupDetails(false)}
+              onDeleteGroup={handleDeleteGroup}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </BaseLayout4>
   );

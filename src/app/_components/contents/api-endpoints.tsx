@@ -9,6 +9,10 @@ export const AppApiEndpoints = {
     STUDENTS_SIGNIN: "/studentsignin",
   },
 
+  TENANTACCESS: {
+    GET_ACCESS: (tenantId: string) => `/tenant-portal/${tenantId}/access`,
+  },
+
   USER: {
     GET: "/users",
     CREATE: "/users",
@@ -19,6 +23,8 @@ export const AppApiEndpoints = {
 
   NOTIFICATION: {
     GET_LIST: "/notification/getlist",
+    CARD_DETAILS: "/notification/card-details",
+    REQUEST_LIST: "/notification/request-list",
     CREATE: "/notification",
     UPDATE: "/notification",
   },
@@ -262,7 +268,10 @@ export const AppApiEndpoints = {
       `/api/tenant-subscriptions/tenantsbyplan/${planId}`,
     ROOM: "/chat-room",
     ROOM_BY_ID: (roomId: string) => `/chat-room/${roomId}`,
-    GET_GROUP_DETAILS: (roomId: string) => `/chat/groups/${roomId}`,
+    GET_GROUP_DETAILS_SUPERADMIN :(roomId: string) =>
+      `/chat/groups/${roomId}`,
+    GET_GROUP_DETAILS: (source: string, roomId: string) =>
+      `/user/chat/${source}/groups/${roomId}`,
     MESSAGE: "/chat/message",
     CLEAR: "/chat/clear",
     SEEN: "/chat/seen",
@@ -344,6 +353,7 @@ export const AppApiEndpoints = {
 
   PLAN: {
     CREATE_PLAN: "/plans",
+    GET_ACTIVE_PLANS: "/api/plans/active",
     PLAN_CARD_COUNT: "/plans/dashboard",
     PLAN_ACTIVITY: "/plans/dashboard",
     GET_TOP_PERFORMING_PLAN: "/plans/dashboard",
@@ -371,10 +381,10 @@ export const AppApiEndpoints = {
     TENANT_PORTAL_DASHBOARD: "/tenant-portal-dashboard/{tenantCode}",
     UPDATE_SUBSCRIPTION_PLAN: "/tenant/subscription-plan/{tenantCode}",
     GET_ANALYTICS_CARDS: "/tenants/analytics/cards",
-        GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
+    GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
     TENANT_AUDIT_LOGS: "/audit-log/tenant/{tenantCode}",
     TENANT_ACTIVITY_SUMMARY: "/audit-log/dashboard/activity-summary",
-    TENANT_SUBSCRIPTION_LIST_CARD:"/tenant-subscription"
+    TENANT_SUBSCRIPTION_LIST_CARD: "/tenant-subscription"
   },
   PORTAL: {
     GET_ALL: "/portal",

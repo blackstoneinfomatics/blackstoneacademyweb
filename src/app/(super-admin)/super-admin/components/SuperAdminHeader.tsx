@@ -161,7 +161,7 @@ export default function SuperAdminHeader({
   // Fetch old notifications
   const userId =
     typeof window !== "undefined"
-      ? localStorage.getItem("SuperAdminPortalId")
+      ? localStorage.getItem("SuperAdminUserId")
       : null;
   const fetchNotifications = async (token: string) => {
     try {
@@ -172,7 +172,7 @@ export default function SuperAdminHeader({
 
       const userId =
         typeof window !== "undefined"
-          ? localStorage.getItem("SuperAdminPortalId")
+          ? localStorage.getItem("SuperAdminUserId")
           : null;
 
       if (!token) {
@@ -185,11 +185,18 @@ export default function SuperAdminHeader({
         return;
       }
 
+      const authorizationHeader = `Bearer ${token}`;
+      console.info(
+        "[SuperAdmin auth] Notification request token matches stored token:",
+        authorizationHeader ===
+          `Bearer ${localStorage.getItem("SuperAdminAuthToken")}`,
+      );
+
       const { data } = await axios.get(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.NOTIFICATION.GET_LIST}?receiverId=${userId}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: authorizationHeader,
             "Content-Type": "application/json",
           },
         },
@@ -793,7 +800,7 @@ export default function SuperAdminHeader({
       )}
       {showAddTenant && <AddNewTenant onClose={() => setAddTenant(false)} />}
       {showAddUser && <AddNewUser onClose={() => setAddUser(false)} />}
-      {showNotification && (
+      {/* {showNotification && (
         <div
           ref={notificationRef}
           className="absolute pb-6 ml-[810px] w-[90vw] sm:w-[470px] max-w-[95vw] -mt-1 bg-white/90 dark:bg-[#252525]/80 backdrop-blur-md border rounded-lg shadow-2xl z-30 animate-fade-in-up animation-transition-all duration-300"
@@ -908,7 +915,7 @@ export default function SuperAdminHeader({
             )}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

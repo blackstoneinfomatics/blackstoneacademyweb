@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiCheck, FiClock, FiMoreVertical, FiX } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-
+import {ChatSource} from "@/app/utils/chat-events"
 import BaseLayout3 from "../../components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import { ChatMessageComposer } from "./ChatMessageComposer";
@@ -12,6 +12,7 @@ import { AddGroupModal, type GroupFormData } from "./AddGroupModal";
 import { BroadcastModal, type BroadcastData } from "./BroadcastModal";
 import { GroupDetailsModal } from "./GroupDetailsModal";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import { onNewMessage, joinChatRoom, leaveChatRoom } from "@/app/utils/chat-socket";
 
 const API_BASE = AppApiEndpoints.API_END_POINT;
 
@@ -33,7 +34,7 @@ const API_ROOM_MESSAGES = (roomId: string, userId: string) =>
 const API_UPDATE_CHAT_ROOM = (roomId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.ROOM_BY_ID(roomId)}`;
 const API_GET_GROUP_DETAILS = (roomId: string) =>
-  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS(roomId)}`;
+  `${API_BASE}${AppApiEndpoints.CHAT.GET_GROUP_DETAILS_SUPERADMIN(roomId)}`;
 const API_DELETE_MESSAGE_FOR_EVERYONE = (messageId: string, userId: string) =>
   `${API_BASE}${AppApiEndpoints.CHAT.DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`;
 
@@ -302,12 +303,36 @@ const PLAN_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
 };
 
 const FALLBACK_COLORS = [
-  { bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]", text: "text-[#22C55E] dark:text-[#68D391]", dot: "#22C55E" },
-  { bg: "bg-[#E0F2FE] dark:bg-[#22375A]", text: "text-[#3B82F6] dark:text-[#7EB0FF]", dot: "#3B82F6" },
-  { bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]", text: "text-[#8B5CF6] dark:text-[#C4A8FF]", dot: "#8B5CF6" },
-  { bg: "bg-[#FFF7E8] dark:bg-[#4A3B22]", text: "text-[#F4A429] dark:text-[#FCD68B]", dot: "#F4A429" },
-  { bg: "bg-[#FDEAEA] dark:bg-[#4A2A2A]", text: "text-[#E35D5D] dark:text-[#F89B9B]", dot: "#E35D5D" },
-  { bg: "bg-[#EAF8EC] dark:bg-[#1F3A2B]", text: "text-[#34A853] dark:text-[#7FD495]", dot: "#34A853" },
+  {
+    bg: "bg-[#E6F7EC] dark:bg-[#1F3A2B]",
+    text: "text-[#22C55E] dark:text-[#68D391]",
+    dot: "#22C55E",
+  },
+  {
+    bg: "bg-[#E0F2FE] dark:bg-[#22375A]",
+    text: "text-[#3B82F6] dark:text-[#7EB0FF]",
+    dot: "#3B82F6",
+  },
+  {
+    bg: "bg-[#F3E8FF] dark:bg-[#3A2F58]",
+    text: "text-[#8B5CF6] dark:text-[#C4A8FF]",
+    dot: "#8B5CF6",
+  },
+  {
+    bg: "bg-[#FFF7E8] dark:bg-[#4A3B22]",
+    text: "text-[#F4A429] dark:text-[#FCD68B]",
+    dot: "#F4A429",
+  },
+  {
+    bg: "bg-[#FDEAEA] dark:bg-[#4A2A2A]",
+    text: "text-[#E35D5D] dark:text-[#F89B9B]",
+    dot: "#E35D5D",
+  },
+  {
+    bg: "bg-[#EAF8EC] dark:bg-[#1F3A2B]",
+    text: "text-[#34A853] dark:text-[#7FD495]",
+    dot: "#34A853",
+  },
 ];
 
 const hashString = (str: string): number => {
@@ -329,7 +354,11 @@ const getPlanColor = (plan?: string) => {
   }
   if (PLAN_COLORS[plan]) return PLAN_COLORS[plan];
   const lower = plan.toLowerCase();
-  if (lower.includes("premium") || lower.includes("pro") || lower.includes("ultra")) {
+  if (
+    lower.includes("premium") ||
+    lower.includes("pro") ||
+    lower.includes("ultra")
+  ) {
     return PLAN_COLORS.Premium;
   }
   if (lower.includes("standard")) return PLAN_COLORS.Standard;
@@ -525,8 +554,15 @@ const MessageInfoModal = ({
   const [seenError, setSeenError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const userId = localStorage.getItem("SuperAdminUserId");
+   const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId")
+    : null;
 
     if (!token || !userId) {
       setSeenError("Super-admin authentication data is missing.");
@@ -736,6 +772,7 @@ const Message = () => {
 
   const mapRoomToUser = (r: any): IUser => {
     const id = extractRoomId(r);
+    const chatSource = "SUPER_ADMIN";
     const roomType = normalizeRoomType(r?.type);
     const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
     const clearedAt = getChatClearedAt(id);
@@ -809,15 +846,16 @@ const Message = () => {
       plan: r?.planName ?? "",
       members,
       groupSettings: r?.sendAccess === "ADMINS" ? "admins" : "everyone",
-      lastMessage: !isChatCleared && r?.lastMessage
-        ? {
-          text: r.lastMessage.message ?? "",
-          time: formatMessageTime(
-            r.lastMessage.createdAt ?? r.lastMessageAt
-          ),
-          senderName: r.lastMessage.senderName ?? "",
-        }
-        : undefined,
+      lastMessage:
+        !isChatCleared && r?.lastMessage
+          ? {
+            text: r.lastMessage.message ?? "",
+            time: formatMessageTime(
+              r.lastMessage.createdAt ?? r.lastMessageAt
+            ),
+            senderName: r.lastMessage.senderName ?? "",
+          }
+          : undefined,
       profileImage: null,
       roomId: id,
       roomCode: r?.roomCode ?? "",
@@ -838,9 +876,20 @@ const Message = () => {
 
     try {
       const fetchTab = async (tab: "ALL" | "UNREAD" | "GROUP") => {
-        const userId = localStorage.getItem("SuperAdminUserId") || "";
-        const tenantId = localStorage.getItem("tenantId") || "";
-        const token = localStorage.getItem("SuperAdminAuthToken");
+     const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") || ""
+    : "";
+
+const tenantId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("tenantId") || ""
+    : "";
+
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
 
         const res = await fetch(
           `${API_LIST_CHAT_ROOMS}?page=1&limit=${ROOMS_PAGE_LIMIT}&tab=${tab}&userId=${userId}&tenantId=${tenantId}`,
@@ -881,12 +930,11 @@ const Message = () => {
         };
       };
 
-      const [allResponse, unreadResponse, groupResponse] =
-        await Promise.all([
-          fetchTab("ALL"),
-          fetchTab("UNREAD"),
-          fetchTab("GROUP"),
-        ]);
+      const [allResponse, unreadResponse, groupResponse] = await Promise.all([
+        fetchTab("ALL"),
+        fetchTab("UNREAD"),
+        fetchTab("GROUP"),
+      ]);
 
       const mappedAll = allResponse.rooms
         .map(mapRoomToUser)
@@ -922,9 +970,7 @@ const Message = () => {
         if (!roomId) return;
 
         const rawTenantIds: string[] = Array.isArray(r?.tenantIds)
-          ? r.tenantIds.filter(
-            (x: any) => typeof x === "string" && x.trim()
-          )
+          ? r.tenantIds.filter((x: any) => typeof x === "string" && x.trim())
           : [];
 
         if (rawTenantIds.length === 0) return;
@@ -959,7 +1005,6 @@ const Message = () => {
 
   useEffect(() => {
     fetchRooms();
-
   }, [activeTab]);
 
   const visibleRooms = useMemo(() => {
@@ -1005,8 +1050,10 @@ const Message = () => {
     (async () => {
       setPlansLoading(true);
       try {
-        const token = localStorage.getItem("SuperAdminAuthToken");
-
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
         const res = await fetch(API_ACTIVE_PLANS, {
           cache: "no-store",
           headers: {
@@ -1072,8 +1119,10 @@ const Message = () => {
     (async () => {
       setPlanTenantsLoading(true);
       try {
-        const token = localStorage.getItem("SuperAdminAuthToken");
-
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
         const res = await fetch(API_TENANTS_BY_PLAN(addGroupData.planId), {
           cache: "no-store",
           headers: {
@@ -1138,8 +1187,10 @@ const Message = () => {
     if (!selectedUser.isGroup && !selectedUser.role.includes("Group")) return;
 
     const roomId = selectedUser.roomId || selectedUser._id;
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const currentSelectedId = selectedUser._id;
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;    const currentSelectedId = selectedUser._id;
 
     const controller = new AbortController();
 
@@ -1231,16 +1282,15 @@ const Message = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUser?._id, selectedUser?.isGroup]);
 
-  // ─────────────────────────────────────────────
-  // Fetch group details when Group Details modal opens
-  // ─────────────────────────────────────────────
   useEffect(() => {
     if (!showGroupDetails || !selectedUser) return;
 
     const planId = selectedUser.planId;
     const roomId = selectedUser.roomId || selectedUser._id;
-    const token = localStorage.getItem("SuperAdminAuthToken");
-
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
     console.log("🟡 [Step 0] Group Details modal opened", { roomId, planId });
 
     let cancelled = false;
@@ -1258,24 +1308,43 @@ const Message = () => {
           },
         });
 
-        console.log("🟡 [Step 2] Response status:", groupRes.status, groupRes.ok ? "✅ OK" : "❌ FAILED");
+        console.log(
+          "🟡 [Step 2] Response status:",
+          groupRes.status,
+          groupRes.ok ? "✅ OK" : "❌ FAILED"
+        );
 
         if (!groupRes.ok) {
           const errText = await groupRes.text();
-          console.error("❌ [Step 2] Group details fetch failed:", groupRes.status, errText);
+          console.error(
+            "❌ [Step 2] Group details fetch failed:",
+            groupRes.status,
+            errText
+          );
         } else {
           const groupJson = await groupRes.json();
-          console.log("🟡 [Step 3] Raw response body:", JSON.stringify(groupJson, null, 2));
+          console.log(
+            "🟡 [Step 3] Raw response body:",
+            JSON.stringify(groupJson, null, 2)
+          );
 
           const groupData = groupJson?.data ?? groupJson;
           console.log("🟡 [Step 4] Parsed groupData:", groupData);
 
-          const rawMembers: any[] = Array.isArray(groupData?.members) ? groupData.members : [];
-          console.log("🟡 [Step 5] members array (length=" + rawMembers.length + "):", rawMembers);
+          const rawMembers: any[] = Array.isArray(groupData?.members)
+            ? groupData.members
+            : [];
+          console.log(
+            "🟡 [Step 5] members array (length=" + rawMembers.length + "):",
+            rawMembers
+          );
 
           if (!cancelled && rawMembers.length > 0) {
             const removedIds = getRemovedTenants(roomId);
-            console.log("🟡 [Step 6] removedIds from localStorage:", removedIds);
+            console.log(
+              "🟡 [Step 6] removedIds from localStorage:",
+              removedIds
+            );
 
             const freshMembers = rawMembers.map((m: any) => ({
               name: m.tenantName || m.name || m.tenantId || "Unknown",
@@ -1283,14 +1352,22 @@ const Message = () => {
               tenantId: m.tenantId || m._id || "",
               isSelected: removedIds.includes(m.tenantId || m._id)
                 ? false
-                : (m.isSelected !== undefined ? m.isSelected : true),
+                : m.isSelected !== undefined
+                  ? m.isSelected
+                  : true,
             }));
 
-            console.log("✅ [Step 7] Final freshMembers to display:", freshMembers);
+            console.log(
+              "✅ [Step 7] Final freshMembers to display:",
+              freshMembers
+            );
 
             mergeIntoRoomMembersCache(
               roomId,
-              freshMembers.map((m) => ({ tenantId: m.tenantId, tenantName: m.name }))
+              freshMembers.map((m) => ({
+                tenantId: m.tenantId,
+                tenantName: m.name,
+              }))
             );
 
             setSelectedUser((prev) => {
@@ -1298,19 +1375,26 @@ const Message = () => {
               return { ...prev, members: freshMembers };
             });
           } else if (rawMembers.length === 0) {
-            console.warn("⚠️ [Step 5] members array is empty — no members to show");
+            console.warn(
+              "⚠️ [Step 5] members array is empty — no members to show"
+            );
           }
         }
 
         if (cancelled) return;
 
         if (!planId) {
-          console.warn("⚠️ [Step 8] No planId — skipping plan-tenants fetch (Add Member dropdown will be empty)");
+          console.warn(
+            "⚠️ [Step 8] No planId — skipping plan-tenants fetch (Add Member dropdown will be empty)"
+          );
           return;
         }
 
         const tenantsUrl = API_TENANTS_BY_PLAN(planId);
-        console.log("🟡 [Step 8] Fetching plan tenants for dropdown →", tenantsUrl);
+        console.log(
+          "🟡 [Step 8] Fetching plan tenants for dropdown →",
+          tenantsUrl
+        );
 
         const tenantsRes = await fetch(tenantsUrl, {
           cache: "no-store",
@@ -1320,19 +1404,41 @@ const Message = () => {
           },
         });
 
-        console.log("🟡 [Step 9] Plan tenants response status:", tenantsRes.status, tenantsRes.ok ? "✅ OK" : "❌ FAILED");
+        console.log(
+          "🟡 [Step 9] Plan tenants response status:",
+          tenantsRes.status,
+          tenantsRes.ok ? "✅ OK" : "❌ FAILED"
+        );
 
         if (!tenantsRes.ok) {
           const errText = await tenantsRes.text();
-          console.error("❌ [Step 9] Plan tenants fetch failed:", tenantsRes.status, errText);
+          console.error(
+            "❌ [Step 9] Plan tenants fetch failed:",
+            tenantsRes.status,
+            errText
+          );
           return;
         }
 
         const tenantsJson = await tenantsRes.json();
-        console.log("🟡 [Step 10] Plan tenants raw response:", JSON.stringify(tenantsJson, null, 2));
+        console.log(
+          "🟡 [Step 10] Plan tenants raw response:",
+          JSON.stringify(tenantsJson, null, 2)
+        );
 
-        const rawList = extractList<any>(tenantsJson, "tenants", "items", "members", "data");
-        console.log("🟡 [Step 11] Extracted tenants list (length=" + rawList.length + "):", rawList);
+        const rawList = extractList<any>(
+          tenantsJson,
+          "tenants",
+          "items",
+          "members",
+          "data"
+        );
+        console.log(
+          "🟡 [Step 11] Extracted tenants list (length=" +
+          rawList.length +
+          "):",
+          rawList
+        );
 
         const normalized: IPlanTenant[] = rawList
           .map((t: any) => ({
@@ -1349,7 +1455,10 @@ const Message = () => {
           setPlanTenants(normalized);
           mergeIntoRoomMembersCache(
             roomId,
-            normalized.map((t) => ({ tenantId: t._id, tenantName: t.tenantName || "Unnamed Tenant" }))
+            normalized.map((t) => ({
+              tenantId: t._id,
+              tenantName: t.tenantName || "Unnamed Tenant",
+            }))
           );
         }
       } catch (err) {
@@ -1360,7 +1469,6 @@ const Message = () => {
     return () => {
       cancelled = true;
     };
- 
   }, [showGroupDetails, selectedUser?._id, selectedUser?.planId]);
 
   const memberOptions = useMemo(
@@ -1377,12 +1485,157 @@ const Message = () => {
     if (!selectedUser) return [];
     return allMessages.find((g) => g._id === selectedUser._id)?.messages || [];
   }, [selectedUser, allMessages]);
+  
+const apiMessageToLocal = (
+  message: IRoomMessageResponse,
+  index: number,
+  roomId: string,
+  receiverName: string,
+  userId:string,
+): IMessage => {
+  const createdDate = message.timestamp ?? message.createdAt ?? new Date().toISOString();
+  const date = new Date(createdDate);
+  const attachment = message.attachments?.[0];
+  return {
+    _id: message._id ?? `${roomId}-${index}`,
+    messages: message.message ?? "",
+    senderId: message.senderId ?? "",
+    senderName: message.senderName ?? "",
+    receiverId: roomId,
+    receiverName,
+    createdDate,
+    dateLabel: message.dateLabel,
+    time: Number.isNaN(date.getTime())
+      ? ""
+      : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    notificationStatus: "Unseen",
+    isRead: false,
+    status: "Active",
+    isDeleted:  false,
+    side: message.senderId === userId ? 'right' : 'left',
+    replyTo: message.replyTo
+      ? {
+        messageId: message.replyTo.messageId ?? "",
+        messages: message.replyTo.message ?? "",
+        senderName: message.replyTo.senderName ?? "",
+        senderId: message.replyTo.senderId ?? "",
+      }
+      : undefined,
+    attachment: attachment
+      ? {
+        name: attachment.name ?? "Attachment",
+        size: attachment.size ?? 0,
+        type: attachment.type ?? "application/octet-stream",
+        url: attachment.url,
+      }
+      : undefined,
+  };
+};
+  const roomId =selectedUser?._id;
+     const chatSource : ChatSource = "SUPER_ADMIN";
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") || ""
+    : "";
+  useEffect(() => {
+      if (!userId || !roomId || !chatSource) return;
+    
+      const room = {
+        source: chatSource,
+        roomId,
+      };
+    
+      // 1. Listen for new messages
+      const unsubscribeMessage = onNewMessage(userId, (event) => {
+        if (
+          event.source !== chatSource ||
+          event.roomId !== roomId
+        ) {
+          return;
+        }
+    
+        if (!event.message || typeof event.message !== "object") {
+          return;
+        }
+    
+        const incoming = event.message as Parameters<
+  typeof apiMessageToLocal
+>[0];
+
+const localMessage = apiMessageToLocal(
+  incoming,
+  0,
+  roomId,
+  "no",
+  userId,
+);
+
+if (localMessage.senderId !== userId) {
+  setAllMessages((previous) => {
+    const groupId = selectedUser._id;
+
+    const existingGroup = previous.find(
+      (group) => group._id === groupId,
+    );
+
+    // Avoid duplicate messages
+    if (
+      existingGroup?.messages.some(
+        (message) => message._id === localMessage._id,
+      )
+    ) {
+      return previous;
+    }
+
+    // Append to the existing user's message group
+    if (existingGroup) {
+      return previous.map((group) =>
+        group._id === groupId
+          ? {
+              ...group,
+              messages: [...group.messages, localMessage],
+            }
+          : group,
+      );
+    }
+
+    // Create a new group if one doesn't exist
+    return [
+      ...previous,
+      {
+        _id: groupId,
+        messages: [localMessage],
+      },
+    ];
+  });
+}
+      });
+    
+      // 3. Join the selected chat room
+      void joinChatRoom(userId, room).catch((error: unknown) => {
+        console.error("Chat room join failed:", error);
+      });
+    
+      // 4. Clean up when switching rooms or unmounting
+      return () => {
+        unsubscribeMessage();
+        leaveChatRoom(userId, room);
+      };
+    }, [userId, roomId, chatSource]);
+
 
   useEffect(() => {
     if (!selectedUser) return;
 
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const userId = localStorage.getItem("SuperAdminUserId");
+  const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId")
+    : null;
     if (!token || !userId) {
       console.error("Super-admin authentication data is missing");
       return;
@@ -1390,6 +1643,8 @@ const Message = () => {
 
     const controller = new AbortController();
     setMessagesLoading(true);
+
+
 
     const fetchRoomMessages = async () => {
       try {
@@ -1412,7 +1667,9 @@ const Message = () => {
         const messages = (result.data?.messages ?? []).map(
           (message, index): IMessage => {
             const createdDate =
-              message.timestamp ?? message.createdAt ?? new Date().toISOString();
+              message.timestamp ??
+              message.createdAt ??
+              new Date().toISOString();
             const date = new Date(createdDate);
             const attachment = message.attachments?.[0];
 
@@ -1513,13 +1770,24 @@ const Message = () => {
     pendingAttachment: File | null,
     pendingName: string
   ): Promise<string | null> => {
-    if (!selectedUser) return Promise.resolve("Select a tenant or group before sending.");
+    if (!selectedUser)
+      return Promise.resolve("Select a tenant or group before sending.");
     if (!text.trim()) return Promise.resolve("Enter a message before sending.");
 
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const senderId = localStorage.getItem("SuperAdminUserId") ?? "";
-    const senderName =
-      localStorage.getItem("SuperAdminPortalName") || currentUser.userName;
+   const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const senderId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") ?? ""
+    : "";
+
+const senderName =
+  (typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminPortalName")
+    : null) || currentUser.userName;
 
     const payload = {
       roomId: selectedUser._id,
@@ -1617,7 +1885,9 @@ const Message = () => {
       }
     } catch (error) {
       console.error("Send message failed:", error);
-      return error instanceof Error ? error.message : "Message could not be sent.";
+      return error instanceof Error
+        ? error.message
+        : "Message could not be sent.";
     }
 
     const now = new Date();
@@ -1664,7 +1934,9 @@ const Message = () => {
       const existing = prev.find((g) => g._id === selectedUser._id);
       if (existing) {
         return prev.map((g) =>
-          g._id === selectedUser._id ? { ...g, messages: [...g.messages, newMessage] } : g
+          g._id === selectedUser._id
+            ? { ...g, messages: [...g.messages, newMessage] }
+            : g
         );
       }
       return [...prev, { _id: selectedUser._id, messages: [newMessage] }];
@@ -1721,7 +1993,11 @@ const Message = () => {
     if (!selectedUser) return;
     const deletedId = selectedUser._id;
     const roomId = selectedUser.roomId || deletedId;
-    const token = localStorage.getItem("SuperAdminAuthToken");
+const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
 
     try {
       const response = await fetch(API_UPDATE_CHAT_ROOM(roomId), {
@@ -1765,8 +2041,16 @@ const Message = () => {
   const handleClearChat = async () => {
     if (!selectedUser) return;
 
-    const token = localStorage.getItem("SuperAdminAuthToken");
-    const userId = localStorage.getItem("SuperAdminUserId");
+   const token =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminAuthToken")
+    : null;
+
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId")
+    : null;
+
     if (!token || !userId) {
       console.error("Super-admin authentication data is missing");
       return;
@@ -1776,7 +2060,7 @@ const Message = () => {
 
     try {
       const response = await fetch(API_CLEAR_CHAT, {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -1831,8 +2115,12 @@ const Message = () => {
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const userId = localStorage.getItem("SuperAdminUserId") || "";
-      const res = await fetch(
+const userId =
+  typeof window !== "undefined"
+    ? localStorage.getItem("SuperAdminUserId") || ""
+    : "";     
+    
+    const res = await fetch(
         `${API_DELETE_MESSAGE_FOR_EVERYONE(messageId, userId)}`,
         {
           method: "DELETE",
@@ -2052,25 +2340,27 @@ const Message = () => {
                     }`}
                 >
                   {tab.label}
-                  <span
-                    className={`text-[10px] px-1.5 py-[1px] rounded-full ${activeTab === tab.key
-                      ? "bg-[#E6EAF2] text-[#576CBC]"
-                      : "bg-gray-100 dark:bg-[#2c2c2c] text-gray-500"
-                      }`}
-                  >
-                    {tab.count}
-                  </span>
+                  {tab.count > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-[1px] rounded-full ${activeTab === tab.key
+                        ? "bg-[#E6EAF2] text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]"
+                        : "bg-gray-100 dark:bg-[#2c2c2c] text-gray-500 dark:text-[#8a8a8a]"
+                        }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto max-h-[400px] md:max-h-none">
+            <div className="flex-1 overflow-y-auto max-h-[400px] md:max-h-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {roomsLoading ? (
-                <p className="py-6 text-center text-[11px] text-gray-400">
+                <p className="py-6 text-center text-[11px] text-gray-400 dark:text-[#8a8a8a]">
                   Loading chats…
                 </p>
               ) : visibleRooms.length === 0 ? (
-                <p className="py-6 text-center text-[11px] text-gray-400">
+                <p className="py-6 text-center text-[11px] text-gray-400 dark:text-[#8a8a8a]">
                   {activeTab === "GROUP"
                     ? "No groups yet — create one"
                     : activeTab === "UNREAD"
@@ -2217,11 +2507,17 @@ const Message = () => {
                       {selectedUser.role.includes("Group") ? (
                         <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] flex items-center gap-1">
                           Members
-                          <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
-                            {selectedUser.members?.filter(
-                              (m: any) => m.isSelected !== false
-                            ).length ?? 0}
-                          </span>
+                          {(() => {
+                            const count =
+                              selectedUser.members?.filter(
+                                (m: any) => m.isSelected !== false
+                              ).length ?? 0;
+                            return count > 0 ? (
+                              <span className="rounded bg-[#E6EAF2] px-1.5 py-[1px] text-[9px] font-medium text-[#576CBC] dark:bg-[#3A4570] dark:text-[#A8B7E8]">
+                                {count}
+                              </span>
+                            ) : null;
+                          })()}
                         </p>
                       ) : (
                         <p className="text-[10px] text-[#8C919C] dark:text-[#B5B5B5] truncate">
@@ -2271,7 +2567,7 @@ const Message = () => {
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 bg-[#FBFBFB] dark:bg-[#2c2c2c]">
                   {messagesLoading ? (
-                    <p className="py-6 text-center text-[11px] text-gray-400">
+                    <p className="py-6 text-center text-[11px] text-gray-400 dark:text-[#8a8a8a]">
                       Loading messages…
                     </p>
                   ) : (
@@ -2372,7 +2668,9 @@ const Message = () => {
                                       showDelete={isMine}
                                       onInfo={() => setInfoMessage(msg)}
                                       onReply={() => setReplyTo(msg)}
-                                      onDelete={() => handleDeleteMessage(msg._id)}
+                                      onDelete={() =>
+                                        handleDeleteMessage(msg._id)
+                                      }
                                     />
                                   )}
                                 </div>
