@@ -10,15 +10,12 @@ import {
     X,
 } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import AdminHeader from "../../../components/AdminHeader";
-import BaseLayout4 from "../../../components/BaseLayout4";
+import AdminHeader from "../../components/AdminHeader";
+import BaseLayout4 from "../../components/BaseLayout4";
 
 import TicketDetailsModal from "./TicketDetailsModal";
 import ViewTicketModal from "./ViewTicketsModal";
 
-/* ------------------------------------------------------------------ */
-/* Types & Mock Data                                                   */
-/* ------------------------------------------------------------------ */
 
 interface TicketItem {
     ticketId: string;

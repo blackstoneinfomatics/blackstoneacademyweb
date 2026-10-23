@@ -257,6 +257,20 @@ const flattenMessageGroups = (
   return out;
 };
 
+const sortMessagesChronologically = (messages: IMessage[]): IMessage[] =>
+  messages
+    .map((message, index) => ({
+      message,
+      index,
+      timestamp: new Date(message.createdDate).getTime(),
+    }))
+    .sort((a, b) => {
+      const aTime = Number.isFinite(a.timestamp) ? a.timestamp : Number.MAX_SAFE_INTEGER;
+      const bTime = Number.isFinite(b.timestamp) ? b.timestamp : Number.MAX_SAFE_INTEGER;
+      return aTime - bTime || a.index - b.index;
+    })
+    .map(({ message }) => message);
+
 const apiMessageToLocal = (
   message: IRoomMessageResponse,
   index: number,
@@ -798,7 +812,7 @@ const userId = resolveAdminUserId();
         const all = raw.map((m, i) => apiMessageToLocal(m, i, roomId, receiverName, userId));
 
         const clearedAt = getClearedAt(selectedUser._id);
-        const visible = filterAfterClear(all, clearedAt);
+        const visible = sortMessagesChronologically(filterAfterClear(all, clearedAt));
 
         setMessages(visible);
         onMessagesLoaded?.(selectedUser._id, visible);
@@ -884,7 +898,7 @@ const userId = resolveAdminUserId();
       }
 
 
-      return [...previous, localMessage];
+      return sortMessagesChronologically([...previous, localMessage]);
     });
   }
   });
@@ -1013,7 +1027,7 @@ const userId = resolveAdminUserId();
           : {}),
       };
 
-      setMessages((prev) => [...prev, newMessage]);
+      setMessages((prev) => sortMessagesChronologically([...prev, newMessage]));
       onMessageSent?.(newMessage);
       setMessageText("");
       setReplyTo(null);

@@ -737,6 +737,13 @@ const Message = () => {
     const id = extractRoomId(r);
     const roomType = normalizeRoomType(r?.type);
     const isGroup = roomType === "SEGMENT" || roomType === "GLOBAL";
+    const rawRoomRole = typeof r?.role === "string" ? r.role.trim() : "";
+    const displayRole =
+      isGroup
+        ? "Group"
+        : rawRoomRole && normalizeRoleKey(rawRoomRole) !== "TENANT"
+          ? roleToLabel(rawRoomRole)
+          : "Member";
 
     const clearedAt = getChatClearedAt(id);
     const lastRoomMessageAt = new Date(r?.lastMessage?.createdAt ?? r?.lastMessageAt ?? "").getTime();
@@ -801,7 +808,7 @@ const Message = () => {
       chatSource: isSuperAdminSource ? "SUPER_ADMIN" : "TENANT",
       userName: r?.name ?? r?.roomCode ?? "Untitled Room",
       email: "room@example.com",
-      role: isGroup ? ["Group"] : ["Tenant"],
+      role: [displayRole],
       roleKey,
       status: r?.isEnabled ? "online" : "offline",
       lastSeen: isChatCleared ? "" : r?.lastMessageAt ? formatMessageTime(r.lastMessageAt) : "recently",
@@ -819,7 +826,7 @@ const Message = () => {
       description: r?.description ?? "",
       planName: r?.planName ?? r?.course ?? "",
       planId: r?.planId ?? "",
-      roomRole: r?.role ?? (isGroup ? "GROUP" : "TENANT"),
+      roomRole: displayRole,
       roomCourse: r?.course ?? r?.planName ?? "",
       sendAccess: r?.sendAccess === "ADMIN_ONLY" || r?.sendAccess === "ADMINS" ? "ADMIN_ONLY" : "EVERYONE",
     };

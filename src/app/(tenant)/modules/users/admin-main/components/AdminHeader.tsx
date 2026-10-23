@@ -16,7 +16,7 @@ import { toast } from "react-toastify";
 import { appSuccessToastMessages } from "@/app/_components/contents/toast_message";
 import { io } from "socket.io-client";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
-import RaiseTicketModal from "../ui/messagess/tickets/RaiseTicketModal";
+import RaiseTicketModal from "../ui/tickets/RaiseTicketModal";
 
 type NotificationType = {
   _id: string;
