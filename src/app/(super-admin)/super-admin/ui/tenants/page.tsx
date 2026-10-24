@@ -339,7 +339,6 @@ const page = () => {
   };
 
   return (
-    <div className="min-h-screen w-full max-w-[1300px] bg-gray-50 dark:bg-[#1F1F1F] text-slate-900 dark:text-white">
       <>
         <SuperAdminHeader currentSection="Tenant Management" />
         <div>
@@ -350,7 +349,7 @@ const page = () => {
             currentSection={""}
           />
         </div>
-        <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#2e2e2e] px-3 py-2">
+        <div className="rounded-xl bg-[#F7F8FE] dark:bg-[#2E2E2E] px-3 py-2">
           <div className="flex items-center justify-between mt-2 py-2">
             <h2 className="text-[17px] font-medium text-[#24324B] dark:text-white">
               Institute Feature Control
@@ -818,7 +817,6 @@ const page = () => {
           />
         )}
       </>
-    </div>
   );
 };
 

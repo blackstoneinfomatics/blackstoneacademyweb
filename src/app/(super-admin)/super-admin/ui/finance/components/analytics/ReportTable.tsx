@@ -131,7 +131,7 @@ export default function ReportTable() {
         </button>
       </div>
 
-      <div className="overflow-hidden border border-[#E8E8E8] dark:border-gray-700">
+      <div className="overflow-hidden">
         <table className="w-full">
           <thead className="bg-[#486A99]">
             <tr>

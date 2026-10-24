@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import Tabs from "./components/Tabs";
 import OrganizationHeader, {
@@ -17,25 +16,24 @@ type FinanceTab =
   | "invoice"
   | "analytics";
 
-const page = () => {
+const Page = () => {
   const [tab, setTab] = useState<OrganizationTab>("All");
-  // const searchParams = useSearchParams();
-  // const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<FinanceTab>("transactions");
 
-  // useEffect(() => {
-  //   const tab = searchParams.get("tab") as FinanceTab | null;
-
-  //   if (tab) {
-  //     setActiveTab(tab);
-  //   }
-  // }, [searchParams]);
-
-  // const handleTabChange = (tab: FinanceTab) => {
-  //   setActiveTab(tab);
-  //   router.replace(`/super-admin/ui/finance?tab=${tab}`);
-  // };
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab");
+    if (
+      requestedTab === "transactions" ||
+      requestedTab === "refunds" ||
+      requestedTab === "revenue" ||
+      requestedTab === "billing" ||
+      requestedTab === "invoice" ||
+      requestedTab === "analytics"
+    ) {
+      setActiveTab(requestedTab);
+    }
+  }, []);
 
   return (
     <>
@@ -58,4 +56,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default Page;

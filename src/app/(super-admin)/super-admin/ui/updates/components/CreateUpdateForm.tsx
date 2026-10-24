@@ -32,20 +32,22 @@ export interface UpdateFormData {
   description: string;
   publishDate: string;
   priority: string;
+  monthlyPrice: string;    // ⭐ Added
+  discount: string;        // ⭐ Added
   attachments: File | null;
   sendEmail: boolean;
   sendInAppNotification: boolean;
 }
 
 interface TenantOption {
-  id: string;      // tenantCode (e.g. "TEN000075")
-  name: string;    // tenantName (e.g. "jeevitha")
-  plan: string;    // planName (e.g. "Standard")
+  id: string;
+  name: string;
+  plan: string;
 }
 
 interface PlanOption {
-  id: string;      // _id
-  name: string;    // planName
+  id: string;
+  name: string;
 }
 
 interface CreateUpdateFormProps {
@@ -53,19 +55,9 @@ interface CreateUpdateFormProps {
   isLoading: boolean;
   onClose: () => void;
   onReset: () => void;
-  onSubmit: (
-    event: React.FormEvent<HTMLFormElement>,
-    payload: any,
-    response: any,
-  ) => void;
-  onInputChange: (
-    event: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >,
-  ) => void;
-  onAudienceChange: (
-    audience: "allTenants" | "selectTenants" | "byPlan",
-  ) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>, payload: any, response: any) => void;
+  onInputChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  onAudienceChange: (audience: "allTenants" | "selectTenants" | "byPlan") => void;
   onTenantToggle: (tenantName: string) => void;
   onPlanChange: (planName: string) => void;
   onSendEmailChange: (checked: boolean) => void;
@@ -173,7 +165,6 @@ const CreateUpdateForm = ({
 
         const tenants: TenantOption[] = rawTenants
           .map((t: any) => {
-            // The response may wrap tenant info under `t.tenant`
             const tenantObj = t?.tenant ?? t;
             const id = tenantObj?.tenantCode ?? tenantObj?.tenantId ?? "";
             const name = tenantObj?.tenantName ?? "";
@@ -232,7 +223,6 @@ const CreateUpdateForm = ({
 
     const audienceArr = resolveAudience(formData);
 
-    // Backend expects string[] of tenant names
     const selectedTenantsArr =
       formData.audience === "selectTenants" ? formData.selectedTenants : [];
 
@@ -244,9 +234,10 @@ const CreateUpdateForm = ({
       priority: formData.priority as (typeof PRIORITY_OPTIONS)[number],
       status: deriveStatus(formData.publishDate),
       audience: audienceArr,
-      planName:
-        formData.audience === "byPlan" ? formData.selectedPlan : undefined,
+      planName: formData.audience === "byPlan" ? formData.selectedPlan : undefined,
       selectedTenants: selectedTenantsArr,
+      monthlyPrice: Number(formData.monthlyPrice) || 0,      // ⭐ Added
+      discount: Number(formData.discount) || 0,              // ⭐ Added
       attachments: formData.attachments ? [formData.attachments.name] : [],
       sendNotification: {
         email: formData.sendEmail,
@@ -344,9 +335,6 @@ const CreateUpdateForm = ({
     totalTenantsCount,
   ]);
 
-  /* ──────────────────────────────────────────────────────────
-     Render
-     ────────────────────────────────────────────────────────── */
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4 py-4">
       <div className="relative max-h-[95vh] w-full max-w-[560px] overflow-y-auto scrollbar-none rounded-[14px] bg-white shadow-2xl dark:bg-[#343434] dark:border dark:border-[#454545]">
@@ -509,6 +497,44 @@ const CreateUpdateForm = ({
                 onChange={onInputChange} rows={6}
                 placeholder="Enter update description"
                 className={`${inputClassName} resize-none`} />
+            </div>
+
+            {/* ⭐ Payment Section (Always Visible) */}
+            <div className="rounded-md border border-[#D5D9E2] p-4 space-y-3 dark:border-[#555] dark:bg-[#3A3A3A]">
+              <label className="block text-[12px] font-medium text-[#101B41] dark:text-white">
+                Payment
+              </label>
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="mb-1 block text-[11px] text-gray-500 dark:text-gray-400">
+                    Monthly Price
+                  </label>
+                  <input
+                    type="number"
+                    name="monthlyPrice"
+                    value={formData.monthlyPrice}
+                    onChange={onInputChange}
+                    placeholder="100"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="w-[100px]">
+                  <label className="mb-1 block text-[11px] text-gray-500 dark:text-gray-400">
+                    Type
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="discount"
+                      value={formData.discount}
+                      onChange={onInputChange}
+                      placeholder="12"
+                      className={`${inputClassName} pr-8`}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-[12px]">%</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Publish Date + Priority */}

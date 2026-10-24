@@ -153,7 +153,7 @@ export default function NotificationCards() {
       {cardConfig.map((item) => (
         <div
           key={item.key}
-          className="flex h-[88px] min-w-0 flex-col justify-between rounded-[13px] bg-white px-3 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] transition-colors dark:border-[#30394b] dark:bg-[#343434] dark:shadow-md"
+          className="flex h-[100px] min-w-0 flex-col justify-between rounded-[13px] bg-white p-4 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] transition-colors dark:border-[#30394b] dark:bg-[#343434] dark:shadow-md"
         >
           <div className="flex items-center gap-3">
             <div
@@ -176,19 +176,19 @@ export default function NotificationCards() {
 
             <div className="min-w-0">
               <p
-                className="text-[12px] font-medium"
+                className="text-[13px] font-medium"
                 style={{ color: item.color }}
               >
                 {item.title}
               </p>
-              <p className="mt-0.5 text-[14px] font-bold leading-5 text-[#202020] dark:text-white">
+              <p className="mt-0.5 text-[15px] font-bold leading-5 text-[#202020] dark:text-white">
                 {loading ? "…" : counts[item.key]}
               </p>
             </div>
           </div>
 
           <p
-            className="truncate text-right text-[10px] text-[#555555] dark:text-[#aeb9ce]"
+            className="truncate text-right text-[11px] font-medium text-[#646464] dark:text-[#aeb9ce]"
             role={error ? "status" : undefined}
             title={error ?? undefined}
           >
