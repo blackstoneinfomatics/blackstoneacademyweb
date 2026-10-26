@@ -1,4 +1,4 @@
-export type TicketPriority = "High" | "Medium" | "Low";
+export type TicketPriority = "Critical" | "High" | "Medium" | "Low";
 export type TicketStatus =
   | "Open"
   | "Acknowledged"
@@ -14,10 +14,10 @@ export type Ticket = {
   priority: TicketPriority;
   status: TicketStatus;
   assignedTo: string;
+  currentAssignedRole?: string;
+  currentAssignedTo: string;
   createdOn: string;
   resolvedOn: string;
-  // Extended fields shown on the ticket detail view - optional until the
-  // API provides them, so dummy data doesn't need to fill every field.
   description?: string;
   plan?: string;
   tenantMessages?: number;

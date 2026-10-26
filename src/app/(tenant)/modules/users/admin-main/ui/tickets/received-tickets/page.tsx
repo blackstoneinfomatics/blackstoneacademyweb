@@ -252,45 +252,53 @@ export default function ReceivedTicketsContent() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedItems.length > 0 ? (
-                                    paginatedItems.map((item, index) => {
-                                        const rowId = `${item.ticketId}-${index}`;
-                                        return (
-                                            <tr key={rowId} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
-                                                <td className="py-4 px-2 font-medium">{item.ticketId}</td>
-                                                <td className="py-4 px-2">{item.tenantName}</td>
-                                                <td className="py-4 px-2 truncate">{item.subject}</td>
-                                                <td className="py-4 px-2"><span className={`px-2 text-[11px] py-[3px] rounded-md ${roleBadgeClass(item.role)}`}>{item.role}</span></td>
-                                                <td className="py-4 px-2">{item.category}</td>
-                                                <td className="py-4 px-2"><span className={`px-2 text-[11px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}>{item.priority}</span></td>
-                                                <td className="py-4 px-2"><span className={`px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>{item.status}</span></td>
-                                                <td className="py-4 px-2">{item.createdOn}</td>
-                                                <td className="py-4 px-2">{item.resolvedOn}</td>
-                                                <td className="py-4 px-2 relative">
-                                                    <button onClick={() => setOpenMenu(openMenu === rowId ? null : rowId)} className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">
-                                                        <BsThreeDotsVertical size={16} />
-                                                    </button>
-                                                    {openMenu === rowId && (
-                                                        <div className="absolute right-4 top-12 z-50 w-44 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
-                                                            <button className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setViewTicketModal(item); }}>
-                                                                View Details
-                                                            </button>
-                                                            <button className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setTicketDetailsModal(item); }}>
-                                                                Ticket Details
-                                                            </button>
-                                                            <button className="w-full px-4 py-2 text-left text-xs text-[#98A2B3] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setOpenMenu(null)}>
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                ) : (
-                                    <tr><td colSpan={10} className="p-4 text-center text-gray-500 dark:text-gray-300">No tickets found</td></tr>
-                                )}
-                            </tbody>
+    {paginatedItems.length > 0 ? (
+        paginatedItems.map((item, index) => {
+            const rowId = `${item.ticketId}-${index}`;
+            return (
+                <tr key={rowId} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
+                    <td className="py-4 px-2 font-medium">{item.ticketId}</td>
+                    <td className="py-4 px-2">{item.tenantName}</td>
+                    <td className="py-4 px-2 truncate">{item.subject}</td>
+                    
+                    {/* Fixed Equality Width Role Cell */}
+                    <td className="py-4 px-2">
+                        <span className={`inline-block w-[120px] text-center text-[11px] py-[4px] rounded-md font-medium tracking-wide ${roleBadgeClass(item.role)}`}>
+                            {item.role}
+                        </span>
+                    </td>
+                    
+                    <td className="py-4 px-2">{item.category}</td>
+                    <td className="py-4 px-2"><span className={`inline-block w-[85px] text-center px-2 text-[11px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}>{item.priority}</span></td>
+                    <td className="py-4 px-2"><span className={`inline-block w-[85px] text-center px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>{item.status}</span></td>
+                    <td className="py-4 px-2 text-[11px]">{item.createdOn}</td>
+                    <td className="py-4 px-2 text-[11px]">{item.resolvedOn}</td>
+                    <td className="py-4 px-2 relative">
+                        <button onClick={() => setOpenMenu(openMenu === rowId ? null : rowId)} className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">
+                            <BsThreeDotsVertical size={16} />
+                        </button>
+                        {openMenu === rowId && (
+                            <div className="absolute right-4 top-12 z-50 w-44 rounded-lg border border-[#d4d4d4] bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
+                                <button className="w-full border-b px-4 py-2 text-center text-xs hover:bg-[#fff] dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setViewTicketModal(item); }}>
+                                    View Details
+                                </button>
+                                <button className="w-full border-b px-4 py-2 text-center text-xs hover:bg-[#fff] dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setTicketDetailsModal(item); }}>
+                                    Ticket Details
+                                </button>
+                                <button className="w-full px-4 py-2 text-center text-xs text-[#98A2B3] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setOpenMenu(null)}>
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+                    </td>
+                </tr>
+            );
+        })
+    ) : (
+        <tr><td colSpan={10} className="p-4 text-center text-gray-500 dark:text-gray-300">No tickets found</td></tr>
+    )}
+</tbody>
+
                         </table>
                     </div>
                 </div>

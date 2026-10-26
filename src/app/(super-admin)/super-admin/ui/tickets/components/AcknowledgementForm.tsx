@@ -13,6 +13,8 @@ interface AcknowledgementFormProps {
 
 const priorityBadgeClass = (priority: Ticket["priority"]) => {
   switch (priority) {
+    case "Critical":
+      return "bg-[#F8DADA] text-[#B42318] dark:bg-[#D3464533] dark:text-[#FF8B8B]";
     case "High":
       return "bg-[#F8DADA] text-[#E55353] dark:bg-[#D3464533]";
     case "Medium":

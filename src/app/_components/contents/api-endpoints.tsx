@@ -112,6 +112,11 @@ export const AppApiEndpoints = {
     GET_UPCOMING_RENEWALS: "/api/tenants/upcoming-renewals",
   },
 
+  TICKET: {
+    GET_TICKETS: "/tickets",
+    GET_DASHBOARD_CARDS: "/tickets/dashboard/cards",
+  },
+
   CLASSSHEDULE: {
     GET: "/classShedule",
     GET_CLASSSHEDULE_STUDENTS: "/classShedule/students",
