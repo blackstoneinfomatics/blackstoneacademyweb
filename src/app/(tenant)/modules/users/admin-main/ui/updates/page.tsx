@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
     Search,
     SlidersHorizontal,
@@ -14,6 +14,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import AdminHeader from "../../components/AdminHeader";
 import BaseLayout4 from "../../components/BaseLayout4";
+import PurchaseUpdateModal from "./PurchaseUpdateModal";
 
 interface UpdateItem {
     id: string;
@@ -21,6 +22,7 @@ interface UpdateItem {
     description: string;
     category: string;
     publishDate: string;
+    publishDateRaw: string | null;
     status: string;
     purchaseStatus: string;
 }
@@ -43,8 +45,20 @@ const INITIAL_FILTERS: FilterState = {
     toDate: "",
 };
 
-// ✅ Point to your local backend
-const API_BASE_URL = "http://localhost:5001/api";
+const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5001/api";
+
+const getAuthToken = (): string | null => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("hillescape_token");
+};
+
+const authHeaders = (): HeadersInit => {
+    const token = getAuthToken();
+    const base: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) base.Authorization = `Bearer ${token}`;
+    return base;
+};
 
 const categoryBadgeClass = (category: string) => {
     switch (category?.toLowerCase()) {
@@ -74,14 +88,23 @@ const purchaseBadgeClass = (status: string) => {
     }
 };
 
+const formatDate = (iso: string | null | undefined) => {
+    if (!iso) return "N/A";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "N/A";
+    return d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+};
+
 const Updates = () => {
-    // API Data State
     const [updatesData, setUpdatesData] = useState<UpdateItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [tenantId, setTenantId] = useState<string>("");
 
-    // UI State
     const [search, setSearch] = useState("");
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [draftFilters, setDraftFilters] = useState<FilterState>(INITIAL_FILTERS);
@@ -89,117 +112,97 @@ const Updates = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
 
-    // Modal State
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<UpdateItem | null>(null);
-    const [purchaseSchedule, setPurchaseSchedule] = useState<"next-plan" | "immediate">("next-plan");
 
     const itemsPerPage = 10;
 
-    // 1. Fetch Tenant ID on Mount
     useEffect(() => {
-        // Try to get from localStorage (adjust the key if your app uses a different one)
-        const storedId = localStorage.getItem("tenantId")
-            || localStorage.getItem("tenant_id")
-            || localStorage.getItem("user");
-
-        if (storedId) {
-            try {
-                // If it's a JSON object, parse it
-                const parsed = JSON.parse(storedId);
-                setTenantId(parsed.tenantId || parsed.tenant_id || parsed.id || "");
-            } catch {
-                // If it's just a plain string, use it directly
-                setTenantId(storedId);
+        try {
+            const tid = localStorage.getItem("tenantId");
+            if (tid) {
+                setTenantId(tid);
+                return;
             }
-        } else {
-            // Fallback: hardcode a test ID here if you just want to test the API immediately
-            setTenantId("64f1b2c3d4e5f6a7b8c9d0e1");
+            setError("Tenant ID not found. Please log in again.");
+            setIsLoading(false);
+        } catch (err) {
+            setError("Failed to read user session. Please log in again.");
+            setIsLoading(false);
         }
     }, []);
 
-    // 2. Fetch Live Data from API
-    useEffect(() => {
-        if (!tenantId) return; // Don't fetch if no ID
+    const fetchUpdates = useCallback(async (tid: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await fetch(`${API_BASE_URL}/updates/tenant/${tid}`, {
+                headers: authHeaders(),
+            });
 
-        const fetchUpdates = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const response = await fetch(`${API_BASE_URL}/updates/tenant/${tenantId}`);
-
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch updates: ${response.statusText}`);
-                }
-
-                const json = await response.json();
-                const rawData = json.data || json;
-
-                const mappedData: UpdateItem[] = rawData.map((item: any) => ({
-                    id: item._id || item.id || String(Math.random()),
-                    updateTitle: item.title || item.updateTitle || "Untitled",
-                    description: item.description || "",
-                    category: item.category || "General",
-                    publishDate: item.publishDate || item.releaseDate
-                        ? new Date(item.publishDate || item.releaseDate).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' })
-                        : "N/A",
-                    status: item.status || "Draft",
-                    purchaseStatus: item.purchaseStatus || "Not Purchased",
-                }));
-
-                setUpdatesData(mappedData);
-            } catch (err: any) {
-                console.error("API Error:", err);
-                setError(err.message || "An unexpected error occurred.");
-            } finally {
-                setIsLoading(false);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch updates: ${response.status} ${response.statusText}`);
             }
-        };
 
-        fetchUpdates();
-    }, [tenantId]);
+            const json = await response.json();
+            const rawData: any[] = json.data ?? json ?? [];
 
-    // Dynamic Filter Options
+            const mapped: UpdateItem[] = rawData.map((item) => {
+                const rawDate = item.publishDate ?? item.releaseDate ?? null;
+                return {
+                    id: item._id ?? item.id ?? String(Math.random()),
+                    updateTitle: item.title ?? item.updateTitle ?? "Untitled",
+                    description: item.description ?? "",
+                    category: item.category ?? "General",
+                    publishDateRaw: rawDate,
+                    publishDate: formatDate(rawDate),
+                    status: item.status ?? "Draft",
+                    purchaseStatus: item.purchaseStatus ?? "Not Purchased",
+                };
+            });
+
+            setUpdatesData(mapped);
+        } catch (err) {
+            setError((err as Error).message || "An unexpected error occurred.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!tenantId) return;
+        fetchUpdates(tenantId);
+    }, [tenantId, fetchUpdates]);
+
     const categoryOptions = useMemo(() => Array.from(new Set(updatesData.map((u) => u.category))).filter(Boolean), [updatesData]);
     const statusOptions = useMemo(() => Array.from(new Set(updatesData.map((u) => u.status))).filter(Boolean), [updatesData]);
     const purchaseOptions = useMemo(() => Array.from(new Set(updatesData.map((u) => u.purchaseStatus))).filter(Boolean), [updatesData]);
 
+    const filterFn = useCallback((item: UpdateItem, filters: FilterState, term: string) => {
+        const matchesSearch = !term || [item.updateTitle, item.description, item.category, item.publishDate, item.status, item.purchaseStatus].join(" ").toLowerCase().includes(term);
+        const matchesTitle = !filters.title || item.updateTitle.toLowerCase().includes(filters.title.toLowerCase());
+        const matchesCategory = filters.category === "All" || item.category === filters.category;
+        const matchesStatus = filters.status === "All" || item.status === filters.status;
+        const matchesPurchase = filters.purchaseStatus === "All" || item.purchaseStatus === filters.purchaseStatus;
+
+        const rowDate = item.publishDateRaw ? new Date(item.publishDateRaw) : null;
+        const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
+        const toDate = filters.toDate ? new Date(`${filters.toDate}T23:59:59`) : null;
+        const matchesDate = (!fromDate || (rowDate && rowDate >= fromDate)) && (!toDate || (rowDate && rowDate <= toDate));
+
+        return matchesSearch && matchesTitle && matchesCategory && matchesStatus && matchesPurchase && matchesDate;
+    }, []);
+
     const filteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return updatesData.filter((item) => {
-            const matchesSearch = !term || [item.updateTitle, item.description, item.category, item.publishDate, item.status, item.purchaseStatus].join(" ").toLowerCase().includes(term);
-            const matchesTitle = !appliedFilters.title || item.updateTitle.toLowerCase().includes(appliedFilters.title.toLowerCase());
-            const matchesCategory = appliedFilters.category === "All" || item.category === appliedFilters.category;
-            const matchesStatus = appliedFilters.status === "All" || item.status === appliedFilters.status;
-            const matchesPurchase = appliedFilters.purchaseStatus === "All" || item.purchaseStatus === appliedFilters.purchaseStatus;
-
-            const rowDate = item.publishDate && item.publishDate !== "N/A" ? new Date(item.publishDate) : null;
-            const fromDate = appliedFilters.fromDate ? new Date(appliedFilters.fromDate) : null;
-            const toDate = appliedFilters.toDate ? new Date(`${appliedFilters.toDate}T23:59:59`) : null;
-            const matchesDate = (!fromDate || (rowDate && rowDate >= fromDate)) && (!toDate || (rowDate && rowDate <= toDate));
-
-            return matchesSearch && matchesTitle && matchesCategory && matchesStatus && matchesPurchase && matchesDate;
-        });
-    }, [updatesData, search, appliedFilters]);
+        return updatesData.filter((item) => filterFn(item, appliedFilters, term));
+    }, [updatesData, search, appliedFilters, filterFn]);
 
     const previewFilteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return updatesData.filter((item) => {
-            const matchesSearch = !term || [item.updateTitle, item.description, item.category, item.publishDate, item.status, item.purchaseStatus].join(" ").toLowerCase().includes(term);
-            const matchesTitle = !draftFilters.title || item.updateTitle.toLowerCase().includes(draftFilters.title.toLowerCase());
-            const matchesCategory = draftFilters.category === "All" || item.category === draftFilters.category;
-            const matchesStatus = draftFilters.status === "All" || item.status === draftFilters.status;
-            const matchesPurchase = draftFilters.purchaseStatus === "All" || item.purchaseStatus === draftFilters.purchaseStatus;
-
-            const rowDate = item.publishDate && item.publishDate !== "N/A" ? new Date(item.publishDate) : null;
-            const fromDate = draftFilters.fromDate ? new Date(draftFilters.fromDate) : null;
-            const toDate = draftFilters.toDate ? new Date(`${draftFilters.toDate}T23:59:59`) : null;
-            const matchesDate = (!fromDate || (rowDate && rowDate >= fromDate)) && (!toDate || (rowDate && rowDate <= toDate));
-
-            return matchesSearch && matchesTitle && matchesCategory && matchesStatus && matchesPurchase && matchesDate;
-        });
-    }, [updatesData, search, draftFilters]);
+        return updatesData.filter((item) => filterFn(item, draftFilters, term));
+    }, [updatesData, search, draftFilters, filterFn]);
 
     const activeFilterCount = Object.entries(appliedFilters).filter(([, value]) => value && value !== "All").length;
     const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
@@ -217,9 +220,17 @@ const Updates = () => {
 
     const handleOpenPurchase = (item: UpdateItem) => {
         setSelectedItem(item);
-        setPurchaseSchedule("next-plan");
         setIsPurchaseModalOpen(true);
         setOpenMenu(null);
+    };
+
+    const handleConfirmPurchase = (scheduleType: string) => {
+        const newStatus = scheduleType === "immediate" ? "Purchased" : "Requested";
+        setUpdatesData((prev) =>
+            prev.map((u) => u.id === selectedItem?.id ? { ...u, purchaseStatus: newStatus } : u)
+        );
+        setIsPurchaseModalOpen(false);
+        setSelectedItem(null);
     };
 
     return (
@@ -227,6 +238,7 @@ const Updates = () => {
             <AdminHeader currentSection={"Updates"} />
             <div className="flex flex-col space-y-6">
                 <div className="bg-white rounded-xl shadow-lg dark:bg-[#343434] overflow-hidden border-t border-[#E6EAF2] dark:border-[#3F3F3F]">
+                    {/* Toolbar */}
                     <div className="grid grid-cols-1 border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:grid-cols-3">
                         <div className="flex h-12 items-center border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F] md:border-b-0 md:border-r">
                             <Search size={17} className="text-[#A5AAB4] dark:text-[#B5B5B5]" />
@@ -276,7 +288,8 @@ const Updates = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto ">
+                    {/* Table */}
+                    <div className="overflow-x-auto">
                         <div className="max-h-[520px] overflow-y-auto scrollbar-none">
                             <table className="min-w-full text-xs border-collapse table-fixed">
                                 <thead className="text-[14px] bg-[#4C6993] text-white dark:bg-[#44699d] sticky top-0 z-10">
@@ -301,53 +314,68 @@ const Updates = () => {
                                             </tr>
                                         ))
                                     ) : paginatedItems.length > 0 ? (
-                                        paginatedItems.map((item) => (
-                                            <tr key={item.id} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
-                                                <td className="py-4 px-2 font-medium">{item.updateTitle}</td>
-                                                <td className="py-4 px-2 truncate max-w-[200px]" title={item.description}>{item.description}</td>
-                                                <td className="py-4 px-2">
-                                                    <span className={`px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}>
-                                                        {item.category}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 px-2">{item.publishDate}</td>
-                                                <td className="py-4 px-2">
-                                                    <span className={`px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>
-                                                        {item.status}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 px-2">
-                                                    <span className={`px-2 text-[11px] py-[3px] rounded-md ${purchaseBadgeClass(item.purchaseStatus)}`}>
-                                                        {item.purchaseStatus}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 px-2 relative">
-                                                    <button
-                                                        onClick={() => setOpenMenu(openMenu === item.id ? null : item.id)}
-                                                        className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
-                                                    >
-                                                        <BsThreeDotsVertical size={16} />
-                                                    </button>
+                                        paginatedItems.map((item) => {
+                                            // 👇 CONDITIONAL LOGIC FOR BUTTONS
+                                            const isAlreadyPurchased = item.purchaseStatus?.toLowerCase() === "purchased" || item.purchaseStatus?.toLowerCase() === "requested";
+                                            const isScheduled = item.status?.toLowerCase() === "scheduled";
 
-                                                    {openMenu === item.id && (
-                                                        <div className="absolute right-8 top-10 z-50 w-[160px] rounded-lg border border-gray-200 bg-white text-gray-800 shadow-xl dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100 flex flex-col overflow-hidden">
-                                                            <button
-                                                                className="w-full border-b px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
-                                                                onClick={() => handleOpenPurchase(item)}
-                                                            >
-                                                                Purchase Update
-                                                            </button>
-                                                            <button
-                                                                className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                                                onClick={() => handleOpenView(item)}
-                                                            >
-                                                                View Details
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))
+                                            // Only show purchase if it's NOT purchased AND NOT scheduled
+                                            const canPurchase = !isAlreadyPurchased && !isScheduled;
+
+                                            return (
+                                                <tr key={item.id} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
+                                                    <td className="py-4 px-2 font-medium">{item.updateTitle}</td>
+                                                    <td className="py-4 px-2 truncate max-w-[200px]" title={item.description}>{item.description}</td>
+                                                    <td className="py-4 px-2">
+                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}>
+                                                            {item.category}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-4 px-2">{item.publishDate}</td>
+                                                    <td className="py-4 px-2">
+                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-4 px-2">
+                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${purchaseBadgeClass(item.purchaseStatus)}`}>
+                                                            {item.purchaseStatus}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-4 px-2 relative">
+                                                        <button
+                                                            onClick={() => setOpenMenu(openMenu === item.id ? null : item.id)}
+                                                            className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
+                                                        >
+                                                            <BsThreeDotsVertical size={16} />
+                                                        </button>
+
+                                                        {openMenu === item.id && (
+                                                            <div className="absolute right-8 top-10 z-50 w-[160px] rounded-lg border border-gray-200 bg-white text-gray-800 shadow-xl dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100 flex flex-col overflow-hidden">
+
+                                                                {/* Only show Purchase if allowed */}
+                                                                {canPurchase && (
+                                                                    <button
+                                                                        className="w-full border-b px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
+                                                                        onClick={() => handleOpenPurchase(item)}
+                                                                    >
+                                                                        Purchase Update
+                                                                    </button>
+                                                                )}
+
+                                                                {/* View Details is always visible */}
+                                                                <button
+                                                                    className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                    onClick={() => handleOpenView(item)}
+                                                                >
+                                                                    View Details
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     ) : (
                                         <tr>
                                             <td colSpan={7} className="p-4 text-center text-gray-500 dark:text-gray-300">
@@ -550,129 +578,13 @@ const Updates = () => {
                     </div>
                 )}
 
-                {/* Purchase Update Modal */}
-                {isPurchaseModalOpen && selectedItem && (
-                    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
-                        <div className="w-full max-w-[760px] rounded-xl bg-white shadow-2xl overflow-hidden flex flex-col">
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                                <h2 className="text-[18px] font-medium text-[#24324B]">Purchase Update</h2>
-                                <button onClick={() => setIsPurchaseModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="p-6 overflow-y-auto max-h-[75vh]">
-                                <div className="mb-6">
-                                    <h3 className="text-[15px] font-medium text-[#4B5563] mb-3">Purchase Scheduling</h3>
-                                    <div className="flex items-center gap-6 mb-4">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="schedule"
-                                                checked={purchaseSchedule === "next-plan"}
-                                                onChange={() => setPurchaseSchedule("next-plan")}
-                                                className="w-4 h-4 text-[#4C6993] focus:ring-[#4C6993] border-gray-300"
-                                            />
-                                            <span className="text-sm text-[#4B5563]">Start with Next Plan</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="schedule"
-                                                checked={purchaseSchedule === "immediate"}
-                                                onChange={() => setPurchaseSchedule("immediate")}
-                                                className="w-4 h-4 text-[#4C6993] focus:ring-[#4C6993] border-gray-300"
-                                            />
-                                            <span className="text-sm text-[#4B5563]">Activate Immediately</span>
-                                        </label>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 bg-[#EEF4FF] text-[#3E6DB5] p-3 rounded-lg text-xs leading-relaxed">
-                                        <Info size={16} className="shrink-0" />
-                                        <p>
-                                            {purchaseSchedule === "next-plan"
-                                                ? "This feature will be added to your next subscription and will be available from your next plan start date."
-                                                : "If you activate now, you can use this feature from today until your current plan ends. From your next subscription cycle, the feature will be included in your subscription."}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {purchaseSchedule === "next-plan" ? (
-                                    <div className="mb-6">
-                                        <h3 className="text-[15px] font-medium text-[#4B5563] mb-3">Feature Summary</h3>
-                                        <div className="bg-[#F8F9FA] rounded-xl p-5 grid grid-cols-2 gap-y-4 gap-x-8">
-                                            <div>
-                                                <p className="text-[13px] text-[#4B5563] mb-1">Feature Name</p>
-                                                <p className="text-[13px] font-medium text-[#6B7280]">Analytics Dashboard</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[13px] text-[#4B5563] mb-1">Month Amount</p>
-                                                <p className="text-[13px] font-medium text-[#6B7280]">150</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[13px] text-[#4B5563] mb-1">Next Plan Start Date</p>
-                                                <p className="text-[13px] font-medium text-[#6B7280]">01 Oct 2026</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[13px] text-[#4B5563] mb-1">Status</p>
-                                                <p className="text-[13px] font-medium text-[#6B7280]">Will be added in next plan</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mb-6">
-                                        <h3 className="text-[16px] font-normal text-[#24324B] mb-3">Activate Immediately Details</h3>
-                                        <p className="text-[13px] text-[#6B7280] mb-5 leading-relaxed">
-                                            This feature will be active from today (01 Apr 2026) until your current plan ends. From your next subscription cycle, it will be included in your subscription.
-                                        </p>
-
-                                        <div className="bg-[#F8F9FA] rounded-xl p-5 flex flex-col gap-4">
-                                            <h4 className="text-[14px] font-normal text-[#24324B] mb-1">Subscription Summary</h4>
-                                            <div className="flex justify-between items-center text-[13px]">
-                                                <span className="text-[#6B7280]">Feature</span>
-                                                <span className="font-medium text-[#4B5563]">₹3,000</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[13px]">
-                                                <span className="text-[#6B7280]">Current plan remains Days</span>
-                                                <span className="font-medium text-[#4B5563]">05</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[13px]">
-                                                <span className="text-[#6B7280]">Plan Remaining Amount</span>
-                                                <span className="font-medium text-[#4B5563]">₹1700</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[13px]">
-                                                <span className="text-[#6B7280]">GST (18%)</span>
-                                                <span className="font-medium text-[#4B5563]">₹761.71</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[14px] mt-2">
-                                                <span className="font-normal text-[#24324B]">Total Amount</span>
-                                                <span className="font-medium text-[#4B5563]">₹4,999.00</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-                                <button
-                                    onClick={() => setIsPurchaseModalOpen(false)}
-                                    className="px-6 py-2 rounded-lg border border-[#4C6993] text-[14px] font-medium text-[#4C6993] bg-white hover:bg-gray-50 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        console.log("Submitted", purchaseSchedule);
-                                        setIsPurchaseModalOpen(false);
-                                    }}
-                                    className="px-6 py-2 rounded-lg bg-[#4C6993] text-[14px] font-medium text-white hover:bg-[#3d5578] transition-colors"
-                                >
-                                    Submit
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {/* ✅ External Purchase Modal Component */}
+                <PurchaseUpdateModal
+                    isOpen={isPurchaseModalOpen}
+                    onClose={() => setIsPurchaseModalOpen(false)}
+                    onConfirm={handleConfirmPurchase}
+                    data={selectedItem}
+                />
             </div>
         </BaseLayout4>
     );

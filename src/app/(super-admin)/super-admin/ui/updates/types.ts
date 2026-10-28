@@ -30,6 +30,7 @@ export interface Tenant {
 }
 
 export interface UpdateFeaturePayload {
+  selectedTenants: string[];
   paymentDetails: any;
   updateId: string;
   title: string;
