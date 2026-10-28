@@ -210,7 +210,7 @@ const AvailablePlans = () => {
     <div className="w-full rounded-xl bg-white p-3 shadow-[0_6px_20px_rgba(153,153,153,0.15)] dark:bg-[#343434] sm:p-5 lg:p-6">
       {/* Billing cycle selector */}
       <div className="mb-5 flex justify-center">
-        <div className="inline-flex items-center rounded-full bg-[#596dc5] p-[3px] shadow-sm">
+        <div className="inline-flex items-center rounded-full bg-[#576CBC] p-[3px] shadow-sm">
           {billingCycles.map((cycle) => (
             <button
               key={cycle}
@@ -248,7 +248,7 @@ const AvailablePlans = () => {
                 className={`relative rounded-xl px-2.5 pb-2.5 pt-9 text-white sm:px-3 sm:pb-3 ${
                   isPopular
                     ? "bg-white/10"
-                    : "bg-gradient-to-br from-[#5b70c5] to-[#293d83]"
+                    : "bg-gradient-to-br from-[#576CBC] to-[#243783]"
                 }`}
               >
                 <span className="absolute right-2 top-2 rounded-sm bg-[#e9fff0] px-2 py-1 text-[8px] font-bold text-[#26733d] sm:text-[9px]">
@@ -316,11 +316,11 @@ const AvailablePlans = () => {
                       className="shrink-0 text-[#536bc5]"
                     />
                     <span className="truncate text-[10px] sm:text-[11px]">
-                      Students
+                      Students - {plan.students} 
                     </span>
-                    <span className="ml-auto text-[10px] sm:text-[11px]">
-                      {plan.students}
-                    </span>
+                    {/* <span className="ml-auto text-[10px] sm:text-[11px]">
+                      {plan.students} 
+                    </span> */}
                   </div>
 
                   <div className="flex min-w-0 items-center gap-1.5">
@@ -329,11 +329,11 @@ const AvailablePlans = () => {
                       className="shrink-0 text-[#536bc5]"
                     />
                     <span className="truncate text-[10px] sm:text-[11px]">
-                      Users
+                      Users - {plan.users}
                     </span>
-                    <span className="ml-auto text-[10px] sm:text-[11px]">
-                      {plan.users}
-                    </span>
+                    {/* <span className="ml-auto text-[10px] sm:text-[11px]">
+                     
+                    </span> */}
                   </div>
                 </div>
               </div>
@@ -376,7 +376,11 @@ const AvailablePlans = () => {
 
                           <ChevronDown
                             size={15}
-                            className={`shrink-0 text-[#536bc5] transition-transform duration-300 ${
+                            className={`shrink-0 transition-transform duration-300 ${
+                              isPopular
+                                ? "text-white"
+                                : "text-[#0d1b42] dark:text-white"
+                            } ${
                               isExpanded ? "rotate-180" : ""
                             }`}
                           />
