@@ -115,6 +115,10 @@ export const AppApiEndpoints = {
   TICKET: {
     GET_TICKETS: "/tickets",
     GET_DASHBOARD_CARDS: "/tickets/dashboard/cards",
+    ACKNOWLEDGE: (ticketId: string) =>
+      `/tickets/${encodeURIComponent(ticketId)}/acknowledge`,
+    RESOLVE: (ticketId: string) =>
+      `/tickets/${encodeURIComponent(ticketId)}/resolve`,
   },
 
   CLASSSHEDULE: {

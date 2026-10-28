@@ -1,8 +1,6 @@
-// src/app/(tenant)/modules/users/admin-main/ui/tickets/raise-tickets/page.tsx
-
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Search,
     SlidersHorizontal,
@@ -10,20 +8,41 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
-    Plus,
 } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import ViewTicketModal from "../ViewTicketsModal";
 
 
 interface RaisedTicketItem {
     ticketId: string;
+    fromRole: string;
     subject: string;
     category: string;
     priority: "High" | "Medium" | "Low" | string;
     status: "Open" | "Pending" | "Resolved" | "In Progress" | string;
     raisedOn: string;
     description?: string;
+}
+
+interface ApiTicket {
+    ticketNumber: string;
+    fromRole?: string;
+    createdByRole?: string;
+    subject: string;
+    category: string;
+    priority: string;
+    status: string;
+    createdAt: string;
+    description?: string;
+}
+
+interface TicketsResponse {
+    success: boolean;
+    message?: string;
+    data?: {
+        tickets?: ApiTicket[];
+    };
 }
 
 type FilterState = {
@@ -42,39 +61,10 @@ const INITIAL_FILTERS: FilterState = {
     toDate: "",
 };
 
-const RAISED_TICKETS: RaisedTicketItem[] = [
-    {
-        ticketId: "RST-001",
-        subject: "Payment gateway timeout",
-        category: "Payment Issue",
-        priority: "High",
-        status: "Open",
-        raisedOn: "Sep 15, 2023",
-        description: "Intermittent timeouts on the payment gateway for premium plan upgrades.",
-    },
-    {
-        ticketId: "RST-002",
-        subject: "Bulk student upload failing",
-        category: "System Issue",
-        priority: "Medium",
-        status: "In Progress",
-        raisedOn: "Sep 16, 2023",
-        description: "CSV upload for new students exceeds the size limit and crashes the browser.",
-    },
-    {
-        ticketId: "RST-003",
-        subject: "Export report to CSV is broken",
-        category: "Report Issue",
-        priority: "Low",
-        status: "Resolved",
-        raisedOn: "Sep 17, 2023",
-        description: "The download button for reports returns a blank file when selecting the current month.",
-    },
-];
-
 const priorityBadgeClass = (priority: string) => {
     switch (priority?.toLowerCase()) {
         case "high": return "bg-[#FCE4E4] text-[#D9534F]";
+        case "critical": return "bg-[#FCE4E4] text-[#D9534F]";
         case "medium": return "bg-[#FDF2D9] text-[#C88C29]";
         case "low": return "bg-[#E5F5EA] text-[#3A8F4A]";
         default: return "bg-gray-100 text-gray-600";
@@ -85,6 +75,7 @@ const statusBadgeClass = (status: string) => {
     switch (status?.toLowerCase()) {
         case "open": return "bg-[#E5F5EA] text-[#3A8F4A]";
         case "pending": return "bg-[#FDF2D9] text-[#C88C29]";
+        case "acknowledged": return "bg-[#E0EDFF] text-[#3E6DB5]";
         case "resolved": return "bg-[#E5F5EA] text-[#3A8F4A]";
         case "in progress": return "bg-[#E0EDFF] text-[#3E6DB5]";
         default: return "bg-gray-100 text-gray-600";
@@ -92,6 +83,9 @@ const statusBadgeClass = (status: string) => {
 };
 
 export default function RaiseTicketsContent() {
+    const [tickets, setTickets] = useState<RaisedTicketItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [draftFilters, setDraftFilters] = useState<FilterState>(INITIAL_FILTERS);
@@ -102,14 +96,73 @@ export default function RaiseTicketsContent() {
 
     const itemsPerPage = 10;
 
-    const categoryOptions = useMemo(() => Array.from(new Set(RAISED_TICKETS.map((t) => t.category))).filter(Boolean), []);
-    const priorityOptions = useMemo(() => Array.from(new Set(RAISED_TICKETS.map((t) => t.priority))).filter(Boolean), []);
-    const statusOptions = useMemo(() => Array.from(new Set(RAISED_TICKETS.map((t) => t.status))).filter(Boolean), []);
+    useEffect(() => {
+        const controller = new AbortController();
+
+        const loadTickets = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const token = localStorage.getItem("AdminAuthToken");
+                if (!token) {
+                    throw new Error("Your session has expired. Please sign in again.");
+                }
+
+                const response = await fetch(
+                    `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TICKET.GET_TICKETS}?view=raised&role=ADMIN`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                        signal: controller.signal,
+                    },
+                );
+                const result: TicketsResponse = await response.json();
+
+                if (!response.ok || result.success !== true || !Array.isArray(result.data?.tickets)) {
+                    throw new Error(
+                        result.message || `Unable to load tickets (HTTP ${response.status}).`,
+                    );
+                }
+
+                setTickets(result.data.tickets.map((ticket) => ({
+                    ticketId: ticket.ticketNumber,
+                    fromRole: ticket.fromRole || ticket.createdByRole || "—",
+                    subject: ticket.subject,
+                    category: ticket.category.replace(/_/g, " "),
+                    priority: ticket.priority,
+                    status: ticket.status,
+                    raisedOn: ticket.createdAt
+                        ? new Date(ticket.createdAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "2-digit",
+                        })
+                        : "—",
+                    description: ticket.description,
+                })));
+            } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") return;
+                setLoadError(
+                    error instanceof Error ? error.message : "Unable to load tickets.",
+                );
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        void loadTickets();
+        return () => controller.abort();
+    }, []);
+
+    const categoryOptions = useMemo(() => Array.from(new Set(tickets.map((t) => t.category))).filter(Boolean), [tickets]);
+    const priorityOptions = useMemo(() => Array.from(new Set(tickets.map((t) => t.priority))).filter(Boolean), [tickets]);
+    const statusOptions = useMemo(() => Array.from(new Set(tickets.map((t) => t.status))).filter(Boolean), [tickets]);
 
     const filteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return RAISED_TICKETS.filter((item) => {
-            const matchesSearch = !term || [item.ticketId, item.subject, item.category, item.priority, item.status, item.raisedOn].join(" ").toLowerCase().includes(term);
+        return tickets.filter((item) => {
+            const matchesSearch = !term || [item.ticketId, item.fromRole, item.subject, item.category, item.priority, item.status, item.raisedOn].join(" ").toLowerCase().includes(term);
             const matchesCategory = appliedFilters.category === "All" || item.category === appliedFilters.category;
             const matchesPriority = appliedFilters.priority === "All" || item.priority === appliedFilters.priority;
             const matchesStatus = appliedFilters.status === "All" || item.status === appliedFilters.status;
@@ -121,12 +174,12 @@ export default function RaiseTicketsContent() {
 
             return matchesSearch && matchesCategory && matchesPriority && matchesStatus && matchesDate;
         });
-    }, [search, appliedFilters]);
+    }, [tickets, search, appliedFilters]);
 
     const previewFilteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return RAISED_TICKETS.filter((item) => {
-            const matchesSearch = !term || [item.ticketId, item.subject, item.category, item.priority, item.status, item.raisedOn].join(" ").toLowerCase().includes(term);
+        return tickets.filter((item) => {
+            const matchesSearch = !term || [item.ticketId, item.fromRole, item.subject, item.category, item.priority, item.status, item.raisedOn].join(" ").toLowerCase().includes(term);
             const matchesCategory = draftFilters.category === "All" || item.category === draftFilters.category;
             const matchesPriority = draftFilters.priority === "All" || item.priority === draftFilters.priority;
             const matchesStatus = draftFilters.status === "All" || item.status === draftFilters.status;
@@ -138,7 +191,7 @@ export default function RaiseTicketsContent() {
 
             return matchesSearch && matchesCategory && matchesPriority && matchesStatus && matchesDate;
         });
-    }, [search, draftFilters]);
+    }, [tickets, search, draftFilters]);
 
     const activeFilterCount = Object.entries(appliedFilters).filter(([, value]) => value && value !== "All").length;
     const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
@@ -187,36 +240,38 @@ export default function RaiseTicketsContent() {
                         <table className="min-w-full text-xs border-collapse table-fixed">
                             <thead className="text-[14px] bg-[#4C6993] text-white dark:bg-[#44699d] sticky top-0 z-10">
                                 <tr>
-                                    {["Ticket ID", "Subject", "Category", "Priority", "Status", "Raised On", "Action"].map((header) => (
+                                    {["Ticket ID", "Role", "Subject", "Category", "Priority", "Status", "Raised On", "Action"].map((header) => (
                                         <th key={header} className="py-4 px-2 font-medium text-left border border-[#466993]">{header}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedItems.length > 0 ? (
+                                {isLoading ? (
+                                    <tr><td colSpan={8} className="p-4 text-center text-gray-500 dark:text-gray-300">Loading tickets...</td></tr>
+                                ) : loadError ? (
+                                    <tr><td colSpan={8} role="alert" className="p-4 text-center text-red-600 dark:text-red-400">{loadError}</td></tr>
+                                ) : paginatedItems.length > 0 ? (
                                     paginatedItems.map((item, index) => {
                                         const rowId = `${item.ticketId}-${index}`;
                                         return (
                                             <tr key={rowId} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
                                                 <td className="py-4 px-2 font-medium">{item.ticketId}</td>
+                                                <td className="py-4 px-2">{item.fromRole}</td>
                                                 <td className="py-4 px-2 truncate">{item.subject}</td>
                                                 <td className="py-4 px-2">{item.category}</td>
-                                                <td className="py-4 px-2"><span className={`px-2 text-[11px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}>{item.priority}</span></td>
-                                                <td className="py-4 px-2"><span className={`px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>{item.status}</span></td>
+                                                <td className="py-4 px-2"><span className={`inline-block w-[85px] text-center px-2 text-[11px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}>{item.priority}</span></td>
+                                                <td className="py-4 px-2"><span className={`inline-block w-[100px] text-center px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>{item.status}</span></td>
                                                 <td className="py-4 px-2">{item.raisedOn}</td>
                                                 <td className="py-4 px-2 relative">
                                                     <button onClick={() => setOpenMenu(openMenu === rowId ? null : rowId)} className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">
                                                         <BsThreeDotsVertical size={16} />
                                                     </button>
                                                     {openMenu === rowId && (
-                                                        <div className="absolute right-4 top-12 z-50 w-44 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
-                                                            <button className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setViewTicketModal(item); }}>
+                                                        <div className="absolute right-16 top-12 z-50 w-full rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
+                                                            <button className="w-full text-[#010e30] border-b px-2 py-2 text-center text-[11px] hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setViewTicketModal(item); }}>
                                                                 View Details
                                                             </button>
-                                                            <button className="w-full border-b px-4 py-2 text-left text-xs text-red-500 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); console.log("Close Ticket"); }}>
-                                                                Close Ticket
-                                                            </button>
-                                                            <button className="w-full px-4 py-2 text-left text-xs text-[#98A2B3] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setOpenMenu(null)}>
+                                                            <button className="w-full px-4 py-2 text-center text-[11px] text-[#98A2B3] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setOpenMenu(null)}>
                                                                 Cancel
                                                             </button>
                                                         </div>
@@ -226,7 +281,7 @@ export default function RaiseTicketsContent() {
                                         );
                                     })
                                 ) : (
-                                    <tr><td colSpan={7} className="p-4 text-center text-gray-500 dark:text-gray-300">No raised tickets found</td></tr>
+                                    <tr><td colSpan={8} className="p-4 text-center text-gray-500 dark:text-gray-300">No raised tickets found</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -305,7 +360,7 @@ export default function RaiseTicketsContent() {
                 </div>
             )}
 
-            {viewTicketModal && <ViewTicketModal ticket={viewTicketModal as any} onClose={() => setViewTicketModal(null)} priorityBadgeClass={priorityBadgeClass} />}
+            {viewTicketModal && <ViewTicketModal ticket={viewTicketModal} onClose={() => setViewTicketModal(null)} priorityBadgeClass={priorityBadgeClass} />}
         </div>
     );
 }

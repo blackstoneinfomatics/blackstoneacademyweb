@@ -4,6 +4,7 @@ export type TicketStatus =
   | "Acknowledged"
   | "In Progress"
   | "Resolved"
+  | "Forwarded"
   | "Closed";
 
 export type Ticket = {
@@ -15,6 +16,12 @@ export type Ticket = {
   status: TicketStatus;
   assignedTo: string;
   currentAssignedRole?: string;
+  roleFlow?: {
+    action: string;
+    fromRole?: string;
+    toRole?: string;
+    createdAt?: string;
+  }[];
   currentAssignedTo: string;
   createdOn: string;
   resolvedOn: string;

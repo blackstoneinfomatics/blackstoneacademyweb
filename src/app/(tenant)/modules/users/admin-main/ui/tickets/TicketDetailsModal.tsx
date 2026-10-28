@@ -2,15 +2,42 @@
 
 import React, { useState, useRef } from "react";
 import { X, Download, FileText, ChevronDown, UploadCloud } from "lucide-react";
+import { toast } from "react-toastify";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+
+interface TicketDetails {
+    apiTicketId?: string;
+    ticketId: string;
+    role?: string;
+    tenantName?: string;
+    category?: string;
+    priority: string;
+    subject: string;
+    createdOn?: string;
+    resolvedOn?: string;
+    description?: string;
+    status?: string;
+}
+
+interface TicketActionResponse {
+    success?: boolean;
+    message?: string | string[];
+    error?: string;
+    details?: string | string[];
+}
 
 interface TicketDetailsModalProps {
-    ticket: any;
+    ticket: TicketDetails;
     onClose: () => void;
+    onUpdated: (status: "Acknowledged" | "Resolved") => void;
     priorityBadgeClass: (p: string) => string;
 }
 
-export default function TicketDetailsModal({ ticket, onClose, priorityBadgeClass }: TicketDetailsModalProps) {
-    const [actionType, setActionType] = useState("Close Ticket");
+export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorityBadgeClass }: TicketDetailsModalProps) {
+    const [actionType, setActionType] = useState(() =>
+        ticket.status?.toLowerCase() === "open" ? "Acknowledge" : "Close Ticket",
+    );
+    const [acknowledgementMessage, setAcknowledgementMessage] = useState("");
 
     // Form states for Resolve/Forward
     const [resolutionNote, setResolutionNote] = useState("");
@@ -28,6 +55,17 @@ export default function TicketDetailsModal({ ticket, onClose, priorityBadgeClass
     // Notification states
     const [sendEmail, setSendEmail] = useState(true);
     const [sendInApp, setSendInApp] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const normalizedStatus = ticket.status?.toLowerCase();
+    const acknowledgeDisabled = Boolean(normalizedStatus && normalizedStatus !== "open");
+    const resolveDisabled =
+        normalizedStatus === "resolved" || normalizedStatus === "closed";
+    const forwardDisabled =
+        normalizedStatus === "resolved" || normalizedStatus === "closed";
+    const selectedActionDisabled =
+        (actionType === "Acknowledge" && acknowledgeDisabled) ||
+        (actionType === "Close Ticket" && resolveDisabled) ||
+        (actionType === "Forward to Super Admin" && forwardDisabled);
 
     if (!ticket) return null;
 
@@ -43,10 +81,98 @@ export default function TicketDetailsModal({ ticket, onClose, priorityBadgeClass
 
     // Dynamic button text based on Action selection
     const getSubmitButtonText = () => {
+        if (isSubmitting) return "Updating...";
         if (actionType === "Acknowledge") return "Acknowledgment";
         if (actionType === "Close Ticket") return "Close Ticket";
         if (actionType === "Forward to Super Admin") return "Forward to Super Admin";
         return "Submit";
+    };
+
+    const handleSubmit = async () => {
+        if (selectedActionDisabled) {
+            toast.info("This ticket action has already been completed.");
+            return;
+        }
+
+        if (actionType === "Forward to Super Admin") {
+            toast.info("Forwarding will be available when the forward API is connected.");
+            return;
+        }
+
+        const isAcknowledging = actionType === "Acknowledge";
+        const message = isAcknowledging
+            ? acknowledgementMessage.trim()
+            : resolutionNote.trim();
+        if (!message) {
+            toast.error(
+                isAcknowledging
+                    ? "Please enter an acknowledgement message."
+                    : "Please enter a resolution note.",
+            );
+            return;
+        }
+
+        const token = localStorage.getItem("AdminAuthToken");
+        if (!token) {
+            toast.error("Your session has expired. Please sign in again.");
+            return;
+        }
+
+        const ticketId = ticket.apiTicketId || ticket.ticketId;
+        const endpoint = isAcknowledging
+            ? AppApiEndpoints.TICKET.ACKNOWLEDGE(ticketId)
+            : AppApiEndpoints.TICKET.RESOLVE(ticketId);
+        const payload = isAcknowledging
+            ? {
+                message,
+            }
+            : {
+                message,
+            };
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch(
+                `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${endpoint}`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payload),
+                },
+            );
+            const result: TicketActionResponse = await response.json();
+            // console.log(result, "what is the issue")
+
+            if (!response.ok || result.success === false) {
+                const errorMessage = result.message ?? result.details ?? result.error;
+                throw new Error(
+                    (Array.isArray(errorMessage)
+                        ? errorMessage.join(" ")
+                        : errorMessage) ||
+                    `Unable to ${isAcknowledging ? "acknowledge" : "resolve"} ticket (HTTP ${response.status}).`,
+                );
+            }
+
+            const updatedStatus = isAcknowledging ? "Acknowledged" : "Resolved";
+            toast.success(
+                (Array.isArray(result.message) ? result.message.join(" ") : result.message) ||
+                `Ticket ${updatedStatus.toLowerCase()} successfully.`,
+            );
+            onUpdated(updatedStatus);
+            onClose();
+        } catch (error) {
+            console.error("Failed to update ticket:", error);
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : "Unable to update ticket. Please try again.",
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // Reusable render for the Attachment Upload field (Restored original SVG source)
@@ -99,7 +225,6 @@ export default function TicketDetailsModal({ ticket, onClose, priorityBadgeClass
         </div>
     );
 
-    // Reusable render for the Notification field
     const renderNotification = () => (
         <div className="w-full">
             <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">Sent Notification</label>
@@ -220,9 +345,21 @@ export default function TicketDetailsModal({ ticket, onClose, priorityBadgeClass
                                 onChange={(e) => setActionType(e.target.value)}
                                 className="w-full appearance-none px-3 py-2.5 border border-[#D0D5DD] rounded-lg text-[13px] text-[#101828] focus:outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#555] dark:text-white"
                             >
-                                <option value="Acknowledge">Acknowledge</option>
-                                <option value="Close Ticket">Close Ticket</option>
-                                <option value="Forward to Super Admin">Forward to Super Admin</option>
+                                <option value="Acknowledge" disabled={acknowledgeDisabled}>
+                                    {normalizedStatus === "acknowledged"
+                                        ? "Acknowledge (already completed)"
+                                        : "Acknowledge"}
+                                </option>
+                                <option value="Close Ticket" disabled={resolveDisabled}>
+                                    {resolveDisabled
+                                        ? "Close Ticket (already completed)"
+                                        : "Close Ticket"}
+                                </option>
+                                <option value="Forward to Super Admin" disabled={forwardDisabled}>
+                                    {forwardDisabled
+                                        ? "Forward to Super Admin (unavailable for closed tickets)"
+                                        : "Forward to Super Admin"}
+                                </option>
                             </select>
                             <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none" />
                         </div>
@@ -231,9 +368,12 @@ export default function TicketDetailsModal({ ticket, onClose, priorityBadgeClass
                     {/* ACKNOWLEDGE UI */}
                     {actionType === "Acknowledge" && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                            <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">Subject</label>
+                            <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">Message</label>
                             <textarea
                                 rows={4}
+                                value={acknowledgementMessage}
+                                onChange={(e) => setAcknowledgementMessage(e.target.value)}
+                                placeholder="Add an acknowledgement message..."
                                 className="w-full px-3 py-2.5 border border-[#D0D5DD] rounded-lg text-[13px] text-[#101828] focus:outline-none focus:border-[#576CBC] resize-none dark:bg-[#343434] dark:border-[#555] dark:text-white"
                             />
                             {renderNotification()}
@@ -349,8 +489,9 @@ export default function TicketDetailsModal({ ticket, onClose, priorityBadgeClass
                         Cancel
                     </button>
                     <button
-                        onClick={onClose}
-                        className="px-5 py-2 rounded-md bg-[#576CBC] text-white text-[13px] font-medium hover:bg-[#3a4f8a] transition-colors dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]"
+                        onClick={() => void handleSubmit()}
+                        disabled={isSubmitting || selectedActionDisabled}
+                        className="px-5 py-2 rounded-md bg-[#576CBC] text-white text-[13px] font-medium hover:bg-[#3a4f8a] transition-colors disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#7B92D9] dark:hover:bg-[#6A82CC]"
                     >
                         {getSubmitButtonText()}
                     </button>

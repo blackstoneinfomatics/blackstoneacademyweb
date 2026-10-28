@@ -1,8 +1,6 @@
-// src/app/(tenant)/modules/users/admin-main/ui/tickets/received-tickets/page.tsx
-
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Search,
     SlidersHorizontal,
@@ -12,11 +10,13 @@ import {
     X,
 } from "lucide-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import TicketDetailsModal from "../TicketDetailsModal";
 import ViewTicketModal from "../ViewTicketsModal";
 
 
 interface ReceivedTicketItem {
+    apiTicketId?: string;
     ticketId: string;
     tenantName: string;
     subject: string;
@@ -28,6 +28,40 @@ interface ReceivedTicketItem {
     resolvedOn: string;
     assignedTo?: string;
     description?: string;
+    roleFlow: TicketRoleFlow[];
+}
+
+interface TicketRoleFlow {
+    action: string;
+    fromRole?: string;
+    toRole?: string;
+    createdAt?: string;
+}
+
+interface ApiTicket {
+    _id?: string;
+    ticketNumber: string;
+    tenantName?: string;
+    assignedByName?: string;
+    subject: string;
+    fromRole?: string;
+    createdByRole?: string;
+    history?: TicketRoleFlow[];
+    category: string;
+    priority: string;
+    status: string;
+    createdAt: string;
+    resolvedAt?: string | null;
+    assignedToName?: (string | null)[];
+    description?: string;
+}
+
+interface TicketsResponse {
+    success: boolean;
+    message?: string;
+    data?: {
+        tickets?: ApiTicket[];
+    };
 }
 
 type FilterState = {
@@ -50,73 +84,10 @@ const INITIAL_FILTERS: FilterState = {
     toDate: "",
 };
 
-const RECEIVED_TICKETS: ReceivedTicketItem[] = [
-    {
-        ticketId: "TKT-001",
-        tenantName: "Abi",
-        subject: "Unable to start live class",
-        role: "Student",
-        category: "Live Class Issue",
-        priority: "High",
-        status: "Open",
-        createdOn: "Sep 12, 2023",
-        resolvedOn: "Sep 12, 2023",
-        assignedTo: "Agent A",
-        description: "I am unable to access the assignment page. It displays a '404 Page Not Found' error whenever I click the assignment link.",
-    },
-    {
-        ticketId: "TKT-002",
-        tenantName: "Jeeva",
-        subject: "Student not able to submit assign",
-        role: "Teacher",
-        category: "Assignment Issue",
-        priority: "Medium",
-        status: "Pending",
-        createdOn: "Sep 12, 2023",
-        resolvedOn: "Sep 12, 2023",
-        assignedTo: "Agent B",
-    },
-    {
-        ticketId: "TKT-003",
-        tenantName: "Jeeva",
-        subject: "Attendance not updating",
-        role: "Supervisor",
-        category: "Attendance Issue",
-        priority: "Low",
-        status: "Resolved",
-        createdOn: "Sep 12, 2023",
-        resolvedOn: "Sep 12, 2023",
-        assignedTo: "Agent C",
-    },
-    {
-        ticketId: "TKT-004",
-        tenantName: "Jeeva",
-        subject: "Question paper upload issue",
-        role: "Academy Coach",
-        category: "Exam Issue",
-        priority: "Medium",
-        status: "In Progress",
-        createdOn: "Sep 12, 2023",
-        resolvedOn: "Sep 12, 2023",
-        assignedTo: "Agent A",
-    },
-    {
-        ticketId: "TKT-005",
-        tenantName: "Jeeva",
-        subject: "Unable to access course content",
-        role: "Academy Coach",
-        category: "Course Issue",
-        priority: "High",
-        status: "Open",
-        createdOn: "Sep 12, 2023",
-        resolvedOn: "Sep 12, 2023",
-        assignedTo: "Agent B",
-    },
-];
-
 const priorityBadgeClass = (priority: string) => {
     switch (priority?.toLowerCase()) {
         case "high": return "bg-[#FCE4E4] text-[#D9534F]";
+        case "critical": return "bg-[#FCE4E4] text-[#D9534F]";
         case "medium": return "bg-[#FDF2D9] text-[#C88C29]";
         case "low": return "bg-[#E5F5EA] text-[#3A8F4A]";
         default: return "bg-gray-100 text-gray-600";
@@ -127,6 +98,7 @@ const statusBadgeClass = (status: string) => {
     switch (status?.toLowerCase()) {
         case "open": return "bg-[#E5F5EA] text-[#3A8F4A]";
         case "pending": return "bg-[#FDF2D9] text-[#C88C29]";
+        case "acknowledged": return "bg-[#E0EDFF] text-[#3E6DB5]";
         case "resolved": return "bg-[#E5F5EA] text-[#3A8F4A]";
         case "in progress": return "bg-[#E0EDFF] text-[#3E6DB5]";
         default: return "bg-gray-100 text-gray-600";
@@ -136,6 +108,7 @@ const statusBadgeClass = (status: string) => {
 const roleBadgeClass = (role: string) => {
     switch (role?.toLowerCase()) {
         case "student": return "bg-[#E0EDFF] text-[#3E6DB5]";
+        case "admin": return "bg-[#E0EDFF] text-[#3E6DB5]";
         case "teacher": return "bg-[#FCE4F0] text-[#C94F8D]";
         case "supervisor": return "bg-[#E5F5EA] text-[#3A8F4A]";
         case "academy coach": return "bg-[#FCE4F0] text-[#C94F8D]";
@@ -144,26 +117,104 @@ const roleBadgeClass = (role: string) => {
 };
 
 export default function ReceivedTicketsContent() {
+    const [tickets, setTickets] = useState<ReceivedTicketItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [draftFilters, setDraftFilters] = useState<FilterState>(INITIAL_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState<FilterState>(INITIAL_FILTERS);
     const [currentPage, setCurrentPage] = useState(1);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const [openRoleFlow, setOpenRoleFlow] = useState<string | null>(null);
 
     const [viewTicketModal, setViewTicketModal] = useState<ReceivedTicketItem | null>(null);
     const [ticketDetailsModal, setTicketDetailsModal] = useState<ReceivedTicketItem | null>(null);
 
     const itemsPerPage = 10;
 
-    const categoryOptions = useMemo(() => Array.from(new Set(RECEIVED_TICKETS.map((t) => t.category))).filter(Boolean), []);
-    const priorityOptions = useMemo(() => Array.from(new Set(RECEIVED_TICKETS.map((t) => t.priority))).filter(Boolean), []);
-    const statusOptions = useMemo(() => Array.from(new Set(RECEIVED_TICKETS.map((t) => t.status))).filter(Boolean), []);
-    const assignedToOptions = useMemo(() => Array.from(new Set(RECEIVED_TICKETS.map((t) => t.assignedTo ?? ""))).filter(Boolean), []);
+    useEffect(() => {
+        const controller = new AbortController();
+
+        const loadTickets = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const token = localStorage.getItem("AdminAuthToken");
+                if (!token) {
+                    throw new Error("Your session has expired. Please sign in again.");
+                }
+
+                const response = await fetch(
+                    `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TICKET.GET_TICKETS}?view=received&role=ADMIN`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                        signal: controller.signal,
+                    },
+                );
+                const result: TicketsResponse = await response.json();
+
+                if (!response.ok || result.success !== true || !Array.isArray(result.data?.tickets)) {
+                    throw new Error(
+                        result.message || `Unable to load tickets (HTTP ${response.status}).`,
+                    );
+                }
+
+                const formattedTickets = result.data.tickets.map((ticket) => ({
+                    apiTicketId: ticket._id,
+                    ticketId: ticket.ticketNumber,
+                    tenantName: ticket.tenantName || ticket.assignedByName || "—",
+                    subject: ticket.subject,
+                    role: ticket.fromRole || ticket.createdByRole || "—",
+                    roleFlow: ticket.history ?? [],
+                    category: ticket.category.replace(/_/g, " "),
+                    priority: ticket.priority,
+                    status: ticket.status,
+                    createdOn: ticket.createdAt
+                        ? new Date(ticket.createdAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "2-digit",
+                        })
+                        : "—",
+                    resolvedOn: ticket.resolvedAt
+                        ? new Date(ticket.resolvedAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "2-digit",
+                        })
+                        : "—",
+                    assignedTo: ticket.assignedToName?.find(
+                        (name): name is string => Boolean(name),
+                    ),
+                    description: ticket.description,
+                }));
+
+                setTickets(formattedTickets);
+            } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") return;
+                setLoadError(
+                    error instanceof Error ? error.message : "Unable to load tickets.",
+                );
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        void loadTickets();
+        return () => controller.abort();
+    }, []);
+
+    const categoryOptions = useMemo(() => Array.from(new Set(tickets.map((t) => t.category))).filter(Boolean), [tickets]);
+    const priorityOptions = useMemo(() => Array.from(new Set(tickets.map((t) => t.priority))).filter(Boolean), [tickets]);
+    const statusOptions = useMemo(() => Array.from(new Set(tickets.map((t) => t.status))).filter(Boolean), [tickets]);
+    const assignedToOptions = useMemo(() => Array.from(new Set(tickets.map((t) => t.assignedTo ?? ""))).filter(Boolean), [tickets]);
 
     const filteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return RECEIVED_TICKETS.filter((item) => {
+        return tickets.filter((item) => {
             const matchesSearch = !term || [item.ticketId, item.tenantName, item.subject, item.role, item.category, item.priority, item.status, item.createdOn, item.resolvedOn, item.assignedTo ?? ""].join(" ").toLowerCase().includes(term);
             const matchesTenant = !appliedFilters.tenantName || item.tenantName.toLowerCase().includes(appliedFilters.tenantName.toLowerCase());
             const matchesCategory = appliedFilters.category === "All" || item.category === appliedFilters.category;
@@ -178,11 +229,11 @@ export default function ReceivedTicketsContent() {
 
             return matchesSearch && matchesTenant && matchesCategory && matchesPriority && matchesStatus && matchesAssigned && matchesDate;
         });
-    }, [search, appliedFilters]);
+    }, [tickets, search, appliedFilters]);
 
     const previewFilteredItems = useMemo(() => {
         const term = search.toLowerCase().trim();
-        return RECEIVED_TICKETS.filter((item) => {
+        return tickets.filter((item) => {
             const matchesSearch = !term || [item.ticketId, item.tenantName, item.subject, item.role, item.category, item.priority, item.status, item.createdOn, item.resolvedOn, item.assignedTo ?? ""].join(" ").toLowerCase().includes(term);
             const matchesTenant = !draftFilters.tenantName || item.tenantName.toLowerCase().includes(draftFilters.tenantName.toLowerCase());
             const matchesCategory = draftFilters.category === "All" || item.category === draftFilters.category;
@@ -197,7 +248,7 @@ export default function ReceivedTicketsContent() {
 
             return matchesSearch && matchesTenant && matchesCategory && matchesPriority && matchesStatus && matchesAssigned && matchesDate;
         });
-    }, [search, draftFilters]);
+    }, [tickets, search, draftFilters]);
 
     const activeFilterCount = Object.entries(appliedFilters).filter(([, value]) => value && value !== "All").length;
     const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
@@ -209,7 +260,7 @@ export default function ReceivedTicketsContent() {
 
     return (
         <div className="flex flex-col space-y-6">
-            <div className="bg-white rounded-xl shadow-lg dark:bg-[#343434] overflow-hidden border-t border-[#E6EAF2] dark:border-[#3F3F3F]">
+            <div className="bg-white rounded-xl shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#343434] overflow-hidden border-t border-[#E6EAF2] dark:border-[#3F3F3F]">
                 <div className="grid grid-cols-1 border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:grid-cols-3">
                     <div className="flex h-12 items-center border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F] md:border-b-0 md:border-r">
                         <Search size={17} className="text-[#A5AAB4] dark:text-[#B5B5B5]" />
@@ -252,25 +303,39 @@ export default function ReceivedTicketsContent() {
                                 </tr>
                             </thead>
                             <tbody>
-    {paginatedItems.length > 0 ? (
+                                {isLoading ? (
+                                    <tr><td colSpan={10} className="p-4 text-center text-gray-500 dark:text-gray-300">Loading tickets...</td></tr>
+                                ) : loadError ? (
+                                    <tr><td colSpan={10} role="alert" className="p-4 text-center text-red-600 dark:text-red-400">{loadError}</td></tr>
+                                ) : paginatedItems.length > 0 ? (
         paginatedItems.map((item, index) => {
             const rowId = `${item.ticketId}-${index}`;
             return (
-                <tr key={rowId} className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
+                <React.Fragment key={rowId}>
+                <tr className="text-[12px] text-[#24324B] dark:text-gray-200 odd:bg-[#f8f8f8] even:bg-[#ffffff] dark:odd:bg-[#2c2c2c] dark:even:bg-[#303030]">
                     <td className="py-4 px-2 font-medium">{item.ticketId}</td>
                     <td className="py-4 px-2">{item.tenantName}</td>
                     <td className="py-4 px-2 truncate">{item.subject}</td>
                     
-                    {/* Fixed Equality Width Role Cell */}
                     <td className="py-4 px-2">
-                        <span className={`inline-block w-[120px] text-center text-[11px] py-[4px] rounded-md font-medium tracking-wide ${roleBadgeClass(item.role)}`}>
+                        <button
+                            type="button"
+                            aria-expanded={openRoleFlow === rowId}
+                            aria-controls={`received-ticket-role-flow-${rowId}`}
+                            onClick={() => setOpenRoleFlow(openRoleFlow === rowId ? null : rowId)}
+                            className={`inline-flex w-[120px] items-center justify-center gap-1 text-center text-[11px] py-[4px] rounded-md font-medium tracking-wide transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#576CBC] ${roleBadgeClass(item.role)}`}
+                        >
                             {item.role}
-                        </span>
+                            <ChevronDown
+                                size={12}
+                                className={`shrink-0 transition-transform ${openRoleFlow === rowId ? "rotate-180" : ""}`}
+                            />
+                        </button>
                     </td>
                     
                     <td className="py-4 px-2">{item.category}</td>
                     <td className="py-4 px-2"><span className={`inline-block w-[85px] text-center px-2 text-[11px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}>{item.priority}</span></td>
-                    <td className="py-4 px-2"><span className={`inline-block w-[85px] text-center px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>{item.status}</span></td>
+                    <td className="py-4 px-2"><span className={`inline-block w-[100px] text-center px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>{item.status}</span></td>
                     <td className="py-4 px-2 text-[11px]">{item.createdOn}</td>
                     <td className="py-4 px-2 text-[11px]">{item.resolvedOn}</td>
                     <td className="py-4 px-2 relative">
@@ -292,6 +357,49 @@ export default function ReceivedTicketsContent() {
                         )}
                     </td>
                 </tr>
+                {openRoleFlow === rowId && (
+                    <tr className="bg-[#f8f8f8] dark:bg-[#2c2c2c]">
+                        <td
+                            id={`received-ticket-role-flow-${rowId}`}
+                            colSpan={10}
+                            className="px-4 py-3"
+                        >
+                            <div className="w-full min-w-0 rounded-lg border border-[#d4d4d4] bg-white p-4 text-gray-800 shadow-sm dark:border-gray-700 dark:bg-[#303030] dark:text-gray-100">
+                                <div className="mb-3 flex items-center justify-between">
+                                    <h3 className="text-xs font-semibold">Ticket role flow</h3>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                        {item.roleFlow.length} {item.roleFlow.length === 1 ? "step" : "steps"}
+                                    </span>
+                                </div>
+                                {item.roleFlow.length > 0 ? (
+                                    <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                        {item.roleFlow.map((step, stepIndex) => (
+                                            <li
+                                                key={`${step.action}-${step.createdAt ?? stepIndex}`}
+                                                className="min-w-0 rounded-md border border-[#E6EAF2] bg-[#F8FAFC] p-3 dark:border-[#4A4A4A] dark:bg-[#2c2c2c]"
+                                            >
+                                                <p className="break-words text-xs font-medium">
+                                                    {step.fromRole || "—"} <span className="px-1 text-[#576CBC]">→</span> {step.toRole || "—"}
+                                                </p>
+                                                <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                                                    {step.action.replace(/_/g, " ")}
+                                                </p>
+                                                {step.createdAt && (
+                                                    <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                                                        {new Date(step.createdAt).toLocaleString()}
+                                                    </p>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ol>
+                                ) : (
+                                    <p className="text-[11px] text-gray-500 dark:text-gray-400">No role flow available.</p>
+                                )}
+                            </div>
+                        </td>
+                    </tr>
+                )}
+                </React.Fragment>
             );
         })
     ) : (
@@ -390,7 +498,32 @@ export default function ReceivedTicketsContent() {
             )}
 
             {viewTicketModal && <ViewTicketModal ticket={viewTicketModal} onClose={() => setViewTicketModal(null)} priorityBadgeClass={priorityBadgeClass} />}
-            {ticketDetailsModal && <TicketDetailsModal ticket={ticketDetailsModal} onClose={() => setTicketDetailsModal(null)} priorityBadgeClass={priorityBadgeClass} />}
+            {ticketDetailsModal && (
+                <TicketDetailsModal
+                    ticket={ticketDetailsModal}
+                    onClose={() => setTicketDetailsModal(null)}
+                    onUpdated={(status) => {
+                        setTickets((currentTickets) =>
+                            currentTickets.map((ticket) =>
+                                ticket.ticketId === ticketDetailsModal.ticketId
+                                    ? {
+                                        ...ticket,
+                                        status,
+                                        resolvedOn: status === "Resolved"
+                                            ? new Date().toLocaleDateString("en-US", {
+                                                year: "numeric",
+                                                month: "short",
+                                                day: "2-digit",
+                                            })
+                                            : ticket.resolvedOn,
+                                    }
+                                    : ticket,
+                            ),
+                        );
+                    }}
+                    priorityBadgeClass={priorityBadgeClass}
+                />
+            )}
         </div>
     );
 }
