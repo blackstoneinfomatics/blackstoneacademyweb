@@ -29,6 +29,7 @@ interface DashboardCardsResponse {
     totalUpdates: CardMetric;
     publishedUpdates: CardMetric;
     scheduledUpdates: CardMetric;
+    totalPurchaseRequests: CardMetric;
   };
 }
 
@@ -118,26 +119,28 @@ const normalizeRow = (row: ApiUpdateRow, totalTenantsCount: number = 0, localRow
   const isAllTenants = (row.audience ?? []).join(" ").toLowerCase().includes("all tenant");
 
   let selectedNames: string[] = [];
+  let rawCount = 0;
 
   if (!isAllTenants) {
-    // 1. Check LocalStorage
+
     if (localRow?.selectedTenants && Array.isArray(localRow.selectedTenants) && localRow.selectedTenants.length > 0) {
       selectedNames = localRow.selectedTenants;
     }
-    // 2. Check Backend direct array
-    else if (Array.isArray(row.selectedTenants) && row.selectedTenants.length > 0) {
-      selectedNames = row.selectedTenants.map((t: any) => typeof t === "string" ? t : (t?.tenantName || t?.name || t?.tenantCode));
-    }
-    // 3. Check Backend details array
+
     else if (Array.isArray(row.selectedTenantDetails) && row.selectedTenantDetails.length > 0) {
       selectedNames = row.selectedTenantDetails.map((t: any) => t?.tenantName || t?.name || t?.tenantCode);
+    }
+
+    else if (Array.isArray(row.selectedTenants) && row.selectedTenants.length > 0) {
+      selectedNames = row.selectedTenants.map((t: any) => typeof t === "string" ? t : (t?.tenantName || t?.name || t?.tenantCode || String(t)));
+    }
+    if (selectedNames.filter(Boolean).length === 0 && typeof localRow?.selectedTenantsCount === "number") {
+      rawCount = localRow.selectedTenantsCount;
     }
   }
 
   const uniqueNames = Array.from(new Set(selectedNames.filter(Boolean)));
-  const count = uniqueNames.length;
-
-  // String strictly uses the count
+  const count = uniqueNames.length > 0 ? uniqueNames.length : rawCount;
   const audienceDisplay = isAllTenants
     ? `All Tenants (${totalTenantsCount})`
     : `Selected Tenants (${count})`;
@@ -174,6 +177,7 @@ const buildCardsFromApi = (
   const scheduled =
     apiData?.scheduledUpdates?.count ??
     fallbackUpdates.filter((u) => u.status === "Scheduled").length;
+  const purchaseRequests = apiData?.totalPurchaseRequests?.count ?? 0;
 
   return [
     {
@@ -208,13 +212,13 @@ const buildCardsFromApi = (
     },
     {
       title: "Total Request",
-      value: "-",
-      percentage: undefined,
-      direction: undefined,
+      value: apiData?.totalPurchaseRequests ? purchaseRequests.toString() : "-",
+      percentage: apiData?.totalPurchaseRequests?.percentage,
+      direction: apiData?.totalPurchaseRequests?.direction,
       image: CARD_ICONS.totalViews,
       iconBg: "bg-[#E6EAF2]",
       titleColor: "text-[#576CBC]",
-      trend: "- vs last Month",
+      trend: "vs last Month",
     },
   ];
 };
@@ -239,6 +243,13 @@ const INITIAL_FILTERS: FilterState = {
   toDate: "",
 };
 
+// Normalize a Date to midnight (local) for date-only comparison
+const toMidnight = (d: Date): Date => {
+  const n = new Date(d);
+  n.setHours(0, 0, 0, 0);
+  return n;
+};
+
 const applyFilters = (
   items: ProductUpdate[],
   search: string,
@@ -246,6 +257,8 @@ const applyFilters = (
 ) => {
   const term = search.toLowerCase().trim();
   return items.filter((item) => {
+    // Include formatted date in search so users can type "Oct", "2026", etc.
+    const formattedDate = formatReleaseDate(item.releaseDate);
     const matchesSearch =
       !term ||
       [
@@ -255,7 +268,7 @@ const applyFilters = (
         item.category,
         item.priority,
         item.audience,
-        item.releaseDate,
+        formattedDate,
         item.status,
       ]
         .join(" ")
@@ -273,11 +286,17 @@ const applyFilters = (
       item.audience.toLowerCase().includes(filters.audience.toLowerCase());
     const matchesStatus =
       filters.status === "All" || item.status === filters.status;
-    const rowDate = new Date(item.releaseDate);
-    const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
-    const toDate = filters.toDate ? new Date(filters.toDate) : null;
+
+    // Date filter: normalize to midnight so YYYY-MM-DD inputs compare correctly
+    const rawDate = new Date(item.releaseDate);
+    const rowDate = isNaN(rawDate.getTime()) ? null : toMidnight(rawDate);
+    const fromDate = filters.fromDate ? toMidnight(new Date(filters.fromDate)) : null;
+    const toDate = filters.toDate ? toMidnight(new Date(filters.toDate)) : null;
     const matchesDate =
-      (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+      !rowDate
+        ? !fromDate && !toDate // if row has no date, only show when no date filter active
+        : (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+
     return (
       matchesSearch &&
       matchesTitle &&
@@ -650,24 +669,33 @@ const page = () => {
         const KEY = "blackstone_created_updates_v1";
         const rows = JSON.parse(localStorage.getItem(KEY) || "[]");
 
+        // Resolve _id: prefer from API response, then from payload, then temp
+        const resolvedId = response?.data?._id ?? response?.data?.id ?? response?._id ?? payload.updateId ?? `temp-${Date.now()}`;
+
         // The payload must contain the selectedTenants array from the form
+        const selectedTenantsArr: string[] = Array.isArray(payload.selectedTenants) ? payload.selectedTenants : [];
         const newRow = {
-          updateId: response?.data?._id || payload.updateId || `temp-${Date.now()}`,
+          updateId: resolvedId,
           title: payload.title,
           category: payload.category,
           description: payload.description,
           publishDate: payload.publishDate,
           priority: payload.priority,
           audience: payload.audience,
-          selectedTenants: payload.selectedTenants || [], // 🚨 CRITICAL
+          selectedTenants: selectedTenantsArr, // 🚨 CRITICAL — tenant names from form
+          selectedTenantsCount: selectedTenantsArr.length, // 🚨 Guaranteed count fallback
           status: payload.status || "Scheduled",
           monthlyPrice: payload.monthlyPrice,
           discount: payload.discount,
           createdAt: new Date().toISOString(),
         };
 
-        // Update if exists, else add
-        const idx = rows.findIndex((r: any) => r.title?.trim().toLowerCase() === payload.title?.trim().toLowerCase());
+        // Update if exists (by id or title), else add
+        const idx = rows.findIndex(
+          (r: any) =>
+            (resolvedId && r.updateId === resolvedId) ||
+            r.title?.trim().toLowerCase() === payload.title?.trim().toLowerCase()
+        );
         if (idx >= 0) rows[idx] = { ...rows[idx], ...newRow };
         else rows.unshift(newRow);
 
@@ -681,13 +709,15 @@ const page = () => {
       const json: UpdatesTableResponse = await res.json();
 
       if (json.success && json.data) {
-        const localRows = typeof window !== "undefined"
+        const localRows: any[] = typeof window !== "undefined"
           ? JSON.parse(localStorage.getItem("blackstone_created_updates_v1") || "[]")
           : [];
 
         const normalized = json.data.map((row) => {
           const localMatch = localRows.find(
-            (r: any) => r.updateId === row._id || r.title?.trim().toLowerCase() === row.title?.trim().toLowerCase()
+            (r: any) =>
+              (r.updateId && r.updateId === row._id) ||
+              r.title?.trim().toLowerCase() === row.title?.trim().toLowerCase()
           );
           return normalizeRow(row, totalTenantsCount, localMatch);
         });
@@ -702,14 +732,12 @@ const page = () => {
     }
   };
 
-  const activeFilterCount = Object.entries(appliedFilters).filter(
-    ([key, value]) =>
-      value &&
-      !(
-        (key === "title" && value === "") ||
-        (key !== "title" && value === "All")
-      ),
-  ).length;
+  const activeFilterCount = Object.entries(appliedFilters).filter(([key, value]) => {
+    if (!value) return false; // empty string / falsy
+    if (key === "title") return value.trim() !== "";
+    if (key === "fromDate" || key === "toDate") return value !== "";
+    return value !== "All";
+  }).length;
 
   const totalPages = Math.max(
     1,
@@ -1150,21 +1178,61 @@ const page = () => {
                       ))}
                     </select>
                   </div>
+                  {/* Release Date Range */}
+                  <div>
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
+                      Release Date
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={draftFilters.fromDate}
+                        onChange={(e) =>
+                          setDraftFilters((prev) => ({ ...prev, fromDate: e.target.value }))
+                        }
+                        className="h-8 w-full rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-2 text-xs outline-none"
+                      />
+                      <span className="shrink-0 text-xs text-[#80848E] dark:text-[#B5B5B5]">to</span>
+                      <input
+                        type="date"
+                        value={draftFilters.toDate}
+                        min={draftFilters.fromDate || undefined}
+                        onChange={(e) =>
+                          setDraftFilters((prev) => ({ ...prev, toDate: e.target.value }))
+                        }
+                        className="h-8 w-full rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-2 text-xs outline-none"
+                      />
+                    </div>
+                    {(draftFilters.fromDate || draftFilters.toDate) && (
+                      <button
+                        type="button"
+                        onClick={() => setDraftFilters((prev) => ({ ...prev, fromDate: "", toDate: "" }))}
+                        className="mt-1 text-[10px] text-[#576CBC] hover:underline"
+                      >
+                        Clear dates
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="my-5 h-px bg-[#E4E8F1] dark:bg-[#4A4A4A]" />
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => setDraftFilters(INITIAL_FILTERS)}
-                    className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"
+                    onClick={() => {
+                      setDraftFilters(INITIAL_FILTERS);
+                      setAppliedFilters(INITIAL_FILTERS);
+                      setSearch("");
+                      setShowFilterPanel(false);
+                    }}
+                    className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC] hover:bg-[#EEF1FB] dark:hover:bg-[#2A3550] transition"
                   >
-                    Reset
+                    Reset All
                   </button>
                   <button
                     onClick={() => {
                       setAppliedFilters(draftFilters);
                       setShowFilterPanel(false);
                     }}
-                    className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white"
+                    className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white hover:bg-[#4D66B3] transition"
                   >
                     Show {previewFilteredItems.length} results
                   </button>

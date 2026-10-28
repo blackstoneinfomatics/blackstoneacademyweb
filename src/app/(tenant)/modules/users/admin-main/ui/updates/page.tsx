@@ -15,6 +15,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import AdminHeader from "../../components/AdminHeader";
 import BaseLayout4 from "../../components/BaseLayout4";
 import PurchaseUpdateModal from "./PurchaseUpdateModal";
+import ViewDetailsModal from "./ViewDetailsModal"; // 🚨 IMPORT THE NEW COMPONENT
 
 interface UpdateItem {
     id: string;
@@ -315,11 +316,8 @@ const Updates = () => {
                                         ))
                                     ) : paginatedItems.length > 0 ? (
                                         paginatedItems.map((item) => {
-                                            // 👇 CONDITIONAL LOGIC FOR BUTTONS
                                             const isAlreadyPurchased = item.purchaseStatus?.toLowerCase() === "purchased" || item.purchaseStatus?.toLowerCase() === "requested";
                                             const isScheduled = item.status?.toLowerCase() === "scheduled";
-
-                                            // Only show purchase if it's NOT purchased AND NOT scheduled
                                             const canPurchase = !isAlreadyPurchased && !isScheduled;
 
                                             return (
@@ -352,8 +350,6 @@ const Updates = () => {
 
                                                         {openMenu === item.id && (
                                                             <div className="absolute right-8 top-10 z-50 w-[160px] rounded-lg border border-gray-200 bg-white text-gray-800 shadow-xl dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100 flex flex-col overflow-hidden">
-
-                                                                {/* Only show Purchase if allowed */}
                                                                 {canPurchase && (
                                                                     <button
                                                                         className="w-full border-b px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
@@ -362,8 +358,6 @@ const Updates = () => {
                                                                         Purchase Update
                                                                     </button>
                                                                 )}
-
-                                                                {/* View Details is always visible */}
                                                                 <button
                                                                     className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                                                     onClick={() => handleOpenView(item)}
@@ -529,54 +523,12 @@ const Updates = () => {
                     </div>
                 )}
 
-                {/* View Details Modal */}
-                {isViewModalOpen && selectedItem && (
-                    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4">
-                        <div className="w-full max-w-[800px] rounded-xl bg-white shadow-2xl overflow-hidden flex flex-col">
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                                <h2 className="text-[18px] font-medium text-[#24324B]">Updates Details</h2>
-                                <button onClick={() => setIsViewModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="p-6">
-                                <div className="border border-[#E6EAF2] rounded-xl p-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                        <div>
-                                            <label className="block text-[16px] font-medium text-[#24324B] mb-2">Update Title</label>
-                                            <input type="text" value={selectedItem.updateTitle} readOnly className="w-full h-[42px] px-3 border border-[#D1D5DB] rounded-lg bg-white text-sm text-[#6B7280] outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[16px] font-medium text-[#24324B] mb-2">Category</label>
-                                            <input type="text" value={selectedItem.category} readOnly className="w-full h-[42px] px-3 border border-[#D1D5DB] rounded-lg bg-white text-sm text-[#6B7280] outline-none" />
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-6">
-                                        <label className="block text-[16px] font-medium text-[#24324B] mb-2">Description</label>
-                                        <textarea value={selectedItem.description} readOnly rows={4} className="w-full p-3 border border-[#D1D5DB] rounded-lg bg-white text-sm text-[#6B7280] outline-none resize-none" />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-[#F8F9FA] rounded-xl">
-                                        <div>
-                                            <label className="block text-[15px] font-medium text-[#24324B] mb-2">Status</label>
-                                            <input type="text" value={selectedItem.status} readOnly className="w-full h-[40px] px-3 border border-[#D1D5DB] rounded-lg bg-white text-sm text-[#6B7280] outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[15px] font-medium text-[#24324B] mb-2">Requested Send Date</label>
-                                            <input type="text" value={selectedItem.publishDate} readOnly className="w-full h-[40px] px-3 border border-[#D1D5DB] rounded-lg bg-white text-sm text-[#6B7280] outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[15px] font-medium text-[#24324B] mb-2">Purchase Status</label>
-                                            <input type="text" value={selectedItem.purchaseStatus} readOnly className="w-full h-[40px] px-3 border border-[#D1D5DB] rounded-lg bg-white text-sm text-[#6B7280] outline-none" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {/* 🚨 REPLACED MANUAL MODAL WITH EXTERNAL COMPONENT */}
+                <ViewDetailsModal
+                    isOpen={isViewModalOpen}
+                    onClose={() => setIsViewModalOpen(false)}
+                    data={selectedItem}
+                />
 
                 {/* ✅ External Purchase Modal Component */}
                 <PurchaseUpdateModal
