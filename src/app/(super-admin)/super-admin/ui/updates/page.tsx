@@ -114,46 +114,52 @@ const buildTenantPairs = (
   });
 };
 
-const normalizeRow = (row: ApiUpdateRow, totalTenantsCount: number = 0): ProductUpdate => {
-  const audienceArr = Array.isArray(row.audience) && row.audience.length > 0 ? row.audience : ["All Tenants"];
-  const isAllTenants = audienceArr.join(" ").toLowerCase().includes("all tenant");
+const normalizeRow = (row: ApiUpdateRow, totalTenantsCount: number = 0, localRow: any = null): ProductUpdate => {
+  const isAllTenants = (row.audience ?? []).join(" ").toLowerCase().includes("all tenant");
 
   let selectedNames: string[] = [];
+
   if (!isAllTenants) {
-    if (Array.isArray(row.selectedTenants) && row.selectedTenants.length > 0) {
+    // 1. Check LocalStorage
+    if (localRow?.selectedTenants && Array.isArray(localRow.selectedTenants) && localRow.selectedTenants.length > 0) {
+      selectedNames = localRow.selectedTenants;
+    }
+    // 2. Check Backend direct array
+    else if (Array.isArray(row.selectedTenants) && row.selectedTenants.length > 0) {
       selectedNames = row.selectedTenants.map((t: any) => typeof t === "string" ? t : (t?.tenantName || t?.name || t?.tenantCode));
-    } else if (Array.isArray(row.selectedTenantDetails) && row.selectedTenantDetails.length > 0) {
+    }
+    // 3. Check Backend details array
+    else if (Array.isArray(row.selectedTenantDetails) && row.selectedTenantDetails.length > 0) {
       selectedNames = row.selectedTenantDetails.map((t: any) => t?.tenantName || t?.name || t?.tenantCode);
-    } else if (typeof audienceArr[0] === "string" && audienceArr[0].includes(",")) {
-      selectedNames = audienceArr[0].split(",").map((s: string) => s.trim());
-    } else if (audienceArr.length > 0 && audienceArr[0] !== "All Tenants") {
-      selectedNames = audienceArr;
     }
   }
 
   const uniqueNames = Array.from(new Set(selectedNames.filter(Boolean)));
   const count = uniqueNames.length;
 
-  let audienceDisplay = isAllTenants ? `All Tenants (${totalTenantsCount})` : (count > 0 ? `Selected Tenants (${count})` : `${audienceArr[0] ?? row.planName ?? "Plan"} (0)`);
+  // String strictly uses the count
+  const audienceDisplay = isAllTenants
+    ? `All Tenants (${totalTenantsCount})`
+    : `Selected Tenants (${count})`;
 
   return {
     updateId: row._id,
-    title: row.title,
-    description: row.description,
-    category: row.category,
-    priority: (row.priority ?? "Low") as UpdatePriority,
+    title: localRow?.title ?? row.title,
+    description: localRow?.description ?? row.description,
+    category: localRow?.category ?? row.category,
+    priority: (localRow?.priority ?? row.priority ?? "Low") as UpdatePriority,
     audience: audienceDisplay,
-    releaseDate: row.releaseDate ?? row.publishDate ?? row.createdAt ?? "",
+    releaseDate: localRow?.publishDate ?? row.releaseDate ?? row.publishDate ?? row.createdAt ?? "",
     status: (row.status ?? "Draft") as UpdateStatus,
     affectedTenants: isAllTenants ? totalTenantsCount : count,
-    rawAudience: audienceArr,
+    rawAudience: isAllTenants ? ["All Tenants"] : ["Select Tenants"],
     rawSelectedTenants: uniqueNames,
     rawSelectedTenantDetails: uniqueNames.map((n) => ({ tenantCode: n, tenantName: n })),
     attachments: row.attachments ?? [],
     sendNotification: row.sendNotification,
-    publishDate: row.publishDate,
-    monthlyPrice: (row as any).monthlyPrice,
-    discount: (row as any).discount,
+    publishDate: localRow?.publishDate ?? row.publishDate,
+    monthlyPrice: localRow?.monthlyPrice ?? (row as any).monthlyPrice,
+    discount: localRow?.discount ?? (row as any).discount,
   } as ProductUpdate;
 };
 
@@ -447,31 +453,17 @@ const page = () => {
 
         if (!json.success) throw new Error(json.message || "Failed to load data");
 
-        // Load from localStorage to override API data
         const localRows = typeof window !== "undefined"
           ? JSON.parse(localStorage.getItem("blackstone_created_updates_v1") || "[]")
           : [];
 
         const apiRows: ApiUpdateRow[] = json.data ?? [];
+
         const normalized = apiRows.map((row) => {
-          const baseRow = normalizeRow(row, totalTenantsCount);
-
-          // 🚨 OVERRIDE WITH LOCAL STORAGE
           const localMatch = localRows.find(
-            (r: any) => r.updateId === baseRow.updateId || r.title?.trim().toLowerCase() === baseRow.title?.trim().toLowerCase()
+            (r: any) => r.updateId === row._id || r.title?.trim().toLowerCase() === row.title?.trim().toLowerCase()
           );
-
-          if (localMatch && localMatch.selectedTenants) {
-            baseRow.rawSelectedTenants = localMatch.selectedTenants;
-            baseRow.rawSelectedTenantDetails = localMatch.selectedTenants.map((n: string) => ({
-              tenantCode: n,
-              tenantName: n,
-            }));
-            baseRow.audience = `Selected Tenants (${localMatch.selectedTenants.length})`;
-            baseRow.affectedTenants = localMatch.selectedTenants.length;
-          }
-
-          return baseRow;
+          return normalizeRow(row, totalTenantsCount, localMatch);
         });
 
         setUpdateList(normalized);
@@ -653,7 +645,38 @@ const page = () => {
     setIsPublishing(true);
 
     try {
-      // Refresh from API
+      // 🚨 SAVE TO LOCALSTORAGE FIRST
+      try {
+        const KEY = "blackstone_created_updates_v1";
+        const rows = JSON.parse(localStorage.getItem(KEY) || "[]");
+
+        // The payload must contain the selectedTenants array from the form
+        const newRow = {
+          updateId: response?.data?._id || payload.updateId || `temp-${Date.now()}`,
+          title: payload.title,
+          category: payload.category,
+          description: payload.description,
+          publishDate: payload.publishDate,
+          priority: payload.priority,
+          audience: payload.audience,
+          selectedTenants: payload.selectedTenants || [], // 🚨 CRITICAL
+          status: payload.status || "Scheduled",
+          monthlyPrice: payload.monthlyPrice,
+          discount: payload.discount,
+          createdAt: new Date().toISOString(),
+        };
+
+        // Update if exists, else add
+        const idx = rows.findIndex((r: any) => r.title?.trim().toLowerCase() === payload.title?.trim().toLowerCase());
+        if (idx >= 0) rows[idx] = { ...rows[idx], ...newRow };
+        else rows.unshift(newRow);
+
+        localStorage.setItem(KEY, JSON.stringify(rows.slice(0, 100)));
+      } catch (err) {
+        console.error("Failed to save to localStorage", err);
+      }
+
+      // Then refresh from API
       const res = await fetch(`${UPDATES_TABLE_API}?limit=1000`);
       const json: UpdatesTableResponse = await res.json();
 
@@ -663,17 +686,10 @@ const page = () => {
           : [];
 
         const normalized = json.data.map((row) => {
-          const baseRow = normalizeRow(row, totalTenantsCount);
           const localMatch = localRows.find(
-            (r: any) => r.updateId === baseRow.updateId || r.title?.trim().toLowerCase() === baseRow.title?.trim().toLowerCase()
+            (r: any) => r.updateId === row._id || r.title?.trim().toLowerCase() === row.title?.trim().toLowerCase()
           );
-          if (localMatch && localMatch.selectedTenants) {
-            baseRow.rawSelectedTenants = localMatch.selectedTenants;
-            baseRow.rawSelectedTenantDetails = localMatch.selectedTenants.map((n: string) => ({ tenantCode: n, tenantName: n }));
-            baseRow.audience = `Selected Tenants (${localMatch.selectedTenants.length})`;
-            baseRow.affectedTenants = localMatch.selectedTenants.length;
-          }
-          return baseRow;
+          return normalizeRow(row, totalTenantsCount, localMatch);
         });
         setUpdateList(normalized);
       }
