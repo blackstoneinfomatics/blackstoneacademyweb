@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { X, Download, FileText, ChevronDown, UploadCloud } from "lucide-react";
 import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
@@ -26,12 +26,62 @@ interface TicketActionResponse {
     details?: string | string[];
 }
 
+interface TenantUser {
+    userId?: string;
+    _id?: string;
+    id?: string;
+    name?: string;
+    userName?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+}
+
+interface TenantUsersResponse {
+    success?: boolean;
+    message?: string | string[];
+    data?: { users?: TenantUser[] } | TenantUser[];
+    users?: TenantUser[];
+}
+
 interface TicketDetailsModalProps {
     ticket: TicketDetails;
     onClose: () => void;
-    onUpdated: (status: "Acknowledged" | "Resolved") => void;
+    onUpdated: (status: "Acknowledged" | "Resolved" | "Forwarded") => void;
     priorityBadgeClass: (p: string) => string;
 }
+
+const resolveTenantId = (): string => {
+    const tenantKeys = [
+        "tenantId",
+        "tenantCode",
+        "TenantId",
+        "TENANT_ID",
+        "selectedTenantId",
+        "TENANT_CODE",
+        "currentTenantId",
+        "tenant",
+    ];
+
+    for (const key of tenantKeys) {
+        const value = localStorage.getItem(key)?.trim();
+        if (!value) continue;
+
+        if (value.startsWith("{")) {
+            try {
+                const tenant = JSON.parse(value) as Record<string, unknown>;
+                const tenantId = tenant.tenantId ?? tenant.tenantCode ?? tenant.id ?? tenant._id;
+                if (tenantId) return String(tenantId);
+            } catch {
+                continue;
+            }
+        } else {
+            return value;
+        }
+    }
+
+    return "";
+};
 
 export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorityBadgeClass }: TicketDetailsModalProps) {
     const [actionType, setActionType] = useState(() =>
@@ -44,6 +94,10 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
     const [forwardSubject, setForwardSubject] = useState(ticket?.subject || "");
     const [forwardCategory, setForwardCategory] = useState("");
     const [forwardDescription, setForwardDescription] = useState("");
+    const [superAdminUsers, setSuperAdminUsers] = useState<Array<{ id: string; name: string }>>([]);
+    const [selectedRecipientId, setSelectedRecipientId] = useState("");
+    const [isLoadingSuperAdmins, setIsLoadingSuperAdmins] = useState(false);
+    const [superAdminLoadError, setSuperAdminLoadError] = useState<string | null>(null);
 
     // Attachment states
     const [file, setFile] = useState<{ name: string; size: string } | null>({
@@ -61,11 +115,84 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
     const resolveDisabled =
         normalizedStatus === "resolved" || normalizedStatus === "closed";
     const forwardDisabled =
-        normalizedStatus === "resolved" || normalizedStatus === "closed";
+        normalizedStatus === "resolved" ||
+        normalizedStatus === "closed" ||
+        normalizedStatus === "forwarded";
     const selectedActionDisabled =
         (actionType === "Acknowledge" && acknowledgeDisabled) ||
         (actionType === "Close Ticket" && resolveDisabled) ||
         (actionType === "Forward to Super Admin" && forwardDisabled);
+
+    useEffect(() => {
+        if (actionType !== "Forward to Super Admin") return;
+
+        const controller = new AbortController();
+        const loadSuperAdmins = async () => {
+            setIsLoadingSuperAdmins(true);
+            setSuperAdminLoadError(null);
+            setSuperAdminUsers([]);
+            setSelectedRecipientId("");
+
+            try {
+                const token = localStorage.getItem("AdminAuthToken");
+                if (!token) {
+                    throw new Error("Your session has expired. Please sign in again.");
+                }
+
+                const tenantId = resolveTenantId();
+                if (!tenantId) {
+                    throw new Error("Unable to find the current tenant.");
+                }
+
+                const response = await fetch(
+                    `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TENANT.GET_USERS_BY_ROLE(tenantId, "SUPERADMIN")}`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                        signal: controller.signal,
+                    },
+                );
+                const result: TenantUsersResponse = await response.json();
+
+                if (!response.ok || result.success === false) {
+                    const message = result.message;
+                    throw new Error(
+                        (Array.isArray(message) ? message.join(" ") : message) ||
+                        `Unable to load Super Admin users (HTTP ${response.status}).`,
+                    );
+                }
+
+                const users = Array.isArray(result.data)
+                    ? result.data
+                    : result.data?.users ?? result.users ?? [];
+                setSuperAdminUsers(
+                    users
+                        .map((user) => {
+                            const id = user.userId ?? user._id ?? user.id ?? "";
+                            const name =
+                                [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+                                user.name ||
+                                user.userName ||
+                                user.email ||
+                                "Unnamed user";
+                            return { id, name };
+                        })
+                        .filter((user) => Boolean(user.id)),
+                );
+            } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") return;
+                setSuperAdminLoadError(
+                    error instanceof Error ? error.message : "Unable to load Super Admin users.",
+                );
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoadingSuperAdmins(false);
+                }
+            }
+        };
+
+        void loadSuperAdmins();
+        return () => controller.abort();
+    }, [actionType]);
 
     if (!ticket) return null;
 
@@ -94,16 +221,15 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
             return;
         }
 
-        if (actionType === "Forward to Super Admin") {
-            toast.info("Forwarding will be available when the forward API is connected.");
+        const isForwarding = actionType === "Forward to Super Admin";
+        if (isForwarding && !selectedRecipientId) {
+            toast.error("Please select a Super Admin to forward this ticket to.");
             return;
         }
 
         const isAcknowledging = actionType === "Acknowledge";
-        const message = isAcknowledging
-            ? acknowledgementMessage.trim()
-            : resolutionNote.trim();
-        if (!message) {
+        const message = isAcknowledging ? acknowledgementMessage.trim() : resolutionNote.trim();
+        if (!isForwarding && !message) {
             toast.error(
                 isAcknowledging
                     ? "Please enter an acknowledgement message."
@@ -119,16 +245,14 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
         }
 
         const ticketId = ticket.apiTicketId || ticket.ticketId;
-        const endpoint = isAcknowledging
-            ? AppApiEndpoints.TICKET.ACKNOWLEDGE(ticketId)
-            : AppApiEndpoints.TICKET.RESOLVE(ticketId);
-        const payload = isAcknowledging
-            ? {
-                message,
-            }
-            : {
-                message,
-            };
+        const endpoint = isForwarding
+            ? AppApiEndpoints.TICKET.FORWARD(ticketId)
+            : isAcknowledging
+                ? AppApiEndpoints.TICKET.ACKNOWLEDGE(ticketId)
+                : AppApiEndpoints.TICKET.RESOLVE(ticketId);
+        const payload = isForwarding
+            ? { recipientRole: "SUPERADMIN", recipientIds: [selectedRecipientId] }
+            : { message };
 
         setIsSubmitting(true);
         try {
@@ -152,11 +276,15 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                     (Array.isArray(errorMessage)
                         ? errorMessage.join(" ")
                         : errorMessage) ||
-                    `Unable to ${isAcknowledging ? "acknowledge" : "resolve"} ticket (HTTP ${response.status}).`,
+                    `Unable to ${isForwarding ? "forward" : isAcknowledging ? "acknowledge" : "resolve"} ticket (HTTP ${response.status}).`,
                 );
             }
 
-            const updatedStatus = isAcknowledging ? "Acknowledged" : "Resolved";
+            const updatedStatus = isForwarding
+                ? "Forwarded"
+                : isAcknowledging
+                    ? "Acknowledged"
+                    : "Resolved";
             toast.success(
                 (Array.isArray(result.message) ? result.message.join(" ") : result.message) ||
                 `Ticket ${updatedStatus.toLowerCase()} successfully.`,
@@ -357,7 +485,9 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                                 </option>
                                 <option value="Forward to Super Admin" disabled={forwardDisabled}>
                                     {forwardDisabled
-                                        ? "Forward to Super Admin (unavailable for closed tickets)"
+                                        ? normalizedStatus === "forwarded"
+                                            ? "Forward to Super Admin (already forwarded)"
+                                            : "Forward to Super Admin (unavailable for closed tickets)"
                                         : "Forward to Super Admin"}
                                 </option>
                             </select>
@@ -422,6 +552,35 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                     {/* FORWARD TO SUPER ADMIN UI */}
                     {actionType === "Forward to Super Admin" && (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-4">
+                            <div>
+                                <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">
+                                    Forward to Super Admin
+                                </label>
+                                <select
+                                    value={selectedRecipientId}
+                                    onChange={(e) => setSelectedRecipientId(e.target.value)}
+                                    disabled={isLoadingSuperAdmins || superAdminUsers.length === 0}
+                                    className="w-full appearance-none px-3 py-2.5 border border-[#D0D5DD] rounded-lg text-[13px] text-[#101828] focus:outline-none focus:border-[#576CBC] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#343434] dark:border-[#555] dark:text-white"
+                                >
+                                    <option value="">
+                                        {isLoadingSuperAdmins
+                                            ? "Loading Super Admin users..."
+                                            : superAdminUsers.length
+                                                ? "Select a Super Admin"
+                                                : "No Super Admin users found"}
+                                    </option>
+                                    {superAdminUsers.map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                            {user.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {superAdminLoadError && (
+                                    <p role="alert" className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                                        {superAdminLoadError}
+                                    </p>
+                                )}
+                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">Subject</label>
@@ -432,7 +591,7 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                                         className="w-full px-3 py-2.5 border border-[#D0D5DD] rounded-lg text-[13px] text-[#101828] focus:outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#555] dark:text-white"
                                     />
                                 </div>
-                                <div>
+                                {/* <div>
                                     <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">Category</label>
                                     <div className="relative">
                                         <select
@@ -447,7 +606,7 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                                         </select>
                                         <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none" />
                                     </div>
-                                </div>
+                                </div> */}
                             </div>
 
                             <div>

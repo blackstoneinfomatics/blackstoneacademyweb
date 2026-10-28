@@ -14,6 +14,9 @@ import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import TicketDetailsModal from "../TicketDetailsModal";
 import ViewTicketModal from "../ViewTicketsModal";
 
+const TicketDetailsModalComponent = TicketDetailsModal as unknown as React.ComponentType<
+    React.ComponentProps<typeof TicketDetailsModal>
+>;
 
 interface ReceivedTicketItem {
     apiTicketId?: string;
@@ -100,6 +103,7 @@ const statusBadgeClass = (status: string) => {
         case "pending": return "bg-[#FDF2D9] text-[#C88C29]";
         case "acknowledged": return "bg-[#E0EDFF] text-[#3E6DB5]";
         case "resolved": return "bg-[#E5F5EA] text-[#3A8F4A]";
+        case "forwarded": return "bg-[#E0EDFF] text-[#3E6DB5]";
         case "in progress": return "bg-[#E0EDFF] text-[#3E6DB5]";
         default: return "bg-gray-100 text-gray-600";
     }
@@ -499,7 +503,7 @@ export default function ReceivedTicketsContent() {
 
             {viewTicketModal && <ViewTicketModal ticket={viewTicketModal} onClose={() => setViewTicketModal(null)} priorityBadgeClass={priorityBadgeClass} />}
             {ticketDetailsModal && (
-                <TicketDetailsModal
+                <TicketDetailsModalComponent
                     ticket={ticketDetailsModal}
                     onClose={() => setTicketDetailsModal(null)}
                     onUpdated={(status) => {

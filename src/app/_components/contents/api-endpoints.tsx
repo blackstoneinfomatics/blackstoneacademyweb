@@ -119,6 +119,8 @@ export const AppApiEndpoints = {
       `/tickets/${encodeURIComponent(ticketId)}/acknowledge`,
     RESOLVE: (ticketId: string) =>
       `/tickets/${encodeURIComponent(ticketId)}/resolve`,
+    FORWARD: (ticketId: string) =>
+      `/tickets/${encodeURIComponent(ticketId)}/forward`,
   },
 
   CLASSSHEDULE: {
@@ -383,6 +385,8 @@ export const AppApiEndpoints = {
   },
   TENANT: {
     GET_TENANT: "/tenant",
+    GET_USERS_BY_ROLE: (tenantId: string, role: string) =>
+      `/tenant/${encodeURIComponent(tenantId)}/users?role=${encodeURIComponent(role)}`,
     CREATE_TENANT: "/tenant",
     UPDATE_TENANT: "/tenant/{tenantId}",
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
