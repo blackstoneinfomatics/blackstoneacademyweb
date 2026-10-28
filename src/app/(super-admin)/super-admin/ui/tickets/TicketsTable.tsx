@@ -41,6 +41,13 @@ type ApiTicket = {
   description?: string;
 };
 
+type TicketActionResponse = {
+  success?: boolean;
+  message?: string | string[];
+  error?: string;
+  details?: string | string[];
+};
+
 type TicketsResponse = {
   success: boolean;
   message: string;
@@ -97,6 +104,7 @@ const mapStatus = (value: string): Ticket["status"] => {
 };
 
 const mapApiTicket = (ticket: ApiTicket): Ticket => ({
+  apiTicketId: ticket._id,
   ticketId: ticket.ticketNumber || ticket._id,
   tenantName: ticket.tenantName || ticket.tenantId,
   subject: ticket.subject,
@@ -235,6 +243,8 @@ const TicketsTable = () => {
     null,
   );
   const [resolveTicket, setResolveTicket] = useState<Ticket | null>(null);
+  const [isSubmittingTicketAction, setIsSubmittingTicketAction] = useState(false);
+  const [ticketActionError, setTicketActionError] = useState<string | null>(null);
 
   const itemsPerPage = 10;
 
@@ -312,16 +322,91 @@ const TicketsTable = () => {
     setOpenMenu(null);
   };
 
+  const submitTicketAction = async (
+    ticket: Ticket,
+    endpoint: string,
+    message: string,
+    status: "Acknowledged" | "Resolved",
+  ) => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      setTicketActionError(
+        status === "Acknowledged"
+          ? "Please enter an acknowledgement message."
+          : "Please enter a resolution note.",
+      );
+      return;
+    }
+
+    if (!ticket.apiTicketId) {
+      setTicketActionError("Unable to update this ticket because its API ID is missing.");
+      return;
+    }
+
+    const token = localStorage.getItem("SuperAdminAuthToken");
+    if (!token) {
+      setTicketActionError("Your super-admin session has expired. Please sign in again.");
+      return;
+    }
+
+    setTicketActionError(null);
+    setIsSubmittingTicketAction(true);
+    try {
+      const { data: result } = await axios.patch<TicketActionResponse>(
+        `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${endpoint}`,
+        { message: trimmedMessage },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (result.success === false) {
+        const errorMessage = result.message ?? result.details ?? result.error;
+        throw new Error(
+          (Array.isArray(errorMessage) ? errorMessage.join(" ") : errorMessage) ||
+            `Unable to update ticket.`,
+        );
+      }
+
+      updateTicketStatus(ticket.ticketId, status);
+      setAcknowledgeTicket(null);
+      setResolveTicket(null);
+    } catch (error) {
+      console.error("Failed to update ticket:", error);
+      const responseMessage = axios.isAxiosError<TicketActionResponse>(error)
+        ? error.response?.data?.message ??
+          error.response?.data?.details ??
+          error.response?.data?.error
+        : undefined;
+      setTicketActionError(
+        (Array.isArray(responseMessage)
+          ? responseMessage.join(" ")
+          : responseMessage) ||
+          (error instanceof Error
+            ? error.message
+            : "Unable to update ticket. Please try again."),
+      );
+    } finally {
+      setIsSubmittingTicketAction(false);
+    }
+  };
+
   const handleAcknowledgeSubmit = (payload: AcknowledgementPayload) => {
-    // TODO: wire to API, e.g. POST /super-admin/tickets/:id/acknowledge
-    updateTicketStatus(payload.ticketId, "Acknowledged");
-    setAcknowledgeTicket(null);
+    if (!acknowledgeTicket) return;
+    return submitTicketAction(
+      acknowledgeTicket,
+      AppApiEndpoints.TICKET.ACKNOWLEDGE(acknowledgeTicket.apiTicketId ?? ""),
+      payload.message,
+      "Acknowledged",
+    );
   };
 
   const handleResolveSubmit = (payload: ResolvedPayload) => {
-    // TODO: wire to API, e.g. POST /super-admin/tickets/:id/resolve
-    updateTicketStatus(payload.ticketId, payload.status);
-    setResolveTicket(null);
+    if (!resolveTicket) return;
+    return submitTicketAction(
+      resolveTicket,
+      AppApiEndpoints.TICKET.RESOLVE(resolveTicket.apiTicketId ?? ""),
+      payload.message,
+      "Resolved",
+    );
   };
 
   const activeFilterCount = Object.entries(appliedFilters).filter(
@@ -457,14 +542,14 @@ const TicketsTable = () => {
                         <td className="py-4 px-2">{item.category}</td>
                         <td className="py-4 px-2">
                           <span
-                            className={`px-2 w-[85px] text-[12px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
+                            className={`inline-flex w-[85px] justify-center px-2 text-[12px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
                           >
                             {item.priority}
                           </span>
                         </td>
                         <td className="py-4 px-2">
                           <span
-                            className={`px-2 w-[100px] text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
+                            className={`inline-flex w-[105px] justify-center px-2 text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
                           >
                             {item.status}
                           </span>
@@ -481,7 +566,7 @@ const TicketsTable = () => {
                                   : item.ticketId,
                               )
                             }
-                            className="inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-left font-medium text-[#496A96] hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#576CBC] dark:text-[#B8D0FF] dark:hover:bg-gray-700"
+                            className="inline-flex text-[12px] max-w-full items-center gap-1 rounded-md px-2 py-1 text-left font-medium text-[#496A96] hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#576CBC] dark:text-[#B8D0FF] dark:hover:bg-gray-700"
                           >
                             <span className="truncate">
                               {item.currentAssignedRole || item.assignedTo}
@@ -513,10 +598,10 @@ const TicketsTable = () => {
                           </button>
 
                           {openMenu === item.ticketId && (
-                            <div className="absolute right-4 top-12 z-50 w-44 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
+                            <div className="absolute right-4 top-12 z-50 w-32 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
                               <button
                                 disabled={item.status !== "Open"}
-                                className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
+                                className="w-full border-b px-2 py-2 text-left text-[11px] hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
                                 onClick={() => {
                                   setOpenMenu(null);
                                   setAcknowledgeTicket(item);
@@ -530,17 +615,17 @@ const TicketsTable = () => {
                                   item.status === "Resolved" ||
                                   item.status === "Closed"
                                 }
-                                className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
+                                className="w-full border-b px-2 py-2 text-left text-[11px] hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
                                 onClick={() => {
                                   setOpenMenu(null);
                                   setResolveTicket(item);
                                 }}
                               >
-                                Mark as Resolved
+                                Resolve
                               </button>
 
                               <button
-                                className="w-full border-b px-4 py-2 text-left text-xs hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700"
+                                className="w-full border-b px-2 py-2 text-left text-[11px] hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700"
                                 onClick={() => {
                                   setOpenMenu(null);
                                   setViewTicketModal(item);
@@ -550,7 +635,7 @@ const TicketsTable = () => {
                               </button>
 
                               <button
-                                className="w-full px-4 py-2 text-left text-xs text-[#98A2B3] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                className="w-full px-2 py-2 text-left text-xs text-[#d44d12] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                                 onClick={() => setOpenMenu(null)}
                               >
                                 Cancel
@@ -782,35 +867,6 @@ const TicketsTable = () => {
 
               <div>
                 <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
-                  Assigned To
-                </label>
-                <div className="relative">
-                  <select
-                    value={draftFilters.assignedTo}
-                    onChange={(e) =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        assignedTo: e.target.value,
-                      }))
-                    }
-                    className="h-8 w-full appearance-none rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-3 pr-9 text-xs text-[#38486A] dark:text-[#E2E2E2] outline-none"
-                  >
-                    <option value="All">Select Agent</option>
-                    {assignedToOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#7A879F] dark:text-[#B5B5B5]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
                   Created On
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -885,8 +941,15 @@ const TicketsTable = () => {
           <div className="max-h-[95vh] w-full max-w-[660px] overflow-y-auto scrollbar-none">
             <AcknowledgementForm
               ticket={acknowledgeTicket}
-              onCancel={() => setAcknowledgeTicket(null)}
+              onCancel={() => {
+                if (!isSubmittingTicketAction) {
+                  setTicketActionError(null);
+                  setAcknowledgeTicket(null);
+                }
+              }}
               onSubmit={handleAcknowledgeSubmit}
+              isSubmitting={isSubmittingTicketAction}
+              error={ticketActionError}
             />
           </div>
         </div>
@@ -897,8 +960,15 @@ const TicketsTable = () => {
           <div className="max-h-[95vh] w-full max-w-[660px] overflow-y-auto scrollbar-none">
             <ResolvedForm
               ticket={resolveTicket}
-              onCancel={() => setResolveTicket(null)}
+              onCancel={() => {
+                if (!isSubmittingTicketAction) {
+                  setTicketActionError(null);
+                  setResolveTicket(null);
+                }
+              }}
               onSubmit={handleResolveSubmit}
+              isSubmitting={isSubmittingTicketAction}
+              error={ticketActionError}
             />
           </div>
         </div>

@@ -8,6 +8,7 @@ export type TicketStatus =
   | "Closed";
 
 export type Ticket = {
+  apiTicketId?: string;
   ticketId: string;
   tenantName: string;
   subject: string;

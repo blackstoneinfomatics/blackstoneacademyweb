@@ -8,7 +8,9 @@ import type { AcknowledgementPayload, Ticket } from "../types";
 interface AcknowledgementFormProps {
   ticket: Ticket;
   onCancel?: () => void;
-  onSubmit?: (payload: AcknowledgementPayload) => void;
+  onSubmit?: (payload: AcknowledgementPayload) => void | Promise<void>;
+  isSubmitting?: boolean;
+  error?: string | null;
 }
 
 const priorityBadgeClass = (priority: Ticket["priority"]) => {
@@ -28,6 +30,8 @@ export default function AcknowledgementForm({
   ticket,
   onCancel,
   onSubmit,
+  isSubmitting = false,
+  error,
 }: AcknowledgementFormProps) {
   const [subject, setSubject] = useState(
     `We have received your complaint - ${ticket.ticketId.toLowerCase()}`,
@@ -195,11 +199,18 @@ export default function AcknowledgementForm({
         </span>
       </div>
 
+      {error && (
+        <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
+
       {/* Buttons */}
       <div className="flex justify-end gap-3 border-t border-[#E5E5E5] dark:border-[#4A4A4A] pt-3">
         <button
           type="button"
           onClick={onCancel}
+          disabled={isSubmitting}
           className="rounded-md border border-[#8EA3E8] dark:border-[#576CBC] px-5 py-2 text-[13px] font-medium text-[#576CBC] dark:text-[#8EA3E8] hover:bg-[#F1F4FF] dark:hover:bg-[#2F2F2F]"
         >
           Cancel
@@ -208,9 +219,10 @@ export default function AcknowledgementForm({
         <button
           type="button"
           onClick={handleSubmit}
-          className="rounded-md bg-[#576CBC] px-5 py-2 text-[13px] font-medium text-white hover:bg-[#4D61AD]"
+          disabled={isSubmitting}
+          className="rounded-md bg-[#576CBC] px-5 py-2 text-[13px] font-medium text-white hover:bg-[#4D61AD] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Send Acknowledgement
+          {isSubmitting ? "Updating..." : "Send Acknowledgement"}
         </button>
       </div>
     </div>
