@@ -317,3 +317,4 @@ export default function BaseLayout3({ children }: Props) {
     </PermissionsContext.Provider>
   );
 }
+//src/app/(super-admin)/super-admin/components/BaseSuperLayout.tsx

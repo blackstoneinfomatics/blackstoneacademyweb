@@ -74,20 +74,32 @@ export default function PurchaseUpdateModal({
         setError(null);
 
         try {
-            const token = localStorage.getItem("hillescape_token");
+            // 🚨 1. CHECK IF WINDOW IS UNDEFINED (SSR SAFETY)
+            if (typeof window === "undefined") {
+                throw new Error("Cannot access local storage on the server.");
+            }
+
+            const token = localStorage.getItem("AdminPortalToken");
             const tenantId = localStorage.getItem("tenantId") || localStorage.getItem("tenantCode");
             const activationMode = scheduleType === "immediate" ? "IMMEDIATE" : "NEXT_PLAN";
 
-            const userStr = localStorage.getItem("hillescape_user");
-            const requestedBy = userStr ? JSON.parse(userStr).id : "admin";
+            const userStr = localStorage.getItem("AdminPortalUserId");
 
-            const url = `${AppApiEndpoints.API_END_POINT}/update/purchase/${data.id}?activationMode=${activationMode}&requestedBy=${requestedBy}`;
+            // 🚨 2. CHECK FOR UNDEFINED VALUES IN LOCAL STORAGE
+            if (!tenantId || tenantId === "undefined" || tenantId === "null") {
+                throw new Error("Tenant ID is missing. Please log in again.");
+            }
+            if (!userStr || userStr === "undefined" || userStr === "null") {
+                throw new Error("User ID is missing. Please log in again.");
+            }
+
+            const url = `${AppApiEndpoints.API_END_POINT}/update/purchase/${data.id}?activationMode=${activationMode}&requestedBy=${userStr}`;
 
             const res = await fetch(url, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "tenantid": tenantId || "",
+                    "tenantid": tenantId,
                     ...(token ? { Authorization: `Bearer ${token}` } : {})
                 },
             });

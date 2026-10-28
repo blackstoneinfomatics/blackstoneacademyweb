@@ -195,17 +195,14 @@ const filterSidebarItems = (
     COMMON_SIDEBAR_ITEMS.includes(item.name),
   );
 
-  // Common items remain visible even if access data is not loaded yet.
   if (normalizedAccessMode !== "TRIAL" && normalizedAccessMode !== "TENANT") {
     return commonItems;
   }
 
-  // Trial tenants can see all configured sidebar items.
   if (normalizedAccessMode === "TRIAL") {
     return SidebarItems;
   }
 
-  // TENANT mode requires a valid enabled portal configuration.
   if (!access || access.tenantPortal?.isEnabled !== true) {
     return commonItems;
   }
@@ -244,7 +241,6 @@ const filterSidebarItems = (
       return enabledSubItems.length > 0;
     }
 
-    // A top-level sidebar link may map directly to a feature.
     return modules.some(
       (candidate) =>
         candidate.isEnabled === true &&
@@ -252,7 +248,6 @@ const filterSidebarItems = (
     );
   });
 
-  // Preserve only the enabled submenu links for each visible parent.
   return allowedItems.map((item) => {
     if (!item.subItems?.length) return item;
 
@@ -314,7 +309,6 @@ export default function Sidebar4() {
       }
     };
 
-    // The storage event does not fire in the same tab, so support a custom event too.
     const handleTenantAccessUpdated = () => loadSidebarAccess();
 
     window.addEventListener("storage", handleStorageChange);
@@ -322,10 +316,7 @@ export default function Sidebar4() {
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener(
-        "tenant-access-updated",
-        handleTenantAccessUpdated,
-      );
+      window.removeEventListener("tenant-access-updated", handleTenantAccessUpdated);
     };
   }, []);
 
@@ -353,127 +344,125 @@ export default function Sidebar4() {
 
   return (
     <div className="sidebar__wrapper bg-[#012A4A] dark:bg-[#1D1D1D] h-full w-full overflow-y-auto flex flex-col">
-      <aside className="sidebar bg-[#012A4A] dark:bg-[#1D1D1D] p-4 h-full flex flex-col">
-        <div className="flex justify-center align-middle gap-2">
-          <Image
-            src="/assets/images/blackstone.png"
-            width={150}
-            height={160}
-            className="h-[70px] w-auto sm:h-[84px] xl:h-[94px] object-contain"
-            alt="Blackstone logo"
-            priority
-          />
-        </div>
+      <div className="flex items-center justify-start px-4 pt-2 pb-1 shrink-0">
+        <Image
+          src="/assets/images/blackstone.png"
+          width={150}
+          height={160}
+          className="h-[70px] w-auto sm:h-[84px] xl:h-[94px] object-contain"
+          alt="Blackstone logo"
+          priority
+        />
+      </div>
 
-        <ul className="space-y-1.5 flex-1">
-          {visibleSidebarItems.map(({ name, href, icon: Icon, subItems }) => {
-            const isParentActive = currentPath === href;
-            const isChildActive = subItems?.some(
-              (subItem) => currentPath === subItem.href,
-            );
-            const isActive = isParentActive || isChildActive;
+      <ul className="space-y-2 flex-1 px-4 pb-4">
+        {visibleSidebarItems.map(({ name, href, icon: Icon, subItems }) => {
+          const isParentActive = currentPath === href;
+          const isChildActive = subItems?.some(
+            (subItem) => currentPath === subItem.href,
+          );
+          const isActive = isParentActive || isChildActive;
 
-            const itemContent = (
-              <div
-                className={`group flex w-full items-center gap-2 rounded px-2 py-2 text-[12px] transition-colors duration-200 sm:text-[13px] xl:text-[14px] ${
+          const itemContent = (
+            <div
+              className={`group flex w-full items-center gap-2 rounded px-2 py-2 text-[12px] transition-colors duration-200 sm:text-[13px] xl:text-[14px] ${
+                isActive
+                  ? "bg-[#576CBC] font-medium text-white"
+                  : "text-[#818790] hover:text-[#a0c4ff]"
+              }`}
+            >
+              <span
+                className={`flex w-5 items-center justify-center text-[18px] ${
                   isActive
-                    ? "bg-[#576CBC] font-medium text-white"
-                    : "text-[#818790] hover:text-[#a0c4ff]"
+                    ? "text-white"
+                    : "text-[#818790] group-hover:text-[#a0c4ff]"
                 }`}
               >
-                <span
-                  className={`flex w-5 items-center justify-center text-[18px] ${
-                    isActive
-                      ? "text-white"
-                      : "text-[#818790] group-hover:text-[#a0c4ff]"
-                  }`}
-                >
-                  {typeof Icon === "string" ? (
-                    <span className="relative w-5 h-5">
-                      <Image
-                        src={Icon}
-                        fill
-                        alt={`${name} icon`}
-                        className="object-contain"
-                        style={{
-                          filter: isActive
-                            ? iconFilters.active
-                            : iconFilters.inactive,
-                          transition: "filter 0.2s ease-in-out",
-                        }}
-                        onMouseEnter={(event) => {
-                          if (!isActive) {
-                            event.currentTarget.style.filter = iconFilters.hover;
-                          }
-                        }}
-                        onMouseLeave={(event) => {
-                          if (!isActive) {
-                            event.currentTarget.style.filter = iconFilters.inactive;
-                          }
-                        }}
-                      />
-                    </span>
-                  ) : (
-                    <Icon size={20} />
-                  )}
-                </span>
-
-                <span className="flex-1 text-left">{name}</span>
-
-                {subItems && (
-                  <span
-                    className={`transition-transform duration-200 ${
-                      expandedItem === name ? "rotate-180" : ""
-                    } ${isActive ? "text-white" : "text-[#818790] group-hover:text-[#a0c4ff]"}`}
-                  >
-                    <IoIosArrowDown size={18} />
+                {typeof Icon === "string" ? (
+                  <span className="relative w-5 h-5">
+                    <Image
+                      src={Icon}
+                      fill
+                      alt={`${name} icon`}
+                      className="object-contain"
+                      style={{
+                        filter: isActive
+                          ? iconFilters.active
+                          : iconFilters.inactive,
+                        transition: "filter 0.2s ease-in-out",
+                      }}
+                      onMouseEnter={(event) => {
+                        if (!isActive) {
+                          event.currentTarget.style.filter = iconFilters.hover;
+                        }
+                      }}
+                      onMouseLeave={(event) => {
+                        if (!isActive) {
+                          event.currentTarget.style.filter = iconFilters.inactive;
+                        }
+                      }}
+                    />
                   </span>
-                )}
-              </div>
-            );
-
-            return (
-              <li key={name}>
-                {subItems ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleSubItems(name)}
-                    className="w-full text-left"
-                  >
-                    {itemContent}
-                  </button>
                 ) : (
-                  <Link href={href} className="block no-underline">
-                    {itemContent}
-                  </Link>
+                  <Icon size={20} />
                 )}
+              </span>
 
-                {subItems && expandedItem === name && (
-                  <ul className="ml-7 mt-1 space-y-1">
-                    {subItems.map((subItem) => {
-                      const isSubActive = currentPath === subItem.href;
-                      return (
-                        <li key={subItem.name}>
-                          <Link
-                            href={subItem.href}
-                            className={`block rounded px-3 py-2 text-[11px] no-underline transition-colors duration-200 sm:text-[12px] xl:text-[13px] ${
-                              isSubActive
-                                ? "bg-[#576CBC] font-medium text-white"
-                                : "text-[#818790] hover:text-[#a0c4ff]"
-                            }`}
-                          >
-                            {subItem.name}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </aside>
+              <span className="flex-1 text-left">{name}</span>
+
+              {subItems && (
+                <span
+                  className={`transition-transform duration-200 ${
+                    expandedItem === name ? "rotate-180" : ""
+                  } ${isActive ? "text-white" : "text-[#818790] group-hover:text-[#a0c4ff]"}`}
+                >
+                  <IoIosArrowDown size={18} />
+                </span>
+              )}
+            </div>
+          );
+
+          return (
+            <li key={name}>
+              {subItems ? (
+                <button
+                  type="button"
+                  onClick={() => toggleSubItems(name)}
+                  className="w-full text-left"
+                >
+                  {itemContent}
+                </button>
+              ) : (
+                <Link href={href} className="block no-underline">
+                  {itemContent}
+                </Link>
+              )}
+
+              {subItems && expandedItem === name && (
+                <ul className="ml-7 mt-1 space-y-1">
+                  {subItems.map((subItem) => {
+                    const isSubActive = currentPath === subItem.href;
+                    return (
+                      <li key={subItem.name}>
+                        <Link
+                          href={subItem.href}
+                          className={`block rounded px-3 py-2 text-[11px] no-underline transition-colors duration-200 sm:text-[12px] xl:text-[13px] ${
+                            isSubActive
+                              ? "bg-[#576CBC] font-medium text-white"
+                              : "text-[#818790] hover:text-[#a0c4ff]"
+                          }`}
+                        >
+                          {subItem.name}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
