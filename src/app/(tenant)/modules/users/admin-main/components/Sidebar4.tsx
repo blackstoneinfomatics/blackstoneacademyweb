@@ -6,7 +6,8 @@ import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { RiDashboardFill } from "react-icons/ri";
 import { MdBookmarks, MdAnalytics } from "react-icons/md";
-import { LuMessagesSquare, LuLifeBuoy } from "react-icons/lu";
+import { LuMessagesSquare, LuLifeBuoy, LuTicketsPlane  } from "react-icons/lu";
+import { MdPublishedWithChanges } from "react-icons/md";
 import { PiBookOpenFill } from "react-icons/pi";
 import {
   IoMdSettings,
@@ -107,6 +108,16 @@ const SidebarItems: SidebarItem[] = [
     name: "Messages",
     href: "/modules/users/admin-main/ui/messagess",
     icon: LuMessagesSquare,
+  },
+  {
+    name: "Tickets",
+    href: "/modules/users/admin-main/ui/tickets",
+    icon: LuTicketsPlane,
+  },
+  {
+    name: "Updates",
+    href: "/modules/users/admin-main/ui/updates",
+    icon: MdPublishedWithChanges,
   },
   {
     name: "Settings",
