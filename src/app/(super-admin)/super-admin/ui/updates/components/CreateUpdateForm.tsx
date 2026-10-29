@@ -242,7 +242,7 @@ const CreateUpdateForm = ({
               <label className="block text-[12px] font-medium text-[#101B41] dark:text-white">Payment</label>
               <div className="flex items-end gap-3">
                 <div className="flex-1"><label className="mb-1 block text-[11px] text-gray-500 dark:text-gray-400">Monthly Price</label><input type="number" name="monthlyPrice" value={formData.monthlyPrice} onChange={onInputChange} placeholder="100" className={inputClassName} /></div>
-                <div className="w-[100px]"><label className="mb-1 block text-[11px] text-gray-500 dark:text-gray-400">Type</label><div className="relative"><input type="number" name="discount" value={formData.discount} onChange={onInputChange} placeholder="12" className={`${inputClassName} pr-8`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-[12px]">%</span></div></div>
+                <div className="w-[100px]"><label className="mb-1 block text-[11px] text-gray-500 dark:text-gray-400">Discount</label><div className="relative"><input type="number" name="discount" value={formData.discount} onChange={onInputChange} placeholder="12" className={`${inputClassName} pr-8`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-[12px]">%</span></div></div>
               </div>
             </div>
 
