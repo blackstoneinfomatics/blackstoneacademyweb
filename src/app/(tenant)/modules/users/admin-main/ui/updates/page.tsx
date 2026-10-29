@@ -226,7 +226,7 @@ const Updates = () => {
     };
 
     const handleConfirmPurchase = (scheduleType: string) => {
-        const newStatus = scheduleType === "immediate" ? "Purchased" : "Requested";
+        const newStatus = "PENDING_APPROVAL";
         setUpdatesData((prev) =>
             prev.map((u) => u.id === selectedItem?.id ? { ...u, purchaseStatus: newStatus } : u)
         );
