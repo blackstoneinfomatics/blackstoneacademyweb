@@ -28,7 +28,7 @@ interface ViewTicketModalProps {
 export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }: ViewTicketModalProps) {
     const [mounted, setMounted] = useState(false);
 
-    // Ensure this only runs on the client to prevent SSR errors
+    // Required for Next.js to ensure the Portal only runs on the client
     useEffect(() => {
         setMounted(true);
         return () => setMounted(false);
@@ -37,7 +37,6 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
     if (!ticket || !mounted) return null;
 
     const modalContent = (
-        // 🚨 OVERLAY: Covers the entire screen
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 dark:bg-black/70 p-4 m-0 backdrop-blur-sm">
             <div className="w-full max-w-[600px] max-h-[90vh] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] rounded-xl bg-white dark:bg-[#2C2C2C] shadow-2xl border border-transparent dark:border-[#444]">
 
@@ -155,4 +154,6 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 }
