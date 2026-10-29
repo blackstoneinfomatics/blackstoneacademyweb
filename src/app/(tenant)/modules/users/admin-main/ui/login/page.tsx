@@ -139,7 +139,7 @@ const SignIn: React.FC = () => {
 
   const signIn = async (username: string, password: string) => {
     const encrypted = CryptoJS.AES.encrypt(password, secretKey).toString();
-    console.log("Admin login: submitting encrypted password",encrypted);
+    console.log("Admin login: submitting encrypted password", encrypted);
     const response = await axios.post(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.AUTH.LOGIN}`, {
       username,
       password: encrypted,
@@ -149,58 +149,58 @@ const SignIn: React.FC = () => {
   };
 
 
-const fetchRoleBasedAccessControl = async (
-  tenantId: string,
-  token: string,
-  roleName: string,
-) => {
-  try {
-    console.log("Fetching role-based access control for tenant:", tenantId, "with role:", roleName);
-    const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANTACCESS.GET_ACCESS(tenantId)}`, {
+  const fetchRoleBasedAccessControl = async (
+    tenantId: string,
+    token: string,
+    roleName: string,
+  ) => {
+    try {
+      console.log("Fetching role-based access control for tenant:", tenantId, "with role:", roleName);
+      const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANTACCESS.GET_ACCESS(tenantId)}`, {
         params: {
-          roleName : "Admin",
+          roleName: "Admin",
         },
         headers: {
           "Content-Type": "application/json",
           // Authorization: `Bearer ${token}`,
         },
       },
-    );
-
-    if (response.status === 200 && response.data.success) {
-      const portalAccess = response.data.data;
-
-      console.log("Tenant Portal Access:", portalAccess);
-
-// When the tenant has a regular/paid subscription
-      localStorage.setItem("TenantAccessMode", response.data.data.accessMode);
-
-      // Store the complete portal access response
-      localStorage.setItem(
-        "TenantPortalAccess",
-        JSON.stringify(portalAccess),
       );
 
-      // Store modules separately if needed for sidebar rendering
-      localStorage.setItem(
-        "TenantPortalModules",
-        JSON.stringify(portalAccess.modules ?? []),
-      );
+      if (response.status === 200 && response.data.success) {
+        const portalAccess = response.data.data;
 
-      // Refresh the sidebar in the current tab as well, since storage events do not fire here.
-      window.dispatchEvent(new Event("tenant-access-updated"));
+        console.log("Tenant Portal Access:", portalAccess);
 
-      console.log("Tenant portal access stored successfully");
+        // When the tenant has a regular/paid subscription
+        localStorage.setItem("TenantAccessMode", response.data.data.accessMode);
 
-      return portalAccess;
+        // Store the complete portal access response
+        localStorage.setItem(
+          "TenantPortalAccess",
+          JSON.stringify(portalAccess),
+        );
+
+        // Store modules separately if needed for sidebar rendering
+        localStorage.setItem(
+          "TenantPortalModules",
+          JSON.stringify(portalAccess.modules ?? []),
+        );
+
+        // Refresh the sidebar in the current tab as well, since storage events do not fire here.
+        window.dispatchEvent(new Event("tenant-access-updated"));
+
+        console.log("Tenant portal access stored successfully");
+
+        return portalAccess;
+      }
+
+      throw new Error("Failed to fetch tenant portal access");
+    } catch (error) {
+      console.error("Error fetching tenant portal access:", error);
+      throw error;
     }
-
-    throw new Error("Failed to fetch tenant portal access");
-  } catch (error) {
-    console.error("Error fetching tenant portal access:", error);
-    throw error;
-  }
-};
+  };
 
   const setLoginError = (message: string) => {
     setError(message);
@@ -232,7 +232,7 @@ const fetchRoleBasedAccessControl = async (
       localStorage.setItem("AdminPortalName", userName);
       localStorage.setItem("AdminPortalEmail", userEmail);
       localStorage.setItem("AdminPortalRole", role);
-      localStorage.setItem("tenantId",tenantId);
+      localStorage.setItem("tenantId", tenantId);
 
       await fetchRoleBasedAccessControl(tenantId, accessToken, role);
 
@@ -559,49 +559,43 @@ const fetchRoleBasedAccessControl = async (
           <div className="relative z-10 flex flex-col justify-between w-full h-full px-4 sm:px-6 lg:px-10 py-6">
 
             {/* TOP CARD - Responsive */}
-            {/* TOP CARD */}
-            <div className="
-    bg-white rounded-xl shadow-lg
-    p-4 sm:p-5 lg:p-6
-    w-full 
-    max-w-sm sm:max-w-md lg:max-w-xl
-    mx-auto
-    mt-14 sm:mt-28 lg:mt-32
-  ">                <div className="flex flex-col md:flex-row items-center gap-4 sm:gap-6">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 lg:p-6 w-full max-w-sm sm:max-w-md lg:max-w-xl mx-auto mt-14 sm:mt-28 lg:mt-32">
+              <div className="flex flex-col md:flex-row items-center gap-4 sm:gap-6">
+
                 <div className="flex-1 text-left w-full">
-                  <h2 className=" text-lg sm:text-xl lg:text-[19px]
-          font-bold leading-snug 
-          text-[#576CBC]
-          mb-3 sm:mb-4 text-justify">
-                    Connecting You to Qur'an,<br />
-                    Arabic, and the Wisdom of<br />
-                    Islam
+                  {/* REMOVED text-justify AND <br /> TAGS HERE */}
+                  <h2 className="text-lg sm:text-xl lg:text-[19px] font-bold leading-snug text-[#576CBC] mb-3 sm:mb-4">
+                    Connecting You to Knowledge, Skills, and Lifelong Learning
                   </h2>
+
                   <p className="text-[#808080] text-xs sm:text-[14px] lg:text-[14px] leading-relaxed mb-4 sm:mb-6">
-                    And We have certainly made the Qur'an easy for remembrance, so is there is any who will remember ?
+                    Learning made simple, accessible, and meaningful — so every learner can grow with confidence and purpose.
                   </p>
+
                   <p className="text-[#808080] text-xs sm:text-sm lg:text-[16px] font-medium">
-                    Surah Al-Qamar (54:17)
+                    Knowledge for Every Journey
                   </p>
                 </div>
 
                 <div className="flex-shrink-0 w-full sm:w-auto">
                   <img
-                    src="/assets/images/close-up-hands-holding-diplomas-caps.svg"
+                    src="/assets/images/login-bg1.jpg"
                     alt="admin"
-                    className="w-40 h-40 sm:w-48 sm:h-48 lg:w-[245px] lg:h-[245px] object-cover rounded-xl mx-auto"
+                    className="w-70 h-70 sm:w-68 sm:h-68 lg:w-[280px] lg:h-[280px] object-cover rounded-xl mx-auto"
                   />
                 </div>
+
               </div>
             </div>
 
             {/* BOTTOM SECTION - Responsive */}
             <div className="text-center text-white mx-auto mt-3 sm:mt-6 mb-10">
-              <h2 className="text-lg sm:text-xl lg:text-[22px] font-semibold mb-2">Admin Dashboard</h2>
+              <h2 className="text-lg sm:text-xl lg:text-[22px] font-semibold mb-2">
+                Admin Dashboard
+              </h2>
 
-              <p className="text-[#CFD9E0] text-[20px] sm:text-sm leading-relaxed max-w-xs sm:max-w-md mx-auto mb-2 sm:mb-4">
-                Manage your entire educational platform with powerful administrative tools,
-                user management systems, and comprehensive analytics dashboards.
+              <p className="text-[#CFD9E0] text-xs sm:text-sm leading-relaxed max-w-xs sm:max-w-md mx-auto mb-2 sm:mb-4">
+                Manage your entire educational platform with powerful administrative tools, user management systems, and comprehensive analytics dashboards.
               </p>
 
               <div className="flex items-center justify-center gap-4 mt-8 sm:mt-16">
@@ -623,6 +617,7 @@ const fetchRoleBasedAccessControl = async (
                 </button>
               </div>
             </div>
+
           </div>
         </div>
       </div>
