@@ -10,6 +10,7 @@ import UpdateDetails from './components/UpdateDetails';
 import CreateUpdateForm, { UpdateFormData } from './components/CreateUpdateForm';
 import type { ProductUpdate, UpdateFeaturePayload, UpdatePriority, UpdateStatus } from './types';
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import OrganizationHeader, { OrganizationTab } from '../../components/OrganizationHeader';
 
 const DASHBOARD_CARDS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`;
 const UPDATES_TABLE_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_TABLE}`;
@@ -350,7 +351,8 @@ const categoryBadgeClass = (category: string) => {
   }
 };
 
-const page = () => {
+const Page = () => {
+  const [tab, setTab] = useState<OrganizationTab>("Institute");
   const [updateList, setUpdateList] = useState<ProductUpdate[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -765,11 +767,21 @@ const page = () => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
+
+
   return (
     <>
       <SuperAdminHeader currentSection="Updates" />
+                      <div>
+                  <OrganizationHeader
+          
+                    showTabs
+                    activeTab={tab}
+                    onTabChange={setTab} currentSection={""} />
+          
+                </div>
 
-      <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] px-4">
+      <div className="rounded-xl bg-[#f7f8fd] dark:bg-[#2e2e2e] px-4">
         <div className="flex items-center justify-between mt-2 py-2">
           <h2 className="text-[19px] font-semibold text-[#000] dark:text-[#fff] mb-0 px-2 py-3">
             Institute Updates
@@ -937,14 +949,14 @@ const page = () => {
                           </td>
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}
+                              className={`inline-block w-[110px] text-center px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}
                             >
                               {item.category}
                             </span>
                           </td>
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[12px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
+                              className={`inline-block w-[90px] text-center px-2 text-[12px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
                             >
                               {item.priority}
                             </span>
@@ -957,7 +969,7 @@ const page = () => {
                           </td>
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
+                              className={`inline-block w-[85px] text-center px-2 text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
                             >
                               {item.status}
                             </span>
@@ -1297,4 +1309,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default Page;

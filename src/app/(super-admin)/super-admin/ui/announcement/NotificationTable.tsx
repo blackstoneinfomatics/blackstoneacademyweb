@@ -12,6 +12,7 @@ type Notification = {
   requestId: string;
   tenantName: string;
   category: string;
+  notificationType: string;
   description: string;
   receivedDate: string;
   seenDate: string;
@@ -96,6 +97,11 @@ function normalizeRequest(
       ["category", "notificationCategory", "notificationType", "requestType", "type"],
       "-",
     ),
+    notificationType: getString(
+      record,
+      ["notificationType", "eventType", "type", "requestType"],
+      "",
+    ),
     description: getString(
       record,
       ["description", "messages", "message", "reason"],
@@ -106,6 +112,15 @@ function normalizeRequest(
     ),
     seenDate: formatDate(seenDateValue || storedSeenDate || ""),
   };
+}
+
+function getNotificationRoute(
+  notification: Pick<Notification, "notificationType" | "category">,
+): string | undefined {
+  return (
+    getNotificationTypeRoute(notification.notificationType) ??
+    getNotificationTypeRoute(notification.category)
+  );
 }
 
 function getRequestRows(payload: unknown): unknown[] {
@@ -412,7 +427,7 @@ export default function NotificationTable() {
   const processSelectedNotification = () => {
     if (!selectedNotification || isProcessingNotification) return;
 
-    const route = getNotificationTypeRoute(selectedNotification.category);
+    const route = getNotificationRoute(selectedNotification);
     if (route) {
       setIsProcessingNotification(true);
       router.push(route);
@@ -569,14 +584,14 @@ export default function NotificationTable() {
                     onClick={() =>
                       setOpenMenu(openMenu === item.id ? null : item.id)
                     }
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-[18px] leading-none text-[#646b75] hover:bg-[#e9edf5] dark:text-slate-300 dark:hover:bg-slate-700"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded text-[18px] leading-none text-[#646b75] hover:bg-[#e9edf5] dark:text-slate-300 dark:hover:bg-[#414141]"
                     aria-label="Open notification actions"
                   >
                     ⋮
                   </button>
 
                   {openMenu === item.id && (
-                    <div className="absolute right-10 top-6 z-50 w-full rounded-md border border-[#e5e7eb] bg-white shadow-lg dark:border-slate-700 dark:bg-[#2b2b2b]">
+                    <div className="absolute right-12 top-9 z-50 w-full rounded-md border border-[#e5e7eb] bg-white shadow-lg dark:border-[#515151] dark:bg-[#4a4a4a]">
                       <button
                         type="button"
                         onClick={() => void handleViewNotification(item)}
@@ -621,7 +636,7 @@ export default function NotificationTable() {
           type="button"
           disabled={currentPage === 1}
           onClick={() => setPage((previous) => Math.max(1, previous - 1))}
-          className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] border border-[#eeeeee] bg-[#f7f7f7] text-[15px] text-[#8793a5] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] border border-[#eeeeee] bg-[#f7f7f7] text-[15px] text-[#8793a5] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#4e4e4e] dark:bg-[#3c3c3c] dark:text-slate-300"
           aria-label="Previous page"
         >
           ‹
@@ -657,8 +672,8 @@ export default function NotificationTable() {
                 onClick={() => setPage(number)}
                 className={`h-[26px] min-w-[26px] rounded-[5px] border px-1 text-[10px] ${
                   currentPage === number
-                    ? "border-[#426ba5] bg-white text-[#244b83] dark:border-sky-400 dark:bg-slate-700 dark:text-sky-200"
-                    : "border-[#eeeeee] bg-[#f7f7f7] text-[#999] hover:bg-[#e9edf5] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    ? "border-[#426ba5] bg-white text-[#244b83] dark:border-[#7c7c7c] dark:bg-[#555555] dark:text-sky-200"
+                    : "border-[#eeeeee] bg-[#f7f7f7] text-[#999] hover:bg-[#e9edf5] dark:border-[#606060] dark:bg-[#414141] dark:text-slate-300 dark:hover:bg-slate-700"
                 }`}
               >
                 {number}
@@ -672,7 +687,7 @@ export default function NotificationTable() {
           onClick={() =>
             setPage((previous) => Math.min(totalPages, previous + 1))
           }
-          className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] border border-[#eeeeee] bg-[#f7f7f7] text-[15px] text-[#8793a5] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] border border-[#eeeeee] bg-[#f7f7f7] text-[15px] text-[#8793a5] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#4e4e4e] dark:bg-[#3c3c3c] dark:text-slate-300"
           aria-label="Next page"
         >
           ›
@@ -830,10 +845,10 @@ export default function NotificationTable() {
     onClick={() => setShowDetailsModal(false)}
   >
     <div
-      className="w-full max-w-[600px] rounded-[8px] border border-[#343b4d] bg-[#fff] p-[14px] shadow-2xl"
+      className="w-full max-w-[600px] rounded-[8px] border border-[#343b4d] dark:border-[#5d5d5d] bg-[#fff] dark:bg-[#343434] p-[14px] shadow-2xl"
       onClick={(e) => e.stopPropagation()}
     >
-      <h2 className="mb-[16px] text-[16px] font-semibold dark:text-white">
+      <h2 className="mb-[16px] text-[16px] font-semibold">
         Notifications Details
       </h2>
 
@@ -843,7 +858,7 @@ export default function NotificationTable() {
         </p>
       )}
 
-      <div className="rounded-[8px] border border-[#ccc] dark:border-[#343b4d] p-[13px]">
+      <div className="rounded-[8px] border border-[#ccc] dark:border-[#5d5d5d] p-[13px]">
         <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-3">
           <div>
             <label className="mb-[5px] block text-[13px] dark:text-[#d5dced] text-[#031230]">
@@ -853,7 +868,7 @@ export default function NotificationTable() {
               value={selectedNotification.category}
               readOnly
               title={selectedNotification.category}
-              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#41495c] dark:bg-[#222838] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
+              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#5d5d5d] dark:bg-[#2b2b2b] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
             />
           </div>
 
@@ -865,7 +880,7 @@ export default function NotificationTable() {
               value={selectedNotification.tenantName}
               readOnly
               title={selectedNotification.tenantName}
-              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#41495c] dark:bg-[#222838] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
+              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#5d5d5d] dark:bg-[#2b2b2b] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
             />
           </div>
 
@@ -876,12 +891,12 @@ export default function NotificationTable() {
             <input
               value={selectedNotification.receivedDate}
               readOnly
-              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#41495c] dark:bg-[#222838] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
+              className="h-[29px] w-full rounded-[4px] border border-[#ccc] dark:border-[#5d5d5d] dark:bg-[#2b2b2b] px-[8px] text-[10px] dark:text-[#e2e8f0] outline-none"
             />
           </div>
         </div>
 
-        <div className="mt-[11px] rounded-[8px] bg-[#F4F4F4] dark:bg-[#222735] p-[11px]">
+        <div className="mt-[11px] rounded-[8px] bg-[#F4F4F4] dark:bg-[#2b2b2b] p-[11px]">
           <h3 className="mb-[10px] text-[11px] font-medium dark:text-white text-[#010e30]">
             Requested Details
           </h3>
@@ -921,7 +936,7 @@ export default function NotificationTable() {
         <button
           type="button"
           onClick={() => setShowDetailsModal(false)}
-          className="h-[32px] min-w-[76px] rounded-[6px] border border-[#576CBC] bg-[#eff1f9] px-[17px] text-[11px] font-medium text-[#576cdc]"
+          className="h-[32px] min-w-[76px] rounded-[6px] border border-[#576CBC] dark:border-[#5d5d5d] bg-[#eff1f9] dark:bg-[#404040] px-[17px] text-[11px] font-medium text-[#576cdc] dark:text-[#fff]"
         >
           Cancel
         </button>
@@ -930,7 +945,7 @@ export default function NotificationTable() {
           onClick={processSelectedNotification}
           disabled={
             isProcessingNotification ||
-            !getNotificationTypeRoute(selectedNotification.category)
+              !getNotificationRoute(selectedNotification)
           }
           className="h-[32px] min-w-[76px] rounded-[6px] border border-[#5668a9] bg-[#576CBC] px-[17px] text-[11px] font-medium text-[#fff] disabled:cursor-not-allowed disabled:opacity-50"
           aria-live="polite"

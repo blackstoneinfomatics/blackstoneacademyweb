@@ -443,13 +443,13 @@ const TicketsTable = () => {
   }, [currentPage, totalPages]);
 
   return (
-    <div className="bg-[#fff] p-2 mt-4 rounded-xl shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:bg-[#1F1F1F]">
-      <h2 className="text-[19px] font-semibold text-[#000] dark:text-[#fff] mb-0 px-2 py-3">
+    <div className="bg-[#fff] p-2 mt-4 rounded-xl shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-xl dark:bg-[#343434]">
+      <h2 className="text-[16px] font-semibold text-[#000] dark:text-[#fff] mb-0 px-2 py-3">
         All Tickets
       </h2>
       <div className="overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3">
-          <div className="flex bg-[#fafafb] h-12 items-center border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F] md:border-b-0 md:border-r">
+          <div className="flex bg-[#fafafb] dark:bg-[#3b3b3b] h-12 items-center border-b border-[#E6EAF2] px-4 dark:border-[#3F3F3F] md:border-b-0 md:border-r">
             <Search size={17} className="text-[#A5AAB4] dark:text-[#B5B5B5]" />
             <input
               type="text"
@@ -460,7 +460,7 @@ const TicketsTable = () => {
             />
           </div>
 
-          <div className="bg-[#fafafb] border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:border-b-0 md:border-r">
+          <div className="bg-[#fafafb] dark:bg-[#3b3b3b] border-b border-[#E6EAF2] dark:border-[#3F3F3F] md:border-b-0 md:border-r">
             <button
               onClick={() => {
                 setDraftFilters(appliedFilters);
@@ -482,15 +482,15 @@ const TicketsTable = () => {
             </button>
           </div>
 
-          <div className="flex bg-[#fafafb] h-12 items-center px-4 text-sm text-[#80848E] dark:text-[#B5B5B5]">
+          <div className="flex bg-[#fafafb] dark:bg-[#3b3b3b] h-12 items-center px-4 text-sm text-[#80848E] dark:text-[#B5B5B5]">
             Showing {showingStart} of {filteredItems.length}
           </div>
         </div>
 
         <div className="overflow-x-auto scrollbar-none h-full">
-          <div className="h-[380px] rounded-b-xl scrollbar-none">
+          <div className="h-full rounded-b-xl scrollbar-none">
             <table className="min-w-full text-xs border-collapse table-fixed">
-              <thead className="text-[14px] bg-[#4C6993] text-white dark:bg-[#44699d]">
+              <thead className="text-[13px] bg-[#4C6993] text-white dark:bg-[#44699d]">
                 <tr>
                   {[
                     "Ticket ID",
@@ -542,14 +542,14 @@ const TicketsTable = () => {
                         <td className="py-4 px-2">{item.category}</td>
                         <td className="py-4 px-2">
                           <span
-                            className={`inline-flex w-[85px] justify-center px-2 text-[12px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
+                            className={`inline-flex w-[70px] justify-center px-2 text-[11px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
                           >
                             {item.priority}
                           </span>
                         </td>
                         <td className="py-4 px-2">
                           <span
-                            className={`inline-flex w-[105px] justify-center px-2 text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
+                            className={`inline-flex w-[95px] justify-center px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
                           >
                             {item.status}
                           </span>
@@ -566,13 +566,13 @@ const TicketsTable = () => {
                                   : item.ticketId,
                               )
                             }
-                            className="inline-flex text-[12px] max-w-full items-center gap-1 rounded-md px-2 py-1 text-left font-medium text-[#496A96] hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#576CBC] dark:text-[#B8D0FF] dark:hover:bg-gray-700"
+                            className="inline-flex text-[10px] max-w-full items-center gap-1 rounded-md px-2 py-1 text-left font-medium text-[#496A96] hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#576CBC] dark:text-[#B8D0FF] dark:hover:bg-gray-700"
                           >
                             <span className="truncate">
                               {item.currentAssignedRole || item.assignedTo}
                             </span>
                             <ChevronDown
-                              size={14}
+                              size={13}
                               className={
                                 openRoleFlow === item.ticketId
                                   ? "shrink-0 rotate-180 transition-transform"
@@ -600,7 +600,10 @@ const TicketsTable = () => {
                           {openMenu === item.ticketId && (
                             <div className="absolute right-4 top-12 z-50 w-32 rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
                               <button
-                                disabled={item.status !== "Open"}
+                                disabled={
+                                  item.status !== "Open" &&
+                                  item.status !== "Forwarded"
+                                }
                                 className="w-full border-b px-2 py-2 text-left text-[11px] hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:text-gray-300 dark:disabled:text-gray-600"
                                 onClick={() => {
                                   setOpenMenu(null);

@@ -28,8 +28,8 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
     if (!ticket) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3">
-            <div className="max-h-[95vh] w-full max-w-[600px] overflow-y-auto scrollbar-none rounded-xl bg-white dark:bg-[#2C2C2C] shadow-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-3">
+            <div className="max-h-[90vh] w-full max-w-[600px] overflow-y-auto scrollbar-none rounded-xl bg-white dark:bg-[#2C2C2C] shadow-2xl">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4">
                     <h2 className="text-[17px] font-semibold text-[#010e30] dark:text-white">Ticket Details</h2>
@@ -106,7 +106,7 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
                         </div>
                     </div>
 
-                    <div className="p-2 dark:bg-[#343434] dark:border-[#4A4A4A]">
+                    <div className="shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] border border-[#EAECF0] rounded-xl p-5 dark:bg-[#343434] dark:border-[#4A4A4A]">
                         <h3 className="text-[14px] font-medium text-[#192543] dark:text-gray-300 mb-4">Acknowledgement</h3>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-2">
@@ -124,9 +124,9 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
                             </div>
                             <div>
                                 <p className="text-[13px] text-[#010e30] dark:text-gray-400 mb-1">Status</p>
-                                <span className="text-[#076CCE] rounded text-[10px] font-medium">
+                                <p className="text-[#076CCE] rounded text-[10px] font-medium">
                                     {ticket.status}
-                                </span>
+                                </p>
                             </div>
                         </div>
                     </div>

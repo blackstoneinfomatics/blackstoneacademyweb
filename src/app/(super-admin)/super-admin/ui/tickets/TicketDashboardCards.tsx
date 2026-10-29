@@ -131,7 +131,7 @@ export default function TicketDashboardCards() {
           return (
             <div
               key={card.title}
-              className="rounded-2xl bg-[#fefefe] px-4 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:from-[#2c2c2c] dark:to-[#343434]"
+              className="rounded-2xl bg-[#ffffff] dark:bg-[#343434] px-4 py-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-xl"
             >
               <div className="flex items-start gap-4">
                 <div

@@ -55,7 +55,7 @@ export default function AcknowledgementForm({
   return (
     <div className="w-full max-w-[640px] rounded-lg bg-white dark:bg-[#343434] p-5 shadow-sm">
       {/* Title */}
-      <h2 className="mb-4 text-[20px] font-semibold text-[#172554] dark:text-white">
+      <h2 className="mb-4 text-[16px] font-semibold text-[#172554] dark:text-white">
         Acknowledgement
       </h2>
 
@@ -70,21 +70,21 @@ export default function AcknowledgementForm({
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">
               Ticket ID
             </p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.ticketId}
             </p>
           </div>
 
           <div>
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">Tenant</p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.tenantName}
             </p>
           </div>
 
           <div>
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">Subject</p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.subject}
             </p>
           </div>
@@ -105,7 +105,7 @@ export default function AcknowledgementForm({
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">
               Created On
             </p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.createdOn}
             </p>
           </div>

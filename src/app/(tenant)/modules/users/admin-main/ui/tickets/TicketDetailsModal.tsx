@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X, Download, FileText, ChevronDown, UploadCloud } from "lucide-react";
 import { toast } from "react-toastify";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
@@ -84,6 +85,7 @@ const resolveTenantId = (): string => {
 };
 
 export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorityBadgeClass }: TicketDetailsModalProps) {
+    const [isPortalReady, setIsPortalReady] = useState(false);
     const [actionType, setActionType] = useState(() =>
         ticket.status?.toLowerCase() === "open" ? "Acknowledge" : "Close Ticket",
     );
@@ -122,6 +124,10 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
         (actionType === "Acknowledge" && acknowledgeDisabled) ||
         (actionType === "Close Ticket" && resolveDisabled) ||
         (actionType === "Forward to Super Admin" && forwardDisabled);
+
+    useEffect(() => {
+        setIsPortalReady(true);
+    }, []);
 
     useEffect(() => {
         if (actionType !== "Forward to Super Admin") return;
@@ -194,7 +200,7 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
         return () => controller.abort();
     }, [actionType]);
 
-    if (!ticket) return null;
+    if (!ticket || !isPortalReady) return null;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -383,13 +389,14 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
         </div>
     );
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3">
-            <div className="max-h-[95vh] w-full max-w-[600px] overflow-y-auto scrollbar-none rounded-xl bg-white dark:bg-[#2C2C2C] shadow-2xl">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-3 backdrop-blur-md">
+            <div className="max-h-[95vh] w-full max-w-[600px] overflow-y-auto scrollbar-none p-3">
+                <div className="rounded-xl bg-white dark:bg-[#2C2C2C] shadow-xl">
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4">
-                    <h2 className="text-[18px] font-bold text-[#101828] dark:text-white">Ticket Details</h2>
+                    <h2 className="text-[16px] font-bold text-[#101828] dark:text-white">Ticket Details</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-800 dark:hover:text-white">
                         <X size={20} />
                     </button>
@@ -403,50 +410,50 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-2">
                             <div>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Ticket ID</p>
-                                <p className="text-[13px] font-medium text-[#101828] dark:text-white">{ticket.ticketId}</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Ticket ID</p>
+                                <p className="text-[11px] font-medium text-[#313b56] dark:text-white">{ticket.ticketId}</p>
                             </div>
                             <div>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Role</p>
-                                <p className="text-[13px] font-medium text-[#101828] dark:text-white">{ticket.role}</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Role</p>
+                                <p className="text-[12px] font-medium text-[#313b56] dark:text-white">{ticket.role}</p>
                             </div>
                             <div>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Name</p>
-                                <p className="text-[13px] font-medium text-[#101828] dark:text-white">{ticket.tenantName}</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Name</p>
+                                <p className="text-[12px] font-medium text-[#313b56] dark:text-white">{ticket.tenantName}</p>
                             </div>
                             <div>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Category</p>
-                                <p className="text-[13px] font-medium text-[#101828] dark:text-white">{ticket.category}</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Category</p>
+                                <p className="text-[10px] font-medium text-[#313b56] dark:text-white">{ticket.category}</p>
                             </div>
                             <div>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Priority</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Priority</p>
                                 <span className={`inline-block px-2 py-[2px] rounded text-[11px] font-medium ${priorityBadgeClass(ticket.priority)}`}>
                                     {ticket.priority}
                                 </span>
                             </div>
                             <div className="col-span-2">
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Subject</p>
-                                <p className="text-[13px] font-medium text-[#101828] dark:text-white">{ticket.subject}</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Subject</p>
+                                <p className="text-[11px] font-medium text-[#313b56] dark:text-white">{ticket.subject}</p>
                             </div>
                             <div>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Created On</p>
-                                <p className="text-[13px] font-medium text-[#101828] dark:text-white">{ticket.createdOn}</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Created On</p>
+                                <p className="text-[11px] font-medium text-[#313b56] dark:text-white">{ticket.createdOn}</p>
                             </div>
                             <div className="col-span-2 sm:col-span-4">
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Resolved</p>
-                                <p className="text-[13px] font-medium text-[#101828] dark:text-white">{ticket.resolvedOn}</p>
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Resolved</p>
+                                <p className="text-[11px] font-medium text-[#313b56] dark:text-white">{ticket.resolvedOn}</p>
                             </div>
                             <div className="col-span-2 sm:col-span-4">
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Description</p>
-                                <p className="text-[13px] text-[#475467] dark:text-gray-300 leading-relaxed">
-                                    {ticket.description || "I am unable to access the assignment page. It displays a '404 Page Not Found' error whenever I click the assignment link. Please investigate and resolve the issue as soon as possible."}
+                                <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-1">Description</p>
+                                <p className="text-[11px] text-[#475467] dark:text-gray-300 leading-relaxed">
+                                    {ticket.description || "-"}
                                 </p>
                             </div>
                         </div>
 
                         {/* Static Attachment Display */}
                         <div className="mt-4">
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Attachment</p>
+                            <p className="text-[12px] text-[#010e30] dark:text-gray-400 mb-2">Attachment</p>
                             <div className="flex items-center justify-between bg-white border border-[#EAECF0] rounded-lg p-3 dark:bg-[#2C2C2C] dark:border-[#555]">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded bg-red-50 flex items-center justify-center dark:bg-red-900/20">
@@ -656,6 +663,8 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                     </button>
                 </div>
             </div>
-        </div>
+            </div>
+        </div>,
+        document.body,
     );
 }

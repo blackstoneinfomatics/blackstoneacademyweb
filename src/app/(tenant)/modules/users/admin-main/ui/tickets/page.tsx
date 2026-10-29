@@ -18,7 +18,7 @@ export default function TicketsPage() {
 
       <div className="flex flex-col space-y-6">
         {/* Tabs */}
-        <div className="flex ml-4 items-center gap-4 border-b border-[#E6EAF2] dark:border-[#3F3F3F]">
+        <div className="flex ml-4 items-center gap-4">
           <button
             onClick={() => setActiveTab("received")}
             className={`relative pb-2 text-[14px] font-medium transition-colors ${

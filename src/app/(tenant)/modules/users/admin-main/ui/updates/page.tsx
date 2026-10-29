@@ -63,29 +63,29 @@ const authHeaders = (): HeadersInit => {
 
 const categoryBadgeClass = (category: string) => {
     switch (category?.toLowerCase()) {
-        case "feature release": return "bg-[#DDE9FF] text-[#3E6DB5]";
-        case "maintenance": return "bg-[#E4DAFF] text-[#6E4ED1]";
-        case "security update": return "bg-[#FCE4D6] text-[#C97C3A]";
-        case "bug fix": return "bg-[#E4DAFF] text-[#6E4ED1]";
-        default: return "bg-gray-100 text-gray-600";
+        case "feature release": return "bg-[#DDE9FF] text-[#3E6DB5] dark:bg-[#253B5B] dark:text-[#9FC5FF]";
+        case "maintenance": return "bg-[#E4DAFF] text-[#6E4ED1] dark:bg-[#392D5B] dark:text-[#C5B3FF]";
+        case "security update": return "bg-[#FCE4D6] text-[#C97C3A] dark:bg-[#593923] dark:text-[#FFC18A]";
+        case "bug fix": return "bg-[#E4DAFF] text-[#6E4ED1] dark:bg-[#392D5B] dark:text-[#C5B3FF]";
+        default: return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
     }
 };
 
 const statusBadgeClass = (status: string) => {
     switch (status?.toLowerCase()) {
-        case "published": return "bg-[#E5F5EA] text-[#3A8F4A]";
-        case "scheduled": return "bg-[#E0EDFF] text-[#3E6DB5]";
-        case "draft": return "bg-gray-100 text-gray-600";
-        default: return "bg-gray-100 text-gray-600";
+        case "published": return "bg-[#E5F5EA] text-[#3A8F4A] dark:bg-[#294A32] dark:text-[#72D889]";
+        case "scheduled": return "bg-[#E0EDFF] text-[#3E6DB5] dark:bg-[#253B5B] dark:text-[#9FC5FF]";
+        case "draft": return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+        default: return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
     }
 };
 
 const purchaseBadgeClass = (status: string) => {
     switch (status?.toLowerCase()) {
-        case "purchased": return "bg-[#E5F5EA] text-[#3A8F4A]";
-        case "not purchased": return "bg-[#F0F1F3] text-[#8A8F98]";
-        case "requested": return "bg-[#FDF2D9] text-[#C88C29]";
-        default: return "bg-gray-100 text-gray-600";
+        case "purchased": return "bg-[#E5F5EA] text-[#3A8F4A] dark:bg-[#294A32] dark:text-[#72D889]";
+        case "not purchased": return "bg-[#F0F1F3] text-[#8A8F98] dark:bg-[#414141] dark:text-[#C2C2C2]";
+        case "requested": return "bg-[#FDF2D9] text-[#C88C29] dark:bg-[#F0AD4E33] dark:text-[#FFC66D]";
+        default: return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
     }
 };
 
@@ -325,18 +325,18 @@ const Updates = () => {
                                                     <td className="py-4 px-2 font-medium">{item.updateTitle}</td>
                                                     <td className="py-4 px-2 truncate max-w-[200px]" title={item.description}>{item.description}</td>
                                                     <td className="py-4 px-2">
-                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}>
+                                                        <span className={`inline-block w-[100px] text-center px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}>
                                                             {item.category}
                                                         </span>
                                                     </td>
                                                     <td className="py-4 px-2">{item.publishDate}</td>
                                                     <td className="py-4 px-2">
-                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>
+                                                        <span className={`inline-block w-[90px] text-center px-2 text-[11px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}>
                                                             {item.status}
                                                         </span>
                                                     </td>
                                                     <td className="py-4 px-2">
-                                                        <span className={`px-2 text-[11px] py-[3px] rounded-md ${purchaseBadgeClass(item.purchaseStatus)}`}>
+                                                        <span className={`inline-block w-[130px] text-center px-2 text-[11px] py-[3px] rounded-md ${purchaseBadgeClass(item.purchaseStatus)}`}>
                                                             {item.purchaseStatus}
                                                         </span>
                                                     </td>

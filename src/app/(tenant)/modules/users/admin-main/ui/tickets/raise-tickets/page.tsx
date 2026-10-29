@@ -63,22 +63,22 @@ const INITIAL_FILTERS: FilterState = {
 
 const priorityBadgeClass = (priority: string) => {
     switch (priority?.toLowerCase()) {
-        case "high": return "bg-[#FCE4E4] text-[#D9534F]";
-        case "critical": return "bg-[#FCE4E4] text-[#D9534F]";
-        case "medium": return "bg-[#FDF2D9] text-[#C88C29]";
-        case "low": return "bg-[#E5F5EA] text-[#3A8F4A]";
-        default: return "bg-gray-100 text-gray-600";
+        case "high": return "bg-[#FCE4E4] text-[#D9534F] dark:bg-[#D3464533] dark:text-[#FF8B8B]";
+        case "critical": return "bg-[#FCE4E4] text-[#D9534F] dark:bg-[#D3464533] dark:text-[#FF8B8B]";
+        case "medium": return "bg-[#FDF2D9] text-[#C88C29] dark:bg-[#F0AD4E33] dark:text-[#FFC66D]";
+        case "low": return "bg-[#E5F5EA] text-[#3A8F4A] dark:bg-[#294A32] dark:text-[#72D889]";
+        default: return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
     }
 };
 
 const statusBadgeClass = (status: string) => {
     switch (status?.toLowerCase()) {
-        case "open": return "bg-[#E5F5EA] text-[#3A8F4A]";
-        case "pending": return "bg-[#FDF2D9] text-[#C88C29]";
-        case "acknowledged": return "bg-[#E0EDFF] text-[#3E6DB5]";
-        case "resolved": return "bg-[#E5F5EA] text-[#3A8F4A]";
-        case "in progress": return "bg-[#E0EDFF] text-[#3E6DB5]";
-        default: return "bg-gray-100 text-gray-600";
+        case "open": return "bg-[#E5F5EA] text-[#3A8F4A] dark:bg-[#294A32] dark:text-[#72D889]";
+        case "pending": return "bg-[#FDF2D9] text-[#C88C29] dark:bg-[#F0AD4E33] dark:text-[#FFC66D]";
+        case "acknowledged": return "bg-[#E0EDFF] text-[#3E6DB5] dark:bg-[#253B5B] dark:text-[#9FC5FF]";
+        case "resolved": return "bg-[#E5F5EA] text-[#3A8F4A] dark:bg-[#294A32] dark:text-[#72D889]";
+        case "in progress": return "bg-[#E0EDFF] text-[#3E6DB5] dark:bg-[#253B5B] dark:text-[#9FC5FF]";
+        default: return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
     }
 };
 
@@ -268,7 +268,7 @@ export default function RaiseTicketsContent() {
                                                     </button>
                                                     {openMenu === rowId && (
                                                         <div className="absolute right-16 top-12 z-50 w-full rounded-lg border border-gray-200 bg-white text-gray-800 shadow-lg dark:border-gray-700 dark:bg-[#2c2c2c] dark:text-gray-100">
-                                                            <button className="w-full text-[#010e30] border-b px-2 py-2 text-center text-[11px] hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setViewTicketModal(item); }}>
+                                                            <button className="w-full text-[#010e30] dark:text-[#fff] border-b px-2 py-2 text-center text-[11px] hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700" onClick={() => { setOpenMenu(null); setViewTicketModal(item); }}>
                                                                 View Details
                                                             </button>
                                                             <button className="w-full px-4 py-2 text-center text-[11px] text-[#98A2B3] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setOpenMenu(null)}>
@@ -290,7 +290,7 @@ export default function RaiseTicketsContent() {
             </div>
 
             {/* Pagination */}
-            <div className="flex justify-end gap-2 border-t border-[#E6EAF2] px-4 py-3 dark:border-[#3F3F3F]">
+            <div className="flex justify-end gap-2 px-4 py-3 dark:border-[#3F3F3F]">
                 <button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} disabled={currentPageSafe === 1} className="flex h-8 w-8 items-center justify-center rounded border border-[#E5E7EB] text-[#98A2B3] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#4A4A4A] dark:hover:bg-[#2F2F2F]">
                     <ChevronLeft size={18} />
                 </button>
