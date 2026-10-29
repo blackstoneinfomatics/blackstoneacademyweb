@@ -229,7 +229,7 @@ const AvailablePlans = () => {
       </div>
 
       {/* Pricing plans */}
-      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-3">
+      <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-3">
         {plans.map((plan) => {
           const isPopular = Boolean(plan.popular);
           const isSelected = selectedPlan === plan.id;
@@ -237,7 +237,7 @@ const AvailablePlans = () => {
           return (
             <div
               key={plan.id}
-              className={`min-w-0 rounded-[15px] p-2.5 transition-all duration-300 sm:p-3 ${
+              className={`flex h-full min-w-0 flex-col rounded-[15px] p-2.5 transition-all duration-300 sm:p-3 ${
                 isPopular
                   ? "bg-gradient-to-br from-[#596fc6] via-[#4259ae] to-[#253a83] shadow-md xl:-mt-0"
                   : "bg-[#e8edff] dark:bg-[#41465a]"
@@ -420,7 +420,7 @@ const AvailablePlans = () => {
               <button
                 type="button"
                 onClick={() => downloadFeatures(plan)}
-                className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-2 py-3 text-[11px] font-medium transition-all duration-200 sm:text-xs ${
+                className={`mt-auto flex w-full items-center justify-center gap-2 rounded-xl px-2 py-3 text-[11px] font-medium transition-all duration-200 sm:text-xs ${
                   isPopular
                     ? "bg-[#5369bd] text-white shadow-[0_4px_12px_rgba(16,29,79,0.2)] hover:bg-[#6479d1]"
                     : "bg-white text-[#5068c2] shadow-[0_4px_12px_rgba(30,48,100,0.12)] hover:bg-[#f7f8ff] dark:bg-[#414757] dark:text-white dark:hover:bg-[#4b5265]"

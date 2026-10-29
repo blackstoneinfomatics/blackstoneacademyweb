@@ -132,10 +132,10 @@ const Invoice = () => {
     `₹${amount.toLocaleString("en-IN")}`;
 
   return (
-    <div className="w-full min-w-0 rounded-xl bg-white p-4 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] transition-colors sm:p-6 dark:border-[#353a49] dark:bg-[#22252f] dark:shadow-xl">
+    <div>
 
       {/* Search and filter toolbar */}
-      <div className="relative mb-0 flex flex-col gap-2 rounded-t-lg border border-gray-200 bg-[#fafafa] sm:flex-row dark:border-[#3b4050] dark:bg-[#292d39]">
+      <div className="relative mb-0 flex flex-col gap-2 rounded-t-lg border border-gray-200 bg-[#fafafa] dark:bg-[#343434] sm:flex-row dark:border-[#3b4050]">
         <div className="relative flex min-w-0 flex-1 items-center">
           <Search
             size={18}
@@ -284,10 +284,10 @@ const Invoice = () => {
             {visibleInvoices.map((invoice, index) => (
               <tr
                 key={invoice.id}
-                className={`transition-colors hover:bg-blue-50/70 dark:hover:bg-[#343a49] ${
+                className={`transition-colors ${
                   index % 2 === 0
-                    ? "bg-white dark:bg-[#22252f]"
-                    : "bg-[#f7f7f7] dark:bg-[#292d39]"
+                    ? "bg-white dark:bg-[#2c2c2c]"
+                    : "bg-[#f7f7f7] dark:bg-[#303030]"
                 }`}
               >
                 <td className="whitespace-nowrap px-3 py-3.5 font-medium text-[#10204a] dark:text-gray-100">
