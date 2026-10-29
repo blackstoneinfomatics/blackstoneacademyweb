@@ -91,7 +91,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
     );
     const [acknowledgementMessage, setAcknowledgementMessage] = useState("");
 
-    // Form states for Resolve/Forward
     const [resolutionNote, setResolutionNote] = useState("");
     const [forwardSubject, setForwardSubject] = useState(ticket?.subject || "");
     const [forwardCategory, setForwardCategory] = useState("");
@@ -101,14 +100,12 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
     const [isLoadingSuperAdmins, setIsLoadingSuperAdmins] = useState(false);
     const [superAdminLoadError, setSuperAdminLoadError] = useState<string | null>(null);
 
-    // Attachment states
     const [file, setFile] = useState<{ name: string; size: string } | null>({
         name: "refund-request.pdf",
         size: "156 KB",
     });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Notification states
     const [sendEmail, setSendEmail] = useState(true);
     const [sendInApp, setSendInApp] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,7 +209,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
         }
     };
 
-    // Dynamic button text based on Action selection
     const getSubmitButtonText = () => {
         if (isSubmitting) return "Updating...";
         if (actionType === "Acknowledge") return "Acknowledgment";
@@ -274,7 +270,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                 },
             );
             const result: TicketActionResponse = await response.json();
-            // console.log(result, "what is the issue")
 
             if (!response.ok || result.success === false) {
                 const errorMessage = result.message ?? result.details ?? result.error;
@@ -309,7 +304,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
         }
     };
 
-    // Reusable render for the Attachment Upload field (Restored original SVG source)
     const renderAttachmentUpload = () => (
         <div className="w-full">
             <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">Attachment</label>
@@ -390,12 +384,13 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
     );
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-3 backdrop-blur-md">
-            <div className="max-h-[95vh] w-full max-w-[600px] overflow-y-auto scrollbar-none p-3">
-                <div className="rounded-xl bg-white dark:bg-[#2C2C2C] shadow-xl">
+        // 🚨 OUTER OVERLAY: Covers the entire screen exactly. Removed the wrapping padding div.
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 p-4 backdrop-blur-sm m-0">
+            {/* 🚨 MODAL CARD: Contains max-h, scrolling, and rounded corners */}
+            <div className="w-full max-w-[600px] max-h-[90vh] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] rounded-xl bg-white dark:bg-[#2C2C2C] shadow-xl border border-transparent dark:border-[#444]">
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4">
+                <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-white dark:bg-[#2C2C2C]">
                     <h2 className="text-[16px] font-bold text-[#101828] dark:text-white">Ticket Details</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-800 dark:hover:text-white">
                         <X size={20} />
@@ -403,7 +398,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                 </div>
 
                 <div className="px-6 pb-6 space-y-5">
-
                     {/* Top Info Card */}
                     <div className="bg-[#FAFAFA] border border-[#EAECF0] rounded-xl p-5 dark:bg-[#343434] dark:border-[#4A4A4A]">
                         <h3 className="text-[14px] font-semibold text-[#344054] dark:text-gray-300 mb-4">Ticket Information</h3>
@@ -539,7 +533,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                                 />
                             </div>
 
-                            {/* ⭐ Attachment & Notification Layout for Close Ticket */}
                             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
                                 {renderAttachmentUpload()}
                                 {renderNotification()}
@@ -598,22 +591,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                                         className="w-full px-3 py-2.5 border border-[#D0D5DD] rounded-lg text-[13px] text-[#101828] focus:outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#555] dark:text-white"
                                     />
                                 </div>
-                                {/* <div>
-                                    <label className="block text-[13px] font-medium text-[#344054] dark:text-gray-300 mb-1.5">Category</label>
-                                    <div className="relative">
-                                        <select
-                                            value={forwardCategory}
-                                            onChange={(e) => setForwardCategory(e.target.value)}
-                                            className="w-full appearance-none px-3 py-2.5 border border-[#D0D5DD] rounded-lg text-[13px] text-[#101828] focus:outline-none focus:border-[#576CBC] dark:bg-[#343434] dark:border-[#555] dark:text-white"
-                                        >
-                                            <option value="">Select category</option>
-                                            <option value="High">High</option>
-                                            <option value="Medium">Medium</option>
-                                            <option value="Low">Low</option>
-                                        </select>
-                                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none" />
-                                    </div>
-                                </div> */}
                             </div>
 
                             <div>
@@ -627,7 +604,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                                 />
                             </div>
 
-                            {/* ⭐ Attachment & Notification Layout for Forward */}
                             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
                                 {renderAttachmentUpload()}
                                 {renderNotification()}
@@ -647,7 +623,7 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#F0F1F4] dark:border-[#4A4A4A]">
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#F0F1F4] dark:border-[#4A4A4A] sticky bottom-0 bg-white dark:bg-[#2C2C2C]">
                     <button
                         onClick={onClose}
                         className="px-5 py-2 rounded-md border border-[#576CBC] text-[#576CBC] text-[13px] font-medium hover:bg-[#EEF2FB] transition-colors dark:border-[#7B92D9] dark:text-[#A8B7E8] dark:hover:bg-[#3A4570]"
@@ -662,7 +638,6 @@ export default function TicketDetailsModal({ ticket, onClose, onUpdated, priorit
                         {getSubmitButtonText()}
                     </button>
                 </div>
-            </div>
             </div>
         </div>,
         document.body,

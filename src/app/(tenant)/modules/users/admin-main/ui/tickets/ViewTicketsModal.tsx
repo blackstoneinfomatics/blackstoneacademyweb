@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Download, FileText } from "lucide-react";
 
 interface ViewTicket {
@@ -25,22 +26,32 @@ interface ViewTicketModalProps {
 }
 
 export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }: ViewTicketModalProps) {
-    if (!ticket) return null;
+    const [mounted, setMounted] = useState(false);
 
-    return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-3">
-            <div className="max-h-[90vh] w-full max-w-[600px] overflow-y-auto scrollbar-none rounded-xl bg-white dark:bg-[#2C2C2C] shadow-2xl">
+    // Ensure this only runs on the client to prevent SSR errors
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!ticket || !mounted) return null;
+
+    const modalContent = (
+        // 🚨 OVERLAY: Covers the entire screen
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 dark:bg-black/70 p-4 m-0 backdrop-blur-sm">
+            <div className="w-full max-w-[600px] max-h-[90vh] overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] rounded-xl bg-white dark:bg-[#2C2C2C] shadow-2xl border border-transparent dark:border-[#444]">
+
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4">
+                <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-white dark:bg-[#2C2C2C] border-b border-transparent dark:border-[#444]">
                     <h2 className="text-[17px] font-semibold text-[#010e30] dark:text-white">Ticket Details</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-800 dark:hover:text-white">
                         <X size={20} />
                     </button>
                 </div>
 
-                <div className="px-6 pb-6 space-y-6">
+                <div className="px-6 pb-6 space-y-6 pt-4">
                     {/* Top Info Card */}
-                    <div className="bg-[#f0f0f0] shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] border border-[#EAECF0] rounded-xl p-5 dark:bg-[#343434] dark:border-[#4A4A4A]">
+                    <div className="bg-[#FAFAFA] border border-[#EAECF0] rounded-xl p-5 dark:bg-[#343434] dark:border-[#4A4A4A]">
                         <h3 className="text-[14px] font-medium text-[#192543] dark:text-gray-300 mb-4">Ticket Information</h3>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-2">
@@ -75,10 +86,6 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
                                 <p className="text-[10px] font-medium text-[#313b56] dark:text-white">{ticket.createdOn}</p>
                             </div>
                             <div className="col-span-2 sm:col-span-4">
-                                <p className="text-[13px] text-[#010e30] dark:text-gray-400 mb-1">Subject</p>
-                                <p className="text-[10px] font-medium text-[#313b56] dark:text-white">{ticket.subject}</p>
-                            </div>
-                            <div className="col-span-2 sm:col-span-4">
                                 <p className="text-[13px] text-[#010e30] dark:text-gray-400 mb-1">Description</p>
                                 <p className="text-[10px] text-[#475467] dark:text-gray-300 leading-relaxed">
                                     {ticket.description || "I am unable to access the assignment page. It displays a '404 Page Not Found' error whenever I click the assignment link. Please investigate and resolve the issue as soon as possible."}
@@ -106,7 +113,8 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
                         </div>
                     </div>
 
-                    <div className="shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] border border-[#EAECF0] rounded-xl p-5 dark:bg-[#343434] dark:border-[#4A4A4A]">
+                    {/* Acknowledgement Card */}
+                    <div className="bg-[#FAFAFA] border border-[#EAECF0] rounded-xl p-5 dark:bg-[#343434] dark:border-[#4A4A4A]">
                         <h3 className="text-[14px] font-medium text-[#192543] dark:text-gray-300 mb-4">Acknowledgement</h3>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-2">
@@ -130,6 +138,8 @@ export default function ViewTicketModal({ ticket, onClose, priorityBadgeClass }:
                             </div>
                         </div>
                     </div>
+
+                    {/* Message */}
                     <div>
                         <h3 className="text-[14px] font-semibold text-[#344054] dark:text-gray-300 mb-2">Message</h3>
                         <textarea
