@@ -3,35 +3,39 @@
 import React, { useState, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MdTune } from "react-icons/md";
-import { FiDownload } from "react-icons/fi";
 import { Search, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
 interface Backup {
     id: string;
     tenant: string;
-    createdDate: string;
+    RequestDate: string;
     storage: string;
-    backupDate: string;
-    status: "Active" | "Inactive";
+    backupfromDate: string;
+    backuptodate: string;
+    status: "Success" | "Failed";
 }
 
 interface Filters {
     tenantName: string;
+    requestDate: string;
+    storage: string;
     status: string;
 }
 
+const toDateInputValue = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+};
+
 const MOCK_BACKUPS: Backup[] = [
-    { id: "1", tenant: "Blackstone Academy", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "2", tenant: "Alfurqan School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "3", tenant: "Bright Minds School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Inactive" },
-    { id: "4", tenant: "Smart School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "5", tenant: "Maple Leaf School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "6", tenant: "Green Valley School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "7", tenant: "International School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "8", tenant: "Royal School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "9", tenant: "Blossom School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Active" },
-    { id: "10", tenant: "Wisdom School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Inactive" },
-    { id: "11", tenant: "Global School", createdDate: "Sep, 12 2023", storage: "5.33 GB", backupDate: "Sep, 12 2023", status: "Inactive" },
+    { id: "1", tenant: "Blackstone Academy", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
+    { id: "2", tenant: "Alfurqan School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
+    { id: "3", tenant: "Bright Minds School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
+    { id: "4", tenant: "Smart School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
+    { id: "5", tenant: "Maple Leaf School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Failed" },
+    { id: "6", tenant: "Green Valley School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
+    { id: "7", tenant: "International School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
+    { id: "8", tenant: "Royal School", RequestDate: "Sep, 12 2023", storage:"5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" }
 ];
 
 
@@ -44,6 +48,8 @@ const AllBackupsTable = () => {
 
     const [filters, setFilters] = useState<Filters>({
         tenantName: "",
+        requestDate: "",
+        storage: "",
         status: "",
     });
 
@@ -51,17 +57,32 @@ const AllBackupsTable = () => {
 
     const filteredBackups = useMemo(() => {
         return MOCK_BACKUPS.filter((b) => {
-            const matchesSearch = b.tenant
-                .toLowerCase()
-                .includes(searchKeyword.toLowerCase());
+            const keyword = searchKeyword.trim().toLowerCase();
+            const matchesSearch =
+                !keyword ||
+                [
+                    b.tenant,
+                    b.backupfromDate,
+                    b.backuptodate,
+                    b.storage,
+                    b.status,
+                ].some((value) => value.toLowerCase().includes(keyword));
 
             const tenantFilter =
                 !filters.tenantName ||
                 b.tenant.toLowerCase().includes(filters.tenantName.toLowerCase());
 
+            const requestDateFilter =
+                !filters.requestDate ||
+                toDateInputValue(b.RequestDate) === filters.requestDate;
+
+            const storageFilter =
+                !filters.storage ||
+                b.storage.toLowerCase().includes(filters.storage.toLowerCase());
+
             const statusFilter = !filters.status || b.status === filters.status;
 
-            return matchesSearch && tenantFilter && statusFilter;
+            return matchesSearch && tenantFilter && requestDateFilter && storageFilter && statusFilter;
         });
     }, [searchKeyword, filters]);
 
@@ -84,13 +105,19 @@ const AllBackupsTable = () => {
             const tenantFilter =
                 !filters.tenantName ||
                 b.tenant.toLowerCase().includes(filters.tenantName.toLowerCase());
+            const requestDateFilter =
+                !filters.requestDate ||
+                toDateInputValue(b.RequestDate) === filters.requestDate;
+            const storageFilter =
+                !filters.storage ||
+                b.storage.toLowerCase().includes(filters.storage.toLowerCase());
             const statusFilter = !filters.status || b.status === filters.status;
-            return tenantFilter && statusFilter;
+            return tenantFilter && requestDateFilter && storageFilter && statusFilter;
         }).length;
     }, [filters]);
 
     const handleReset = () => {
-        setFilters({ tenantName: "", status: "" });
+        setFilters({ tenantName: "", requestDate: "", storage: "", status: "" });
     };
 
     const handleShowResults = (e: React.FormEvent) => {
@@ -145,17 +172,17 @@ const AllBackupsTable = () => {
                         <thead className="text-[13px] bg-[#4C6993] text-white">
                             <tr>
                                 {[
+                                    "Request Date",
                                     "Tenant",
-                                    "Created Date",
-                                    "Storage",
-                                    "Backup Date",
+                                    "Backup From Date",
+                                    "Backup To Date",
+                                    "Backup Storage",
                                     "Status",
-                                    "Backup",
                                     "Action",
                                 ].map((header, idx) => (
                                     <th
                                         key={idx}
-                                        className="px-10 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
+                                        className="px-8 py-1 border border-[#4C6993] dark:border-[#6A8AB0] text-left text-wrap break-words"
                                     >
                                         {header}
                                     </th>
@@ -173,42 +200,37 @@ const AllBackupsTable = () => {
                                     <tr
                                         key={item.id}
                                         className={`text-[10px] ${rowBgClass}`}
-                                    >
+                                    > 
+
+                                        <td className="px-8 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
+                                            {item.RequestDate}
+                                        </td>
+
                                         <td className="px-6 py-3 break-words text-[11px] text-left dark:text-white">
                                             {item.tenant}
                                         </td>
 
-                                        <td className="px-12 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
-                                            {item.createdDate}
+                                        <td className="px-10 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
+                                            {item.backupfromDate}
+                                        </td>
+
+                                        <td className="px-10 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
+                                            {item.backuptodate}
                                         </td>
 
                                         <td className="px-12 py-3 break-words text-[11px] text-left dark:text-white">
                                             {item.storage}
                                         </td>
 
-                                        <td className="px-10 py-3 text-[#3D8FDE] font-medium break-words text-[11px] text-left dark:text-sky-300">
-                                            {item.backupDate}
-                                        </td>
-
                                         <td className="px-8 py-3 break-words text-left">
                                             <span
-                                                className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${item.status === "Active"
+                                                className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${item.status === "Success"
                                                     ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300"
                                                     : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
                                                     }`}
                                             >
                                                 {item.status}
                                             </span>
-                                        </td>
-
-                                        <td className="px-6 py-3 text-left">
-                                            <button
-                                                type="button"
-                                                className="inline-flex items-center gap-1.5 rounded-md bg-[#EDEFFF] px-3 py-1.5 text-[11px] font-medium text-[#576CBC] hover:bg-[#DFE3FF] dark:bg-[#2E3658] dark:text-[#A8B7E8] dark:hover:bg-[#3A4570] transition-colors"
-                                            >
-                                                <FiDownload className="w-3.5 h-3.5" />
-                                                Download
-                                            </button>
                                         </td>
 
                                         <td className="px-14 py-3 text-left relative text-[14px]">
@@ -363,6 +385,41 @@ const AllBackupsTable = () => {
                             />
                         </div>
 
+                        <div className="mb-4">
+                            <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
+                                Request Date
+                            </label>
+                            <input
+                                type="date"
+                                value={filters.requestDate}
+                                onChange={(e) =>
+                                    setFilters((f) => ({
+                                        ...f,
+                                        requestDate: e.target.value,
+                                    }))
+                                }
+                                className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:focus:border-[#8296E6]"
+                            />
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
+                                Backup Storage
+                            </label>
+                            <input
+                                type="text"
+                                value={filters.storage}
+                                onChange={(e) =>
+                                    setFilters((f) => ({
+                                        ...f,
+                                        storage: e.target.value,
+                                    }))
+                                }
+                                placeholder="5.33 GB"
+                                className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#8296E6]"
+                            />
+                        </div>
+
                         <div className="mb-6">
                             <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
                                 Status
@@ -379,8 +436,8 @@ const AllBackupsTable = () => {
                                     className="w-full appearance-none rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 pr-9 text-[13px] text-[#101B41] focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:focus:border-[#8296E6]"
                                 >
                                     <option value="">All</option>
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Inactive</option>
+                                    <option value="Success">Success</option>
+                                    <option value="Failed">Failed</option>
                                 </select>
                                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                             </div>
@@ -454,14 +511,15 @@ const AllBackupsTable = () => {
                             </div>
 
                             {/* Created Date */}
-                            <div>
+                            {/* <div>
                                 <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
                                     Created Date
                                 </label>
                                 <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
                                     {viewedBackup.createdDate}
                                 </div>
-                            </div>
+                            </div> */}
+                            
 
                             {/* Storage */}
                             <div>
@@ -479,7 +537,7 @@ const AllBackupsTable = () => {
                                     Backup Date
                                 </label>
                                 <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedBackup.backupDate}
+                                    {viewedBackup.backuptodate}
                                 </div>
                             </div>
 
@@ -489,7 +547,7 @@ const AllBackupsTable = () => {
                                     Status
                                 </label>
                                 <div
-                                    className={`w-full rounded-md border border-[#D5D9E2] dark:border-[#555] bg-white dark:bg-[#3A3A3A] px-3 py-2.5 text-[13px] font-medium ${viewedBackup.status === "Active"
+                                    className={`w-full rounded-md border border-[#D5D9E2] dark:border-[#555] bg-white dark:bg-[#3A3A3A] px-3 py-2.5 text-[13px] font-medium ${viewedBackup.status === "Success"
                                         ? "text-green-600 dark:text-green-400"
                                         : "text-red-600 dark:text-red-400"
                                         }`}

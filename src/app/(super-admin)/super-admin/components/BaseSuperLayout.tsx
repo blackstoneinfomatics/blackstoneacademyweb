@@ -41,7 +41,7 @@ const SuperSidebarItems = [
     subItems: [
       { name: "Chat", href: "/super-admin/ui/chatandsupport" },
       { name: "Tickets", href: "/super-admin/ui/tickets" },
-      { name: "Announcement", href: "/super-admin/ui/announcement" },
+      { name: "Notifications", href: "/super-admin/ui/announcement" },
     ],
   },
   { name: "Updates", href: "/super-admin/ui/updates", icon: TfiReload },
