@@ -579,6 +579,7 @@ export default function AddNewTenant({ onClose, onSuccess }: Props) {
       fd.append("website", formData.website || "");
       fd.append("domainName", formData.domain || "");
       fd.append("status", formData.status || "");
+      fd.append("isBackup", String(formData.tenantBackup));
       fd.append("createdBy", formData.adminName || "");
       fd.append("lastUpdatedBy", formData.adminName || "");
       fd.append("adminName", formData.adminName || "");

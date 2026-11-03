@@ -45,6 +45,7 @@ type UpdateTenantProps = {
     landMark: string;
     pincode: string;
     companyRegistrationCertificate: string;
+    isBackup?: boolean;
   };
   readonly onClose: () => void;
   readonly onSave: (data: {
@@ -69,6 +70,7 @@ type UpdateTenantProps = {
     pincode: string;
     comments: string;
     companyRegistrationCertificate: string;
+    isBackup: boolean;
   }) => void;
 };
 
@@ -137,6 +139,7 @@ type TenantUpdatePayload = {
   pincode: string;
   comments: string;
   companyRegistrationCertificate: string;
+  isBackup: boolean;
 };
 
 const fetchAvailablePlans = async (): Promise<AvailablePlan[]> => {
@@ -452,6 +455,7 @@ export default function UpdateTenant({
     street: tenant.street || "",
     landMark: tenant.landMark || "",
     pincode: tenant.pincode || "",
+    tenantBackup: tenant.isBackup ?? false,
     adminName: tenant.tenantName || "",
     adminEmail: tenant.email || "",
     adminPhone: tenant.phoneNumber || "",
@@ -625,6 +629,7 @@ export default function UpdateTenant({
       pincode: formData.pincode,
       comments: formData.comments,
       companyRegistrationCertificate: formData.companyRegistrationCertificate,
+      isBackup: formData.tenantBackup,
     };
 
     try {
@@ -661,7 +666,7 @@ export default function UpdateTenant({
       requestData.append("adminEmail", formData.adminEmail);
       requestData.append("adminPhone", formData.adminPhone);
       requestData.append("designation", "Tenant Admin");
-      requestData.append("tenantBackup", String(formData.tenantBackup));
+      requestData.append("isBackup", String(formData.tenantBackup));
 
       if (formData.logo) {
         requestData.append("tenantLogo", formData.logo, formData.logo.name);

@@ -44,6 +44,7 @@ interface TenantType {
   pincode: string;
   isNew: boolean;
   companyRegistrationCertificate: string;
+  isBackup: boolean;
 }
 
 const NEW_TENANT_WINDOW_DAYS = 30;
@@ -154,6 +155,7 @@ const page = () => {
               pincode: item.postalCode || item.pincode || "",
               companyRegistrationCertificate:
                 item.companyRegistrationCertificate || "",
+              isBackup: item.isBackup === true,
               isNew,
             };
           },
@@ -801,6 +803,7 @@ const page = () => {
                       companyRegistrationCertificate:
                         formData.companyRegistrationCertificate ||
                         item.companyRegistrationCertificate,
+                      isBackup: formData.isBackup,
                     }
                     : item,
                 ),
