@@ -64,6 +64,8 @@ export const AppApiEndpoints = {
     GET_INVOICE_CARD_COUNT: "/subscription-invoices/dashboard-count",
     GET_INVOICE_TABLE: "/subscription-invoices",
     GET_FINANCE_TRANSATIONS: "/finance/transactions",
+    GET_FINANCE_TRANSACTION_BY_ID: (tenantId: string, transactionId: string) =>
+      `/finance/transactions/tenant/${encodeURIComponent(tenantId)}/${encodeURIComponent(transactionId)}`,
     GET_FINANCE_TRANSATION_CARDS: "/finance/transactions/cards",
   },
 
@@ -364,6 +366,7 @@ export const AppApiEndpoints = {
 
   PLAN: {
     CREATE_PLAN: "/plans",
+    CREATE_PLAN_CHANGE_REQUEST: "/plan-change-request",
     GET_ACTIVE_PLANS: "/api/plans/active",
     PLAN_CARD_COUNT: "/plans/dashboard",
     PLAN_ACTIVITY: "/plans/dashboard",
@@ -385,6 +388,8 @@ export const AppApiEndpoints = {
   },
   TENANT: {
     GET_TENANT: "/tenant",
+    GET_TENANT_SUBSCRIPTION: (tenantId: string) =>
+      `/tenant-subscription/${encodeURIComponent(tenantId)}`,
     GET_USERS_BY_ROLE: (tenantId: string, role: string) =>
       `/tenant/${encodeURIComponent(tenantId)}/users?role=${encodeURIComponent(role)}`,
     CREATE_TENANT: "/tenant",

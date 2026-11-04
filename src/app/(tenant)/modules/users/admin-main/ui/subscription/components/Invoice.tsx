@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   SlidersHorizontal,
@@ -21,6 +22,7 @@ import { toast } from "react-toastify";
 
 type InvoiceStatus = "Paid" | "Unpaid";
 type InvoiceType = "Subscription" | "Custom Service";
+type ActionMenuPosition = { top: number; left: number };
 
 interface InvoiceData {
   id: number | string;
@@ -43,6 +45,7 @@ const Invoice = () => {
   const [typeFilter, setTypeFilter] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
   const [activeMenu, setActiveMenu] = useState<number | string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<ActionMenuPosition | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Modal States
@@ -58,9 +61,13 @@ const Invoice = () => {
 
     try {
       const token = localStorage.getItem("AdminAuthToken"); // Assuming you use this
+      const tenantId = localStorage.getItem("tenantId");
+      if (!tenantId) {
+        throw new Error("Tenant ID not found. Please log in again.");
+      }
 
       const response = await fetch(
-        `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}/finance/transactions`,
+        `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}/finance/transactions/tenant/${encodeURIComponent(tenantId)}`,
         {
           method: "GET",
           headers: {
@@ -129,6 +136,39 @@ const Invoice = () => {
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
+
+  useEffect(() => {
+    if (activeMenu === null) return;
+
+    const closeMenu = () => {
+      setActiveMenu(null);
+      setActionMenuPosition(null);
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        !target.closest("[data-invoice-action-menu]") &&
+        !target.closest("[data-invoice-action-trigger]")
+      ) {
+        closeMenu();
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+    };
+  }, [activeMenu]);
 
   // --- FILTERING & PAGINATION ---
   const filteredInvoices = useMemo(() => {
@@ -394,30 +434,58 @@ const Invoice = () => {
                   <td className="relative px-3 py-2.5 text-center">
                     <button
                       type="button"
+                      data-invoice-action-trigger
                       aria-label={`Actions for ${invoice.invoiceNo}`}
                       aria-expanded={activeMenu === invoice.id}
-                      onClick={() =>
-                        setActiveMenu((previous) =>
-                          previous === invoice.id ? null : invoice.id
-                        )
-                      }
+                      onClick={(event) => {
+                        if (activeMenu === invoice.id) {
+                          setActiveMenu(null);
+                          setActionMenuPosition(null);
+                          return;
+                        }
+
+                        const bounds = event.currentTarget.getBoundingClientRect();
+                        const menuHeight = 132;
+                        const menuWidth = 192;
+                        const gap = 8;
+                        const top =
+                          bounds.bottom + menuHeight + gap <= window.innerHeight
+                            ? bounds.bottom + gap
+                            : Math.max(8, bounds.top - menuHeight - gap);
+                        const left = Math.max(
+                          8,
+                          Math.min(bounds.right - menuWidth, window.innerWidth - menuWidth - 8),
+                        );
+
+                        setActionMenuPosition({ top, left });
+                        setActiveMenu(invoice.id);
+                      }}
                       className="rounded-md p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-[#454a5a] dark:hover:text-white"
                     >
                       <MoreVertical size={17} />
                     </button>
 
-                    {activeMenu === invoice.id && (
-                      <div className="absolute right-6 top-10 z-20 w-48 rounded-lg border border-gray-200 bg-white p-1.5 text-left shadow-xl dark:border-[#454a5a] dark:bg-[#292d39]">
+                    {activeMenu === invoice.id && actionMenuPosition &&
+                      createPortal(
+                      <div
+                        data-invoice-action-menu
+                        className="z-50 w-48 rounded-lg border border-gray-200 bg-white p-1.5 text-left shadow-xl dark:border-[#454a5a] dark:bg-[#292d39]"
+                        style={{
+                          position: "fixed",
+                          top: actionMenuPosition.top,
+                          left: actionMenuPosition.left,
+                        }}
+                      >
                         {/* View Details Action */}
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedInvoiceForView(invoice);
                             setActiveMenu(null);
+                            setActionMenuPosition(null);
                           }}
                           className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
                         >
-                          <Eye size={15} />
                           View details
                         </button>
 
@@ -427,13 +495,24 @@ const Invoice = () => {
                           onClick={() => {
                             setSelectedInvoiceForRefund(invoice);
                             setActiveMenu(null);
+                            setActionMenuPosition(null);
                           }}
                           className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
                         >
-                          <RotateCcw size={15} />
                           Refund
                         </button>
-                      </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveMenu(null);
+                            setActionMenuPosition(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
+                        >
+                          Cancel
+                        </button>
+                      </div>,
+                      document.body,
                     )}
                   </td>
                 </tr>

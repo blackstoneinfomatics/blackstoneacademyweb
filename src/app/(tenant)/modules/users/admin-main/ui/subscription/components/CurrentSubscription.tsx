@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CalendarDays,
   CreditCard,
@@ -14,28 +14,127 @@ import {
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { toast } from "react-toastify";
 
+interface BillingPeriod {
+  billingPeriod?: string;
+  duration?: number;
+  price?: number;
+  gstRate?: number;
+  taxAmount?: number;
+  totalAmount?: number;
+}
+
+interface SubscriptionModule {
+  moduleName: string;
+  portalName?: string;
+  features?: { featureName: string }[];
+  children?: { childModuleName: string }[];
+}
+
+interface TenantSubscription {
+  billingCycle?: number;
+  status?: string;
+  nextRenewalDate?: string;
+  price?: number;
+  plan?: {
+    planName?: string;
+    planDescription?: string;
+    studentLimit?: number;
+    userLimit?: number;
+    billingPeriods?: BillingPeriod[];
+    modules?: SubscriptionModule[];
+  };
+}
+
+const formatCurrency = (amount?: number) =>
+  `₹${(amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatDate = (dateValue?: string) => {
+  if (!dateValue) return "N/A";
+  const date = new Date(dateValue);
+  return Number.isNaN(date.getTime())
+    ? "N/A"
+    : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 const CurrentSubscription = () => {
-  const adminFeatures = [
-    "Manage Students", "Manage Teachers", "Teacher Salary",
-    "Student Attendance", "Fees Management", "Reports",
-  ];
-
-  const studentFeatures = [
-    "View Profile", "View Timetable", "Attendance",
-    "Study Materials", "Assignments", "Exam Results",
-  ];
-
-  const teacherFeatures = [
-    "Manage Classes", "Student Attendance", "Assignments",
-    "Student Attendance", "Study Materials", "Marks Entry",
-  ];
-
   // --- STATE ---
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [subscription, setSubscription] = useState<TenantSubscription | null>(null);
+  const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchSubscription = async () => {
+      const tenantId = localStorage.getItem("tenantId");
+      if (!tenantId) {
+        setSubscriptionError("Tenant ID not found. Please sign in again.");
+        setIsSubscriptionLoading(false);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem("AdminAuthToken");
+        const response = await fetch(
+          `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TENANT.GET_TENANT_SUBSCRIPTION(tenantId)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            signal: controller.signal,
+          },
+        );
+        const result: {
+          success: boolean;
+          message?: string;
+          data?: TenantSubscription;
+        } = await response.json();
+
+        if (!response.ok || !result.success || !result.data) {
+          throw new Error(result.message || "Failed to fetch subscription details.");
+        }
+
+        setSubscription(result.data);
+      } catch (fetchError) {
+        if (controller.signal.aborted) return;
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Unable to load subscription details.";
+        setSubscriptionError(message);
+        toast.error(message);
+      } finally {
+        if (!controller.signal.aborted) setIsSubscriptionLoading(false);
+      }
+    };
+
+    fetchSubscription();
+    return () => controller.abort();
+  }, []);
+
+  const plan = subscription?.plan;
+  const billingPeriod =
+    plan?.billingPeriods?.find((period) => period.duration === subscription?.billingCycle) ??
+    plan?.billingPeriods?.[0];
+  const renewalDate = subscription?.nextRenewalDate;
+  const renewalTimestamp = renewalDate ? new Date(renewalDate).getTime() : Number.NaN;
+  const renewalDaysLeft = Number.isNaN(renewalTimestamp)
+    ? null
+    : Math.max(0, Math.ceil((renewalTimestamp - Date.now()) / 86400000));
+  const portalFeatures = (plan?.modules ?? []).reduce<Record<string, string[]>>((groups, module) => {
+    const portalName = module.portalName || "Included Features";
+    const moduleFeatures = [
+      module.moduleName,
+      ...(module.features ?? []).map((feature) => feature.featureName),
+      ...(module.children ?? []).map((child) => child.childModuleName),
+    ];
+    groups[portalName] = [...(groups[portalName] ?? []), ...moduleFeatures];
+    return groups;
+  }, {});
 
   // --- DYNAMIC DATES (Defaults to current month/year) ---
   const today = new Date();
@@ -136,6 +235,11 @@ const CurrentSubscription = () => {
 
   return (
     <div className="rounded-xl bg-white dark:bg-[#2e2e2e] p-3 shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-lg">
+      {subscriptionError && (
+        <p role="alert" className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {subscriptionError}
+        </p>
+      )}
       {/* Top Cards */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.8fr_0.9fr_0.9fr]">
         {/* Current Plan */}
@@ -150,12 +254,18 @@ const CurrentSubscription = () => {
           </div>
           <div className="ml-3 min-w-0">
             <p className="text-[11px] text-white/90">Current Plan</p>
-            <h2 className="mt-1 text-[17px] font-semibold">Enterprise</h2>
+            <h2 className="mt-1 text-[17px] font-semibold">
+              {isSubscriptionLoading ? "Loading..." : plan?.planName || "No plan"}
+            </h2>
             <p className="mt-1 max-w-[420px] text-[10px] leading-[14px] text-white/90">
-              Our most powerful subscription plan designed for large organizations with advanced features, higher resource limits, and priority support.
+              {plan?.planDescription || "Your current subscription plan and included features."}
             </p>
           </div>
-          <span className="absolute right-3 top-3 rounded bg-[#dff8dc] px-2 py-[3px] text-[9px] font-medium text-[#36a53a]">Active</span>
+          {subscription?.status && (
+            <span className="absolute right-3 top-3 rounded bg-[#dff8dc] px-2 py-[3px] text-[9px] font-medium text-[#36a53a]">
+              {subscription.status}
+            </span>
+          )}
         </div>
 
         {/* Billing Cycle */}
@@ -165,8 +275,14 @@ const CurrentSubscription = () => {
           </div>
           <div className="ml-4">
             <p className="text-[14px] text-gray-500 dark:text-gray-300">Billing Cycle</p>
-            <h3 className="mt-1 text-[19px] font-semibold text-[#292929] dark:text-white">Monthly</h3>
-            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-300">₹4,999 / Month</p>
+            <h3 className="mt-1 text-[19px] font-semibold text-[#292929] dark:text-white">
+              {billingPeriod?.billingPeriod || (subscription?.billingCycle ? `${subscription.billingCycle} months` : "N/A")}
+            </h3>
+            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-300">
+              {isSubscriptionLoading
+                ? "Loading price..."
+                : `${formatCurrency(billingPeriod?.price ?? subscription?.price)}${billingPeriod?.duration ? ` / ${billingPeriod.duration} month(s)` : ""}`}
+            </p>
           </div>
         </div>
 
@@ -177,8 +293,12 @@ const CurrentSubscription = () => {
           </div>
           <div className="ml-4">
             <p className="text-[14px] text-gray-500 dark:text-gray-300">Renewal Date</p>
-            <h3 className="mt-1 text-[18px] font-semibold text-[#292929] dark:text-white">28 Aug 2026</h3>
-            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-300">23 days left</p>
+            <h3 className="mt-1 text-[18px] font-semibold text-[#292929] dark:text-white">
+              {formatDate(renewalDate)}
+            </h3>
+            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-300">
+              {renewalDaysLeft === null ? "Renewal date unavailable" : `${renewalDaysLeft} days left`}
+            </p>
           </div>
         </div>
       </div>
@@ -188,8 +308,8 @@ const CurrentSubscription = () => {
         <div className="rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-lg dark:bg-[#343434] bg-white p-3">
           <h3 className="text-[14px] font-semibold text-[#10204a] dark:text-white">Usage & Limits</h3>
           <div className="mt-4 space-y-3">
-            <UsageRow icon={<GraduationCap className="h-4 w-4" />} label="Students" percentage="72%" value="420 / 500" />
-            <UsageRow icon={<Users className="h-4 w-4" />} label="Users" percentage="72%" value="420 / 500" />
+            <UsageRow icon={<GraduationCap className="h-4 w-4" />} label="Student limit" value={plan?.studentLimit === undefined ? "N/A" : String(plan.studentLimit)} />
+            <UsageRow icon={<Users className="h-4 w-4" />} label="User limit" value={plan?.userLimit === undefined ? "N/A" : String(plan.userLimit)} />
           </div>
           <div className="mt-4 flex items-center rounded-md bg-[#e5ebff] px-3 py-2 dark:bg-[#25324b]">
             <Info className="h-3.5 w-3.5 text-[#536abf] dark:text-[#a9baff]" />
@@ -200,10 +320,20 @@ const CurrentSubscription = () => {
         <div className="rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-lg dark:bg-[#343434] bg-white p-3">
           <h3 className="text-[14px] font-semibold text-[#10204a] dark:text-white">Subscription Summary</h3>
           <div className="mt-4">
-            <SummaryRow label="Plan Price" value="₹4,237.29" />
-            <SummaryRow label="GST (18%)" value="₹761.71" />
-            <SummaryRow label="Total Amount" value="₹4,999.00" bold />
-            <SummaryRow label="Next Billing Date" value="25 Aug 2026" />
+            <SummaryRow label="Plan Price" value={formatCurrency(billingPeriod?.price ?? subscription?.price)} />
+            <SummaryRow
+              label={`GST${billingPeriod?.gstRate === undefined ? "" : ` (${billingPeriod.gstRate}%)`}`}
+              value={formatCurrency(billingPeriod?.taxAmount)}
+            />
+            <SummaryRow
+              label="Total Amount"
+              value={formatCurrency(
+                billingPeriod?.totalAmount ??
+                  ((billingPeriod?.price ?? subscription?.price ?? 0) + (billingPeriod?.taxAmount ?? 0)),
+              )}
+              bold
+            />
+            <SummaryRow label="Next Billing Date" value={formatDate(renewalDate)} />
           </div>
         </div>
       </div>
@@ -213,9 +343,15 @@ const CurrentSubscription = () => {
         <div className="rounded-lg shadow-[0_6.36px_19.09px_0_rgba(153,153,153,0.15)] dark:shadow-lg dark:bg-[#343434] bg-white p-3">
           <h3 className="text-[14px] font-semibold text-[#10204a] dark:text-white">Included Portal & Features</h3>
           <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FeatureColumn title="Admin" features={adminFeatures} />
-            <FeatureColumn title="Students" features={studentFeatures} />
-            <FeatureColumn title="Teachers" features={teacherFeatures} />
+            {Object.entries(portalFeatures).length > 0 ? (
+              Object.entries(portalFeatures).map(([portalName, features]) => (
+                <FeatureColumn key={portalName} title={portalName} features={features} />
+              ))
+            ) : (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {isSubscriptionLoading ? "Loading included features..." : "No features are listed for this plan."}
+              </p>
+            )}
           </div>
         </div>
 
@@ -293,18 +429,13 @@ const CurrentSubscription = () => {
 
 // --- HELPER COMPONENTS ---
 
-interface UsageRowProps { icon: React.ReactNode; label: string; percentage: string; value: string; }
-const UsageRow = ({ icon, label, percentage, value }: UsageRowProps) => {
+interface UsageRowProps { icon: React.ReactNode; label: string; value: string; }
+const UsageRow = ({ icon, label, value }: UsageRowProps) => {
   return (
     <div className="flex items-center">
       <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#e8edff] text-[#526dc8] dark:bg-[#29334d] dark:text-[#a9baff]">{icon}</div>
-      <span className="ml-3 w-[95px] text-[13px] text-[#18213c] dark:text-[#e5e7eb]">{label}</span>
-      <div className="flex flex-1 items-center gap-3">
-        <div className="h-[10px] flex-1 overflow-hidden rounded-full bg-[#c5d0ed] dark:bg-[#515b70]">
-          <div className="h-full rounded-full bg-[#5870c5]" style={{ width: percentage }} />
-        </div>
-        <span className="w-[62px] text-right text-[12px] text-[#101a3c] dark:text-[#e5e7eb]">{value}</span>
-      </div>
+      <span className="ml-3 flex-1 text-[13px] text-[#18213c] dark:text-[#e5e7eb]">{label}</span>
+      <span className="text-right text-[12px] font-medium text-[#101a3c] dark:text-[#e5e7eb]">{value}</span>
     </div>
   );
 };
