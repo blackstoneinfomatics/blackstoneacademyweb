@@ -15,9 +15,11 @@ interface Backup {
     backupfromDate: string;
     backuptodate: string;
     status: string;
+    additionalNotes?: string;
 }
 
 interface TenantBackupRecord {
+    additionalNotes?: string;
     _id: string;
     backupId?: string;
     createdAt?: string;
@@ -80,6 +82,7 @@ const mapBackup = (backup: TenantBackupRecord): Backup => ({
     backupfromDate: formatDate(backup.dateRange?.fromDate),
     backuptodate: formatDate(backup.dateRange?.toDate),
     status: backup.status || "UNKNOWN",
+    additionalNotes: backup.additionalNotes || "",
 });
 
 const formatStatus = (status: string) =>
@@ -566,14 +569,14 @@ const AllBackupsTable = () => {
                             </div>
 
                             {/* Created Date */}
-                            {/* <div>
+                            <div>
                                 <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
                                     Created Date
                                 </label>
                                 <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedBackup.createdDate}
+                                    {viewedBackup.RequestDate}
                                 </div>
-                            </div> */}
+                            </div>
                             
 
                             {/* Storage */}
@@ -592,11 +595,12 @@ const AllBackupsTable = () => {
                                     Backup Date
                                 </label>
                                 <div className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white">
-                                    {viewedBackup.backuptodate}
+                                    {viewedBackup.backupfromDate}
                                 </div>
                             </div>
 
                             {/* Status */}
+
                             <div className="sm:col-span-1">
                                 <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
                                     Status
@@ -616,7 +620,21 @@ const AllBackupsTable = () => {
                                 >
                                 {formatStatus(viewedBackup.status)}
                                 </div>
+                            </div><br/>
+
+                            <div className="sm:col-span-2">
+                                <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
+                                    Description
+                                </label>
+                                <textarea
+                                    value={viewedBackup.additionalNotes ?? ""}
+                                    readOnly
+                                    rows={4}
+                                    placeholder="No additional notes"
+                                    className="w-full resize-none rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white"
+                                />
                             </div>
+
                         </div>
                     </div>
                 </div>
