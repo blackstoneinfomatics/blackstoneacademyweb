@@ -160,7 +160,7 @@ const PlanChangeRequestModal = ({
             )}
 
             <label className="block text-[13px] font-medium text-[#101b3d] dark:text-[#e5e7eb]">
-              Plan Start Plan
+              Plan Starts from
               <input
                 aria-label="Plan Start Plan"
                 className="mt-[5px] h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[9px] text-[10px] text-[#253252] outline-none focus:border-[#5870c5] dark:border-[#555] dark:bg-[#252525] dark:text-white"

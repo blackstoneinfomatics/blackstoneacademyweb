@@ -104,6 +104,11 @@ const SidebarItems: SidebarItem[] = [
     href: "/modules/users/admin-main/ui/analytics",
     icon: MdAnalytics,
   },
+   {
+    name: "Subscriptions",
+    href: "/modules/users/admin-main/ui/subscription",
+    icon: MdAnalytics,
+  },
   {
     name: "Messages",
     href: "/modules/users/admin-main/ui/messagess",

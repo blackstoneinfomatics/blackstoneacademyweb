@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -10,17 +9,21 @@ import {
   ChevronRight,
   MoreVertical,
   Eye,
-  Pencil,
-  Trash2,
-  CheckCircle2,
+  RotateCcw,
   X,
+  Loader2,
 } from "lucide-react";
+import InvoiceDetailsModal from "./InvoiceDetailsModal";
+import RefundModal from "./RefundModal";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import { toast } from "react-toastify";
+
 
 type InvoiceStatus = "Paid" | "Unpaid";
 type InvoiceType = "Subscription" | "Custom Service";
 
 interface InvoiceData {
-  id: number;
+  id: number | string;
   invoiceNo: string;
   type: InvoiceType;
   description: string;
@@ -30,43 +33,104 @@ interface InvoiceData {
   status: InvoiceStatus;
 }
 
-const initialInvoices: InvoiceData[] = Array.from(
-  { length: 50 },
-  (_, index) => {
-    const invoiceNumber = index + 1;
-
-    return {
-      id: invoiceNumber,
-      invoiceNo:
-        invoiceNumber <= 3
-          ? `INV-${String(invoiceNumber).padStart(3, "0")}`
-          : `TKT-${String(invoiceNumber - 3).padStart(3, "0")}`,
-      type: invoiceNumber === 2 ? "Custom Service" : "Subscription",
-      description:
-        invoiceNumber === 2
-          ? "Attendance Feature"
-          : "Premium Plan – Monthly",
-      amount: 15000,
-      invoiceDate: "Sep, 12 2023",
-      dueDate: "Sep, 12 2023",
-      status: invoiceNumber === 2 ? "Unpaid" : "Paid",
-    };
-  }
-);
-
 const Invoice = () => {
-  const [invoices, setInvoices] = useState<InvoiceData[]>(initialInvoices);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
-  const [activeMenu, setActiveMenu] = useState<number | null>(null);
+  const [activeMenu, setActiveMenu] = useState<number | string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedInvoice, setSelectedInvoice] =
-    useState<InvoiceData | null>(null);
+
+  // Modal States
+  const [selectedInvoiceForView, setSelectedInvoiceForView] = useState<InvoiceData | null>(null);
+  const [selectedInvoiceForRefund, setSelectedInvoiceForRefund] = useState<InvoiceData | null>(null);
 
   const pageSize = 10;
 
+  // 🚨 FETCH DATA FROM API
+  const fetchTransactions = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem("AdminAuthToken"); // Assuming you use this
+
+      const response = await fetch(
+        `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}/finance/transactions`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to fetch transactions.");
+      }
+
+      // 🚨 MAP BACKEND DATA TO FRONTEND TABLE STRUCTURE
+      const mappedInvoices: InvoiceData[] = result.data.items.map((item: any) => {
+        // Map paymentType to your frontend types
+        const mappedType: InvoiceType =
+          item.paymentType === "CUSTOM_SERVICE" ? "Custom Service" : "Subscription";
+
+        // Map paymentStatus to your frontend status
+        const mappedStatus: InvoiceStatus =
+          item.paymentStatus === "SUCCESS" ? "Paid" : "Unpaid";
+
+        // Extract description safely
+        const description =
+          item.paymentType === "CUSTOM_SERVICE"
+            ? "Custom Service Payment"
+            : item.subscriptionPlan?.planName
+              ? `${item.subscriptionPlan.planName} Plan – ${item.subscription?.duration || 1} Month(s)`
+              : "Subscription Payment";
+
+        return {
+          id: item.transactionId || item.paymentNumber,
+          invoiceNo: item.invoice?.invoiceNumber || item.paymentNumber,
+          type: mappedType,
+          description: description,
+          amount: item.amount,
+          invoiceDate: new Date(item.paymentDate).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+          dueDate: item.invoice?.dueDate
+            ? new Date(item.invoice.dueDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+            : "N/A",
+          status: mappedStatus,
+        };
+      });
+
+      setInvoices(mappedInvoices);
+    } catch (err: any) {
+      console.error("API Error:", err);
+      setError(err.message || "An unexpected error occurred.");
+      toast.error(err.message || "Failed to load transactions.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  // --- FILTERING & PAGINATION ---
   const filteredInvoices = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -76,7 +140,7 @@ const Invoice = () => {
         invoice.type,
         invoice.description,
         invoice.status,
-      ].some((value) => value.toLowerCase().includes(query));
+      ].some((value) => value?.toLowerCase().includes(query));
 
       const matchesStatus =
         statusFilter === "All" || invoice.status === statusFilter;
@@ -100,27 +164,6 @@ const Invoice = () => {
     safePage * pageSize
   );
 
-  const updateStatus = (id: number) => {
-    setInvoices((previous) =>
-      previous.map((invoice) =>
-        invoice.id === id
-          ? {
-              ...invoice,
-              status: invoice.status === "Paid" ? "Unpaid" : "Paid",
-            }
-          : invoice
-      )
-    );
-    setActiveMenu(null);
-  };
-
-  const deleteInvoice = (id: number) => {
-    setInvoices((previous) =>
-      previous.filter((invoice) => invoice.id !== id)
-    );
-    setActiveMenu(null);
-  };
-
   const resetFilters = () => {
     setStatusFilter("All");
     setTypeFilter("All");
@@ -133,7 +176,6 @@ const Invoice = () => {
 
   return (
     <div>
-
       {/* Search and filter toolbar */}
       <div className="relative mb-0 flex flex-col gap-2 rounded-t-lg border border-gray-200 bg-[#fafafa] dark:bg-[#343434] sm:flex-row dark:border-[#3b4050]">
         <div className="relative flex min-w-0 flex-1 items-center">
@@ -179,9 +221,8 @@ const Invoice = () => {
             <span>Filter</span>
             <ChevronDown
               size={15}
-              className={`ml-auto transition-transform ${
-                showFilters ? "rotate-180" : ""
-              }`}
+              className={`ml-auto transition-transform ${showFilters ? "rotate-180" : ""
+                }`}
             />
           </button>
 
@@ -252,13 +293,21 @@ const Invoice = () => {
         </div>
 
         <div className="flex h-10 items-center border-t border-gray-200 px-3 text-xs text-gray-500 sm:h-11 sm:w-[33%] sm:border-l sm:border-t-0 dark:border-[#3b4050] dark:text-gray-400">
-          Showing{" "}
-          {filteredInvoices.length === 0
-            ? 0
-            : (safePage - 1) * pageSize + 1}
-          {"–"}
-          {Math.min(safePage * pageSize, filteredInvoices.length)} of{" "}
-          {filteredInvoices.length}
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" /> Loading...
+            </span>
+          ) : (
+            <>
+              Showing{" "}
+              {filteredInvoices.length === 0
+                ? 0
+                : (safePage - 1) * pageSize + 1}
+              {"–"}
+              {Math.min(safePage * pageSize, filteredInvoices.length)} of{" "}
+              {filteredInvoices.length}
+            </>
+          )}
         </div>
       </div>
 
@@ -281,105 +330,115 @@ const Invoice = () => {
           </thead>
 
           <tbody>
-            {visibleInvoices.map((invoice, index) => (
-              <tr
-                key={invoice.id}
-                className={`transition-colors ${
-                  index % 2 === 0
+            {isLoading ? (
+              // SKELETON LOADER
+              Array.from({ length: 5 }).map((_, index) => (
+                <tr
+                  key={index}
+                  className={`transition-colors ${index % 2 === 0
                     ? "bg-white dark:bg-[#2c2c2c]"
                     : "bg-[#f7f7f7] dark:bg-[#303030]"
-                }`}
-              >
-                <td className="whitespace-nowrap px-3 py-3.5 font-medium text-[#10204a] dark:text-gray-100">
-                  {invoice.invoiceNo}
-                </td>
+                    }`}
+                >
+                  {Array.from({ length: 8 }).map((__, j) => (
+                    <td key={j} className="px-3 py-4">
+                      <div className="h-4 w-full animate-pulse rounded bg-gray-200 dark:bg-[#454545]" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : visibleInvoices.length > 0 ? (
+              visibleInvoices.map((invoice, index) => (
+                <tr
+                  key={invoice.id}
+                  className={`transition-colors ${index % 2 === 0
+                    ? "bg-white dark:bg-[#2c2c2c]"
+                    : "bg-[#f7f7f7] dark:bg-[#303030]"
+                    }`}
+                >
+                  <td className="whitespace-nowrap px-3 py-3.5 font-medium text-[#10204a] dark:text-gray-100">
+                    {invoice.invoiceNo}
+                  </td>
 
-                <td className="whitespace-nowrap px-3 py-3.5 text-[#10204a] dark:text-gray-200">
-                  {invoice.type}
-                </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 text-[#10204a] dark:text-gray-200">
+                    {invoice.type}
+                  </td>
 
-                <td className="whitespace-nowrap px-3 py-3.5 text-[#10204a] dark:text-gray-300">
-                  {invoice.description}
-                </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 text-[#10204a] dark:text-gray-300">
+                    {invoice.description}
+                  </td>
 
-                <td className="whitespace-nowrap px-3 py-3.5 font-medium text-[#10204a] dark:text-gray-100">
-                  {formatAmount(invoice.amount)}
-                </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 font-medium text-[#10204a] dark:text-gray-100">
+                    {formatAmount(invoice.amount)}
+                  </td>
 
-                <td className="whitespace-nowrap px-3 py-3.5 text-[#426da8] dark:text-blue-300">
-                  {invoice.invoiceDate}
-                </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 text-[#426da8] dark:text-blue-300">
+                    {invoice.invoiceDate}
+                  </td>
 
-                <td className="whitespace-nowrap px-3 py-3.5 text-[#426da8] dark:text-blue-300">
-                  {invoice.dueDate}
-                </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 text-[#426da8] dark:text-blue-300">
+                    {invoice.dueDate}
+                  </td>
 
-                <td className="px-3 py-3.5">
-                  <span
-                    className={`inline-flex min-w-[60px] items-center justify-center rounded-md px-3 py-1.5 text-[10px] font-medium ${
-                      invoice.status === "Paid"
+                  <td className="px-3 py-3.5">
+                    <span
+                      className={`inline-flex min-w-[60px] items-center justify-center rounded-md px-3 py-1.5 text-[10px] font-medium ${invoice.status === "Paid"
                         ? "bg-[#eafbf1] text-[#23803d] dark:bg-[#183c2b] dark:text-[#70e49a]"
                         : "bg-[#fff0d9] text-[#d98200] dark:bg-[#49351d] dark:text-[#ffc46b]"
-                    }`}
-                  >
-                    {invoice.status}
-                  </span>
-                </td>
+                        }`}
+                    >
+                      {invoice.status}
+                    </span>
+                  </td>
 
-                <td className="relative px-3 py-2.5 text-center">
-                  <button
-                    type="button"
-                    aria-label={`Actions for ${invoice.invoiceNo}`}
-                    aria-expanded={activeMenu === invoice.id}
-                    onClick={() =>
-                      setActiveMenu((previous) =>
-                        previous === invoice.id ? null : invoice.id
-                      )
-                    }
-                    className="rounded-md p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-[#454a5a] dark:hover:text-white"
-                  >
-                    <MoreVertical size={17} />
-                  </button>
+                  <td className="relative px-3 py-2.5 text-center">
+                    <button
+                      type="button"
+                      aria-label={`Actions for ${invoice.invoiceNo}`}
+                      aria-expanded={activeMenu === invoice.id}
+                      onClick={() =>
+                        setActiveMenu((previous) =>
+                          previous === invoice.id ? null : invoice.id
+                        )
+                      }
+                      className="rounded-md p-1.5 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-[#454a5a] dark:hover:text-white"
+                    >
+                      <MoreVertical size={17} />
+                    </button>
 
-                  {activeMenu === invoice.id && (
-                    <div className="absolute right-6 top-10 z-20 w-48 rounded-lg border border-gray-200 bg-white p-1.5 text-left shadow-xl dark:border-[#454a5a] dark:bg-[#292d39]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setActiveMenu(null);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
-                      >
-                        <Eye size={15} />
-                        View details
-                      </button>
+                    {activeMenu === invoice.id && (
+                      <div className="absolute right-6 top-10 z-20 w-48 rounded-lg border border-gray-200 bg-white p-1.5 text-left shadow-xl dark:border-[#454a5a] dark:bg-[#292d39]">
+                        {/* View Details Action */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedInvoiceForView(invoice);
+                            setActiveMenu(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
+                        >
+                          <Eye size={15} />
+                          View details
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => updateStatus(invoice.id)}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
-                      >
-                        <CheckCircle2 size={15} />
-                        Mark as{" "}
-                        {invoice.status === "Paid" ? "unpaid" : "paid"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => deleteInvoice(invoice.id)}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                      >
-                        <Trash2 size={15} />
-                        Delete invoice
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-
-            {visibleInvoices.length === 0 && (
+                        {/* Refund Action */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedInvoiceForRefund(invoice);
+                            setActiveMenu(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
+                        >
+                          <RotateCcw size={15} />
+                          Refund
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
               <tr className="bg-white dark:bg-[#22252f]">
                 <td
                   colSpan={8}
@@ -387,10 +446,10 @@ const Invoice = () => {
                 >
                   <Search size={24} className="mx-auto mb-3 opacity-50" />
                   <p className="font-medium text-gray-700 dark:text-gray-200">
-                    No invoices found
+                    {error ? "Failed to load data." : "No invoices found"}
                   </p>
                   <p className="mt-1">
-                    Try changing your search or filter criteria.
+                    {error ? error : "Try changing your search or filter criteria."}
                   </p>
                   <button
                     type="button"
@@ -421,7 +480,7 @@ const Invoice = () => {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            disabled={safePage === 1}
+            disabled={safePage === 1 || isLoading}
             onClick={() => {
               setCurrentPage((page) => Math.max(1, page - 1));
               setActiveMenu(null);
@@ -451,11 +510,10 @@ const Invoice = () => {
                     setActiveMenu(null);
                   }}
                   aria-current={safePage === page ? "page" : undefined}
-                  className={`min-w-9 rounded-lg px-3 py-2 text-xs font-medium transition ${
-                    safePage === page
-                      ? "bg-[#4c6995] text-white"
-                      : "border border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-[#3b4050] dark:text-gray-300 dark:hover:bg-[#343947]"
-                  }`}
+                  className={`min-w-9 rounded-lg px-3 py-2 text-xs font-medium transition ${safePage === page
+                    ? "bg-[#4c6995] text-white"
+                    : "border border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-[#3b4050] dark:text-gray-300 dark:hover:bg-[#343947]"
+                    }`}
                 >
                   {page}
                 </button>
@@ -464,7 +522,7 @@ const Invoice = () => {
 
           <button
             type="button"
-            disabled={safePage === totalPages}
+            disabled={safePage === totalPages || isLoading}
             onClick={() => {
               setCurrentPage((page) => Math.min(totalPages, page + 1));
               setActiveMenu(null);
@@ -477,97 +535,28 @@ const Invoice = () => {
         </div>
       </div>
 
-      {/* Invoice details dialog */}
-      {selectedInvoice && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-          onClick={() => setSelectedInvoice(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="invoice-dialog-title"
-            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-[#454a5a] dark:bg-[#292d39]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-blue-50 p-3 dark:bg-[#343e55]">
-                  <Pencil
-                    size={20}
-                    className="text-[#4c6995] dark:text-blue-300"
-                  />
-                </div>
-                <div>
-                  <h3
-                    id="invoice-dialog-title"
-                    className="font-semibold text-gray-900 dark:text-white"
-                  >
-                    Invoice details
-                  </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {selectedInvoice.invoiceNo}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedInvoice(null)}
-                aria-label="Close invoice details"
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-[#3a4050]"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {/* --- MODALS --- */}
 
-            <div className="space-y-4">
-              <DetailRow label="Invoice number" value={selectedInvoice.invoiceNo} />
-              <DetailRow label="Type" value={selectedInvoice.type} />
-              <DetailRow label="Description" value={selectedInvoice.description} />
-              <DetailRow label="Amount" value={formatAmount(selectedInvoice.amount)} />
-              <DetailRow label="Invoice date" value={selectedInvoice.invoiceDate} />
-              <DetailRow label="Due date" value={selectedInvoice.dueDate} />
-              <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-[#454a5a]">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  Payment status
-                </span>
-                <span
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                    selectedInvoice.status === "Paid"
-                      ? "bg-[#eafbf1] text-[#23803d] dark:bg-[#183c2b] dark:text-[#70e49a]"
-                      : "bg-[#fff0d9] text-[#d98200] dark:bg-[#49351d] dark:text-[#ffc46b]"
-                  }`}
-                >
-                  {selectedInvoice.status}
-                </span>
-              </div>
-            </div>
+      {/* Invoice Details Modal */}
+      {selectedInvoiceForView && (
+        <InvoiceDetailsModal
+          invoice={selectedInvoiceForView}
+          onClose={() => setSelectedInvoiceForView(null)}
+        />
+      )}
 
-            <button
-              type="button"
-              onClick={() => setSelectedInvoice(null)}
-              className="mt-6 w-full rounded-lg bg-[#4c6995] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#3d587f]"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+      {/* Refund Modal */}
+      {selectedInvoiceForRefund && (
+        <RefundModal
+          onClose={() => setSelectedInvoiceForRefund(null)}
+          onSubmit={(data) => {
+            console.log("Refund submitted:", data);
+            // Add logic to process refund here
+          }}
+        />
       )}
     </div>
   );
 };
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="text-sm text-gray-500 dark:text-gray-400">
-        {label}
-      </span>
-      <span className="max-w-[60%] break-words text-right text-sm font-medium text-gray-900 dark:text-gray-100">
-        {value}
-      </span>
-    </div>
-  );
-}
 
 export default Invoice;
