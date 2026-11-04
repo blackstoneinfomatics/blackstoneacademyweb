@@ -64,11 +64,13 @@ const PlanChangeRequestModal = ({
   onClose,
 }: PlanChangeRequestModalProps) => {
   const [plans, setPlans] = useState<PlanOption[]>([]);
-  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [loadingPlans, setLoadingPlans] = useState(false);
   const [plansError, setPlansError] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [currentPlan, setCurrentPlan] = useState("");
   const [loadingCurrentPlan, setLoadingCurrentPlan] = useState(true);
+  const [wantsPlanChange, setWantsPlanChange] = useState("");
+  const [hasLoadedPlans, setHasLoadedPlans] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const earliestStartDate = new Date();
@@ -80,14 +82,11 @@ const PlanChangeRequestModal = ({
   useEffect(() => {
     let isCurrent = true;
 
-    const loadPlans = async () => {
-      setLoadingPlans(true);
+    const loadCurrentPlan = async () => {
       setLoadingCurrentPlan(true);
-      setPlansError(null);
       const tenantId = localStorage.getItem("tenantId");
       if (!tenantId) {
         setPlansError("Tenant ID not found. Please sign in again.");
-        setLoadingPlans(false);
         setLoadingCurrentPlan(false);
         return;
       }
@@ -95,28 +94,63 @@ const PlanChangeRequestModal = ({
       const token = localStorage.getItem("AdminAuthToken");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
       try {
-        const [plansResponse, subscriptionResponse] = await Promise.all([
-          axios.get<unknown>(
-            `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.PLAN.GET_ACTIVE_PLANS}`,
-            { headers },
-          ),
-          axios.get<CurrentSubscriptionResponse>(
-            `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TENANT.GET_TENANT_SUBSCRIPTION(tenantId)}`,
-            { headers },
-          ),
-        ]);
-        const availablePlans = extractPlans(plansResponse.data);
+        const subscriptionResponse = await axios.get<CurrentSubscriptionResponse>(
+          `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TENANT.GET_TENANT_SUBSCRIPTION(tenantId)}`,
+          { headers },
+        );
         const currentPlanName = subscriptionResponse.data.data?.plan?.planName;
 
         if (isCurrent) {
-          setPlans(availablePlans);
           setCurrentPlan(currentPlanName ?? "");
-          const selectablePlans = availablePlans.filter(
-            (plan) => plan.planName !== currentPlanName,
-          );
+          if (!currentPlanName) {
+            setPlansError("Current subscription plan was not returned.");
+          }
+        }
+      } catch (error) {
+        if (isCurrent) {
+          const message = axios.isAxiosError(error)
+            ? String(error.response?.data?.message ?? error.message)
+            : "Unable to load current subscription.";
+          setPlansError(message);
+        }
+      } finally {
+        if (isCurrent) setLoadingCurrentPlan(false);
+      }
+    };
+
+    void loadCurrentPlan();
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (wantsPlanChange !== "yes" || loadingCurrentPlan || !currentPlan || hasLoadedPlans) {
+      return;
+    }
+
+    let isCurrent = true;
+    const loadPlans = async () => {
+      setLoadingPlans(true);
+      setPlansError(null);
+      const token = localStorage.getItem("AdminAuthToken");
+
+      try {
+        const response = await axios.get<unknown>(
+          `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.PLAN.GET_ACTIVE_PLANS}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+        );
+        const availablePlans = extractPlans(response.data);
+        const selectablePlans = availablePlans.filter(
+          (plan) => plan.planName !== currentPlan,
+        );
+
+        if (isCurrent) {
+          setPlans(availablePlans);
           setSelectedPlanId(selectablePlans[0]?.planId ?? "");
+          setHasLoadedPlans(true);
           if (availablePlans.length === 0) {
-            setPlansError("No active plans with billing details were returned.");
+            setPlansError("No active plans were returned.");
           } else if (selectablePlans.length === 0) {
             setPlansError("There are no other active plans available to request.");
           }
@@ -125,14 +159,11 @@ const PlanChangeRequestModal = ({
         if (isCurrent) {
           const message = axios.isAxiosError(error)
             ? String(error.response?.data?.message ?? error.message)
-            : "Unable to load plans and current subscription.";
+            : "Unable to load active plans.";
           setPlansError(message);
         }
       } finally {
-        if (isCurrent) {
-          setLoadingPlans(false);
-          setLoadingCurrentPlan(false);
-        }
+        if (isCurrent) setLoadingPlans(false);
       }
     };
 
@@ -140,7 +171,7 @@ const PlanChangeRequestModal = ({
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [wantsPlanChange, loadingCurrentPlan, currentPlan, hasLoadedPlans]);
 
   const handlePlanChange = (planId: string) => {
     setSelectedPlanId(planId);
@@ -149,6 +180,11 @@ const PlanChangeRequestModal = ({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitError(null);
+
+    if (wantsPlanChange !== "yes") {
+      setSubmitError("Select Yes to request a plan change.");
+      return;
+    }
 
     const tenantId = localStorage.getItem("tenantId");
     const selectedPlan = plans.find((plan) => plan.planId === selectedPlanId);
@@ -236,26 +272,51 @@ const PlanChangeRequestModal = ({
             </label>
 
             <label className="block text-[13px] font-medium text-[#101b3d] dark:text-[#e5e7eb]">
-              New Plan
+              Want to change the plan?
               <select
-                aria-label="New Plan"
+                aria-label="Want to change the plan?"
                 className="mt-[5px] h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[9px] text-[10px] text-[#253252] outline-none focus:border-[#5870c5] dark:border-[#555] dark:bg-[#252525] dark:text-white"
-                disabled={loadingPlans || loadingCurrentPlan || plans.length === 0 || !currentPlan}
-                onChange={(event) => handlePlanChange(event.target.value)}
+                disabled={loadingCurrentPlan}
+                onChange={(event) => {
+                  setWantsPlanChange(event.target.value);
+                  setSubmitError(null);
+                  if (event.target.value === "no") {
+                    setSelectedPlanId("");
+                  }
+                }}
                 required
-                value={selectedPlanId}
+                value={wantsPlanChange}
               >
-                <option disabled value="">
-                  {loadingPlans ? "Loading plans..." : "Select a plan"}
-                </option>
-                {plans.map((plan) => (
-                  plan.planName === currentPlan ? null :
-                  <option key={plan.planId} value={plan.planId}>
-                    {plan.planName}
-                  </option>
-                ))}
+                <option disabled value="">Select an option</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
               </select>
             </label>
+
+            {wantsPlanChange === "yes" && (
+              <label className="block text-[13px] font-medium text-[#101b3d] dark:text-[#e5e7eb]">
+                New Plan
+                <select
+                  aria-label="New Plan"
+                  className="mt-[5px] h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[9px] text-[10px] text-[#253252] outline-none focus:border-[#5870c5] dark:border-[#555] dark:bg-[#252525] dark:text-white"
+                  disabled={loadingPlans || plans.length === 0 || !currentPlan}
+                  onChange={(event) => handlePlanChange(event.target.value)}
+                  required
+                  value={selectedPlanId}
+                >
+                  <option disabled value="">
+                    {loadingPlans ? "Loading plans..." : "Select a plan"}
+                  </option>
+                  {plans.map((plan) =>
+                    plan.planName === currentPlan ? null : (
+                      <option key={plan.planId} value={plan.planId}>
+                        {plan.planName}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+            )}
 
             {plansError && (
               <p className="text-xs text-red-600 dark:text-red-400" role="alert">
@@ -323,7 +384,7 @@ const PlanChangeRequestModal = ({
           </button>
           <button
             className="h-[32px] min-w-[75px] rounded-[6px] bg-[#5870c5] px-[16px] text-[12px] font-semibold text-white transition hover:bg-[#4d63b5] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={loadingPlans || loadingCurrentPlan || plans.length === 0 || !currentPlan || isSubmitting}
+            disabled={loadingCurrentPlan || (wantsPlanChange === "yes" && (loadingPlans || plans.length === 0 || !currentPlan)) || isSubmitting}
             form="plan-change-request-form"
             type="submit"
           >

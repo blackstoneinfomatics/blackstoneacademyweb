@@ -44,7 +44,7 @@ const AvailablePlans = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedPortals, setExpandedPortals] = useState<Record<string, boolean>>({});
+  const [expandedPortalName, setExpandedPortalName] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   useEffect(() => {
@@ -147,11 +147,10 @@ const AvailablePlans = () => {
     return plans.filter(plan => plan.prices[billingCycle] > 0);
   }, [plans, billingCycle]);
 
-  const togglePortal = (key: string) => {
-    setExpandedPortals((previous) => ({
-      ...previous,
-      [key]: !previous[key],
-    }));
+  const togglePortal = (portalName: string) => {
+    setExpandedPortalName((previous) =>
+      previous === portalName ? null : portalName,
+    );
   };
 
   const downloadFeatures = (plan: Plan) => {
@@ -353,8 +352,7 @@ const AvailablePlans = () => {
 
                   <div className="space-y-1">
                     {plan.portals.map((portal) => {
-                      const key = `${plan.id}-${portal.name}`;
-                      const isExpanded = Boolean(expandedPortals[key]);
+                      const isExpanded = expandedPortalName === portal.name;
 
                       return (
                         <div
@@ -366,7 +364,7 @@ const AvailablePlans = () => {
                         >
                           <button
                             type="button"
-                            onClick={() => togglePortal(key)}
+                            onClick={() => togglePortal(portal.name)}
                             aria-expanded={isExpanded}
                             className="flex w-full items-center justify-between gap-2 px-2.5 py-2.5 text-left text-[11px] transition-colors"
                           >

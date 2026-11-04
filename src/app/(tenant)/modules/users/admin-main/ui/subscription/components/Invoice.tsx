@@ -26,6 +26,8 @@ type ActionMenuPosition = { top: number; left: number };
 
 interface InvoiceData {
   id: number | string;
+  paymentId: string;
+  tenantName: string;
   invoiceNo: string;
   type: InvoiceType;
   description: string;
@@ -103,6 +105,8 @@ const Invoice = () => {
 
         return {
           id: item.transactionId || item.paymentNumber,
+          paymentId: item.transactionId || "",
+          tenantName: item.tenant?.tenantName || "",
           invoiceNo: item.invoice?.invoiceNumber || item.paymentNumber,
           type: mappedType,
           description: description,
@@ -627,11 +631,9 @@ const Invoice = () => {
       {/* Refund Modal */}
       {selectedInvoiceForRefund && (
         <RefundModal
+          paymentId={selectedInvoiceForRefund.paymentId}
+          tenantName={selectedInvoiceForRefund.tenantName}
           onClose={() => setSelectedInvoiceForRefund(null)}
-          onSubmit={(data) => {
-            console.log("Refund submitted:", data);
-            // Add logic to process refund here
-          }}
         />
       )}
     </div>

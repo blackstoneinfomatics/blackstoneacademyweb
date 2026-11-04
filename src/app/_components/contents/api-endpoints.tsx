@@ -200,6 +200,7 @@ export const AppApiEndpoints = {
   },
 
   REFUND: {
+    CREATE_REQUEST: "/refund-request/create",
     GET_LIST: "/refund-transactions",
     GET_BY_ID: "/refund-transactions/${refundId}",
     UPDATE: "/refund-transactions/${refundId}",
