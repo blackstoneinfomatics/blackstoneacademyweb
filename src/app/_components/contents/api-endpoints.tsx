@@ -125,6 +125,11 @@ export const AppApiEndpoints = {
       `/tickets/${encodeURIComponent(ticketId)}/forward`,
   },
 
+  TENANT_BACKUP: {
+    GET_DASHBOARD_CARDS: "/tenant/backup/dashboard/cards",
+    GET_LIST: "/tenant/backup/list",
+  },
+
   CLASSSHEDULE: {
     GET: "/classShedule",
     GET_CLASSSHEDULE_STUDENTS: "/classShedule/students",

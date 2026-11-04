@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MdTune } from "react-icons/md";
 import { Search, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 interface Backup {
     id: string;
@@ -12,121 +14,188 @@ interface Backup {
     storage: string;
     backupfromDate: string;
     backuptodate: string;
-    status: "Success" | "Failed";
-}
-
-interface Filters {
-    tenantName: string;
-    requestDate: string;
-    storage: string;
     status: string;
 }
 
-const toDateInputValue = (value: string) => {
+interface TenantBackupRecord {
+    _id: string;
+    backupId?: string;
+    createdAt?: string;
+    tenantName?: string;
+    dateRange?: {
+        fromDate?: string;
+        toDate?: string;
+    };
+    fileDetails?: {
+        fileSize?: number | string;
+    };
+    status?: string;
+}
+
+interface TenantBackupListResponse {
+    success: boolean;
+    message: string;
+    data: {
+        backupList: TenantBackupRecord[];
+        pagination: {
+            totalRecords: number;
+            currentPage: number;
+            totalPages: number;
+            limit: number;
+        };
+    };
+}
+
+const formatDate = (value?: string) => {
+    if (!value) return "—";
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+    return Number.isNaN(date.getTime())
+        ? "—"
+        : date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "2-digit",
+              year: "numeric",
+          });
 };
 
-const MOCK_BACKUPS: Backup[] = [
-    { id: "1", tenant: "Blackstone Academy", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
-    { id: "2", tenant: "Alfurqan School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
-    { id: "3", tenant: "Bright Minds School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
-    { id: "4", tenant: "Smart School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
-    { id: "5", tenant: "Maple Leaf School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Failed" },
-    { id: "6", tenant: "Green Valley School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
-    { id: "7", tenant: "International School", RequestDate: "Sep, 12 2023", storage: "5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" },
-    { id: "8", tenant: "Royal School", RequestDate: "Sep, 12 2023", storage:"5.33 GB", backupfromDate: "Sep, 12 2023", backuptodate: "Sep, 12 2023", status: "Success" }
-];
+const formatStorage = (value?: number | string) => {
+    if (value === undefined || value === null || value === "") return "—";
+    if (typeof value === "string") return value;
+    if (!Number.isFinite(value) || value < 0) return "—";
+    if (value === 0) return "0 B";
+
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const unitIndex = Math.min(
+        Math.floor(Math.log(value) / Math.log(1024)),
+        units.length - 1,
+    );
+    return `${(value / 1024 ** unitIndex).toFixed(2)} ${units[unitIndex]}`;
+};
+
+const mapBackup = (backup: TenantBackupRecord): Backup => ({
+    id: backup._id,
+    tenant: backup.tenantName || "—",
+    RequestDate: formatDate(backup.createdAt),
+    storage: formatStorage(backup.fileDetails?.fileSize),
+    backupfromDate: formatDate(backup.dateRange?.fromDate),
+    backuptodate: formatDate(backup.dateRange?.toDate),
+    status: backup.status || "UNKNOWN",
+});
+
+const formatStatus = (status: string) =>
+    status
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const getStatusClass = (status: string) => {
+    const normalizedStatus = status.toUpperCase();
+    if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(normalizedStatus)) {
+        return "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300";
+    }
+    if (["FAILED", "FAILURE", "ERROR"].includes(normalizedStatus)) {
+        return "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300";
+    }
+    return "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
+};
 
 
 const AllBackupsTable = () => {
     const [searchKeyword, setSearchKeyword] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilter, setShowFilter] = useState(false);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [viewDetailsId, setViewDetailsId] = useState<string | null>(null);
-
-    const [filters, setFilters] = useState<Filters>({
-        tenantName: "",
-        requestDate: "",
-        storage: "",
-        status: "",
-    });
-
+    const [statusFilter, setStatusFilter] = useState("");
+    const [draftStatusFilter, setDraftStatusFilter] = useState("");
+    const [backups, setBackups] = useState<Backup[]>([]);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const itemsPerPage = 10;
 
-    const filteredBackups = useMemo(() => {
-        return MOCK_BACKUPS.filter((b) => {
-            const keyword = searchKeyword.trim().toLowerCase();
-            const matchesSearch =
-                !keyword ||
-                [
-                    b.tenant,
-                    b.backupfromDate,
-                    b.backuptodate,
-                    b.storage,
-                    b.status,
-                ].some((value) => value.toLowerCase().includes(keyword));
+    useEffect(() => {
+        const timeoutId = window.setTimeout(
+            () => setDebouncedSearch(searchKeyword.trim()),
+            300,
+        );
+        return () => window.clearTimeout(timeoutId);
+    }, [searchKeyword]);
 
-            const tenantFilter =
-                !filters.tenantName ||
-                b.tenant.toLowerCase().includes(filters.tenantName.toLowerCase());
+    useEffect(() => {
+        const controller = new AbortController();
 
-            const requestDateFilter =
-                !filters.requestDate ||
-                toDateInputValue(b.RequestDate) === filters.requestDate;
+        const fetchBackups = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await axios.get<TenantBackupListResponse>(
+                    `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANT_BACKUP.GET_LIST}`,
+                    {
+                        params: {
+                            page: currentPage,
+                            limit: itemsPerPage,
+                            search: debouncedSearch,
+                            status: statusFilter,
+                        },
+                        signal: controller.signal,
+                    },
+                );
 
-            const storageFilter =
-                !filters.storage ||
-                b.storage.toLowerCase().includes(filters.storage.toLowerCase());
+                if (!response.data.success) {
+                    throw new Error(
+                        response.data.message || "Failed to fetch backup list",
+                    );
+                }
 
-            const statusFilter = !filters.status || b.status === filters.status;
+                setBackups(response.data.data.backupList.map(mapBackup));
+                setTotalRecords(response.data.data.pagination.totalRecords);
+                setTotalPages(Math.max(response.data.data.pagination.totalPages, 1));
+            } catch (fetchError) {
+                if (controller.signal.aborted) return;
+                console.error("Failed to fetch tenant backup list:", fetchError);
+                const responseMessage = axios.isAxiosError<{ message?: string }>(
+                    fetchError,
+                )
+                    ? fetchError.response?.data?.message
+                    : undefined;
+                setError(
+                    responseMessage ??
+                        (fetchError instanceof Error
+                            ? fetchError.message
+                            : "Unable to fetch backup list"),
+                );
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            }
+        };
 
-            return matchesSearch && tenantFilter && requestDateFilter && storageFilter && statusFilter;
-        });
-    }, [searchKeyword, filters]);
+        void fetchBackups();
+        return () => controller.abort();
+    }, [currentPage, debouncedSearch, statusFilter]);
 
-    const totalPages = Math.ceil(filteredBackups.length / itemsPerPage) || 1;
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedBackups = filteredBackups.slice(
-        startIndex,
-        startIndex + itemsPerPage
-    );
-
-    const showingFrom = filteredBackups.length === 0 ? 0 : startIndex + 1;
-    const showingTo = Math.min(
-        startIndex + itemsPerPage,
-        filteredBackups.length
-    );
-    const totalCount = filteredBackups.length;
-
-    const liveFilteredCount = useMemo(() => {
-        return MOCK_BACKUPS.filter((b) => {
-            const tenantFilter =
-                !filters.tenantName ||
-                b.tenant.toLowerCase().includes(filters.tenantName.toLowerCase());
-            const requestDateFilter =
-                !filters.requestDate ||
-                toDateInputValue(b.RequestDate) === filters.requestDate;
-            const storageFilter =
-                !filters.storage ||
-                b.storage.toLowerCase().includes(filters.storage.toLowerCase());
-            const statusFilter = !filters.status || b.status === filters.status;
-            return tenantFilter && requestDateFilter && storageFilter && statusFilter;
-        }).length;
-    }, [filters]);
+    const showingFrom =
+        backups.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+    const showingTo = Math.min(currentPage * itemsPerPage, totalRecords);
 
     const handleReset = () => {
-        setFilters({ tenantName: "", requestDate: "", storage: "", status: "" });
+        setDraftStatusFilter("");
+        setStatusFilter("");
+        setCurrentPage(1);
     };
 
     const handleShowResults = (e: React.FormEvent) => {
         e.preventDefault();
-        setShowFilter(false);
+        setStatusFilter(draftStatusFilter);
         setCurrentPage(1);
+        setShowFilter(false);
     };
 
-    const viewedBackup = MOCK_BACKUPS.find((b) => b.id === viewDetailsId) || null;
+    const viewedBackup = backups.find((backup) => backup.id === viewDetailsId) || null;
 
     return (
         <>
@@ -145,15 +214,29 @@ const AllBackupsTable = () => {
                             <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by keyword"
+                                placeholder="Search by tenant name"
                                 className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-400"
                                 value={searchKeyword}
-                                onChange={(e) => setSearchKeyword(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchKeyword(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                             />
                         </div>
 
                         <div
-                            onClick={() => setShowFilter(true)}
+                            onClick={() => {
+                                setDraftStatusFilter(statusFilter);
+                                setShowFilter(true);
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                    setDraftStatusFilter(statusFilter);
+                                    setShowFilter(true);
+                                }
+                            }}
                             className="flex items-center gap-2 text-sm text-gray-400 dark:border-[#606060] py-2 border-r-2 border-l-2 px-48 -ml-60 cursor-pointer"
                         >
                             <MdTune className="w-4 h-4" />
@@ -162,7 +245,7 @@ const AllBackupsTable = () => {
 
                         <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
                             <span className="text-left -ml-60">
-                                Showing {showingFrom} To {showingTo} Of {totalCount}
+                                Showing {showingFrom} To {showingTo} Of {totalRecords}
                             </span>
                         </div>
                     </div>
@@ -190,7 +273,19 @@ const AllBackupsTable = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedBackups.map((item, index) => {
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-10 text-center text-[14px] text-gray-500 dark:text-gray-400">
+                                        Loading backups...
+                                    </td>
+                                </tr>
+                            ) : error ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-10 text-center text-[14px] text-red-500 dark:text-red-400">
+                                        {error}
+                                    </td>
+                                </tr>
+                            ) : backups.map((item, index) => {
                                 const rowBgClass =
                                     index % 2 === 0
                                         ? "bg-[#fff] dark:bg-[#2C2C2C]"
@@ -224,12 +319,9 @@ const AllBackupsTable = () => {
 
                                         <td className="px-8 py-3 break-words text-left">
                                             <span
-                                                className={`inline-flex items-center justify-center w-[90px] h-8 rounded-md text-xs font-medium ${item.status === "Success"
-                                                    ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300"
-                                                    : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
-                                                    }`}
+                                                className={`inline-flex items-center justify-center min-w-[90px] h-8 rounded-md px-2 text-xs font-medium ${getStatusClass(item.status)}`}
                                             >
-                                                {item.status}
+                                                {formatStatus(item.status)}
                                             </span>
                                         </td>
 
@@ -264,7 +356,7 @@ const AllBackupsTable = () => {
                                 );
                             })}
 
-                            {paginatedBackups.length === 0 && (
+                            {!loading && !error && backups.length === 0 && (
                                 <tr>
                                     <td
                                         colSpan={7}
@@ -289,8 +381,27 @@ const AllBackupsTable = () => {
                         <ChevronLeft className="w-4 h-4" />
                     </button>
 
-                    {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
-                        const pageNum = i + 1;
+                    {currentPage > 3 && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(1)}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-[#D5D9E2] dark:border-[#4A4A4A] text-[13px] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#3A3A3A]"
+                            >
+                                1
+                            </button>
+                            <span className="text-gray-400 px-1">…</span>
+                        </>
+                    )}
+
+                    {Array.from({
+                        length: Math.min(totalPages, 5),
+                    }).map((_, i) => {
+                        const firstVisiblePage = Math.max(
+                            1,
+                            Math.min(currentPage - 2, totalPages - 4),
+                        );
+                        const pageNum = firstVisiblePage + i;
                         const isActive = pageNum === currentPage;
                         return (
                             <button
@@ -307,7 +418,7 @@ const AllBackupsTable = () => {
                         );
                     })}
 
-                    {totalPages > 5 && (
+                    {currentPage < totalPages - 2 && (
                         <>
                             <span className="text-gray-400 px-1">…</span>
                             <button
@@ -323,7 +434,7 @@ const AllBackupsTable = () => {
                     <button
                         type="button"
                         onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage === totalPages || loading}
                         className="flex h-8 w-8 items-center justify-center rounded-md border border-[#D5D9E2] dark:border-[#4A4A4A] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#3A3A3A] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                         <ChevronRight className="w-4 h-4" />
@@ -367,77 +478,21 @@ const AllBackupsTable = () => {
                             </button>
                         </div>
 
-                        <div className="mb-4">
-                            <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
-                                Tenant Name
-                            </label>
-                            <input
-                                type="text"
-                                value={filters.tenantName}
-                                onChange={(e) =>
-                                    setFilters((f) => ({
-                                        ...f,
-                                        tenantName: e.target.value,
-                                    }))
-                                }
-                                placeholder="Blackstone Academy"
-                                className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#8296E6]"
-                            />
-                        </div>
-
-                        <div className="mb-4">
-                            <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
-                                Request Date
-                            </label>
-                            <input
-                                type="date"
-                                value={filters.requestDate}
-                                onChange={(e) =>
-                                    setFilters((f) => ({
-                                        ...f,
-                                        requestDate: e.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:focus:border-[#8296E6]"
-                            />
-                        </div>
-
-                        <div className="mb-4">
-                            <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
-                                Backup Storage
-                            </label>
-                            <input
-                                type="text"
-                                value={filters.storage}
-                                onChange={(e) =>
-                                    setFilters((f) => ({
-                                        ...f,
-                                        storage: e.target.value,
-                                    }))
-                                }
-                                placeholder="5.33 GB"
-                                className="w-full rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[13px] text-[#101B41] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#8296E6]"
-                            />
-                        </div>
-
                         <div className="mb-6">
                             <label className="mb-2 block text-[13px] font-medium text-[#101B41] dark:text-gray-200">
                                 Status
                             </label>
                             <div className="relative">
                                 <select
-                                    value={filters.status}
-                                    onChange={(e) =>
-                                        setFilters((f) => ({
-                                            ...f,
-                                            status: e.target.value,
-                                        }))
-                                    }
+                                    value={draftStatusFilter}
+                                    onChange={(e) => setDraftStatusFilter(e.target.value)}
                                     className="w-full appearance-none rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 pr-9 text-[13px] text-[#101B41] focus:border-[#576CBC] focus:outline-none dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white dark:focus:border-[#8296E6]"
                                 >
                                     <option value="">All</option>
-                                    <option value="Success">Success</option>
-                                    <option value="Failed">Failed</option>
+                                    <option value="COMPLETED">Completed</option>
+                                    <option value="FAILED">Failed</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="IN_PROGRESS">In Progress</option>
                                 </select>
                                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                             </div>
@@ -455,7 +510,7 @@ const AllBackupsTable = () => {
                                 type="submit"
                                 className="rounded-md bg-[#576CBC] px-5 py-2 text-[13px] font-semibold text-white hover:bg-[#4D66B3] dark:bg-[#8296E6] dark:hover:bg-[#6A82CC]"
                             >
-                                Show {liveFilteredCount} results
+                                Show results
                             </button>
                         </div>
                     </form>
@@ -547,12 +602,19 @@ const AllBackupsTable = () => {
                                     Status
                                 </label>
                                 <div
-                                    className={`w-full rounded-md border border-[#D5D9E2] dark:border-[#555] bg-white dark:bg-[#3A3A3A] px-3 py-2.5 text-[13px] font-medium ${viewedBackup.status === "Success"
-                                        ? "text-green-600 dark:text-green-400"
-                                        : "text-red-600 dark:text-red-400"
-                                        }`}
+                                    className={`w-full rounded-md border border-[#D5D9E2] dark:border-[#555] bg-white dark:bg-[#3A3A3A] px-3 py-2.5 text-[13px] font-medium ${
+                                        ["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(
+                                            viewedBackup.status.toUpperCase(),
+                                        )
+                                            ? "text-green-600 dark:text-green-400"
+                                            : ["FAILED", "FAILURE", "ERROR"].includes(
+                                                    viewedBackup.status.toUpperCase(),
+                                                )
+                                              ? "text-red-600 dark:text-red-400"
+                                              : "text-amber-700 dark:text-amber-300"
+                                    }`}
                                 >
-                                    {viewedBackup.status}
+                                {formatStatus(viewedBackup.status)}
                                 </div>
                             </div>
                         </div>
