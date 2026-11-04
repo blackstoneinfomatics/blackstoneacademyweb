@@ -394,6 +394,8 @@ export const AppApiEndpoints = {
   },
   TENANT: {
     GET_TENANT: "/tenant",
+    GET_BY_ID: (tenantId: string) =>
+      `/tenant/${encodeURIComponent(tenantId)}`,
     GET_TENANT_SUBSCRIPTION: (tenantId: string) =>
       `/tenant-subscription/${encodeURIComponent(tenantId)}`,
     GET_USERS_BY_ROLE: (tenantId: string, role: string) =>
@@ -416,6 +418,9 @@ export const AppApiEndpoints = {
     GET_BY_TENANT: "/portal/tenant/{tenantId}",
     CREATE_BY_TENANT: "/portal/tenant",
     UPDATE_STATUS: "/portal/tenant/{tenantPortalId}/status",
+  },
+  PORTAL_REQUEST: {
+    CREATE: "/portal-request/create",
   },
   MODULE_TENANT: {
     GET_CONFIG: "/modules/tenant/config",

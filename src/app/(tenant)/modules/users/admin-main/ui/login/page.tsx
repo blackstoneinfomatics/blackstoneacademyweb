@@ -217,6 +217,11 @@ const SignIn: React.FC = () => {
       console.log("Admin login successful:", data);
       const { accessToken, role, _id, userId, userName, tenantId } = data;
       const userEmail: string = data.email ?? data.userEmail ?? "";
+      const tenantName: string | undefined =
+        data.tenantName ??
+        data.tenant?.tenantName ??
+        data.tenant?.name ??
+        data.organizationName;
       const adminUserId = userId ?? _id ?? data.id;
 
       if (!role?.includes("ADMIN")) {
@@ -233,6 +238,9 @@ const SignIn: React.FC = () => {
       localStorage.setItem("AdminPortalEmail", userEmail);
       localStorage.setItem("AdminPortalRole", role);
       localStorage.setItem("tenantId", tenantId);
+      if (tenantName) {
+        localStorage.setItem("tenantName", tenantName);
+      }
 
       await fetchRoleBasedAccessControl(tenantId, accessToken, role);
 

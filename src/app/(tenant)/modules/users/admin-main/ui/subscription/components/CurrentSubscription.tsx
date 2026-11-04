@@ -148,15 +148,15 @@ const CurrentSubscription = () => {
     e.preventDefault();
 
     const formData = new FormData(e.currentTarget);
-    const rawStartDate = formData.get("startDate") as string;
-    const rawEndDate = formData.get("endDate") as string;
+    const fromDate = String(formData.get("startDate") ?? "").trim();
+    const toDate = String(formData.get("endDate") ?? "").trim();
+    const additionalNotes = String(formData.get("notes") ?? "").trim();
 
     const tenantId = localStorage.getItem("tenantId");
     const token = localStorage.getItem("AdminAuthToken");
-    const tenantName =
-      localStorage.getItem("tenantName") ||
-      localStorage.getItem("TenantName") ||
-      "Default Tenant";
+    const requestedBy =
+      localStorage.getItem("AdminPortalUserId") ||
+      localStorage.getItem("AdminPortalId");
 
     if (!token) {
       toast.error("Your session has expired. Please sign in again.");
@@ -166,17 +166,23 @@ const CurrentSubscription = () => {
       toast.error("Tenant ID not found. Please log in again.");
       return;
     }
+    if (!requestedBy) {
+      toast.error("Admin user ID not found. Please log in again.");
+      return;
+    }
+    if (!fromDate || !toDate) {
+      toast.error("Please select both dates for the backup date range.");
+      return;
+    }
 
-    // 🚨 FIXED: Removed the 'description' / 'notes' field entirely.
-    // The backend only accepts exactly these 4 keys.
     const payload = {
-      tenantId: tenantId,
-      tenantName: tenantName,
-      backupStartDate: rawStartDate,
-      backupEndDate: rawEndDate,
+      dateRange: {
+        fromDate,
+        toDate,
+      },
+      additionalNotes,
+      requestedBy,
     };
-
-    console.log("🚀 Sending Payload to Backend:", payload);
 
     setIsSubmitting(true);
     setErrorMessage("");
@@ -189,13 +195,21 @@ const CurrentSubscription = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            tenantId,
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
         }
       );
 
-      const result = await response.json().catch(() => ({}));
+      const result: {
+        message?: string;
+        data?: { backupId?: string };
+        error?: {
+          fieldErrors?: Record<string, string[]>;
+          formErrors?: string[];
+        };
+      } = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         console.error("❌ Backend Rejected with:", result);
@@ -205,7 +219,7 @@ const CurrentSubscription = () => {
           const fieldErrors = result.error.fieldErrors;
           const firstErrorKey = Object.keys(fieldErrors)[0];
           if (firstErrorKey) {
-            errorMsg = `${firstErrorKey}: ${fieldErrors[firstErrorKey][0]}`;
+            errorMsg = `${firstErrorKey}: ${fieldErrors[firstErrorKey]?.[0]}`;
           }
         } else if (result.error?.formErrors?.length > 0) {
           errorMsg = result.error.formErrors[0];
@@ -216,8 +230,14 @@ const CurrentSubscription = () => {
         throw new Error(errorMsg);
       }
 
-      setSuccessMessage("Backup request submitted successfully!");
-      toast.success(result.message || "Backup request submitted successfully.");
+      const successMessage =
+        result.message || "Backup request submitted successfully.";
+      setSuccessMessage(
+        result.data?.backupId
+          ? `${successMessage} Backup ID: ${result.data.backupId}`
+          : successMessage,
+      );
+      toast.success(successMessage);
 
       setTimeout(() => {
         setShowBackupModal(false);
@@ -369,13 +389,12 @@ const CurrentSubscription = () => {
         </div>
       </div>
 
-      {/* --- BACKUP REQUEST MODAL --- */}
       {showBackupModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
           <div className="relative w-full max-w-[620px] rounded-[9px] bg-white px-[18px] py-[20px] shadow-2xl dark:bg-[#2e2e2e]" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-[14px] text-[15px] font-semibold text-[#111111] dark:text-white">Backup Request</h2>
 
-            <form onSubmit={handleBackupSubmit} noValidate className="rounded-[10px] border border-[#dce1eb] px-[16px] pb-[16px] pt-[14px] dark:border-[#555]">
+            <form onSubmit={handleBackupSubmit} className="rounded-[10px] border border-[#dce1eb] px-[16px] pb-[16px] pt-[14px] dark:border-[#555]">
               <div className="mb-[15px]">
                 <label className="mb-[7px] block text-[13px] font-medium text-[#101b3d] dark:text-[#e5e7eb]">Backup Date</label>
                 <div className="grid grid-cols-2 gap-[5px]">
@@ -383,6 +402,7 @@ const CurrentSubscription = () => {
                   <input
                     type="date"
                     name="startDate"
+                    required
                     defaultValue={formattedToday}
                     disabled={isSubmitting}
                     className="h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[10px] text-[12px] outline-none focus:border-[#5870c5] dark:border-[#555] dark:bg-[#252525] dark:text-white disabled:opacity-50"
@@ -391,6 +411,7 @@ const CurrentSubscription = () => {
                   <input
                     type="date"
                     name="endDate"
+                    required
                     defaultValue={formattedNextWeek}
                     disabled={isSubmitting}
                     className="h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[10px] text-[12px] outline-none focus:border-[#5870c5] dark:border-[#555] dark:bg-[#252525] dark:text-white disabled:opacity-50"

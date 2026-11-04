@@ -1,13 +1,19 @@
 import React from "react";
-import { PortalRole, portalRoles } from "./PortalData";
+import { PortalRole } from "./PortalData";
 
 type Props = {
   activeRole: PortalRole;
+  portals: PortalRole[];
+  loading: boolean;
+  error: string | null;
   onChange: (role: PortalRole) => void;
 };
 
 export default function PortalSidebar({
   activeRole,
+  portals,
+  loading,
+  error,
   onChange,
 }: Props) {
   return (
@@ -17,7 +23,7 @@ export default function PortalSidebar({
       </h3>
 
       <div className="flex gap-1 overflow-x-auto md:flex-col">
-        {portalRoles.map((role) => (
+        {portals.map((role) => (
           <button
             key={role}
             type="button"
@@ -31,6 +37,19 @@ export default function PortalSidebar({
             {role}
           </button>
         ))}
+        {loading && (
+          <p className="px-3 py-2 text-xs text-gray-500">Loading portals...</p>
+        )}
+        {error && (
+          <p className="px-3 py-2 text-xs text-red-600" role="alert">
+            {error}
+          </p>
+        )}
+        {!loading && !error && portals.length === 0 && (
+          <p className="px-3 py-2 text-xs text-gray-500">
+            No portals available.
+          </p>
+        )}
       </div>
     </aside>
   );

@@ -1,16 +1,30 @@
 import React from "react";
-import { Search, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 
 export type ViewTab = "Module List" | "Feature List";
+export type FilterField =
+  | "name"
+  | "parentModule"
+  | "childModule"
+  | "description"
+  | "addedOn"
+  | "status";
+
+export type FilterOption = {
+  field: FilterField;
+  label: string;
+  values: string[];
+};
 
 type Props = {
   activeTab: ViewTab;
   setActiveTab: (tab: ViewTab) => void;
   search: string;
   setSearch: (value: string) => void;
-  selectedModule: string;
-  setSelectedModule: (value: string) => void;
-  modules: string[];
+  filterOptions: FilterOption[];
+  selectedFilters: Record<FilterField, string>;
+  setSelectedFilter: (field: FilterField, value: string) => void;
+  resetFilters: () => void;
   count: number;
   start: number;
   end: number;
@@ -21,9 +35,10 @@ export default function FeatureToolbar({
   setActiveTab,
   search,
   setSearch,
-  selectedModule,
-  setSelectedModule,
-  modules,
+  filterOptions,
+  selectedFilters,
+  setSelectedFilter,
+  resetFilters,
   count,
   start,
   end,
@@ -52,7 +67,7 @@ export default function FeatureToolbar({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 rounded-t-xl ml-3 mr-3 mt-4 bg-[#fafafa] dark:border-[#414141] dark:bg-[#292929] sm:grid-cols-[1.1fr_0.9fr_0.9fr]">
+      <div className="ml-3 mr-3 mt-4 grid grid-cols-1 rounded-t-xl bg-[#fafafa] dark:border-[#414141] dark:bg-[#292929] sm:grid-cols-[1.1fr_0.9fr_0.9fr]">
         <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2.5 dark:border-[#414141] sm:border-b-0 sm:border-r">
           <Search size={14} className="shrink-0 text-gray-400" />
           <input
@@ -63,10 +78,11 @@ export default function FeatureToolbar({
           />
         </div>
 
-        <div className="relative border-b border-gray-100 dark:border-[#414141] sm:border-b-0 sm:border-r">
+        <div className=" border-b border-gray-100 dark:border-[#414141] sm:border-b-0 sm:border-r">
           <button
             type="button"
-            onClick={() => setFilterOpen(!filterOpen)}
+            aria-expanded={filterOpen}
+            onClick={() => setFilterOpen((open) => !open)}
             className="flex w-full items-center gap-2 px-3 py-2.5 text-[11px] text-gray-500 dark:text-gray-300"
           >
             <SlidersHorizontal size={14} />
@@ -77,45 +93,56 @@ export default function FeatureToolbar({
             />
           </button>
 
-          {filterOpen && (
-            <div className="absolute left-0 top-full z-20 w-full min-w-[180px] rounded-b-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-[#505050] dark:bg-[#383838]">
-              <label className="mb-2 block text-[11px] dark:text-white">
-                Parent Module
-              </label>
-              <select
-                value={selectedModule}
-                onChange={(e) => {
-                  setSelectedModule(e.target.value);
-                  setFilterOpen(false);
-                }}
-                className="w-full rounded-md border border-gray-200 bg-white p-2 text-[11px] dark:border-[#505050] dark:bg-[#292929] dark:text-white"
-              >
-                {modules.map((module) => (
-                  <option key={module} value={module}>
-                    {module}
-                  </option>
+
+        </div>
+        <div className="flex items-center px-3 py-2.5 text-[10px] text-gray-500 dark:text-gray-400">
+          Showing {start}–{end} of {count}
+        </div>
+      </div>
+              <div className="relative">
+                  {filterOpen && (
+            <div className="absolute left-20 top-full z-30 max-h-[70vh] w-[260px] min-w-[200px] overflow-y-auto rounded-b-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-[#505050] dark:bg-[#383838]">
+              <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-white">
+                Filter {activeTab}
+              </p>
+              <div className="space-y-2">
+                {filterOptions.map((option) => (
+                  <label
+                    key={option.field}
+                    className="block text-[11px] text-gray-700 dark:text-gray-200"
+                  >
+                    {option.label}
+                  <select
+                    value={selectedFilters[option.field]}
+                    onChange={(event) =>
+                      setSelectedFilter(option.field, event.target.value)
+                    }
+                    className="mt-1 w-full rounded-md border border-gray-200 bg-white p-2 text-[11px] dark:border-[#505050] dark:bg-[#292929] dark:text-white"
+                  >
+                    <option value="All">All values</option>
+                    {option.values.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                  </label>
                 ))}
-              </select>
+              </div>
 
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedModule("All");
-                  setSearch("");
+                  resetFilters();
                   setFilterOpen(false);
                 }}
-                className="mt-2 w-full rounded-md bg-[#edf1ff] p-2 text-[11px] text-[#4059a8] dark:bg-[#39476b] dark:text-white"
+                className="mt-1 w-full rounded-md bg-[#edf1ff] p-2 text-[11px] text-[#4059a8] dark:bg-[#39476b] dark:text-white"
               >
                 Reset filters
               </button>
             </div>
           )}
-        </div>
-
-        <div className="flex items-center px-3 py-2.5 text-[10px] text-gray-500 dark:text-gray-400">
-          Showing {start}–{end} of {count}
-        </div>
-      </div>
+</div>
     </>
   );
 }

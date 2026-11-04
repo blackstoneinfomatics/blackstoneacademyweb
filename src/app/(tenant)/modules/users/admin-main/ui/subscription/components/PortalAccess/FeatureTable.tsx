@@ -5,14 +5,13 @@ import {
   CheckCircle2,
   CircleX,
 } from "lucide-react";
-import { Feature, PortalRole } from "./PortalData";
+import { Feature } from "./PortalData";
 import { ViewTab } from "./FeatureToolbar";
 
 type Props = {
   features: Feature[];
-  activeRole: PortalRole;
   activeTab: ViewTab;
-  onToggle: (id: number) => void;
+  onToggle: (id: string) => void;
   page: number;
   totalPages: number;
   setPage: (page: number) => void;
@@ -20,9 +19,7 @@ type Props = {
 
 export default function FeatureTable({
   features,
-  activeRole,
   activeTab,
-  onToggle,
   page,
   totalPages,
   setPage,
@@ -65,9 +62,7 @@ export default function FeatureTable({
                 }`}
               >
                 <td className="px-2 py-3 text-[10px] font-medium dark:text-gray-100">
-                  {activeTab === "Module List"
-                    ? feature.parentModule
-                    : feature.name}
+                  {feature.name}
                 </td>
 
                 <td className="px-2 py-3 text-[10px] dark:text-gray-200">
@@ -79,9 +74,7 @@ export default function FeatureTable({
                 </td>
 
                 <td className="px-2 py-3 text-[10px] dark:text-gray-300">
-                  {activeRole === "Student"
-                    ? feature.description
-                    : `Access and permissions for ${activeRole.toLowerCase()}.`}
+                  {feature.description}
                 </td>
 
                 <td className="whitespace-nowrap px-2 py-3 text-[9px] text-[#4265a4] dark:text-[#9bb7ff]">
@@ -89,9 +82,7 @@ export default function FeatureTable({
                 </td>
 
                 <td className="px-2 py-3 text-center">
-                  <button
-                    type="button"
-                    onClick={() => onToggle(feature.id)}
+                  <span
                     aria-pressed={feature.enabled}
                     className={`inline-flex min-w-[65px] items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[9px] ${
                       feature.enabled
@@ -110,7 +101,7 @@ export default function FeatureTable({
                         Disable
                       </>
                     )}
-                  </button>
+                  </span>
                 </td>
               </tr>
             ))}
