@@ -105,7 +105,6 @@ const getStatusClass = (status: string) => {
 
 const AllBackupsTable = () => {
     const [searchKeyword, setSearchKeyword] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilter, setShowFilter] = useState(false);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -120,14 +119,6 @@ const AllBackupsTable = () => {
     const itemsPerPage = 10;
 
     useEffect(() => {
-        const timeoutId = window.setTimeout(
-            () => setDebouncedSearch(searchKeyword.trim()),
-            300,
-        );
-        return () => window.clearTimeout(timeoutId);
-    }, [searchKeyword]);
-
-    useEffect(() => {
         const controller = new AbortController();
 
         const fetchBackups = async () => {
@@ -140,7 +131,6 @@ const AllBackupsTable = () => {
                         params: {
                             page: currentPage,
                             limit: itemsPerPage,
-                            search: debouncedSearch,
                             status: statusFilter,
                         },
                         signal: controller.signal,
@@ -179,11 +169,33 @@ const AllBackupsTable = () => {
 
         void fetchBackups();
         return () => controller.abort();
-    }, [currentPage, debouncedSearch, statusFilter]);
+    }, [currentPage, statusFilter]);
+
+    const normalizedSearch = searchKeyword.trim().toLocaleLowerCase();
+    const filteredBackups = normalizedSearch
+        ? backups.filter((backup) =>
+              [
+                  backup.RequestDate,
+                  backup.tenant,
+                  backup.backupfromDate,
+                  backup.backuptodate,
+                  backup.storage,
+                  backup.status,
+                  formatStatus(backup.status),
+              ].some((value) =>
+                  value.toLocaleLowerCase().includes(normalizedSearch),
+              ),
+          )
+        : backups;
 
     const showingFrom =
-        backups.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-    const showingTo = Math.min(currentPage * itemsPerPage, totalRecords);
+        filteredBackups.length === 0
+            ? 0
+            : (currentPage - 1) * itemsPerPage + 1;
+    const showingTo = Math.min(
+        (currentPage - 1) * itemsPerPage + filteredBackups.length,
+        totalRecords,
+    );
 
     const handleReset = () => {
         setDraftStatusFilter("");
@@ -198,7 +210,8 @@ const AllBackupsTable = () => {
         setShowFilter(false);
     };
 
-    const viewedBackup = backups.find((backup) => backup.id === viewDetailsId) || null;
+    const viewedBackup =
+        backups.find((backup) => backup.id === viewDetailsId) || null;
 
     return (
         <>
@@ -217,8 +230,9 @@ const AllBackupsTable = () => {
                             <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by tenant name"
-                                className="bg-transparent outline-none text-[15px] w-52 py-3 dark:text-white dark:placeholder:text-gray-400"
+                                placeholder="Search by keywords"
+                                aria-label="Search backups by request date, tenant, backup dates, storage, or status"
+                                className="bg-transparent outline-none text-[15px] w-64 py-3 dark:text-white dark:placeholder:text-gray-400"
                                 value={searchKeyword}
                                 onChange={(e) => {
                                     setSearchKeyword(e.target.value);
@@ -248,7 +262,9 @@ const AllBackupsTable = () => {
 
                         <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
                             <span className="text-left -ml-60">
-                                Showing {showingFrom} To {showingTo} Of {totalRecords}
+                                {normalizedSearch
+                                    ? `Showing ${filteredBackups.length} matches on this page`
+                                    : `Showing ${showingFrom} To ${showingTo} Of ${totalRecords}`}
                             </span>
                         </div>
                     </div>
@@ -288,7 +304,7 @@ const AllBackupsTable = () => {
                                         {error}
                                     </td>
                                 </tr>
-                            ) : backups.map((item, index) => {
+                            ) : filteredBackups.map((item, index) => {
                                 const rowBgClass =
                                     index % 2 === 0
                                         ? "bg-[#fff] dark:bg-[#2C2C2C]"
@@ -359,7 +375,7 @@ const AllBackupsTable = () => {
                                 );
                             })}
 
-                            {!loading && !error && backups.length === 0 && (
+                            {!loading && !error && filteredBackups.length === 0 && (
                                 <tr>
                                     <td
                                         colSpan={7}
