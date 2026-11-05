@@ -410,7 +410,11 @@ export const AppApiEndpoints = {
     GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
     TENANT_AUDIT_LOGS: "/audit-log/tenant/{tenantCode}",
     TENANT_ACTIVITY_SUMMARY: "/audit-log/dashboard/activity-summary",
-    TENANT_SUBSCRIPTION_LIST_CARD: "/tenant-subscription"
+    TENANT_SUBSCRIPTION_LIST_CARD: "/tenant-subscription",
+    DOWNLOAD_BACKUP: (backupId: string) =>
+  `/backup/download/${backupId}`,
+    GET_BACKUP_STATUS: (backupId: string) =>
+  `/backup/status/${backupId}`,
   },
   PORTAL: {
     GET_ALL: "/portal",

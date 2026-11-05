@@ -10,9 +10,38 @@ import {
   Info,
   CloudUpload,
   Loader2,
+   Clock,
+  CheckCircle2,
+  Download,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
+
+
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import { toast } from "react-toastify";
+
+
+type BackupStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED";
+
+interface BackupStatusResponse {
+  backupId: string;
+  status: BackupStatus;
+  isDownloadAvailable: boolean;
+  errorMessage?: string | null;
+  file?: {
+    fileName: string;
+    fileSize: number;
+    totalRecords: number;
+    expiresAt: string;
+    downloadUrl: string;
+  } | null;
+}
+const BACKUP_STORAGE_KEY = "TENANT_BACKUP_REQUEST";
 
 interface BillingPeriod {
   billingPeriod?: string;
@@ -66,6 +95,177 @@ const CurrentSubscription = () => {
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
   const [subscriptionError, setSubscriptionError] = useState("");
 
+const [backupId, setBackupId] = useState<string | null>(null);
+const [backupStatus, setBackupStatus] =
+  useState<BackupStatus | null>(null);
+
+const [backupDetails, setBackupDetails] =
+  useState<BackupStatusResponse | null>(null);
+
+const [backupLoading, setBackupLoading] = useState(false);
+const [downloadLoading, setDownloadLoading] = useState(false);
+
+// Restore backup ID after page refresh.
+useEffect(() => {
+  const savedBackupId = localStorage.getItem(BACKUP_STORAGE_KEY);
+
+  if (savedBackupId) {
+    setBackupId(savedBackupId);
+  }
+}, []);
+
+// Check backup status every 5 seconds.
+useEffect(() => {
+  if (!backupId) return;
+
+  let cancelled = false;
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  const checkBackupStatus = async () => {
+    try {
+     const response = await fetch(
+  `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TENANT.GET_BACKUP_STATUS(backupId)}`,
+  {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      tenantId: localStorage.getItem("tenantId") || "",
+    }
+  },
+);
+
+if (!response.ok) {
+  throw new Error("Failed to fetch backup status");
+}
+
+const result = await response.json();
+
+const data = result.data;
+
+setBackupDetails(data);
+setBackupStatus(data.status);
+
+      if (
+        data.status === "COMPLETED" ||
+        data.status === "FAILED"
+      ) {
+        return;
+      }
+    } catch (error) {
+      console.error("Backup status failed:", error);
+    }
+
+    if (!cancelled) {
+      timeoutId = setTimeout(checkBackupStatus, 5000);
+    }
+  };
+
+  checkBackupStatus();
+
+  return () => {
+    cancelled = true;
+    clearTimeout(timeoutId);
+  };
+}, [backupId]);
+
+// // Call this after the user confirms the backup modal.
+// const handleBackupRequest = async () => {
+//   try {
+//     setBackupLoading(true);
+
+//  const response = await fetch(
+//         `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}/backup-request`,
+//         {
+//           method: "POST",
+//           headers: {
+//             "Content-Type": "application/json",
+//             tenantId,
+//             Authorization: `Bearer ${token}`,
+//           },
+//           body: JSON.stringify(payload),
+//         }
+//       );
+
+//  const result: {
+//         message?: string;
+//         data?: { backupId?: string };
+//         error?: {
+//           fieldErrors?: Record<string, string[]>;
+//           formErrors?: string[];
+//         };
+//       } = await response.json().catch(() => ({}));
+//     // Save backup ID in localStorage.
+//     localStorage.setItem(BACKUP_STORAGE_KEY, result.data?.backupId || "");
+
+//     setBackupId(result.data?.backupId || "");
+//     setBackupStatus("PENDING");
+//     setBackupDetails(null);
+
+//     setShowBackupModal(false);
+//   } catch (error) {
+//     console.error("Backup request failed:", error);
+//   } finally {
+//     setBackupLoading(false);
+//   }
+// };
+
+// Download completed Excel file.
+const handleBackupDownload = async () => {
+  if (!backupId) return;
+
+  try {
+    setDownloadLoading(true);
+const response = await fetch(
+  `${AppApiEndpoints.API_END_POINT.replace(/\/$/, "")}${AppApiEndpoints.TENANT.DOWNLOAD_BACKUP(backupId)}`,
+  {
+    method: "GET",
+  },
+);
+
+if (!response.ok) {
+  throw new Error("Backup download failed");
+}
+
+const blob = await response.blob();
+
+const url = window.URL.createObjectURL(blob);
+
+const link = document.createElement("a");
+link.href = url;
+link.download =
+  backupDetails?.file?.fileName || "tenant-backup.xlsx";
+
+document.body.appendChild(link);
+link.click();
+link.remove();
+
+window.URL.revokeObjectURL(url);
+
+// Clear local backup after successful download.
+localStorage.removeItem("TENANT_BACKUP_REQUEST");
+
+setBackupId(null);
+setBackupStatus(null);
+setBackupDetails(null);
+  
+
+  } catch (error) {
+    console.error("Backup download failed:", error);
+  } finally {
+    setDownloadLoading(false);
+  }
+};
+
+// Reset failed request and allow a new request.
+const handleBackupRetry = () => {
+  localStorage.removeItem(BACKUP_STORAGE_KEY);
+
+  setBackupId(null);
+  setBackupStatus(null);
+  setBackupDetails(null);
+
+  setShowBackupModal(true);
+};
   useEffect(() => {
     const controller = new AbortController();
 
@@ -210,6 +410,9 @@ const CurrentSubscription = () => {
           formErrors?: string[];
         };
       } = await response.json().catch(() => ({}));
+
+      localStorage.setItem(BACKUP_STORAGE_KEY, result.data?.backupId || "");
+       setBackupStatus(result.data?.backupId ? "PENDING" : null); 
 
       if (!response.ok) {
         console.error("❌ Backend Rejected with:", result);
@@ -375,18 +578,145 @@ const CurrentSubscription = () => {
           </div>
         </div>
 
-        <div className="flex min-h-[215px] flex-col items-center justify-center rounded-lg bg-[#f8eaff] px-4 text-center dark:bg-[#3d2945]">
-          <CloudUpload className="mb-3 h-14 w-14 text-[#d177ef]" />
-          <h3 className="text-[11px] font-semibold text-[#17182e] dark:text-white">Backup Request</h3>
-          <p className="mt-1 max-w-[210px] text-[9px] leading-4 text-[#4c4560] dark:text-[#e0d2e7]">Request a Backup for your data and ensure data safety</p>
-          <button
-            type="button"
-            onClick={() => setShowBackupModal(true)}
-            className="mt-3 rounded-md bg-white px-4 py-1.5 text-[10px] font-medium text-[#252944] shadow-sm transition hover:bg-gray-50 dark:bg-[#29232d] dark:text-white dark:hover:bg-[#342b39]"
-          >
-            Backup Request
-          </button>
-        </div>
+        
+<div className="flex min-h-[215px] flex-col items-center justify-center rounded-lg bg-[#f8eaff] px-4 py-5 text-center dark:bg-[#3d2945]">
+
+  {/* REQUEST */}
+  {!backupStatus && (
+    <>
+      <CloudUpload className="mb-3 h-14 w-14 text-[#d177ef]" />
+
+      <h3 className="text-[11px] font-semibold text-[#17182e] dark:text-white">
+        Backup Request
+      </h3>
+
+      <p className="mt-1 max-w-[210px] text-[9px] leading-4 text-[#4c4560] dark:text-[#e0d2e7]">
+        Request a backup for your data and ensure data safety.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => setShowBackupModal(true)}
+        className="mt-3 rounded-md bg-white px-4 py-1.5 text-[10px] font-medium text-[#252944] shadow-sm transition hover:bg-gray-50 dark:bg-[#29232d] dark:text-white dark:hover:bg-[#342b39]"
+      >
+        Backup Request
+      </button>
+    </>
+  )}
+
+  {/* PENDING */}
+  {backupStatus === "PENDING" && (
+    <>
+      <Clock className="mb-3 h-12 w-12 text-amber-500" />
+
+      <h3 className="text-[11px] font-semibold text-[#17182e] dark:text-white">
+        Backup Requested
+      </h3>
+
+      <p className="mt-1 text-[9px] text-[#4c4560] dark:text-[#e0d2e7]">
+        Your backup request is waiting for processing.
+      </p>
+
+      <span className="mt-3 rounded-full bg-amber-100 px-3 py-1 text-[9px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+        PENDING
+      </span>
+
+      <p className="mt-2 text-[9px] text-[#756b80] dark:text-[#d9c8e1]">
+        ID: {backupId}
+      </p>
+    </>
+  )}
+
+  {/* PROCESSING */}
+  {backupStatus === "PROCESSING" && (
+    <>
+      <Loader2 className="mb-3 h-12 w-12 animate-spin text-blue-500" />
+
+      <h3 className="text-[11px] font-semibold text-[#17182e] dark:text-white">
+        Generating Backup
+      </h3>
+
+      <p className="mt-1 text-[9px] text-[#4c4560] dark:text-[#e0d2e7]">
+        Please wait while we prepare your Excel backup.
+      </p>
+
+      <span className="mt-3 rounded-full bg-blue-100 px-3 py-1 text-[9px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+        PROCESSING
+      </span>
+
+      <p className="mt-2 text-[9px] text-[#756b80] dark:text-[#d9c8e1]">
+        ID: {backupId}
+      </p>
+    </>
+  )}
+
+  {/* COMPLETED */}
+  {backupStatus === "COMPLETED" && (
+    <>
+      <CheckCircle2 className="mb-2 h-12 w-12 text-green-600" />
+
+      <h3 className="text-[11px] font-semibold text-[#17182e] dark:text-white">
+        Backup Ready!
+      </h3>
+
+      <p className="mt-1 max-w-[220px] truncate text-[9px] text-[#4c4560] dark:text-[#e0d2e7]">
+        {backupDetails?.file?.fileName}
+      </p>
+
+      <span className="mt-2 rounded-full bg-green-100 px-3 py-1 text-[9px] font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-300">
+        COMPLETED
+      </span>
+
+      <button
+        type="button"
+        onClick={handleBackupDownload}
+        disabled={
+          downloadLoading ||
+          !backupDetails?.isDownloadAvailable
+        }
+        className="mt-3 flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-[10px] font-medium text-white shadow-sm transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {downloadLoading ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Download className="h-3 w-3" />
+        )}
+
+        {downloadLoading ? "Downloading..." : "Download Backup"}
+      </button>
+
+      <p className="mt-2 text-[8px] text-[#756b80] dark:text-[#d9c8e1]">
+        ID: {backupId}
+      </p>
+    </>
+  )}
+
+  {/* FAILED */}
+  {backupStatus === "FAILED" && (
+    <>
+      <AlertCircle className="mb-3 h-12 w-12 text-red-500" />
+
+      <h3 className="text-[11px] font-semibold text-[#17182e] dark:text-white">
+        Backup Failed
+      </h3>
+
+      <p className="mt-1 max-w-[220px] text-[9px] text-red-600 dark:text-red-300">
+        {backupDetails?.errorMessage || "Unable to generate backup."}
+      </p>
+
+      <button
+        type="button"
+        onClick={handleBackupRetry}
+        className="mt-3 flex items-center gap-2 rounded-md bg-white px-4 py-1.5 text-[10px] font-medium text-[#252944] shadow-sm hover:bg-gray-50 dark:bg-[#29232d] dark:text-white"
+      >
+        <RefreshCw className="h-3 w-3" />
+        Try Again
+      </button>
+    </>
+  )}
+
+</div>
+
       </div>
 
       {showBackupModal && (
