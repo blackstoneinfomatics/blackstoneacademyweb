@@ -30,22 +30,22 @@ export default function FeatureTable({
         <table className="w-full min-w-[700px] table-fixed border-collapse text-left">
           <thead>
             <tr className="bg-[#4c6993] text-white">
-              <th className="w-[19%] px-2 py-3 text-[10px] font-medium">
+              <th className="w-[19%] px-2 py-3 text-[13px] font-medium">
                 {activeTab === "Feature List" ? "Feature Name" : "Module Name"}
               </th>
-              <th className="w-[17%] px-2 py-3 text-[10px] font-medium">
+              <th className="w-[17%] px-2 py-3 text-[13px] font-medium">
                 Parent Module
               </th>
-              <th className="w-[14%] px-2 py-3 text-[10px] font-medium">
+              <th className="w-[14%] px-2 py-3 text-[13px] font-medium">
                 Child Module
               </th>
-              <th className="w-[25%] px-2 py-3 text-[10px] font-medium">
+              <th className="w-[25%] px-2 py-3 text-[13px] font-medium">
                 Description
               </th>
-              <th className="w-[12%] px-2 py-3 text-[10px] font-medium">
+              <th className="w-[12%] px-2 py-3 text-[13px] font-medium">
                 Add on
               </th>
-              <th className="w-[13%] px-2 py-3 text-center text-[10px] font-medium">
+              <th className="w-[13%] px-2 py-3 text-center text-[13px] font-medium">
                 Status
               </th>
             </tr>
@@ -61,30 +61,30 @@ export default function FeatureTable({
                     : "bg-white dark:bg-[#303030]"
                 }`}
               >
-                <td className="px-2 py-3 text-[10px] font-medium dark:text-gray-100">
+                <td className="px-2 py-3 text-[13px] font-medium dark:text-gray-100">
                   {feature.name}
                 </td>
 
-                <td className="px-2 py-3 text-[10px] dark:text-gray-200">
+                <td className="px-2 py-3 text-[13px] dark:text-gray-200">
                   {feature.parentModule}
                 </td>
 
-                <td className="px-2 py-3 text-[10px] dark:text-gray-200">
+                <td className="px-2 py-3 text-[13px] dark:text-gray-200">
                   {feature.childModule}
                 </td>
 
-                <td className="px-2 py-3 text-[10px] dark:text-gray-300">
+                <td className="px-2 py-3 text-[13px] dark:text-gray-300">
                   {feature.description}
                 </td>
 
-                <td className="whitespace-nowrap px-2 py-3 text-[9px] text-[#4265a4] dark:text-[#9bb7ff]">
+                <td className="whitespace-nowrap px-2 py-3 text-[12px] text-[#4265a4] dark:text-[#9bb7ff]">
                   {feature.addedOn}
                 </td>
 
                 <td className="px-2 py-3 text-center">
                   <span
                     aria-pressed={feature.enabled}
-                    className={`inline-flex min-w-[65px] items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[9px] ${
+                    className={`inline-flex min-w-[65px] items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[12px] ${
                       feature.enabled
                         ? "bg-[#e9fff0] text-[#278046] hover:bg-[#d3f8df] dark:bg-[#244332] dark:text-[#8ee5a8]"
                         : "bg-[#fff0f0] text-[#c34b4b] hover:bg-[#ffe0e0] dark:bg-[#4b2c2c] dark:text-[#ffaaaa]"
@@ -110,7 +110,7 @@ export default function FeatureTable({
               <tr>
                 <td
                   colSpan={6}
-                  className="py-10 text-center text-xs text-gray-500 dark:text-gray-400"
+                  className="py-10 text-center text-[15px] text-gray-500 dark:text-gray-400"
                 >
                   No features found.
                 </td>
@@ -121,7 +121,7 @@ export default function FeatureTable({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 py-3 dark:border-[#414141]">
-        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+        <span className="text-[13px] text-gray-500 dark:text-gray-400">
           Page {page} of {totalPages}
         </span>
 
@@ -142,7 +142,7 @@ export default function FeatureTable({
                 key={number}
                 type="button"
                 onClick={() => setPage(number)}
-                className={`h-7 min-w-7 rounded-md px-2 text-[10px] ${
+                className={`h-7 min-w-7 rounded-md px-2 text-[13px] ${
                   page === number
                     ? "bg-[#536bc5] text-white"
                     : "border border-gray-200 text-gray-600 dark:border-[#505050] dark:text-gray-300"

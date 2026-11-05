@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import {
   Search,
   SlidersHorizontal,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   MoreVertical,
@@ -208,6 +207,17 @@ const Invoice = () => {
     safePage * pageSize
   );
 
+  useEffect(() => {
+    if (!showFilters) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowFilters(false);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showFilters]);
+
   const resetFilters = () => {
     setStatusFilter("All");
     setTypeFilter("All");
@@ -257,83 +267,14 @@ const Invoice = () => {
         <div className="relative flex min-w-0 items-center border-t border-gray-200 sm:w-[32%] sm:border-l sm:border-t-0 dark:border-[#3b4050]">
           <button
             type="button"
-            onClick={() => setShowFilters((previous) => !previous)}
+            onClick={() => setShowFilters(true)}
             aria-expanded={showFilters}
+            aria-haspopup="dialog"
             className="flex h-11 w-full items-center gap-2 px-3 text-sm text-gray-500 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#343947]"
           >
             <SlidersHorizontal size={17} />
             <span>Filter</span>
-            <ChevronDown
-              size={15}
-              className={`ml-auto transition-transform ${showFilters ? "rotate-180" : ""
-                }`}
-            />
           </button>
-
-          {showFilters && (
-            <div className="absolute left-0 top-full z-30 mt-2 w-full min-w-[240px] rounded-xl border border-gray-200 bg-white p-4 shadow-xl dark:border-[#454a5a] dark:bg-[#292d39]">
-              <div className="mb-4">
-                <label
-                  htmlFor="invoice-status"
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                >
-                  Payment status
-                </label>
-                <select
-                  id="invoice-status"
-                  value={statusFilter}
-                  onChange={(event) => {
-                    setStatusFilter(event.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-[#454a5a] dark:bg-[#22252f] dark:text-white"
-                >
-                  <option value="All">All statuses</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Unpaid">Unpaid</option>
-                </select>
-              </div>
-
-              <div className="mb-4">
-                <label
-                  htmlFor="invoice-type"
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                >
-                  Invoice type
-                </label>
-                <select
-                  id="invoice-type"
-                  value={typeFilter}
-                  onChange={(event) => {
-                    setTypeFilter(event.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 dark:border-[#454a5a] dark:bg-[#22252f] dark:text-white"
-                >
-                  <option value="All">All types</option>
-                  <option value="Subscription">Subscription</option>
-                  <option value="Custom Service">Custom Service</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-[#454a5a] dark:text-gray-300 dark:hover:bg-[#343947]"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(false)}
-                  className="flex-1 rounded-lg bg-[#4c6995] px-3 py-2 text-sm font-medium text-white hover:bg-[#3d587f]"
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="flex h-10 items-center border-t border-gray-200 px-3 text-xs text-gray-500 sm:h-11 sm:w-[33%] sm:border-l sm:border-t-0 dark:border-[#3b4050] dark:text-gray-400">
@@ -354,6 +295,95 @@ const Invoice = () => {
           )}
         </div>
       </div>
+
+      {showFilters && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowFilters(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-filter-title"
+            className="relative w-full max-w-[400px] rounded-xl bg-white p-6 shadow-xl dark:bg-[#252525]"
+          >
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              aria-label="Close filters"
+              className="absolute right-4 top-4 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-[#343434] dark:hover:text-white"
+            >
+              <X size={20} />
+            </button>
+            <h2
+              id="invoice-filter-title"
+              className="mb-6 text-lg font-semibold text-gray-900 dark:text-white"
+            >
+              Filter by
+            </h2>
+            <div className="mb-4">
+              <label
+                htmlFor="invoice-status"
+                className="mb-1 block text-sm font-medium text-gray-700 dark:text-[#D6D6D6]"
+              >
+                Payment status
+              </label>
+              <select
+                id="invoice-status"
+                value={statusFilter}
+                onChange={(event) => {
+                  setStatusFilter(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#576CBC] dark:border-[#5C5C5C] dark:bg-[#343434] dark:text-white"
+              >
+                <option value="All">All statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Unpaid">Unpaid</option>
+              </select>
+            </div>
+            <div className="mb-6">
+              <label
+                htmlFor="invoice-type"
+                className="mb-1 block text-sm font-medium text-gray-700 dark:text-[#D6D6D6]"
+              >
+                Invoice type
+              </label>
+              <select
+                id="invoice-type"
+                value={typeFilter}
+                onChange={(event) => {
+                  setTypeFilter(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#576CBC] dark:border-[#5C5C5C] dark:bg-[#343434] dark:text-white"
+              >
+                <option value="All">All types</option>
+                <option value="Subscription">Subscription</option>
+                <option value="Custom Service">Custom Service</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="rounded-md border border-[#576CBC] px-4 py-2 text-sm font-medium text-[#576CBC] transition hover:bg-[#576CBC]/5"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilters(false)}
+                className="rounded-md bg-[#576CBC] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#465ba0]"
+              >
+                Apply filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invoice table */}
       <div className="w-full overflow-x-auto border-x border-b border-gray-200 dark:border-[#3b4050]">
@@ -473,7 +503,7 @@ const Invoice = () => {
                       createPortal(
                       <div
                         data-invoice-action-menu
-                        className="z-50 w-48 rounded-lg border border-gray-200 bg-white p-1.5 text-left shadow-xl dark:border-[#454a5a] dark:bg-[#292d39]"
+                            className="absolute right-0 top-8 w-40 bg-white dark:bg-[#2C2C2C] border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50"
                         style={{
                           position: "fixed",
                           top: actionMenuPosition.top,
@@ -488,7 +518,7 @@ const Invoice = () => {
                             setActiveMenu(null);
                             setActionMenuPosition(null);
                           }}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
                         >
                           View details
                         </button>
@@ -501,7 +531,7 @@ const Invoice = () => {
                             setActiveMenu(null);
                             setActionMenuPosition(null);
                           }}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
                         >
                           Refund
                         </button>
@@ -511,7 +541,7 @@ const Invoice = () => {
                             setActiveMenu(null);
                             setActionMenuPosition(null);
                           }}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#3a4050]"
+                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#444] dark:text-gray-200"
                         >
                           Cancel
                         </button>

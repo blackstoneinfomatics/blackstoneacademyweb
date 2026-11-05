@@ -74,7 +74,11 @@ const formatDate = (date?: string) => {
   const parsedDate = new Date(date);
   return Number.isNaN(parsedDate.getTime())
     ? "—"
-    : parsedDate.toLocaleDateString();
+    : parsedDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
 };
 
 const mapTenantConfigurations = (
@@ -479,12 +483,12 @@ export default function PortalAccess() {
             setPage={setCurrentPage}
           />
           {configurationError && (
-            <p className="px-4 pb-4 text-sm text-red-600" role="alert">
+            <p className="px-4 pb-4 text-[17px] text-red-600" role="alert">
               {configurationError}
             </p>
           )}
           {loadingConfiguration && (
-            <p className="px-4 pb-4 text-sm text-gray-500" aria-live="polite">
+            <p className="px-4 pb-4 text-[17px] text-gray-500" aria-live="polite">
               Loading tenant configuration...
             </p>
           )}

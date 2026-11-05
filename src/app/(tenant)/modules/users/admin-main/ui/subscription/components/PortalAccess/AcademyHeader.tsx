@@ -127,14 +127,14 @@ export default function AcademyHeader() {
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-[17px] font-semibold text-gray-900 dark:text-white">
               {tenant?.organizationName ||
                 tenant?.tenantName ||
                 (tenantError ? "Tenant unavailable" : "Loading tenant...")}
             </h2>
             {tenant?.status && (
               <span
-                className={`text-[10px] ${
+                className={`text-[13px] ${
                   tenant.status.toLowerCase() === "active"
                     ? "text-green-600"
                     : "text-gray-500"
@@ -144,16 +144,16 @@ export default function AcademyHeader() {
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-[15px] text-gray-500 dark:text-gray-400">
             {tenant?.domainName || tenantError || ""}
           </p>
-          <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-[13px] text-gray-500 dark:text-gray-400">
             {tenant?.createdDate && (
               <>
                 Created on:{" "}
-                {new Date(tenant.createdDate).toLocaleDateString(undefined, {
-                  day: "2-digit",
-                  month: "long",
+                {new Date(tenant.createdDate).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
                   year: "numeric",
                 })}{" "}
               </>
@@ -166,7 +166,7 @@ export default function AcademyHeader() {
           </p>
         </div>
 
-        <span className="self-start rounded bg-[#e9efff] px-2 py-1 text-[9px] text-[#4264bc] dark:bg-[#39476b] dark:text-[#c3d0ff]">
+        <span className="self-start rounded bg-[#e9efff] px-2 py-1 text-[12px] text-[#4264bc] dark:bg-[#39476b] dark:text-[#c3d0ff]">
           {tenant?.plan || "Plan"}
         </span>
       </div>
@@ -176,12 +176,12 @@ export default function AcademyHeader() {
           <Users size={19} />
         </div>
         <div>
-          <p className="text-xs text-[#3778ff] dark:text-[#8bb3ff]">
+          <p className="text-[15px] text-[#3778ff] dark:text-[#8bb3ff]">
             Portal Usage
           </p>
           <p
             aria-live="polite"
-            className="text-lg font-semibold text-gray-900 dark:text-white"
+            className="text-[21px] font-semibold text-gray-900 dark:text-white"
           >
             {portalCounts
               ? `${portalCounts.active} / ${portalCounts.total}`
@@ -189,7 +189,7 @@ export default function AcademyHeader() {
                 ? "N/A"
                 : "Loading..."}
           </p>
-          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-[14px] text-gray-500 dark:text-gray-400">
             {portalCounts
               ? `${portalCounts.inactive} inactive`
               : countsError || "Active portals / total portals"}
