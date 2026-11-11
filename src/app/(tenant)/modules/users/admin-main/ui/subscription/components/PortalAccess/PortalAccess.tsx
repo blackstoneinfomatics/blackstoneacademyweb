@@ -149,7 +149,7 @@ export default function PortalAccess() {
   const [activeRole, setActiveRole] = useState<PortalRole>("");
 
   const [activeTab, setActiveTab] =
-    useState<ViewTab>("Feature List");
+    useState<ViewTab>("Module List");
 
   const [search, setSearch] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<

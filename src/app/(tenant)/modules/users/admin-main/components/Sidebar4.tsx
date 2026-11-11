@@ -7,8 +7,11 @@ import { usePathname } from "next/navigation";
 import { RiDashboardFill } from "react-icons/ri";
 import { MdBookmarks, MdAnalytics } from "react-icons/md";
 import { LuMessagesSquare, LuLifeBuoy, LuTicketsPlane  } from "react-icons/lu";
-import { MdPublishedWithChanges } from "react-icons/md";
+import { MdPublishedWithChanges, MdCurrencyExchange } from "react-icons/md";
 import { PiBookOpenFill } from "react-icons/pi";
+import { RiContactsBookLine } from "react-icons/ri";
+
+
 import {
   IoMdSettings,
   IoIosArrowDown,
@@ -61,43 +64,38 @@ const SidebarItems: SidebarItem[] = [
     icon: "/assets/images/business-center.png",
   },
   {
-    name: "Learning management",
+    name: "Meeting",
+    href: "/modules/users/admin-main/ui/meeting",
+    icon: RiContactsBookLine,
+  },
+  {
+    name: "Courses",
     href: "/modules/users/admin-main/ui/courses",
     icon: PiBookOpenFill,
   },
   {
-    name: "Schedules",
-    href: "#",
-    icon: "/assets/images/ChalkboardTeacher.png",
-    subItems: [
-      {
-        name: "Classes",
-        href: "/modules/users/admin-main/ui/classes",
-      },
-      {
-        name: "Meeting",
-        href: "/modules/users/admin-main/ui/meeting",
-      },
-    ],
+    name: "Classes",
+    href: "/modules/users/admin-main/ui/classes",
+    icon: "/assets/images/classes.svg",
   },
   {
     name: "Finance",
     href: "#",
     icon: "/assets/images/ChartLineUp.png",
-    subItems: [
-      {
-        name: "Invoice",
-        href: "/modules/users/admin-main/ui/Invoice",
-      },
-      {
-        name: "Salary and Wages",
-        href: "/modules/users/admin-main/ui/salaryandwages",
-      },
-      {
-        name: "Expenses",
-        href: "/modules/users/admin-main/ui/expenses",
-      },
-    ],
+    // subItems: [
+    //   {
+    //     name: "Invoice",
+    //     href: "/modules/users/admin-main/ui/Invoice",
+    //   },
+    //   {
+    //     name: "Salary and Wages",
+    //     href: "/modules/users/admin-main/ui/salaryandwages",
+    //   },
+    //   {
+    //     name: "Expenses",
+    //     href: "/modules/users/admin-main/ui/expenses",
+    //   },
+    // ],
   },
   {
     name: "Analytics",
@@ -107,18 +105,19 @@ const SidebarItems: SidebarItem[] = [
    {
     name: "Subscriptions",
     href: "/modules/users/admin-main/ui/subscription",
-    icon: MdAnalytics,
+    icon: MdCurrencyExchange,
   },
   {
     name: "Messages",
     href: "/modules/users/admin-main/ui/messagess",
     icon: LuMessagesSquare,
-  },
-  {
-    name: "Tickets",
-    href: "/modules/users/admin-main/ui/tickets",
-    icon: LuTicketsPlane,
-  },
+    subItems: [
+      {
+        name: "Tickets",
+        href: "/modules/users/admin-main/ui/tickets",
+        // icon: LuTicketsPlane,
+      },]
+    },
   {
     name: "Updates",
     href: "/modules/users/admin-main/ui/updates",

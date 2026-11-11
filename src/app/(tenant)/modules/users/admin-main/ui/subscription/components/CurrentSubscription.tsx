@@ -614,16 +614,12 @@ const handleBackupRetry = () => {
       </h3>
 
       <p className="mt-1 text-[9px] text-[#4c4560] dark:text-[#e0d2e7]">
-        Your backup request is waiting for processing.
+        Your backup request is waiting for processing. It will take a few minutes to generate the backup file.
       </p>
 
       <span className="mt-3 rounded-full bg-amber-100 px-3 py-1 text-[9px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
         PENDING
       </span>
-
-      <p className="mt-2 text-[9px] text-[#756b80] dark:text-[#d9c8e1]">
-        ID: {backupId}
-      </p>
     </>
   )}
 
@@ -726,23 +722,25 @@ const handleBackupRetry = () => {
 
             <form onSubmit={handleBackupSubmit} className="rounded-[10px] border border-[#dce1eb] px-[16px] pb-[16px] pt-[14px] dark:border-[#555]">
               <div className="mb-[15px]">
-                <label className="mb-[7px] block text-[13px] font-medium text-[#101b3d] dark:text-[#e5e7eb]">Backup Date</label>
+                <label className="mb-[10px] block text-[15px] font-medium text-[#101b3d] dark:text-[#e5e7eb]">Backup Date</label>
                 <div className="grid grid-cols-2 gap-[5px]">
                   {/* Dynamically set to today */}
+                  <p className="text-xs">From Date</p>
                   <input
                     type="date"
                     name="startDate"
                     required
-                    defaultValue={formattedToday}
+                    // defaultValue={formattedToday}
                     disabled={isSubmitting}
                     className="h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[10px] text-[12px] outline-none focus:border-[#5870c5] dark:border-[#555] dark:bg-[#252525] dark:text-white disabled:opacity-50"
                   />
                   {/* Dynamically set to today + 7 days */}
+                  <p className="text-xs">To Date</p>
                   <input
                     type="date"
                     name="endDate"
                     required
-                    defaultValue={formattedNextWeek}
+                    // defaultValue={formattedNextWeek}
                     disabled={isSubmitting}
                     className="h-[30px] w-full rounded-[5px] border border-[#d1d1d1] bg-white px-[10px] text-[12px] outline-none focus:border-[#5870c5] dark:border-[#555] dark:bg-[#252525] dark:text-white disabled:opacity-50"
                   />
@@ -759,7 +757,7 @@ const handleBackupRetry = () => {
 
               <div className="flex h-[39px] items-center rounded-[6px] bg-[#E5EBFF] px-[10px] dark:bg-[#25324b]">
                 <div className="mr-[9px] flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-[#5870c5] text-[12px] font-semibold text-white">i</div>
-                <p className="text-[12px] text-[#17213f] dark:text-[#d5dcf2]">Backup is available only for data from the last 30 days.</p>
+                <p className="text-[12px] text-[#17213f] dark:text-[#d5dcf2]">Backup is available. Once you request, it will take few minutes to the process..</p>
               </div>
 
               <div className="my-[17px] h-px w-full bg-[#dddddd] dark:bg-[#555]" />

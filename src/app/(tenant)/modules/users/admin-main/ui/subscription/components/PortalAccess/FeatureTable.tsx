@@ -31,7 +31,7 @@ export default function FeatureTable({
           <thead>
             <tr className="bg-[#4c6993] text-white">
               <th className="w-[19%] px-2 py-3 text-[13px] font-medium">
-                {activeTab === "Feature List" ? "Feature Name" : "Module Name"}
+                {activeTab === "Module List" ? "Feature Name" : "Module Name"}
               </th>
               <th className="w-[17%] px-2 py-3 text-[13px] font-medium">
                 Parent Module
