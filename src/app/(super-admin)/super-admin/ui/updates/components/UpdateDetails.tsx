@@ -6,7 +6,7 @@ import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
 const TENANTS_API = `${AppApiEndpoints.API_END_POINT}/tenantsubscription`;
 
-const EXCLUDED_TENANT_NAMES = ["SuperAdmin", "Super Admin"];
+const EXCLUDED_TENANT_NAMES = ["SuperAdmin", "Super Admin", "Select Tenants"];
 const EXCLUDED_TENANT_CODES = ["TEN00000"];
 
 interface TenantOption {
@@ -107,9 +107,6 @@ const UpdateDetails = ({
 
         if (!cancelled) setAllTenants(list);
       } catch (e) {
-        if (process.env.NODE_ENV !== "production") {
-          console.error("❌ Tenant fetch failed:", e);
-        }
         if (!cancelled) setAllTenants([]);
       } finally {
         if (!cancelled) setTenantsLoading(false);
@@ -143,6 +140,9 @@ const UpdateDetails = ({
     const trimmed = String(value).trim();
     if (!trimmed) return null;
 
+    // Skip generic labels
+    if (trimmed.toLowerCase() === "select tenants" || trimmed.toLowerCase() === "all tenants") return null;
+
     const lower = trimmed.toLowerCase();
 
     const byAlias = tenantByAlias[trimmed] ?? tenantByAlias[lower];
@@ -171,12 +171,35 @@ const UpdateDetails = ({
   const isSelectTenants = audienceJoined.includes("select tenant");
   const isByPlan = !isAllTenants && !isSelectTenants;
 
-  /* ── Tenant list ── */
+  /* ⭐ Get the localStorage row FIRST to override backend values */
+  const local = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const rows = JSON.parse(
+        window.localStorage.getItem("blackstone_created_updates_v1") || "[]"
+      );
+      // Match by updateId or title
+      return rows.find(
+        (r: any) =>
+          r.updateId === update?.updateId ||
+          r.title?.trim().toLowerCase() === update?.title?.trim().toLowerCase()
+      );
+    } catch {
+      return null;
+    }
+  }, [update?.updateId, update?.title]);
+
+  /* ── Tenant list (UPDATED TO READ FROM LOCAL STORAGE) ── */
   const tenantList: string[] = useMemo(() => {
     if (!update) return [];
-    const collected: string[] = [];
+    let collected: string[] = [];
 
-    if (Array.isArray(update.selectedTenantDetails)) {
+    // 1. Prioritize localStorage data
+    if (local?.selectedTenants && Array.isArray(local.selectedTenants) && local.selectedTenants.length > 0) {
+      collected = local.selectedTenants;
+    }
+    // 2. Fallback to backend data
+    else if (Array.isArray(update.selectedTenantDetails)) {
       update.selectedTenantDetails.forEach((t: any) => {
         const raw = t?.tenantCode ?? t?._id ?? t?.tenantName ?? t?.name;
         if (!raw) return;
@@ -185,7 +208,7 @@ const UpdateDetails = ({
       });
     }
 
-    if (Array.isArray(update.selectedTenants)) {
+    if (collected.length === 0 && Array.isArray(update.selectedTenants)) {
       update.selectedTenants.forEach((t: any) => {
         if (!t) return;
         if (typeof t === "string") {
@@ -200,7 +223,7 @@ const UpdateDetails = ({
       });
     }
 
-    if (isByPlan && collected.length === 0 && allTenants.length > 0) {
+    if (collected.length === 0 && isByPlan && allTenants.length > 0) {
       const planName = String(rawAudience[0] ?? "").trim().toLowerCase();
       allTenants
         .filter((t) => t.plan.toLowerCase() === planName)
@@ -214,16 +237,13 @@ const UpdateDetails = ({
       });
     }
 
-    const seen = new Set<string>();
-    return collected.filter((n) => {
-      const key = n.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    // Final mapping to ensure proper names are shown
+    const resolvedNames = collected.map((n) => resolveName(n) || "").filter(Boolean);
+    return Array.from(new Set(resolvedNames));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     update,
+    local,
     allTenants,
     isByPlan,
     rawAudience,
@@ -232,10 +252,7 @@ const UpdateDetails = ({
     tenantByName,
   ]);
 
-  const selectedCount =
-    typeof expectedCount === "number" && expectedCount >= 0
-      ? expectedCount
-      : tenantList.length;
+  const selectedCount = tenantList.length > 0 ? tenantList.length : (typeof expectedCount === "number" && expectedCount >= 0 ? expectedCount : 0);
 
   const allTenantsCount =
     totalTenantsCount > 0 ? totalTenantsCount : allTenants.length;
@@ -290,23 +307,7 @@ const UpdateDetails = ({
   const fieldBoxClass =
     "flex w-full items-center rounded-md border border-[#D5D9E2] bg-white px-3 py-2.5 text-[12px] leading-5 text-[#101B41] min-h-[42px] dark:border-[#555] dark:bg-[#3A3A3A] dark:text-white";
 
-  /* ⭐ Get the localStorage row FIRST to override backend values */
-  const local = (() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const rows = JSON.parse(
-        window.localStorage.getItem("blackstone_created_updates_v1") || "[]"
-      );
-      return rows.find(
-        (r: any) =>
-          r.title?.trim().toLowerCase() === update?.title?.trim().toLowerCase()
-      );
-    } catch {
-      return null;
-    }
-  })();
-
-  // ⭐ Prefer localStorage values (which hold the latest updates) over the backend API values
+  // ⭐ Prefer localStorage values
   const monthlyPrice = local?.monthlyPrice ?? update?.monthlyPrice ?? "—";
   const discount = local?.discount ?? update?.discount ?? "—";
 

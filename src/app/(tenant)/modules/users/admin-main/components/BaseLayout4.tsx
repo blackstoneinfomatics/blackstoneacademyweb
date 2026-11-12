@@ -68,6 +68,8 @@ export default function BaseLayout4({ children }: Props) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: LAYOUT_CSS }} />
+
+      {/* NON-CRITICAL: Sidebar scrollbar styling to match Super Admin */}
       <style jsx global>{`
         .sidebar__wrapper {
           scrollbar-width: thin;
@@ -94,11 +96,12 @@ export default function BaseLayout4({ children }: Props) {
         }
       `}</style>
 
-      <div className="layout-root bg-[#E4E7F4] text-black dark:bg-[#252525] dark:text-white">
+      <div className="bg-[#E4E7F4] dark:bg-[#252525] text-black dark:text-white layout-root">
         <div className="layout-grid">
-          <div className="layout-sidebar sidebar__wrapper hidden overflow-y-auto bg-[#012A4A] dark:bg-[#001E34] md:block">
-          <Sidebar4 />
-        </div>
+          {/* Sidebar column - exact same classes as Super Admin */}
+          <div className="layout-sidebar hidden md:block bg-[#012A4A] dark:bg-[#001E34] overflow-y-auto sidebar__wrapper">
+            <Sidebar4 />
+          </div>
 
           <div className="layout-main main-content-scroll-none overflow-y-auto px-4 py-2">
             {children}

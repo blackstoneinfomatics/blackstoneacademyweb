@@ -8,11 +8,15 @@ import type { AcknowledgementPayload, Ticket } from "../types";
 interface AcknowledgementFormProps {
   ticket: Ticket;
   onCancel?: () => void;
-  onSubmit?: (payload: AcknowledgementPayload) => void;
+  onSubmit?: (payload: AcknowledgementPayload) => void | Promise<void>;
+  isSubmitting?: boolean;
+  error?: string | null;
 }
 
 const priorityBadgeClass = (priority: Ticket["priority"]) => {
   switch (priority) {
+    case "Critical":
+      return "bg-[#F8DADA] text-[#B42318] dark:bg-[#D3464533] dark:text-[#FF8B8B]";
     case "High":
       return "bg-[#F8DADA] text-[#E55353] dark:bg-[#D3464533]";
     case "Medium":
@@ -26,6 +30,8 @@ export default function AcknowledgementForm({
   ticket,
   onCancel,
   onSubmit,
+  isSubmitting = false,
+  error,
 }: AcknowledgementFormProps) {
   const [subject, setSubject] = useState(
     `We have received your complaint - ${ticket.ticketId.toLowerCase()}`,
@@ -49,7 +55,7 @@ export default function AcknowledgementForm({
   return (
     <div className="w-full max-w-[640px] rounded-lg bg-white dark:bg-[#343434] p-5 shadow-sm">
       {/* Title */}
-      <h2 className="mb-4 text-[20px] font-semibold text-[#172554] dark:text-white">
+      <h2 className="mb-4 text-[16px] font-semibold text-[#172554] dark:text-white">
         Acknowledgement
       </h2>
 
@@ -64,21 +70,21 @@ export default function AcknowledgementForm({
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">
               Ticket ID
             </p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.ticketId}
             </p>
           </div>
 
           <div>
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">Tenant</p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.tenantName}
             </p>
           </div>
 
           <div>
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">Subject</p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.subject}
             </p>
           </div>
@@ -99,7 +105,7 @@ export default function AcknowledgementForm({
             <p className="text-[13px] font-medium text-[#172554] dark:text-white">
               Created On
             </p>
-            <p className="mt-1 text-[12px] text-[#596579] dark:text-[#B5B5B5]">
+            <p className="mt-1 text-[11px] text-[#323c57] dark:text-[#B5B5B5]">
               {ticket.createdOn}
             </p>
           </div>
@@ -193,11 +199,18 @@ export default function AcknowledgementForm({
         </span>
       </div>
 
+      {error && (
+        <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
+
       {/* Buttons */}
       <div className="flex justify-end gap-3 border-t border-[#E5E5E5] dark:border-[#4A4A4A] pt-3">
         <button
           type="button"
           onClick={onCancel}
+          disabled={isSubmitting}
           className="rounded-md border border-[#8EA3E8] dark:border-[#576CBC] px-5 py-2 text-[13px] font-medium text-[#576CBC] dark:text-[#8EA3E8] hover:bg-[#F1F4FF] dark:hover:bg-[#2F2F2F]"
         >
           Cancel
@@ -206,9 +219,10 @@ export default function AcknowledgementForm({
         <button
           type="button"
           onClick={handleSubmit}
-          className="rounded-md bg-[#576CBC] px-5 py-2 text-[13px] font-medium text-white hover:bg-[#4D61AD]"
+          disabled={isSubmitting}
+          className="rounded-md bg-[#576CBC] px-5 py-2 text-[13px] font-medium text-white hover:bg-[#4D61AD] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Send Acknowledgement
+          {isSubmitting ? "Updating..." : "Send Acknowledgement"}
         </button>
       </div>
     </div>

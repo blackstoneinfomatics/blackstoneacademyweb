@@ -1,45 +1,25 @@
 "use client";
-import React, { useEffect, useState } from "react";
 
 type CardType = "totalBackups" | "currentMonthBackups" | "backupsDelivered";
 
+interface BackupPeriodStat {
+    count: number;
+    percentage: number;
+    trend: "UP" | "DOWN" | "SAME";
+}
+
+export interface BackupCardsData {
+    totalBackups: number;
+    currentMonthBackups: BackupPeriodStat;
+    backupsDelivered: BackupPeriodStat;
+}
+
 interface BackupCardProps {
     type: CardType;
+    data: BackupCardsData | null;
+    loading: boolean;
+    error: string | null;
 }
-
-interface BackupStatData {
-    count: number;
-    previousMonth: number;
-    percentage: number;
-    trend: "up" | "down";
-}
-
-interface BackupCardsData {
-    totalBackups: BackupStatData;
-    currentMonthBackups: BackupStatData;
-    backupsDelivered: BackupStatData;
-}
-
-const MOCK_DATA: BackupCardsData = {
-    totalBackups: {
-        count: 28,
-        previousMonth: 24,
-        percentage: 14,
-        trend: "up",
-    },
-    currentMonthBackups: {
-        count: 28,
-        previousMonth: 24,
-        percentage: 14,
-        trend: "up",
-    },
-    backupsDelivered: {
-        count: 10,
-        previousMonth: 8,
-        percentage: 14,
-        trend: "up",
-    },
-};
 
 const cardConfig = {
     totalBackups: {
@@ -66,51 +46,19 @@ const formatValue = (num: number): string => {
     return num.toLocaleString("en-IN");
 };
 
-const getTrendInfo = (trend: "up" | "down", percentage: number) => ({
-    label: `${trend === "up" ? "↑" : "↓"} ${percentage.toFixed(0)}%`,
+const getTrendInfo = (trend: BackupPeriodStat["trend"], percentage: number) => ({
+    label: `${trend === "UP" ? "↑" : trend === "DOWN" ? "↓" : "→"} ${percentage.toFixed(0)}%`,
     color:
-        trend === "up"
-            ? "text-[#E53E3E] dark:text-[#FC8181]" 
-            : "text-[#38A169] dark:text-[#68D391]",
+        trend === "UP"
+            ? "text-[#38A169] dark:text-[#68D391]"
+            : trend === "DOWN"
+                ? "text-[#E53E3E] dark:text-[#FC8181]"
+                : "text-gray-500 dark:text-gray-300",
 });
 
-const BackupCard = ({ type }: BackupCardProps) => {
+const BackupCard = ({ type, data, loading, error }: BackupCardProps) => {
 
     const config = cardConfig[type] ?? cardConfig.totalBackups;
-
-    const [data, setData] = useState<BackupCardsData | null>(MOCK_DATA);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    // 🔌 When API is ready, replace the useEffect above with:
-    // ─────────────────────────────────────────
-    // useEffect(() => {
-    //     if (cache) {
-    //         setData(cache);
-    //         setLoading(false);
-    //         return;
-    //     }
-    //     let cancelled = false;
-    //
-    //     setLoading(true);
-    //     fetchCards()
-    //         .then((d) => {
-    //             if (!cancelled) {
-    //                 setData(d);
-    //                 setError(null);
-    //             }
-    //         })
-    //         .catch((e) => {
-    //             if (!cancelled) setError(e.message);
-    //         })
-    //         .finally(() => {
-    //             if (!cancelled) setLoading(false);
-    //         });
-    //
-    //     return () => {
-    //         cancelled = true;
-    //     };
-    // }, []);
 
     // Resolve value + trend per card type
     let value = "—";
@@ -118,11 +66,7 @@ const BackupCard = ({ type }: BackupCardProps) => {
 
     if (data) {
         if (type === "totalBackups") {
-            value = formatValue(data.totalBackups.count);
-            trend = getTrendInfo(
-                data.totalBackups.trend,
-                data.totalBackups.percentage
-            );
+            value = formatValue(data.totalBackups);
         } else if (type === "currentMonthBackups") {
             value = formatValue(data.currentMonthBackups.count);
             trend = getTrendInfo(
@@ -174,20 +118,22 @@ const BackupCard = ({ type }: BackupCardProps) => {
             </div>
 
             {/* Bottom: Trend */}
-            <div className="mt-4 flex items-center mr-2 justify-end gap-2 text-xs font-semibold">
-                {loading ? (
-                    <div className="h-3 w-24 animate-pulse rounded bg-gray-200 dark:bg-[#454545]" />
-                ) : error ? (
-                    <span className="text-red-500 dark:text-red-400">{error}</span>
-                ) : (
-                    <>
-                        <span className={trend.color}>{trend.label}</span>
-                        <span className="font-medium text-[#646464] dark:text-gray-400">
-                            vs last Month
-                        </span>
-                    </>
-                )}
-            </div>
+            {type !== "totalBackups" && (
+                <div className="mt-4 flex items-center mr-2 justify-end gap-2 text-xs font-semibold">
+                    {loading ? (
+                        <div className="h-3 w-24 animate-pulse rounded bg-gray-200 dark:bg-[#454545]" />
+                    ) : error ? (
+                        <span className="text-red-500 dark:text-red-400">{error}</span>
+                    ) : (
+                        <>
+                            <span className={trend.color}>{trend.label}</span>
+                            <span className="font-medium text-[#646464] dark:text-gray-400">
+                                vs last Month
+                            </span>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

@@ -64,6 +64,8 @@ export const AppApiEndpoints = {
     GET_INVOICE_CARD_COUNT: "/subscription-invoices/dashboard-count",
     GET_INVOICE_TABLE: "/subscription-invoices",
     GET_FINANCE_TRANSATIONS: "/finance/transactions",
+    GET_FINANCE_TRANSACTION_BY_ID: (tenantId: string, transactionId: string) =>
+      `/finance/transactions/tenant/${encodeURIComponent(tenantId)}/${encodeURIComponent(transactionId)}`,
     GET_FINANCE_TRANSATION_CARDS: "/finance/transactions/cards",
   },
 
@@ -110,6 +112,22 @@ export const AppApiEndpoints = {
     GET_CARDS: "/api/dashboard/cards",
     GET_RECENT_TENANTS: "/api/tenants/recent",
     GET_UPCOMING_RENEWALS: "/api/tenants/upcoming-renewals",
+  },
+
+  TICKET: {
+    GET_TICKETS: "/tickets",
+    GET_DASHBOARD_CARDS: "/tickets/dashboard/cards",
+    ACKNOWLEDGE: (ticketId: string) =>
+      `/tickets/${encodeURIComponent(ticketId)}/acknowledge`,
+    RESOLVE: (ticketId: string) =>
+      `/tickets/${encodeURIComponent(ticketId)}/resolve`,
+    FORWARD: (ticketId: string) =>
+      `/tickets/${encodeURIComponent(ticketId)}/forward`,
+  },
+
+  TENANT_BACKUP: {
+    GET_DASHBOARD_CARDS: "/tenant/backup/dashboard/cards",
+    GET_LIST: "/tenant/backup/list",
   },
 
   CLASSSHEDULE: {
@@ -182,6 +200,7 @@ export const AppApiEndpoints = {
   },
 
   REFUND: {
+    CREATE_REQUEST: "/refund-request/create",
     GET_LIST: "/refund-transactions",
     GET_BY_ID: "/refund-transactions/${refundId}",
     UPDATE: "/refund-transactions/${refundId}",
@@ -353,6 +372,7 @@ export const AppApiEndpoints = {
 
   PLAN: {
     CREATE_PLAN: "/plans",
+    CREATE_PLAN_CHANGE_REQUEST: "/plan-change-request",
     GET_ACTIVE_PLANS: "/api/plans/active",
     PLAN_CARD_COUNT: "/plans/dashboard",
     PLAN_ACTIVITY: "/plans/dashboard",
@@ -374,6 +394,12 @@ export const AppApiEndpoints = {
   },
   TENANT: {
     GET_TENANT: "/tenant",
+    GET_BY_ID: (tenantId: string) =>
+      `/tenant/${encodeURIComponent(tenantId)}`,
+    GET_TENANT_SUBSCRIPTION: (tenantId: string) =>
+      `/tenant-subscription/${encodeURIComponent(tenantId)}`,
+    GET_USERS_BY_ROLE: (tenantId: string, role: string) =>
+      `/tenant/${encodeURIComponent(tenantId)}/users?role=${encodeURIComponent(role)}`,
     CREATE_TENANT: "/tenant",
     UPDATE_TENANT: "/tenant/{tenantId}",
     TENANT_OVERVIEW: "/tenant/{tenantCode}",
@@ -384,7 +410,11 @@ export const AppApiEndpoints = {
     GET_ANALYTICS_DASHBOARD_GROWTH: "/tenant/analytics/dashboard/growth",
     TENANT_AUDIT_LOGS: "/audit-log/tenant/{tenantCode}",
     TENANT_ACTIVITY_SUMMARY: "/audit-log/dashboard/activity-summary",
-    TENANT_SUBSCRIPTION_LIST_CARD: "/tenant-subscription"
+    TENANT_SUBSCRIPTION_LIST_CARD: "/tenant-subscription",
+    DOWNLOAD_BACKUP: (backupId: string) =>
+  `/backup/download/${backupId}`,
+    GET_BACKUP_STATUS: (backupId: string) =>
+  `/backup/status/${backupId}`,
   },
   PORTAL: {
     GET_ALL: "/portal",
@@ -392,6 +422,9 @@ export const AppApiEndpoints = {
     GET_BY_TENANT: "/portal/tenant/{tenantId}",
     CREATE_BY_TENANT: "/portal/tenant",
     UPDATE_STATUS: "/portal/tenant/{tenantPortalId}/status",
+  },
+  PORTAL_REQUEST: {
+    CREATE: "/portal-request/create",
   },
   MODULE_TENANT: {
     GET_CONFIG: "/modules/tenant/config",

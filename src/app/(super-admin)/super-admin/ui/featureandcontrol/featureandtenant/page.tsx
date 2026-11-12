@@ -190,7 +190,7 @@ interface FormData {
 
 /* ================= CHILD NAVIGATION OPTIONS ================= */
 const childNavigationOptions = ["Ticket", "Message"];
-const PAGE_LIMIT = 10;
+const PAGE_LIMIT = 5;
 const MENU_WIDTH = 112; // w-28
 
 const paginate = <T,>(items: T[], page: number, limit: number): T[] => {

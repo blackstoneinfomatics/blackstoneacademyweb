@@ -10,6 +10,7 @@ import UpdateDetails from './components/UpdateDetails';
 import CreateUpdateForm, { UpdateFormData } from './components/CreateUpdateForm';
 import type { ProductUpdate, UpdateFeaturePayload, UpdatePriority, UpdateStatus } from './types';
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import OrganizationHeader, { OrganizationTab } from '../../components/OrganizationHeader';
 
 const DASHBOARD_CARDS_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_DASHBOARD_CARDS}`;
 const UPDATES_TABLE_API = `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.UPDATES.GET_TABLE}`;
@@ -29,6 +30,7 @@ interface DashboardCardsResponse {
     totalUpdates: CardMetric;
     publishedUpdates: CardMetric;
     scheduledUpdates: CardMetric;
+    totalPurchaseRequests: CardMetric;
   };
 }
 
@@ -114,58 +116,54 @@ const buildTenantPairs = (
   });
 };
 
-const normalizeRow = (
-  row: ApiUpdateRow,
-  totalTenantsCount: number = 0,
-): ProductUpdate => {
-  const audienceArr: string[] =
-    Array.isArray(row.audience) && row.audience.length > 0
-      ? row.audience
-      : ["All Tenants"];
+const normalizeRow = (row: ApiUpdateRow, totalTenantsCount: number = 0, localRow: any = null): ProductUpdate => {
+  const isAllTenants = (row.audience ?? []).join(" ").toLowerCase().includes("all tenant");
 
-  const audienceJoined = audienceArr.join(" ").toLowerCase();
-  const isAllTenants = audienceJoined.includes("all tenant");
-  const isSelectTenants = audienceJoined.includes("select tenant");
+  let selectedNames: string[] = [];
+  let rawCount = 0;
 
-  const anyRow = row as any;
+  if (!isAllTenants) {
 
-  const tenantPairs = buildTenantPairs(anyRow);
-  const selectedNames = tenantPairs
-    .map((p) => p.tenantName || p.tenantCode)
-    .filter(Boolean);
+    if (localRow?.selectedTenants && Array.isArray(localRow.selectedTenants) && localRow.selectedTenants.length > 0) {
+      selectedNames = localRow.selectedTenants;
+    }
 
-  const count = tenantPairs.length;
+    else if (Array.isArray(row.selectedTenantDetails) && row.selectedTenantDetails.length > 0) {
+      selectedNames = row.selectedTenantDetails.map((t: any) => t?.tenantName || t?.name || t?.tenantCode);
+    }
 
-  let audienceDisplay: string;
-  if (isAllTenants) {
-    audienceDisplay = `All Tenants (${totalTenantsCount})`;
-  } else if (isSelectTenants) {
-    audienceDisplay = `Selected Tenants (${count})`;
-  } else {
-    const planLabel = audienceArr[0] ?? anyRow.planName ?? "Plan";
-    audienceDisplay = `${planLabel} (${count})`;
+    else if (Array.isArray(row.selectedTenants) && row.selectedTenants.length > 0) {
+      selectedNames = row.selectedTenants.map((t: any) => typeof t === "string" ? t : (t?.tenantName || t?.name || t?.tenantCode || String(t)));
+    }
+    if (selectedNames.filter(Boolean).length === 0 && typeof localRow?.selectedTenantsCount === "number") {
+      rawCount = localRow.selectedTenantsCount;
+    }
   }
 
-  const releaseDate = row.releaseDate ?? row.publishDate ?? row.createdAt ?? "";
+  const uniqueNames = Array.from(new Set(selectedNames.filter(Boolean)));
+  const count = uniqueNames.length > 0 ? uniqueNames.length : rawCount;
+  const audienceDisplay = isAllTenants
+    ? `All Tenants (${totalTenantsCount})`
+    : `Selected Tenants (${count})`;
 
   return {
     updateId: row._id,
-    title: row.title,
-    description: row.description,
-    category: row.category,
-    priority: (row.priority ?? "Low") as UpdatePriority,
+    title: localRow?.title ?? row.title,
+    description: localRow?.description ?? row.description,
+    category: localRow?.category ?? row.category,
+    priority: (localRow?.priority ?? row.priority ?? "Low") as UpdatePriority,
     audience: audienceDisplay,
-    releaseDate,
+    releaseDate: localRow?.publishDate ?? row.releaseDate ?? row.publishDate ?? row.createdAt ?? "",
     status: (row.status ?? "Draft") as UpdateStatus,
     affectedTenants: isAllTenants ? totalTenantsCount : count,
-    rawAudience: audienceArr,
-    rawSelectedTenants: selectedNames,
-    rawSelectedTenantDetails: tenantPairs,
+    rawAudience: isAllTenants ? ["All Tenants"] : ["Select Tenants"],
+    rawSelectedTenants: uniqueNames,
+    rawSelectedTenantDetails: uniqueNames.map((n) => ({ tenantCode: n, tenantName: n })),
     attachments: row.attachments ?? [],
     sendNotification: row.sendNotification,
-    publishDate: row.publishDate,
-    monthlyPrice: anyRow.monthlyPrice,
-    discount: anyRow.discount,
+    publishDate: localRow?.publishDate ?? row.publishDate,
+    monthlyPrice: localRow?.monthlyPrice ?? (row as any).monthlyPrice,
+    discount: localRow?.discount ?? (row as any).discount,
   } as ProductUpdate;
 };
 
@@ -180,6 +178,7 @@ const buildCardsFromApi = (
   const scheduled =
     apiData?.scheduledUpdates?.count ??
     fallbackUpdates.filter((u) => u.status === "Scheduled").length;
+  const purchaseRequests = apiData?.totalPurchaseRequests?.count ?? 0;
 
   return [
     {
@@ -214,13 +213,13 @@ const buildCardsFromApi = (
     },
     {
       title: "Total Request",
-      value: "-",
-      percentage: undefined,
-      direction: undefined,
+      value: apiData?.totalPurchaseRequests ? purchaseRequests.toString() : "-",
+      percentage: apiData?.totalPurchaseRequests?.percentage,
+      direction: apiData?.totalPurchaseRequests?.direction,
       image: CARD_ICONS.totalViews,
       iconBg: "bg-[#E6EAF2]",
       titleColor: "text-[#576CBC]",
-      trend: "- vs last Month",
+      trend: "vs last Month",
     },
   ];
 };
@@ -245,6 +244,13 @@ const INITIAL_FILTERS: FilterState = {
   toDate: "",
 };
 
+// Normalize a Date to midnight (local) for date-only comparison
+const toMidnight = (d: Date): Date => {
+  const n = new Date(d);
+  n.setHours(0, 0, 0, 0);
+  return n;
+};
+
 const applyFilters = (
   items: ProductUpdate[],
   search: string,
@@ -252,6 +258,8 @@ const applyFilters = (
 ) => {
   const term = search.toLowerCase().trim();
   return items.filter((item) => {
+    // Include formatted date in search so users can type "Oct", "2026", etc.
+    const formattedDate = formatReleaseDate(item.releaseDate);
     const matchesSearch =
       !term ||
       [
@@ -261,7 +269,7 @@ const applyFilters = (
         item.category,
         item.priority,
         item.audience,
-        item.releaseDate,
+        formattedDate,
         item.status,
       ]
         .join(" ")
@@ -279,11 +287,17 @@ const applyFilters = (
       item.audience.toLowerCase().includes(filters.audience.toLowerCase());
     const matchesStatus =
       filters.status === "All" || item.status === filters.status;
-    const rowDate = new Date(item.releaseDate);
-    const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
-    const toDate = filters.toDate ? new Date(filters.toDate) : null;
+
+    // Date filter: normalize to midnight so YYYY-MM-DD inputs compare correctly
+    const rawDate = new Date(item.releaseDate);
+    const rowDate = isNaN(rawDate.getTime()) ? null : toMidnight(rawDate);
+    const fromDate = filters.fromDate ? toMidnight(new Date(filters.fromDate)) : null;
+    const toDate = filters.toDate ? toMidnight(new Date(filters.toDate)) : null;
     const matchesDate =
-      (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+      !rowDate
+        ? !fromDate && !toDate // if row has no date, only show when no date filter active
+        : (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+
     return (
       matchesSearch &&
       matchesTitle &&
@@ -337,7 +351,8 @@ const categoryBadgeClass = (category: string) => {
   }
 };
 
-const page = () => {
+const Page = () => {
+  const [tab, setTab] = useState<OrganizationTab>("Institute");
   const [updateList, setUpdateList] = useState<ProductUpdate[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -445,7 +460,7 @@ const page = () => {
     };
   }, []);
 
-  // Fetch purely from API - No local storage
+  // 🚨 FIXED: Fetch from API and merge with LocalStorage
   useEffect(() => {
     if (totalTenantsCount === 0) return;
 
@@ -459,14 +474,23 @@ const page = () => {
 
         if (!json.success) throw new Error(json.message || "Failed to load data");
 
+        const localRows = typeof window !== "undefined"
+          ? JSON.parse(localStorage.getItem("blackstone_created_updates_v1") || "[]")
+          : [];
+
         const apiRows: ApiUpdateRow[] = json.data ?? [];
-        const normalized = apiRows.map((row) =>
-          normalizeRow(row, totalTenantsCount),
-        );
+
+        const normalized = apiRows.map((row) => {
+          const localMatch = localRows.find(
+            (r: any) => r.updateId === row._id || r.title?.trim().toLowerCase() === row.title?.trim().toLowerCase()
+          );
+          return normalizeRow(row, totalTenantsCount, localMatch);
+        });
+
         setUpdateList(normalized);
       } catch (e: any) {
         if (!cancelled) {
-          setUpdateList([]); // Clear table on error
+          setUpdateList([]);
           setTableError(e.message ?? "Failed to load updates");
         }
       } finally {
@@ -525,38 +549,17 @@ const page = () => {
       prev.map((u) => {
         if (u.updateId !== payload.updateId) return u;
 
-        const incoming = (payload.audience ?? "").trim();
-        const PLAN_LABELS = ["Standard", "Premium", "Basic", "premium"];
-        const isAllTenants = incoming === "All Tenants";
+        const rawNewTenants = (payload as any).selectedTenants;
+        const newTenants: string[] = Array.isArray(rawNewTenants)
+          ? rawNewTenants.map(String)
+          : (u.rawSelectedTenants || []);
 
-        let nextSelectedNames: string[] = u.rawSelectedTenants ?? [];
-
-        if (isAllTenants) {
-          nextSelectedNames = [];
-        } else if (
-          incoming &&
-          !incoming.toLowerCase().includes("select tenants")
-        ) {
-          const incomingNames = incoming
-            .split(",")
-            .map((s) => s.trim())
-            .filter(
-              (s) =>
-                s &&
-                !PLAN_LABELS.includes(s) &&
-                !s.toLowerCase().includes("all tenant"),
-            );
-
-          if (incomingNames.length > 0) {
-            nextSelectedNames = Array.from(
-              new Set([...(u.rawSelectedTenants ?? []), ...incomingNames]),
-            );
-          }
-        }
+        const uniqueTenants = Array.from(new Set(newTenants));
+        const isAllTenants = payload.audience === "All Tenants";
 
         const nextAudienceDisplay = isAllTenants
           ? `All Tenants (${totalTenantsCount})`
-          : `Selected Tenants (${nextSelectedNames.length})`;
+          : `Selected Tenants (${uniqueTenants.length})`;
 
         return {
           ...u,
@@ -566,12 +569,12 @@ const page = () => {
           priority: payload.priority ?? u.priority,
           releaseDate: payload.publishDate || u.releaseDate,
           audience: nextAudienceDisplay,
-          rawSelectedTenants: nextSelectedNames,
-          rawSelectedTenantDetails: nextSelectedNames.map((n) => ({
+          rawSelectedTenants: uniqueTenants,
+          rawSelectedTenantDetails: uniqueTenants.map((n) => ({
             tenantCode: n,
             tenantName: n,
           })),
-          affectedTenants: nextSelectedNames.length,
+          affectedTenants: isAllTenants ? totalTenantsCount : uniqueTenants.length,
           monthlyPrice: (payload as any).monthlyPrice,
           discount: (payload as any).discount,
         };
@@ -580,7 +583,6 @@ const page = () => {
 
     setEditUpdate(null);
   };
-
   const handleUpdateInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -664,14 +666,63 @@ const page = () => {
     setIsPublishing(true);
 
     try {
-      // Refresh purely from DB API
+      // 🚨 SAVE TO LOCALSTORAGE FIRST
+      try {
+        const KEY = "blackstone_created_updates_v1";
+        const rows = JSON.parse(localStorage.getItem(KEY) || "[]");
+
+        // Resolve _id: prefer from API response, then from payload, then temp
+        const resolvedId = response?.data?._id ?? response?.data?.id ?? response?._id ?? payload.updateId ?? `temp-${Date.now()}`;
+
+        // The payload must contain the selectedTenants array from the form
+        const selectedTenantsArr: string[] = Array.isArray(payload.selectedTenants) ? payload.selectedTenants : [];
+        const newRow = {
+          updateId: resolvedId,
+          title: payload.title,
+          category: payload.category,
+          description: payload.description,
+          publishDate: payload.publishDate,
+          priority: payload.priority,
+          audience: payload.audience,
+          selectedTenants: selectedTenantsArr, // 🚨 CRITICAL — tenant names from form
+          selectedTenantsCount: selectedTenantsArr.length, // 🚨 Guaranteed count fallback
+          status: payload.status || "Scheduled",
+          monthlyPrice: payload.monthlyPrice,
+          discount: payload.discount,
+          createdAt: new Date().toISOString(),
+        };
+
+        // Update if exists (by id or title), else add
+        const idx = rows.findIndex(
+          (r: any) =>
+            (resolvedId && r.updateId === resolvedId) ||
+            r.title?.trim().toLowerCase() === payload.title?.trim().toLowerCase()
+        );
+        if (idx >= 0) rows[idx] = { ...rows[idx], ...newRow };
+        else rows.unshift(newRow);
+
+        localStorage.setItem(KEY, JSON.stringify(rows.slice(0, 100)));
+      } catch (err) {
+        console.error("Failed to save to localStorage", err);
+      }
+
+      // Then refresh from API
       const res = await fetch(`${UPDATES_TABLE_API}?limit=1000`);
       const json: UpdatesTableResponse = await res.json();
 
       if (json.success && json.data) {
-        const normalized = json.data.map((row) =>
-          normalizeRow(row, totalTenantsCount),
-        );
+        const localRows: any[] = typeof window !== "undefined"
+          ? JSON.parse(localStorage.getItem("blackstone_created_updates_v1") || "[]")
+          : [];
+
+        const normalized = json.data.map((row) => {
+          const localMatch = localRows.find(
+            (r: any) =>
+              (r.updateId && r.updateId === row._id) ||
+              r.title?.trim().toLowerCase() === row.title?.trim().toLowerCase()
+          );
+          return normalizeRow(row, totalTenantsCount, localMatch);
+        });
         setUpdateList(normalized);
       }
 
@@ -683,14 +734,12 @@ const page = () => {
     }
   };
 
-  const activeFilterCount = Object.entries(appliedFilters).filter(
-    ([key, value]) =>
-      value &&
-      !(
-        (key === "title" && value === "") ||
-        (key !== "title" && value === "All")
-      ),
-  ).length;
+  const activeFilterCount = Object.entries(appliedFilters).filter(([key, value]) => {
+    if (!value) return false; // empty string / falsy
+    if (key === "title") return value.trim() !== "";
+    if (key === "fromDate" || key === "toDate") return value !== "";
+    return value !== "All";
+  }).length;
 
   const totalPages = Math.max(
     1,
@@ -718,11 +767,21 @@ const page = () => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
+
+
   return (
     <>
       <SuperAdminHeader currentSection="Updates" />
+                      <div>
+                  <OrganizationHeader
+          
+                    showTabs
+                    activeTab={tab}
+                    onTabChange={setTab} currentSection={""} />
+          
+                </div>
 
-      <div className="rounded-xl bg-[#F4F6FC] dark:bg-[#1F1F1F] px-4">
+      <div className="rounded-xl bg-[#f7f8fd] dark:bg-[#2e2e2e] px-4">
         <div className="flex items-center justify-between mt-2 py-2">
           <h2 className="text-[19px] font-semibold text-[#000] dark:text-[#fff] mb-0 px-2 py-3">
             Institute Updates
@@ -890,14 +949,14 @@ const page = () => {
                           </td>
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}
+                              className={`inline-block w-[110px] text-center px-2 text-[11px] py-[3px] rounded-md ${categoryBadgeClass(item.category)}`}
                             >
                               {item.category}
                             </span>
                           </td>
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[12px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
+                              className={`inline-block w-[90px] text-center px-2 text-[12px] py-[3px] rounded-md ${priorityBadgeClass(item.priority)}`}
                             >
                               {item.priority}
                             </span>
@@ -910,7 +969,7 @@ const page = () => {
                           </td>
                           <td className="py-4 px-2">
                             <span
-                              className={`px-2 text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
+                              className={`inline-block w-[85px] text-center px-2 text-[12px] py-[3px] rounded-md ${statusBadgeClass(item.status)}`}
                             >
                               {item.status}
                             </span>
@@ -1131,21 +1190,61 @@ const page = () => {
                       ))}
                     </select>
                   </div>
+                  {/* Release Date Range */}
+                  <div>
+                    <label className="mb-2 block text-sm leading-none text-[#101B41] dark:text-[#E2E2E2]">
+                      Release Date
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={draftFilters.fromDate}
+                        onChange={(e) =>
+                          setDraftFilters((prev) => ({ ...prev, fromDate: e.target.value }))
+                        }
+                        className="h-8 w-full rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-2 text-xs outline-none"
+                      />
+                      <span className="shrink-0 text-xs text-[#80848E] dark:text-[#B5B5B5]">to</span>
+                      <input
+                        type="date"
+                        value={draftFilters.toDate}
+                        min={draftFilters.fromDate || undefined}
+                        onChange={(e) =>
+                          setDraftFilters((prev) => ({ ...prev, toDate: e.target.value }))
+                        }
+                        className="h-8 w-full rounded-md border border-[#d5d5d5] dark:border-[#4A4A4A] bg-white dark:bg-[#343434] px-2 text-xs outline-none"
+                      />
+                    </div>
+                    {(draftFilters.fromDate || draftFilters.toDate) && (
+                      <button
+                        type="button"
+                        onClick={() => setDraftFilters((prev) => ({ ...prev, fromDate: "", toDate: "" }))}
+                        className="mt-1 text-[10px] text-[#576CBC] hover:underline"
+                      >
+                        Clear dates
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="my-5 h-px bg-[#E4E8F1] dark:bg-[#4A4A4A]" />
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => setDraftFilters(INITIAL_FILTERS)}
-                    className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC]"
+                    onClick={() => {
+                      setDraftFilters(INITIAL_FILTERS);
+                      setAppliedFilters(INITIAL_FILTERS);
+                      setSearch("");
+                      setShowFilterPanel(false);
+                    }}
+                    className="h-8 rounded-lg border border-[#576CBC] text-sm font-medium text-[#576CBC] hover:bg-[#EEF1FB] dark:hover:bg-[#2A3550] transition"
                   >
-                    Reset
+                    Reset All
                   </button>
                   <button
                     onClick={() => {
                       setAppliedFilters(draftFilters);
                       setShowFilterPanel(false);
                     }}
-                    className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white"
+                    className="h-8 rounded-lg bg-[#576CBC] text-sm font-medium text-white hover:bg-[#4D66B3] transition"
                   >
                     Show {previewFilteredItems.length} results
                   </button>
@@ -1210,4 +1309,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default Page;

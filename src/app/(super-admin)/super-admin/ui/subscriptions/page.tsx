@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import BaseSuperLayout from "@/app/(super-admin)/super-admin/components/BaseSuperLayout";
 import SuperAdminHeader from "../../components/SuperAdminHeader";
 import Tabs from "./components/Tabs";
 import OrganizationHeader, { OrganizationTab } from "../../components/OrganizationHeader";
@@ -13,7 +12,7 @@ type SubscriptionTab =
   | "trials"
   | "analytics";
 
-const page = () => {
+const Page = () => {
   const [activeTab, setActiveTab] = useState<SubscriptionTab>("plans");
   const [tab, setTab] = useState<OrganizationTab>("All");
 
@@ -40,4 +39,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default Page;
