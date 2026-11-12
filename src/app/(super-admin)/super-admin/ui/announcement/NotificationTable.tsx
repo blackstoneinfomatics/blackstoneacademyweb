@@ -621,7 +621,7 @@ export default function NotificationTable() {
 
                 <td className="px-2 py-2 align-top text-[11px] text-[#263755] dark:text-slate-300" title={item.category}>
                   <span className="line-clamp-2 break-words">
-                    {renderBoldHighlights(item.category, [
+                    {(item.category, [
                       getCategoryPurpose(item.category),
                       item.tenantName,
                     ])}
@@ -629,14 +629,14 @@ export default function NotificationTable() {
                 </td>
                 <td className="px-2 py-2 align-top text-[11px] text-[#263755] dark:text-slate-300" title={item.description}>
                   <span className="line-clamp-2 break-words">
-                    {renderBoldHighlights(item.description, [
+                    {(item.description, [
                       item.tenantName,
                       getDescriptionPurpose(item.description),
                     ])}
                   </span>
                 </td>
                 <td className="px-2 py-2 align-top text-[11px]" title={item.reason}>
-                  <span className="line-clamp-2 break-words rounded bg-amber-50 px-1.5 py-1 font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+                  <span className="line-clamp-2 break-words rounded px-1.5 py-1 font-medium text-[#142342]">
                     {item.reason || "-"}
                   </span>
                 </td>
@@ -999,14 +999,17 @@ export default function NotificationTable() {
                 {selectedNotification.description}
               </p>
             </div>
-            <div className="sm:col-span-2">
-              <p className="mb-[6px] text-[11px] dark:text-[#d5dced] text-[#010e30]">
-                Request Reason
-              </p>
-              <p className="rounded-[6px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium leading-[17px] text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                {selectedNotification.reason}
-              </p>
-            </div>
+            {selectedNotification.reason.trim() &&
+              selectedNotification.reason.trim() !== "-" && (
+              <div className="sm:col-span-2 rounded-md border border-blue-900 bg-[#7095fa34] px-3 py-2 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+                <p className="mb-[6px] text-[11px] dark:text-[#d5dced] text-[#010e30]">
+                  Request Reason
+                </p>
+                <p className="text-[11px] font-medium leading-[17px] text-[#000]">
+                  {selectedNotification.reason}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

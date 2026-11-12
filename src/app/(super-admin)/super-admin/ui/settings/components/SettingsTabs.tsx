@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import GeneralSettings from "./tabs/GeneralSettings/GeneralSettings";
+import Authentication from "./tabs/Authentication/Authentication";
+import Notifications from "./tabs/notifications/Notifications";
+import Integrations from "./tabs/integrations/Integrations";
+import Security from "./tabs/security/Security";
 
 const settingsTabs = [
   { id: "general", label: "General" },
@@ -31,7 +35,7 @@ export default function SettingsTabs() {
             <button
               aria-controls="settings-tab-panel"
               aria-selected={isActive}
-              className={`relative shrink-0 px-1 py-1 text-sm font-medium transition
+              className={`relative shrink-0 px-3 py-1 gap-x-4 text-sm font-medium transition
   after:absolute after:bottom-0 after:left-0 after:h-[3px] after:w-full after:rounded-full after:content-['']
   ${
     isActive
@@ -57,6 +61,14 @@ export default function SettingsTabs() {
       >
         {activeTab === "general" ? (
           <GeneralSettings />
+        ) : activeTab === "authentication" ? (
+          <Authentication />
+        ) : activeTab === "notifications" ? (
+          <Notifications />
+        ) : activeTab === "integrations" ? (
+          <Integrations />
+        ) : activeTab === "security" ? (
+          <Security /> 
         ) : (
           <h2 className="text-base font-semibold text-[#24324B] dark:text-white">
             {activeLabel}
