@@ -14,6 +14,7 @@ type Notification = {
   category: string;
   notificationType: string;
   description: string;
+  reason: string;
   receivedDate: string;
   seenDate: string;
 };
@@ -44,6 +45,55 @@ function getString(record: ApiRecord, keys: string[], fallback = ""): string {
     if (typeof value === "number") return String(value);
   }
   return fallback;
+}
+
+function getCategoryPurpose(category: string): string {
+  const fromIndex = category.toLowerCase().lastIndexOf(" from ");
+  return (fromIndex === -1 ? category : category.slice(0, fromIndex)).trim();
+}
+
+function getDescriptionPurpose(description: string): string {
+  const match = description.match(
+    /\b(?:submitted|requested)\s+(.+?)(?:[.!?]|$)/i,
+  );
+  return match?.[1]?.trim() ?? "";
+}
+
+function renderBoldHighlights(text: string, terms: string[]) {
+  const highlights = [...new Set(terms.filter(Boolean))].sort(
+    (first, second) => second.length - first.length,
+  );
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining) {
+    const lowerRemaining = remaining.toLowerCase();
+    const match = highlights
+      .map((term) => ({
+        term,
+        index: lowerRemaining.indexOf(term.toLowerCase()),
+      }))
+      .filter((candidate) => candidate.index !== -1)
+      .sort((first, second) => first.index - second.index)[0];
+
+    if (!match) {
+      parts.push(remaining);
+      break;
+    }
+
+    if (match.index > 0) {
+      parts.push(remaining.slice(0, match.index));
+    }
+    const matchedText = remaining.slice(
+      match.index,
+      match.index + match.term.length,
+    );
+    parts.push(<strong key={key++}>{matchedText}</strong>);
+    remaining = remaining.slice(match.index + match.term.length);
+  }
+
+  return parts;
 }
 
 function formatDate(value: string): string {
@@ -107,6 +157,7 @@ function normalizeRequest(
       ["description", "messages", "message", "reason"],
       "-",
     ),
+    reason: getString(record, ["reason", "requestReason", "request_reason"], "-"),
     receivedDate: formatDate(
       getString(record, ["receivedDate", "createdDate", "createdAt", "requestedAt"]),
     ),
@@ -184,10 +235,13 @@ export default function NotificationTable() {
         const rows = getRequestRows(data?.data);
         console.log("row record",rows);
         const savedSeenDates = getStoredSeenDates();
+        const uniqueRows = new Map<string, Notification>();
+        rows.forEach((row, index) => {
+          const notification = normalizeRequest(row, index, savedSeenDates);
+          uniqueRows.set(notification.requestId, notification);
+        });
         setNotifications(
-          rows.map((row, index) =>
-            normalizeRequest(row, index, savedSeenDates),
-          ),
+          Array.from(uniqueRows.values()),
         );
       } catch (error) {
         console.error("Failed to fetch notification request list:", error);
@@ -256,6 +310,7 @@ export default function NotificationTable() {
         item.tenantName,
         item.category,
         item.description,
+        item.reason,
         item.receivedDate,
       ].some((value) => value.toLowerCase().includes(keyword));
 
@@ -512,15 +567,16 @@ export default function NotificationTable() {
 
       {/* Table */}
       <div className="w-full overflow-x-auto">
-        <table className="w-full min-w-full table-fixed border-collapse text-left">
+        <table className="w-full min-w-[900px] table-fixed border-collapse text-left">
           <colgroup>
-            <col className="w-[8%]" />
-            <col className="w-[13%]" />
-            <col className="w-[21%]" />
-            <col className="w-[28%]" />
+            <col className="w-[10%]" />
+            <col className="w-[14%]" />
+            <col className="w-[17%]" />
+            <col className="w-[22%]" />
             <col className="w-[12%]" />
-            <col className="w-[9%]" />
-            <col className="w-[9%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[5%]" />
           </colgroup>
 
           <thead>
@@ -530,6 +586,7 @@ export default function NotificationTable() {
                 "Tenant Name",
                 "Notification Category",
                 "Description",
+                "Reason",
                 "Received Date",
                 "Seen Date",
                 "Action",
@@ -562,12 +619,26 @@ export default function NotificationTable() {
                   {item.tenantName}
                 </td>
 
-                <td className="truncate px-2 text-[11px] text-[#263755] dark:text-slate-300" title={item.category}>
-                  {item.category}
+                <td className="px-2 py-2 align-top text-[11px] text-[#263755] dark:text-slate-300" title={item.category}>
+                  <span className="line-clamp-2 break-words">
+                    {renderBoldHighlights(item.category, [
+                      getCategoryPurpose(item.category),
+                      item.tenantName,
+                    ])}
+                  </span>
                 </td>
-
-                <td className="truncate px-2 text-[11px] text-[#142342] dark:text-slate-200" title={item.description}>
-                  {item.description}
+                <td className="px-2 py-2 align-top text-[11px] text-[#263755] dark:text-slate-300" title={item.description}>
+                  <span className="line-clamp-2 break-words">
+                    {renderBoldHighlights(item.description, [
+                      item.tenantName,
+                      getDescriptionPurpose(item.description),
+                    ])}
+                  </span>
+                </td>
+                <td className="px-2 py-2 align-top text-[11px]" title={item.reason}>
+                  <span className="line-clamp-2 break-words rounded bg-amber-50 px-1.5 py-1 font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+                    {item.reason || "-"}
+                  </span>
                 </td>
 
                 <td className="whitespace-nowrap px-2 text-[11px] text-[#426ba5] dark:text-sky-300">
@@ -608,7 +679,7 @@ export default function NotificationTable() {
             {loading && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="h-24 text-center text-[12px] text-[#888] dark:text-slate-300"
                 >
                   Loading notification requests…
@@ -619,7 +690,7 @@ export default function NotificationTable() {
             {!loading && !loadError && currentData.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="h-24 text-center text-[12px] text-[#888] dark:text-slate-300"
                 >
                   No notifications found.
@@ -926,6 +997,14 @@ export default function NotificationTable() {
               </p>
               <p className="text-[10px] leading-[17px] text-[#323c57] dark:text-[#aeb9ce]">
                 {selectedNotification.description}
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="mb-[6px] text-[11px] dark:text-[#d5dced] text-[#010e30]">
+                Request Reason
+              </p>
+              <p className="rounded-[6px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium leading-[17px] text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                {selectedNotification.reason}
               </p>
             </div>
           </div>
