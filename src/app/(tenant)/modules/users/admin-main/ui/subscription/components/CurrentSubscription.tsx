@@ -424,8 +424,8 @@ const handleBackupRetry = () => {
           if (firstErrorKey) {
             errorMsg = `${firstErrorKey}: ${fieldErrors[firstErrorKey]?.[0]}`;
           }
-        } else if (result.error?.formErrors?.length > 0) {
-          errorMsg = result.error.formErrors[0];
+} else if (result.error?.formErrors?.[0]) {
+  errorMsg = result.error.formErrors[0];
         } else if (result.message) {
           errorMsg = result.message;
         }
