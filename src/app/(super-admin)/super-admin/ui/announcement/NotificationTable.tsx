@@ -59,43 +59,6 @@ function getDescriptionPurpose(description: string): string {
   return match?.[1]?.trim() ?? "";
 }
 
-function renderBoldHighlights(text: string, terms: string[]) {
-  const highlights = [...new Set(terms.filter(Boolean))].sort(
-    (first, second) => second.length - first.length,
-  );
-  const parts: React.ReactNode[] = [];
-  let remaining = text;
-  let key = 0;
-
-  while (remaining) {
-    const lowerRemaining = remaining.toLowerCase();
-    const match = highlights
-      .map((term) => ({
-        term,
-        index: lowerRemaining.indexOf(term.toLowerCase()),
-      }))
-      .filter((candidate) => candidate.index !== -1)
-      .sort((first, second) => first.index - second.index)[0];
-
-    if (!match) {
-      parts.push(remaining);
-      break;
-    }
-
-    if (match.index > 0) {
-      parts.push(remaining.slice(0, match.index));
-    }
-    const matchedText = remaining.slice(
-      match.index,
-      match.index + match.term.length,
-    );
-    parts.push(<strong key={key++}>{matchedText}</strong>);
-    remaining = remaining.slice(match.index + match.term.length);
-  }
-
-  return parts;
-}
-
 function formatDate(value: string): string {
   if (!value) return "-";
   const date = new Date(value);
