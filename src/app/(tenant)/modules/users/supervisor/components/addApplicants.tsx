@@ -7,37 +7,37 @@ import SuccessPopup from "@/app/(tenant)/modules/users/supervisor/components/suc
 import FailedPopup from "@/app/(tenant)/modules/users/supervisor/components/failedPopup";
 import {
   Country,
-  State,
-  City,
   ICountry,
-  ICity,
-  IState,
 } from "country-state-city";
-import {
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-} from "@headlessui/react";
-import PhoneInput from "react-phone-number-input";
-import { isValidPhoneNumber } from "react-phone-number-input";
-import "react-phone-number-input/style.css";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import { AppValidationMessages } from "@/app/_components/contents/validation_message";
 import { appSuccessToastMessages, AppFailureToastMessages } from "@/app/_components/contents/toast_message";
 type Props = {
   readonly onClose: () => void;
 };
 
-interface Experience {
-  jobRole: string;
-  organizationName: string;
-  jobLocation: string;
-  fromDate: string;
-  toDate: string;
-  jobDescription: string;
+type SkillCategory = "technicalSkills" | "teachingSkills" | "languageProficiency";
+
+type SkillGroups = Record<SkillCategory, string[]>;
+type SkillDrafts = Record<SkillCategory, string>;
+export enum RecruitmentDays {
+  MONDAY = "Monday",
+  TUESDAY = "Tuesday",
+  WEDNESDAY = "Wednesday",
+  THURSDAY = "Thursday",
+  FRIDAY = "Friday",
+  SATURDAY = "Saturday",
+  SUNDAY = "Sunday",
 }
+
+type RecruitmentDay = RecruitmentDays;
+const recruitmentDays = Object.values(RecruitmentDays);
+
+type ParsedResumeData = {
+  fields: Partial<AddApplicantFormData>;
+  skills: SkillGroups;
+};
 
 interface AddApplicantFormData {
   applicationDate: string;
@@ -45,28 +45,512 @@ interface AddApplicantFormData {
   lastName: string;
   email: string;
   phone: string;
-  country: string;
-  state: string;
+  phoneCountryCode: string;
+  dateOfBirth: string;
+  address: string;
+  highestQualification: string;
+  specialization: string;
+  universityInstitution: string;
+  completionYear: string;
+  teachingExperienceLevel: "fresher" | "experienced";
+  teachingExperienceYears: string;
+  teachingExperienceMonths: string;
+  previousInstitutionName: string;
+  previousDesignation: string;
+  employmentType: string;
+  teachingMode: string;
+  availableWorkingDays: RecruitmentDay[];
+  currentSalary: string;
+  joiningAvailability: string;
+  confirmedInformation: boolean;
   gender: string;
-  city: string;
-  skills: string;
   position: string;
   expectedSalary: string;
-  workingHours: string;
-  professionalExperience: Experience[];
-  skillList: string[];
   resume: File | null | undefined;
-  comment: string;
+}
+
+const resumeSectionHeadings =
+  /^(education(?:al)?(?: details)?|academic|experience|employment|work history|skills?|technical skills|teaching skills|language(?:s| proficiency)?|personal details|personal particulars|contact(?: info)?|certifications?|references?)\s*:?\s*$/i;
+
+const specializationOptionsByQualification: Record<string, string[]> = {
+  Diploma: [
+    "Mechanical",
+    "Computer Science",
+    "Electronics and Communication",
+    "Electrical",
+    "Civil",
+    "Information Technology",
+  ],
+  "Bachelor's Degree": [
+    "Mechanical Engineering",
+    "Computer Science Engineering",
+    "Electronics and Communication Engineering",
+    "Electrical Engineering",
+    "Civil Engineering",
+    "Mathematics",
+    "Physics",
+    "Chemistry",
+    "Computer Application",
+    "Education",
+    "Arabic",
+    "Islamic Studies",
+    "Quran Studies",
+  ],
+  "M.E.": [
+    "Mechanical (ME)",
+    "Computer Science (CSC)",
+    "Electronics and Communication (ECE)",
+    "Electrical (EEE)",
+    "Civil (CE)",
+    "Information Technology (IT)",
+  ],
+  "B.Ed": [
+    "Mathematics Education",
+    "Science Education",
+    "English Education",
+    "Social Studies Education",
+    "Arabic Education",
+    "Islamic Studies Education",
+    "Special Education",
+  ],
+  "M.A.": [
+    "English",
+    "Arabic",
+    "Islamic Studies",
+    "History",
+    "Economics",
+    "Mathematics",
+  ],
+  "M.Ed": [
+    "Educational Leadership",
+    "Curriculum and Instruction",
+    "Educational Psychology",
+    "Mathematics Education",
+    "Science Education",
+    "Language Education",
+    "Special Education",
+  ],
+  MCA: [
+    "Computer Science",
+    "Software Engineering",
+    "Data Science",
+    "Artificial Intelligence",
+    "Information Technology",
+  ],
+  "Master's Degree": [
+    "Mathematics",
+    "Physics",
+    "Chemistry",
+    "Computer Science",
+    "Education",
+    "Arabic",
+    "Islamic Studies",
+    "Quran Studies",
+  ],
+  "Ph.D.": [
+    "Mathematics",
+    "Science",
+    "Computer Science",
+    "Education",
+    "Arabic",
+    "Islamic Studies",
+    "Quran Studies",
+  ],
+  "High School": ["Science", "Commerce", "Arts", "General Studies"],
+  Other: ["Other"],
+};
+
+function findLabeledValue(text: string, labels: string[]): string {
+  const escapedLabels = labels.map((label) =>
+    label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  );
+  const match = text.match(
+    new RegExp(
+      `^\\s*(?:${escapedLabels.join("|")})\\s*[:\\-]\\s*(.+?)\\s*$`,
+      "im"
+    )
+  );
+  return match?.[1]?.trim() ?? "";
+}
+
+function parseResumeDate(value: string): string {
+  const isoDate = value.match(/\b(19|20)\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/);
+  if (isoDate) {
+    const [year, month, day] = isoDate[0].split(/[-/]/);
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  const textDate = value.match(
+    /\b(\d{1,2})\s+([A-Za-z]{3,9})[,]?\s+((?:19|20)\d{2})\b/
+  );
+  if (textDate) {
+    const monthIndex = new Date(`${textDate[2]} 1, 2000`).getMonth();
+    if (!Number.isNaN(monthIndex)) {
+      return `${textDate[3]}-${String(monthIndex + 1).padStart(2, "0")}-${textDate[1].padStart(2, "0")}`;
+    }
+  }
+
+  const numericDate = value.match(
+    /\b(\d{1,2})[/. -](\d{1,2})[/. -]((?:19|20)\d{2})\b/
+  );
+  if (numericDate) {
+    const [, day, month, year] = numericDate;
+    if (Number(day) <= 31 && Number(month) <= 12) {
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+  }
+  return "";
+}
+
+function findSectionText(text: string, headings: string[]): string {
+  const lines = text.split(/\r?\n/);
+  const headingPattern = new RegExp(`^(?:${headings.join("|")})\\s*:?\\s*$`, "i");
+  const start = lines.findIndex((line) => headingPattern.test(line.trim()));
+  if (start < 0) return "";
+
+  const sectionLines: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (resumeSectionHeadings.test(line.trim())) break;
+    sectionLines.push(line);
+  }
+  return sectionLines.join("\n").trim();
+}
+
+function skillsFromSection(section: string): string[] {
+  return Array.from(
+    new Set(
+      section
+        .split(/[,;|\n•●▪]+/)
+        .map((skill) =>
+          skill
+            .replace(/^[-*]\s*/, "")
+            .replace(/\s*:\s*\d{1,3}%?\s*$/, "")
+            .trim()
+        )
+        .filter((skill) => skill.length > 1 && skill.length <= 60)
+    )
+  );
+}
+
+function parseResumeText(
+  text: string,
+  knownPhoneCodes: string[]
+): ParsedResumeData {
+  const normalizedText = text.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ");
+  const fields: ParsedResumeData["fields"] = {};
+  const firstName = findLabeledValue(normalizedText, ["first name", "given name"]);
+  const lastName = findLabeledValue(normalizedText, ["last name", "surname", "family name"]);
+  const fullName = findLabeledValue(normalizedText, ["full name", "name"]);
+
+  if (firstName) fields.firstName = firstName.split(/\s+/)[0];
+  if (lastName) fields.lastName = lastName;
+  if (fullName && !firstName && !lastName) {
+    const nameParts = fullName.split(/\s+/);
+    fields.firstName = nameParts.shift() ?? "";
+    fields.lastName = nameParts.join(" ");
+  } else if (!firstName && !lastName && !fullName) {
+    const firstLine = normalizedText.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+    if (
+      firstLine &&
+      firstLine.split(/\s+/).length <= 5 &&
+      !/resume|curriculum vitae|profile|contact|teacher/i.test(firstLine)
+    ) {
+      const nameParts = firstLine.split(/\s+/);
+      fields.firstName = nameParts.shift() ?? "";
+      fields.lastName = nameParts.join(" ");
+    }
+  }
+
+  const email = normalizedText.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i)?.[0];
+  if (email) fields.email = email;
+
+  const labeledPhone = findLabeledValue(normalizedText, [
+    "phone",
+    "phone number",
+    "mobile",
+    "mobile number",
+    "mobile no",
+    "mobile no.",
+    "contact number",
+    "residence no",
+    "residence no.",
+  ]);
+  const phone =
+    labeledPhone.match(/(?:\+\s?\d{1,3}[\s().-]*)?(?:\d[\s().-]*){8,14}\d/)?.[0] ??
+    normalizedText.match(/\+\s?\d{1,3}(?:[\s().-]*\d){8,14}/)?.[0];
+  if (phone) {
+    const digits = phone.replace(/\D/g, "");
+    const explicitCountryCode = phone.trim().startsWith("+");
+    const countryCode = explicitCountryCode
+      ? phoneCountryCodesForDigits(digits, knownPhoneCodes)
+      : { code: "", digits: "" };
+    if (!explicitCountryCode || countryCode.code) {
+      fields.phoneCountryCode = countryCode.code || fields.phoneCountryCode;
+      fields.phone = countryCode.code
+        ? digits.slice(countryCode.digits.length)
+        : digits;
+    }
+  }
+
+  const birthDate = findLabeledValue(normalizedText, [
+    "date of birth",
+    "birth date",
+    "dob",
+  ]);
+  if (birthDate) fields.dateOfBirth = parseResumeDate(birthDate);
+
+  const gender = findLabeledValue(normalizedText, ["gender", "sex"]).toLowerCase();
+  if (/\b(male|female|other)\b/.test(gender)) {
+    fields.gender = gender.match(/\b(male|female|other)\b/)?.[1] ?? "";
+  }
+
+  const address = findLabeledValue(normalizedText, [
+    "address",
+    "current address",
+    "location",
+  ]);
+  if (address) fields.address = address;
+
+  const qualificationText =
+    findLabeledValue(normalizedText, [
+      "highest qualification",
+      "qualification",
+      "degree",
+      "education",
+    ]) ||
+    findSectionText(normalizedText, [
+      "education",
+      "education details",
+      "educational qualification",
+    ]);
+  const qualificationOptions: Array<[string, RegExp]> = [
+    ["Ph.D.", /\b(?:ph\.?\s*d\.?|doctorate)\b/i],
+    ["M.E.", /\bm\.?\s*e\.?\b|\bm\.?\s*tech\b/i],
+    ["M.Ed", /\bm\.?\s*ed\.?\b/i],
+    ["M.A.", /\bm\.?\s*a\.?\b/i],
+    ["MCA", /\bmca\b/i],
+    ["B.Ed", /\bb\.?\s*ed\.?\b/i],
+    ["Master's Degree", /\bmasters?\b|\bm\.?\s*(?:sc|com|tech|ca)\.?\b/i],
+    ["Bachelor's Degree", /\bbachelors?\b|\bb\.?\s*(?:a|sc|com|tech)\.?\b/i],
+    ["Diploma", /\bdiploma\b/i],
+    ["High School", /\bhigh school\b/i],
+  ];
+  const qualification = qualificationOptions.find(([, pattern]) =>
+    pattern.test(qualificationText)
+  )?.[0];
+  if (qualification) fields.highestQualification = qualification;
+
+  const specialization = findLabeledValue(normalizedText, [
+    "specialization",
+    "major",
+    "subject",
+  ]);
+  const educationLines = findSectionText(normalizedText, [
+    "education",
+    "education details",
+    "educational qualification",
+  ]).split(/\r?\n/);
+  const educationEntry = educationLines.find((line) =>
+    /degree|diploma|bachelor|master|ph\.?d/i.test(line)
+  );
+  const educationSubject = educationEntry
+    ?.match(/[:：]\s*(.+?)(?::\s*(?:19|20)\d{2}\b|$)/)?.[1]
+    ?.trim();
+  if (specialization || educationSubject) {
+    fields.specialization = specialization || educationSubject || "";
+  }
+
+  const institution = findLabeledValue(normalizedText, [
+    "university",
+    "university / institution",
+    "institution",
+    "college",
+  ]);
+  const institutionLine = educationLines.find((line) =>
+    /\b(?:university|college|institution)\b/i.test(line)
+  );
+  if (institution || institutionLine) {
+    fields.universityInstitution = institution || institutionLine?.trim() || "";
+  }
+
+  const completionYear =
+    findLabeledValue(normalizedText, ["completion year", "year of graduation", "graduation year"]) ||
+    findSectionText(normalizedText, [
+      "education",
+      "education details",
+      "educational qualification",
+    ]).match(/\b(?:19|20)\d{2}\b/)?.[0];
+  if (completionYear && /^\d{4}$/.test(completionYear)) {
+    fields.completionYear = completionYear;
+  }
+
+  const experienceDuration = findLabeledValue(normalizedText, [
+    "total teaching experience",
+    "teaching experience",
+    "total experience",
+    "experience",
+  ]);
+  const yearMatch = experienceDuration.match(/(\d+)\s*(?:years?|yrs?)/i);
+  const monthMatch = experienceDuration.match(/(\d+)\s*(?:months?|mos?)/i);
+  if (yearMatch || monthMatch) {
+    fields.teachingExperienceLevel = "experienced";
+    fields.teachingExperienceYears = yearMatch?.[1].padStart(2, "0") ?? "00";
+    fields.teachingExperienceMonths = monthMatch?.[1].padStart(2, "0") ?? "00";
+  }
+  const previousInstitution = findLabeledValue(normalizedText, [
+    "previous institution",
+    "previous employer",
+    "organization",
+    "school",
+  ]);
+  if (previousInstitution) fields.previousInstitutionName = previousInstitution;
+  const designation = findLabeledValue(normalizedText, [
+    "previous designation",
+    "designation",
+    "job title",
+    "position",
+  ]);
+  if (designation) fields.previousDesignation = designation;
+
+  const currentSalary = findLabeledValue(normalizedText, [
+    "current salary",
+    "current pay",
+  ]);
+  if (currentSalary) {
+    const amount = currentSalary.replace(/[^\d.]/g, "");
+    if (amount) fields.currentSalary = amount;
+  }
+  const expectedSalary = findLabeledValue(normalizedText, [
+    "expected salary",
+    "salary expectation",
+    "salary expected",
+  ]);
+  if (expectedSalary) {
+    const amount = expectedSalary.replace(/[^\d.]/g, "");
+    if (amount) fields.expectedSalary = amount;
+  }
+  const employmentType = findLabeledValue(normalizedText, ["employment type"]);
+  if (/full[\s-]?time/i.test(employmentType)) fields.employmentType = "Full Time";
+  else if (/part[\s-]?time/i.test(employmentType)) fields.employmentType = "Part Time";
+  else if (/contract/i.test(employmentType)) fields.employmentType = "Contract";
+
+  const teachingMode = findLabeledValue(normalizedText, ["teaching mode", "work mode"]);
+  if (/online/i.test(teachingMode)) fields.teachingMode = "Online";
+  else if (/on[\s-]?site|in[\s-]?person/i.test(teachingMode)) {
+    fields.teachingMode = "On-site";
+  } else if (/hybrid/i.test(teachingMode)) fields.teachingMode = "Hybrid";
+
+  const workingDays = findLabeledValue(normalizedText, [
+    "available working days",
+    "working days",
+    "availability",
+  ]);
+  let parsedWorkingDays: RecruitmentDay[] = [];
+  if (/monday\s*to\s*friday/i.test(workingDays)) {
+    parsedWorkingDays = recruitmentDays.slice(0, 5);
+  } else if (/monday\s*to\s*saturday/i.test(workingDays)) {
+    parsedWorkingDays = recruitmentDays.slice(0, 6);
+  } else if (/weekends?/i.test(workingDays)) {
+    parsedWorkingDays = [RecruitmentDays.SATURDAY, RecruitmentDays.SUNDAY];
+  } else {
+    parsedWorkingDays = recruitmentDays.filter((day) =>
+      new RegExp(`\\b${day}\\b`, "i").test(workingDays)
+    );
+  }
+  if (parsedWorkingDays.length) {
+    fields.availableWorkingDays = parsedWorkingDays;
+  }
+
+  const joiningAvailability = findLabeledValue(normalizedText, [
+    "joining availability",
+    "notice period",
+    "availability to join",
+  ]);
+  if (/immediate/i.test(joiningAvailability)) {
+    fields.joiningAvailability = "Immediate";
+  } else if (/15\s*days?/i.test(joiningAvailability)) {
+    fields.joiningAvailability = "Within 15 days";
+  } else if (/30\s*days?/i.test(joiningAvailability)) {
+    fields.joiningAvailability = "Within 30 days";
+  } else if (/more than 30|over 30/i.test(joiningAvailability)) {
+    fields.joiningAvailability = "More than 30 days";
+  }
+
+  const technicalSkills =
+    findLabeledValue(normalizedText, ["technical skills"]) ||
+    findSectionText(normalizedText, ["technical skills"]);
+  const teachingSkills =
+    findLabeledValue(normalizedText, ["teaching skills"]) ||
+    findSectionText(normalizedText, ["teaching skills"]);
+  const languageSkills =
+    findLabeledValue(normalizedText, ["languages", "language proficiency"]) ||
+    findSectionText(normalizedText, ["languages", "language proficiency"]);
+  const generalSkills = findSectionText(normalizedText, ["skills", "key skills", "core skills"]);
+  const parsedTechnicalSkills = skillsFromSection(technicalSkills);
+
+  return {
+    fields,
+    skills: {
+      technicalSkills:
+        parsedTechnicalSkills.length > 0
+          ? parsedTechnicalSkills
+          : skillsFromSection(generalSkills),
+      teachingSkills: skillsFromSection(teachingSkills),
+      languageProficiency: skillsFromSection(languageSkills),
+    },
+  };
+}
+
+function phoneCountryCodesForDigits(
+  phoneDigits: string,
+  knownPhoneCodes: string[]
+): { code: string; digits: string } {
+  const matchedCode = knownPhoneCodes
+    .map((code) => code.replace(/\D/g, ""))
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length)
+    .find((code) => phoneDigits.startsWith(code));
+  return matchedCode
+    ? { code: `+${matchedCode}`, digits: matchedCode }
+    : { code: "", digits: "" };
+}
+
+function dateToIso(value: string): string {
+  return value ? new Date(`${value}T00:00:00.000Z`).toISOString() : "";
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunkEnd = Math.min(offset + chunkSize, bytes.length);
+    const characterCodes: number[] = [];
+    for (let index = offset; index < chunkEnd; index += 1) {
+      characterCodes.push(bytes[index]);
+    }
+    binary += String.fromCharCode.apply(null, characterCodes);
+  }
+  return `data:${file.type || "application/octet-stream"};base64,${btoa(binary)}`;
 }
 
 export default function AddApplicants({ onClose }: Props) {
+  const steps = [
+    "Applicant details",
+    "Educational Qualification",
+    "Teaching Experience",
+    "Skills & Expertise",
+    "Job Preferences",
+  ];
+  const [currentStep, setCurrentStep] = useState(1);
   const [success, setSucces] = useState(false);
   const [failed, setFailed] = useState(false);
   const [failedMessage, setFailedMessage] = useState("");
+  const [isParsingResume, setIsParsingResume] = useState(false);
+  const [resumeParseMessage, setResumeParseMessage] = useState("");
   const [countries, setCountries] = useState<ICountry[]>([]);
-  const [states, setStates] = useState<IState[]>([]);
-  const [cities, setCities] = useState<ICity[]>([]);
   const [phoneError, setPhoneError] = useState("");
+  const [isWorkingDaysPopupOpen, setIsWorkingDaysPopupOpen] = useState(false);
   const [addApplicantForm, setAddApplicantForm] =
     useState<AddApplicantFormData>({
       applicationDate: new Date().toISOString().split("T")[0],
@@ -74,129 +558,103 @@ export default function AddApplicants({ onClose }: Props) {
       lastName: "",
       email: "",
       phone: "",
+      phoneCountryCode: "+91",
+      dateOfBirth: "",
+      address: "",
+      highestQualification: "",
+      specialization: "",
+      universityInstitution: "",
+      completionYear: "",
+      teachingExperienceLevel: "fresher",
+      teachingExperienceYears: "",
+      teachingExperienceMonths: "",
+      previousInstitutionName: "",
+      previousDesignation: "",
+      employmentType: "",
+      teachingMode: "",
+      availableWorkingDays: [],
+      currentSalary: "",
+      joiningAvailability: "",
+      confirmedInformation: false,
       gender: "",
-      country: "",
-      state: "",
-      city: "",
       position: "Arabic Teacher",
       expectedSalary: "",
-      workingHours: "",
-      skills: "",
-      professionalExperience: [],
-      skillList: [],
       resume: null,
-      comment: "",
     });
-  const [experiences, setExperiences] = useState<Experience[]>([
-    {
-      jobRole: "",
-      organizationName: "",
-      jobLocation: "",
-      fromDate: "",
-      toDate: "",
-      jobDescription: "",
-    },
-  ]);
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-
-  const [startHour, setStartHour] = useState("");
-const [startMinute, setStartMinute] = useState("");
-
-const [endHour, setEndHour] = useState("");
-const [endMinute, setEndMinute] = useState("");
-
-const updateWorkingHours = (sh : any, sm : any, eh: any, em: any) => {
-  if (!sh || !sm || !eh || !em) return;
-
-  const start = `${sh}:${sm}`;
-  const end = `${eh}:${em}`;
-
-  setAddApplicantForm(prev => ({
-    ...prev,
-    workingHours: `${start} - ${end}`
-  }));
-};
-const hours = Array.from({ length: 24 }, (_, i) =>
-  String(i).padStart(2, "0")
-);
-
-const minutes = ["00", "30"];
-
-
-  const handleChange1 = (
-    index: number,
-    field: keyof Experience,
-    value: string
-  ) => {
-    const newExperiences = [...experiences];
-    newExperiences[index][field] = value;
-    setExperiences(newExperiences);
-  };
-
-  // Add a new empty experience form
-  const addExperienceForm = () => {
-    setExperiences((prev) => [
-      ...prev,
-      {
-        jobRole: "",
-        organizationName: "",
-        jobLocation: "",
-        fromDate: "",
-        toDate: "",
-        jobDescription: "",
-      },
-    ]);
-  };
-  const removeExperienceForm = (index: number) => {
-    setExperiences((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // You might want to validate here or on submit
-  const canAddNewForm = experiences.every(
-    (exp) =>
-      exp.jobRole &&
-      exp.organizationName &&
-      exp.jobLocation &&
-      exp.fromDate &&
-      exp.toDate
+const [skillGroups, setSkillGroups] = useState<SkillGroups>({
+  technicalSkills: [],
+  teachingSkills: [],
+  languageProficiency: [],
+});
+const [skillDrafts, setSkillDrafts] = useState<SkillDrafts>({
+  technicalSkills: "",
+  teachingSkills: "",
+  languageProficiency: "",
+});
+  const allSkills = Object.values(skillGroups).flat();
+  const phoneCountry = countries.find(
+    (country) =>
+      country.phonecode === addApplicantForm.phoneCountryCode.replace(/^\+/, "")
   );
-
+  const addressParts = addApplicantForm.address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const addressCountry = countries.find((country) =>
+    addressParts.some(
+      (part) => part.toLowerCase() === country.name.toLowerCase()
+    )
+  );
+  const candidateCountry = addressCountry?.name || phoneCountry?.name || "";
+  const candidateCity = addressParts[0] || "";
+  const currency =
+    (addressCountry || phoneCountry)?.currency || "";
+  const phoneCountryCodes = Array.from(
+    new Set([
+      "91",
+      ...countries.map((country) => country.phonecode).filter(Boolean),
+    ])
+  );
+  const completionYears = Array.from({ length: 60 }, (_, index) =>
+    String(new Date().getFullYear() - index)
+  );
+  const experienceYears = Array.from({ length: 41 }, (_, index) =>
+    String(index).padStart(2, "0")
+  );
+  const experienceMonths = Array.from({ length: 12 }, (_, index) =>
+    String(index).padStart(2, "0")
+  );
+  const specializationOptions =
+    specializationOptionsByQualification[addApplicantForm.highestQualification] || [];
   function handleChange(
     event: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) {
     const { name, value } = event.target;
-    setAddApplicantForm((prev) => ({ ...prev, [name]: value }));
+    const updatedValue = name === "phone" ? value.replace(/\D/g, "") : value;
+    if (name === "highestQualification") {
+      setAddApplicantForm((prev) => ({
+        ...prev,
+        highestQualification: value,
+        specialization: "",
+      }));
+      return;
+    }
+    setAddApplicantForm((prev) => ({ ...prev, [name]: updatedValue }));
+
+    if (name === "phone") {
+      setPhoneError(
+        /^[0-9]{8,15}$/.test(updatedValue)
+          ? ""
+          : AppValidationMessages.APPLICANT.PHONE.pattern
+      );
+    }
   }
   useEffect(() => {
     const allCountries = Country.getAllCountries();
     setCountries(allCountries);
   }, []);
-  useEffect(() => {
-    if (addApplicantForm.country) {
-      const selectedCountry = countries.find(
-        (c) => c.name === addApplicantForm.country
-      );
-      if (selectedCountry) {
-        const allStates = State.getStatesOfCountry(selectedCountry.isoCode);
-        const allCities = allStates.flatMap((state) =>
-          City.getCitiesOfState(selectedCountry.isoCode, state.isoCode)
-        );
-
-        // 🔥 Deduplicate by city name
-        const uniqueCities = Array.from(
-          new Map(allCities.map((city) => [city.name, city])).values()
-        );
-
-        setCities(uniqueCities);
-      } else {
-        setCities([]);
-      }
-    }
-  }, [addApplicantForm.country, countries]);
-
 const validateForm = () => {
   if (!addApplicantForm.firstName.trim()) {
     toast.error(
@@ -242,24 +700,22 @@ const validateForm = () => {
     return false;
   }
 
-  if (!addApplicantForm.city.trim()) {
-    toast.error(
-      AppValidationMessages.APPLICANT.CITY.required
-    );
-    return false;
-  }
-
-  if (!addApplicantForm.country.trim()) {
-    toast.error(
-      AppValidationMessages.APPLICANT.COUNTRY.required
-    );
-    return false;
-  }
-
   if (!addApplicantForm.gender) {
     toast.error(
       AppValidationMessages.APPLICANT.GENDER.required
     );
+    return false;
+  }
+
+  if (
+    addApplicantForm.teachingExperienceLevel === "experienced" &&
+    (!addApplicantForm.teachingExperienceYears ||
+      !addApplicantForm.teachingExperienceMonths ||
+      !addApplicantForm.previousInstitutionName.trim() ||
+      !addApplicantForm.previousDesignation.trim())
+  ) {
+    toast.error("Please complete your teaching experience details.");
+    setCurrentStep(3);
     return false;
   }
 
@@ -270,26 +726,35 @@ const validateForm = () => {
     return false;
   }
 
-  if (!addApplicantForm.workingHours) {
-    toast.error(
-      AppValidationMessages.APPLICANT.WORKING_HOURS.required
-    );
-    return false;
-  }
-
-  if (addApplicantForm.skillList.length === 0) {
+  if (allSkills.length === 0) {
     toast.error(
       AppValidationMessages.APPLICANT.SKILLS.required
     );
     return false;
   }
 
-  if (!addApplicantForm.resume) {
-    toast.error(
-      AppValidationMessages.APPLICANT.RESUME.required
-    );
+  if (
+    !addApplicantForm.employmentType ||
+    !addApplicantForm.teachingMode ||
+    addApplicantForm.availableWorkingDays.length === 0 ||
+    !addApplicantForm.expectedSalary ||
+    !addApplicantForm.joiningAvailability
+  ) {
+    toast.error("Please complete all job preference fields.");
     return false;
   }
+
+  if (!addApplicantForm.confirmedInformation) {
+    toast.error("Please confirm that the information provided is accurate.");
+    return false;
+  }
+
+  // if (!addApplicantForm.resume) {
+  //   toast.error(
+  //     AppValidationMessages.APPLICANT.RESUME.required
+  //   );
+  //   return false;
+  // }
 
   return true;
 };
@@ -297,48 +762,19 @@ const validateForm = () => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // Validate first
-  if (!validateForm()) {
+  if (isParsingResume) {
+    toast.info("Please wait for resume reading to finish.");
     return;
   }
 
-  const formData = new FormData();
+  if (currentStep < steps.length) {
+    setCurrentStep((step) => step + 1);
+    return;
+  }
 
-  formData.append("applicationDate", addApplicantForm.applicationDate);
-  formData.append("candidateFirstName", addApplicantForm.firstName);
-  formData.append("candidateLastName", addApplicantForm.lastName);
-  formData.append("candidateEmail", addApplicantForm.email);
-  formData.append("candidatePhoneNumber", addApplicantForm.phone);
-  formData.append("candidateCountry", addApplicantForm.country);
-  formData.append("candidateCity", addApplicantForm.city);
-  formData.append("positionApplied", addApplicantForm.position);
-  formData.append("gender", addApplicantForm.gender);
-  formData.append("skills", addApplicantForm.skillList.join(","));
-  formData.append("currency", "$");
-  formData.append("duration", "0");
-  formData.append("meetingminutes", "");
-  formData.append(
-    "professionalExperience",
-    JSON.stringify(experiences)
-  );
-  formData.append(
-    "expectedSalary",
-    addApplicantForm.expectedSalary
-  );
-  formData.append(
-    "preferedWorkingHours",
-    addApplicantForm.workingHours
-  );
-  formData.append("comments", addApplicantForm.comment);
-  formData.append("applicationStatus", "NEWAPPLICATION");
-  formData.append("overallRating", "1");
-  formData.append("status", "Active");
-
-  if (addApplicantForm.resume) {
-    formData.append(
-      "uploadResume",
-      addApplicantForm.resume
-    );
+  // Validate first
+  if (!validateForm()) {
+    return;
   }
 
   try {
@@ -346,20 +782,94 @@ const handleSubmit = async (e: React.FormEvent) => {
       typeof window !== "undefined"
         ? localStorage.getItem("SupervisorAuthToken")
         : null;
+    const tenantId =
+      typeof window !== "undefined" ? localStorage.getItem("tenantId") : null;
+    const createdBy =
+      typeof window !== "undefined"
+        ? localStorage.getItem("SupervisorPortalName")
+        : null;
 
-    if (!token) {
-      toast.error(
-        AppValidationMessages.AUTH.TOKEN_REQUIRED
-      );
+    if (!token || !tenantId || !createdBy) {
+      toast.error(!token
+        ? AppValidationMessages.AUTH.TOKEN_REQUIRED
+        : "Tenant or supervisor information is missing. Please sign in again.");
       return;
     }
 
+    const experienceYears =
+      addApplicantForm.teachingExperienceLevel === "experienced"
+        ? Number(addApplicantForm.teachingExperienceYears || 0)
+        : 0;
+    const experienceMonths =
+      addApplicantForm.teachingExperienceLevel === "experienced"
+        ? Number(addApplicantForm.teachingExperienceMonths || 0)
+        : 0;
+    const employmentType = ({
+      "Full Time": "full-time",
+      "Part Time": "part-time",
+      Contract: "contract",
+    } as Record<string, string>)[addApplicantForm.employmentType] ||
+      addApplicantForm.employmentType;
+    const joiningAvailability = ({
+      Immediate: "immediate",
+      "Within 15 days": "15 days",
+      "Within 30 days": "30 days",
+      "More than 30 days": "more than 30 days",
+    } as Record<string, string>)[addApplicantForm.joiningAvailability] ||
+      addApplicantForm.joiningAvailability;
+    const resumeData = addApplicantForm.resume
+      ? await fileToDataUrl(addApplicantForm.resume)
+      : "";
+    const payload = {
+      tenantId,
+      candidateFirstName: addApplicantForm.firstName.trim(),
+      candidateLastName: addApplicantForm.lastName.trim(),
+      supervisor: {
+        dateOfBirth: dateToIso(addApplicantForm.dateOfBirth),
+        address: addApplicantForm.address.trim(),
+        highestQualification: addApplicantForm.highestQualification,
+        specialization: addApplicantForm.specialization,
+        university: addApplicantForm.universityInstitution.trim(),
+        completionYear: Number(addApplicantForm.completionYear) || 0,
+        experienceType: addApplicantForm.teachingExperienceLevel,
+        teachingExperience: experienceYears + experienceMonths / 12,
+        previousInstitutionName:
+          addApplicantForm.teachingExperienceLevel === "experienced"
+            ? addApplicantForm.previousInstitutionName.trim()
+            : "",
+        previousDesignation:
+          addApplicantForm.teachingExperienceLevel === "experienced"
+            ? addApplicantForm.previousDesignation.trim()
+            : "",
+      },
+      technicalSkills: skillGroups.technicalSkills,
+      teachingSkills: skillGroups.teachingSkills,
+      languages: skillGroups.languageProficiency,
+      employmentType,
+      teachingMode: addApplicantForm.teachingMode
+        ? [addApplicantForm.teachingMode]
+        : [],
+      availableWorkingDays: addApplicantForm.availableWorkingDays,
+      currentSalary: Number(addApplicantForm.currentSalary) || 0,
+      joiningAvailability,
+      applicationDate: dateToIso(addApplicantForm.applicationDate),
+      candidateEmail: addApplicantForm.email.trim(),
+      candidatePhoneNumber: Number(addApplicantForm.phone),
+      candidateCountry,
+      candidateCity,
+      currency,
+      expectedSalary: Number(addApplicantForm.expectedSalary),
+      uploadResume: resumeData,
+      createdDate: new Date().toISOString(),
+      createdBy,
+    };
+
     const response = await axios.post(
       `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.RECRUITMENT.CREATE_SUPERVISOR_RECRUIT}`,
-      formData,
+      payload,
       {
         headers: {
-          "Content-Type": "multipart/form-data",
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       }
@@ -379,19 +889,39 @@ const handleSubmit = async (e: React.FormEvent) => {
         firstName: "",
         lastName: "",
         email: "",
-        state: "",
+        phoneCountryCode: "+91",
+        dateOfBirth: "",
+        address: "",
+        highestQualification: "",
+        specialization: "",
+        universityInstitution: "",
+        completionYear: "",
+        teachingExperienceLevel: "fresher",
+        teachingExperienceYears: "",
+        teachingExperienceMonths: "",
+        previousInstitutionName: "",
+        previousDesignation: "",
+        employmentType: "",
+        teachingMode: "",
+        availableWorkingDays: [],
+        currentSalary: "",
+        joiningAvailability: "",
+        confirmedInformation: false,
         phone: "",
-        country: "USA",
-        city: "",
         gender: "",
         position: "Arabic Teacher",
         expectedSalary: "",
-        workingHours: "",
-        skills: " ",
-        skillList: [],
-        professionalExperience: [],
         resume: null,
-        comment: "",
+      });
+      setSkillGroups({
+        technicalSkills: [],
+        teachingSkills: [],
+        languageProficiency: [],
+      });
+      setSkillDrafts({
+        technicalSkills: "",
+        teachingSkills: "",
+        languageProficiency: "",
       });
 
       setTimeout(() => {
@@ -399,8 +929,13 @@ const handleSubmit = async (e: React.FormEvent) => {
       }, 2000);
     }
   } catch (err) {
-    const error = err as AxiosError;
+    const error = err as AxiosError<{ message?: string; error?: unknown }>;
     const status = error.response?.status;
+    console.error("Applicant recruitment request failed", {
+      status,
+      responseMessage: error.response?.data?.message,
+      message: error.message,
+    });
 
     if (status === 400) {
       toast.error(
@@ -453,670 +988,981 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
   }
 };
-  useEffect(() => {
-    if (addApplicantForm.country) {
-      const selectedCountry = countries.find(
-        (c) => c.name === addApplicantForm.country
-      );
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-      if (selectedCountry) {
-        const allStates = State.getStatesOfCountry(selectedCountry.isoCode);
-        setStates(allStates);
-        setCities([]); // clear cities when country changes
-        console.log("📍 States:", allStates);
-      }
-    } else {
-      setStates([]);
-      setCities([]);
+    const extension = `.${file.name.split(".").pop()?.toLowerCase()}`;
+    if (![".pdf", ".doc", ".docx"].includes(extension)) {
+      setFailedMessage(AppFailureToastMessages.UPLOAD_INVALID_FORMAT);
+      setFailed(true);
+      event.target.value = "";
+      return;
     }
-  }, [addApplicantForm.country, countries]);
 
-  // 🔹 Load cities when state changes
-  useEffect(() => {
-    if (addApplicantForm.country && addApplicantForm.state) {
-      const selectedCountry = countries.find(
-        (c) => c.name === addApplicantForm.country
-      );
-      const selectedState = states.find(
-        (s) => s.name === addApplicantForm.state
-      );
-
-      if (selectedCountry && selectedState) {
-        const allCities = City.getCitiesOfState(
-          selectedCountry.isoCode,
-          selectedState.isoCode
-        );
-
-        // 🔥 Deduplicate cities by name
-        const uniqueCities = Array.from(
-          new Map(allCities.map((city) => [city.name, city])).values()
-        );
-
-        setCities(uniqueCities);
-        console.log("🏙️ Cities:", uniqueCities);
-      }
-    } else {
-      setCities([]);
+    if (file.size > 12 * 1024 * 1024) {
+      setFailedMessage(AppFailureToastMessages.UPLOAD_FILE_TOO_LARGE);
+      setFailed(true);
+      event.target.value = "";
+      return;
     }
-  }, [addApplicantForm.state, addApplicantForm.country, states]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      // Check file type
-      const allowedTypes = [".pdf", ".doc", ".docx"];
-      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+    setAddApplicantForm((prev) => ({ ...prev, resume: file }));
+    setResumeParseMessage("");
 
-      if (!allowedTypes.includes(fileExtension)) {
-        setFailedMessage(AppFailureToastMessages.UPLOAD_INVALID_FORMAT);
-        setFailed(true);
+    if (extension === ".doc") {
+      setResumeParseMessage(
+        "Resume attached. Automatic extraction is available for PDF and DOCX; enter details from this DOC file manually."
+      );
+      return;
+    }
+
+    setIsParsingResume(true);
+    setResumeParseMessage("Reading resume and looking for form details...");
+
+    try {
+      let text = "";
+      if (extension === ".pdf") {
+        const pdfjs = await import("pdfjs-dist");
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.min.js",
+          import.meta.url
+        ).toString();
+        const pdf = await pdfjs.getDocument({
+          data: await file.arrayBuffer(),
+        }).promise;
+
+        try {
+          const pages = await Promise.all(
+            Array.from({ length: pdf.numPages }, async (_, index) => {
+              const page = await pdf.getPage(index + 1);
+              const content = await page.getTextContent();
+              return content.items
+                .map((item) => {
+                  if (!("str" in item)) return "";
+                  return `${item.str}${"hasEOL" in item && item.hasEOL ? "\n" : " "}`;
+                })
+                .join("");
+            })
+          );
+          text = pages.join("\n");
+        } finally {
+          await pdf.destroy();
+        }
+      } else {
+        const mammoth = await import("mammoth");
+        const result = await mammoth.extractRawText({
+          arrayBuffer: await file.arrayBuffer(),
+        });
+        text = result.value;
+      }
+
+      if (!text.trim()) {
+        setResumeParseMessage(
+          "No selectable text was found. This may be a scanned resume; please enter the details manually."
+        );
         return;
       }
 
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setFailedMessage(AppFailureToastMessages.UPLOAD_FILE_TOO_LARGE);
-        setFailed(true);
-        return;
-      }
+      const parsed = parseResumeText(
+        text,
+        phoneCountryCodes.map((code) => code.replace(/^\+/, ""))
+      );
+      const fieldNames: (keyof AddApplicantFormData)[] = [
+        "firstName",
+        "lastName",
+        "email",
+        "phone",
+        "phoneCountryCode",
+        "dateOfBirth",
+        "address",
+        "highestQualification",
+        "specialization",
+        "universityInstitution",
+        "completionYear",
+        "teachingExperienceLevel",
+        "teachingExperienceYears",
+        "teachingExperienceMonths",
+        "previousInstitutionName",
+        "previousDesignation",
+        "currentSalary",
+        "expectedSalary",
+        "employmentType",
+        "teachingMode",
+        "availableWorkingDays",
+        "joiningAvailability",
+        "gender",
+      ];
+      const fieldsFound = fieldNames.filter((field) => {
+        const value = parsed.fields[field];
+        return (
+          (typeof value === "string" && value.trim().length > 0) ||
+          (Array.isArray(value) && value.length > 0)
+        );
+      });
+      setAddApplicantForm((previous) => {
+        const updated = { ...previous };
+        fieldsFound.forEach((field) => {
+          const value = parsed.fields[field];
+          const currentValue = previous[field];
+          const isEmpty = Array.isArray(currentValue)
+            ? currentValue.length === 0
+            : !String(currentValue ?? "").trim();
+          const isDefaultPhoneCode =
+            field === "phoneCountryCode" && currentValue === "+91";
+          if (
+            ((typeof value === "string" && value.trim().length > 0) ||
+              (Array.isArray(value) && value.length > 0)) &&
+            (isEmpty || isDefaultPhoneCode)
+          ) {
+            Object.assign(updated, { [field]: value });
+          }
+        });
+        return updated;
+      });
 
-      setAddApplicantForm((prev) => ({
-        ...prev,
-        resume: file,
+      setSkillGroups((previous) => ({
+        technicalSkills: Array.from(
+          new Set([...previous.technicalSkills, ...parsed.skills.technicalSkills])
+        ),
+        teachingSkills: Array.from(
+          new Set([...previous.teachingSkills, ...parsed.skills.teachingSkills])
+        ),
+        languageProficiency: Array.from(
+          new Set([
+            ...previous.languageProficiency,
+            ...parsed.skills.languageProficiency,
+          ])
+        ),
       }));
-    }
-  };
-  const handleSkillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAddApplicantForm((prev) => ({
-      ...prev,
-      skills: e.target.value,
-    }));
-  };
-  const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && addApplicantForm.skills.trim()) {
-      e.preventDefault();
-      const newSkill = addApplicantForm.skills.trim();
 
-      if (!addApplicantForm.skillList.includes(newSkill)) {
-        setAddApplicantForm((prev) => ({
-          ...prev,
-          skillList: [...prev.skillList, newSkill],
-          skills: "", // clear input
-        }));
+      const skillsFound = Object.values(parsed.skills).some(
+        (skills) => skills.length > 0
+      );
+      if (fieldsFound.length || skillsFound) {
+        const count =
+          fieldsFound.length +
+          Object.values(parsed.skills).reduce(
+            (total, skills) => total + skills.length,
+            0
+          );
+        setResumeParseMessage(
+          `Found ${count} detail${count === 1 ? "" : "s"} in your resume. Please review the fields and complete anything missing.`
+        );
+      } else {
+        setResumeParseMessage(
+          "Resume attached, but no recognizable details were found. Please enter the details manually."
+        );
       }
+    } catch (error) {
+      console.error("Unable to extract resume details", error);
+      setResumeParseMessage(
+        "Resume attached, but it could not be read automatically. Please enter the details manually."
+      );
+    } finally {
+      setIsParsingResume(false);
     }
   };
-  const removeSkill = (skillToRemove: string) => {
-    setAddApplicantForm((prev) => ({
+  const addSkill = (category: SkillCategory) => {
+    const skill = skillDrafts[category].trim();
+    if (!skill || skillGroups[category].includes(skill)) return;
+
+    setSkillGroups((prev) => ({
       ...prev,
-      skillList: prev.skillList.filter((skill) => skill !== skillToRemove),
+      [category]: [...prev[category], skill],
+    }));
+    setSkillDrafts((prev) => ({ ...prev, [category]: "" }));
+  };
+
+  const removeSkill = (category: SkillCategory, skillToRemove: string) => {
+    setSkillGroups((prev) => ({
+      ...prev,
+      [category]: prev[category].filter((skill) => skill !== skillToRemove),
     }));
   };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50 ">
       <form
-        className="bg-white dark:bg-[#1D1D1D] rounded-lg shadow-xl p-5 w-full max-w-4xl mx-3 text-sm scrollbar-none"
+        onSubmit={handleSubmit}
+        className="bg-white dark:bg-[#1D1D1D] rounded-lg shadow-xl p-5 w-full max-w-3xl mx-3 text-sm scrollbar-none"
         style={{ maxHeight: "90vh", overflowY: "auto" }}
       >
-        <h1 className="text-lg font-semibold mt-2 text-black mb-3 dark:text-[#FFFFFF]">
-          Add Applicant
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold mt-2 text-black mb-3 dark:text-[#FFFFFF]">
+            Teacher Application
+          </h1>
+          <button className="cursor-pointer bg-gray-200 rounded-full w-6 h-6 text-sm" onClick={onClose}>
+            x
+          </button>
+        </div>
 
-        {/* Applicant Date */}
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-medium text-black dark:text-white">
+              Application Progress
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Section {currentStep} of {steps.length}
+            </p>
+          </div>
+          <div
+            className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+            role="progressbar"
+            aria-label="Application progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round((currentStep / steps.length) * 100)}
+          >
+            <div
+              className="h-full rounded-full bg-[#576CBC] transition-all"
+              style={{ width: `${(currentStep / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Left Column */}
-
-          <div className="space-y-3">
-            <div>
-              <label
-                htmlFor="inonoin"
-                className="block text-sm font-normal text-black mb-1 dark:text-[#FFFFFF]"
-              >
-                Applicant Date
-              </label>
-              <input
-                name="fromDate"
-                value={addApplicantForm.applicationDate}
-                onChange={handleChange}
-                type="date"
-                className="w-full border rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-[#FFFFFF] dark:bg-[#343434] dark:border-[#5C5C5C]"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="inonoin"
-                className="block mb-1 text-black dark:text-white"
-              >
-                First Name
-              </label>
-              <input
-                name="firstName"
-                value={addApplicantForm.firstName}
-                onChange={handleChange}
-                type="text"
-                className="w-full border rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="inonoin"
-                className="block mb-1 text-black dark:text-white"
-              >
-                Last Name
-              </label>
-              <input
-                name="lastName"
-                value={addApplicantForm.lastName}
-                onChange={handleChange}
-                type="text"
-                className="w-full border rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="inonoin"
-                className="block mb-1 text-black dark:text-white"
-              >
-                Email
-              </label>
-              <input
-                name="email"
-                value={addApplicantForm.email}
-                onChange={handleChange}
-                type="email"
-                className="w-full border rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="Phone"
-                className="block mb-1 text-black dark:text-white text-sm"
-              >
-                Phone Number
-              </label>
-
-              <div className="flex items-center w-full   text-xs dark:text-white dark:bg-[#343434] ">
-               <PhoneInput
-  defaultCountry="IN"
-  value={addApplicantForm.phone}
-  onChange={(value) => {
-    // value = "+919876543210"
-
-    if (!value) {
-      setAddApplicantForm(prev => ({ ...prev, phone: "" }));
-      setPhoneError(AppValidationMessages.APPLICANT.PHONE.pattern);
-      return;
-    }
-
-    // Extract only digits (remove +)
-    const digitsOnly = value.replace(/\D/g, ""); // "919876543210"
-
-    // Remove the country code (first N digits)
-    // For India (IN) dial code is 91
-    const localNumber = digitsOnly.startsWith("91")
-      ? digitsOnly.substring(2)
-      : digitsOnly; // fallback
-
-    setAddApplicantForm(prev => ({
-      ...prev,
-      phone: localNumber, // store only local number
-    }));
-
-    // Validation
-    if (localNumber.length < 10) {
-      setPhoneError(AppValidationMessages.APPLICANT.PHONE.pattern);
-    } else {
-      setPhoneError("");
-    }
-  }}
-  className="w-full"
-  inputClassName="!border-0 !outline-none !shadow-none !w-full dark:!bg-transparent text-xs"
-/>
-
-              </div>
-
-              {phoneError && (
-                <p className="text-red-500 text-xs mt-1">{phoneError}</p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="position"
-                className="block mb-1 text-black dark:text-white"
-              >
-                Position Applied
-              </label>
-              <select
-                name="position"
-                value={addApplicantForm.position}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-              >
-                <option value="">Select Position</option>
-                <option value="Quran Teacher">Quran Teacher</option>
-                <option value="Arabic Teacher">Arabic Teacher</option>
-                <option value="Islamic Teacher">Islamic Teacher</option>
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="jbjb"
-                className="block mb-2 text-black dark:text-white"
-              >
-                Upload Resume
-              </label>
-              <div className="flex items-center gap-2">
+        <div className="space-y-4">
+          {currentStep === 1 && (
+            <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
+              <div className="mb-4 rounded-lg bg-[#f3f3f3] p-3 dark:bg-[#292929]">
                 <label
                   htmlFor="resumeUpload"
-                  className="cursor-pointer mb-2 inline-flex items-center px-3 py-1.5 bg-[#576CBC] text-white text-xs rounded hover:bg-blue-700 transition "
+                  className="mb-2 block font-medium text-[#010E30] dark:text-white"
                 >
-                  <Paperclip size={14} className="mr-1" />
-                  Upload Resume
+                  Upload Your Resume
                 </label>
-                <span className="text-xs text-gray-500 dark:text-gray-300">
-                  {addApplicantForm.resume
-                    ? addApplicantForm.resume.name
-                    : "No file chosen"}
-                </span>
+                <label
+                  htmlFor="resumeUpload"
+                  className="flex min-h-10 cursor-pointer items-center justify-between rounded-md border border-[#E0E0E0] bg-[#f3f3f3] px-3 py-2 text-xs text-gray-500 dark:border-gray-600 dark:bg-[#343434] dark:text-gray-300"
+                >
+                  <span>
+                    {addApplicantForm.resume?.name ||
+                      "PDF / DOC / DOCX (max 12 MB)"}
+                  </span>
+                  <Paperclip size={16} className="text-[#576CBC]" />
+                </label>
                 <input
                   id="resumeUpload"
                   name="resume"
                   type="file"
                   accept=".pdf,.doc,.docx"
                   onChange={handleFileChange}
-                  className="hidden"
+                  disabled={isParsingResume}
+                  className="sr-only"
                 />
+                <p
+                  aria-live="polite"
+                  className={`mt-2 text-xs ${
+                    resumeParseMessage.startsWith("Found")
+                      ? "text-green-700 dark:text-green-400"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
+                >
+                  {isParsingResume ? "Reading resume..." : resumeParseMessage}
+                </p>
               </div>
-            </div>
-          </div>
 
-          {/* Right Column */}
-          <div className="space-y-3">
-            {/* Country */}
-            <div>
-              <label className="block text-black dark:text-white">
-                Country
-              </label>
-              <Listbox
-                value={addApplicantForm.country}
-                onChange={(val) =>
-                  setAddApplicantForm({ ...addApplicantForm, country: val })
-                }
-              >
-                <div className="relative mt-1">
-                  <ListboxButton className="w-full h-9 border rounded px-3 py-2 text-left text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]">
-                    {addApplicantForm.country || "Select Country"}
-                  </ListboxButton>
-
-                  <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-[#343434] shadow-lg">
-                    {countries.map((c) => (
-                      <ListboxOption
-                        key={c.isoCode}
-                        value={c.name}
-                        className="cursor-pointer px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-600"
-                      >
-                        {c.name}
-                      </ListboxOption>
-                    ))}
-                  </ListboxOptions>
-                </div>
-              </Listbox>
-            </div>
-
-            {/* State */}
-            <div>
-              <label className="text-sm text-[#010E30] dark:text-white">
-                State
-              </label>
-              <Listbox
-                value={addApplicantForm.state}
-                onChange={(val) =>
-                  setAddApplicantForm({
-                    ...addApplicantForm,
-                    state: val,
-                    city: "",
-                  })
-                }
-                disabled={!addApplicantForm.country}
-              >
-                <div className="relative mt-1">
-                  <ListboxButton
-                    className={`w-full h-8 border rounded px-3 py-2 text-left text-xs
-            ${!addApplicantForm.country ? "opacity-50 cursor-not-allowed" : ""}
-           border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]`}
+              <h2 className="mb-4 text-base font-medium text-[#010E30] dark:text-white">
+                Personal Information
+              </h2>
+              <div className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="firstName"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
                   >
-                    {addApplicantForm.country
-                      ? addApplicantForm.state || "Select State"
-                      : "Select Country First"}
-                  </ListboxButton>
-
-                  {addApplicantForm.country && (
-                    <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-[#343434] shadow-lg">
-                      {states.length > 0 ? (
-                        states.map((state) => (
-                          <ListboxOption
-                            key={state.isoCode}
-                            value={state.name}
-                            className="cursor-pointer px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-600"
-                          >
-                            {state.name}
-                          </ListboxOption>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                          No states available
-                        </div>
-                      )}
-                    </ListboxOptions>
+                    First Name
+                  </label>
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    value={addApplicantForm.firstName}
+                    onChange={handleChange}
+                    placeholder="Enter first name"
+                    type="text"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="lastName"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Last Name
+                  </label>
+                  <input
+                    id="lastName"
+                    name="lastName"
+                    value={addApplicantForm.lastName}
+                    onChange={handleChange}
+                    placeholder="Enter last name"
+                    type="text"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    value={addApplicantForm.email}
+                    onChange={handleChange}
+                    placeholder="Enter email address"
+                    type="email"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="phone"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Phone Number
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      aria-label="Phone country calling code"
+                      value={addApplicantForm.phoneCountryCode}
+                      onChange={(event) =>
+                        setAddApplicantForm((prev) => ({
+                          ...prev,
+                          phoneCountryCode: event.target.value,
+                        }))
+                      }
+                      className="w-20 rounded-md border border-[#E0E4EA] bg-white px-2 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                    >
+                      {phoneCountryCodes.map((code) => (
+                        <option key={code} value={`+${code}`}>
+                          +{code}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      id="phone"
+                      name="phone"
+                      value={addApplicantForm.phone}
+                      onChange={handleChange}
+                      placeholder="00000 00000"
+                      type="tel"
+                      className="min-w-0 flex-1 rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                    />
+                  </div>
+                  {phoneError && (
+                    <p className="mt-1 text-xs text-red-500">{phoneError}</p>
                   )}
                 </div>
-              </Listbox>
-            </div>
-
-            {/* City */}
-            <div>
-              <label className="block text-black dark:text-white">City</label>
-              <Listbox
-                value={addApplicantForm.city}
-                onChange={(val) =>
-                  setAddApplicantForm({ ...addApplicantForm, city: val })
-                }
-                disabled={!addApplicantForm.state}
-              >
-                <div className="relative mt-1">
-                  <ListboxButton className="w-full h-8 border rounded px-3 py-2 text-left text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]">
-                    {addApplicantForm.city || "Select City"}
-                  </ListboxButton>
-
-                  <ListboxOptions className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-[#343434] shadow-lg">
-                    {cities.map((city) => (
-                      <ListboxOption
-                        key={city.name}
-                        value={city.name}
-                        className="cursor-pointer px-3 py-2 hover:bg-gray-200 dark:hover:bg-gray-600"
+                <div>
+                  <label
+                    htmlFor="dateOfBirth"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Date of Birth
+                  </label>
+                  <input
+                    id="dateOfBirth"
+                    name="dateOfBirth"
+                    value={addApplicantForm.dateOfBirth}
+                    onChange={handleChange}
+                    type="date"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
+                <fieldset>
+                  <legend className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white">
+                    Gender
+                  </legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["male", "female", "other"].map((gender) => (
+                      <label
+                        key={gender}
+                        className="flex cursor-pointer items-center gap-2 rounded-md border border-[#E0E4EA] px-2 py-2 text-xs capitalize text-gray-600 dark:border-gray-600 dark:text-gray-300"
                       >
-                        {city.name}
-                      </ListboxOption>
+                        <input
+                          type="radio"
+                          name="gender"
+                          value={gender}
+                          checked={addApplicantForm.gender === gender}
+                          onChange={handleChange}
+                          className="h-4 w-4 accent-[#576CBC]"
+                        />
+                        {gender}
+                      </label>
                     ))}
-                  </ListboxOptions>
+                  </div>
+                </fieldset>
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="address"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Address
+                  </label>
+                  <input
+                    id="address"
+                    name="address"
+                    value={addApplicantForm.address}
+                    onChange={handleChange}
+                    placeholder="Enter address"
+                    type="text"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
                 </div>
-              </Listbox>
-            </div>
-
-            {/* Gender */}
-            <div>
-              <label className="block text-black dark:text-white">Gender</label>
-              <select
-                name="gender"
-                value={addApplicantForm.gender}
-                onChange={handleChange}
-                className="w-full border mt-1 rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-              >
-                <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
-
-            {/* Salary */}
-            <div>
-              <label className="block text-black dark:text-white">
-                Expected Salary / Hour
-              </label>
-              <div className="relative mt-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs  text-gray-900 dark:text-white">
-                  $
-                </span>
-                <input
-                  name="expectedSalary"
-                  value={addApplicantForm.expectedSalary}
-                  onChange={handleChange}
-                  type="number"
-                  className="w-full border pl-6 rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-                />
               </div>
             </div>
+          )}
 
-            {/* Working Hours */}
-        <div>
-  <label className="block text-black dark:text-white">Preferred Working Hours</label>
+          {currentStep === 2 && (
+            <section className="rounded-lg border border-[#E0E4EA] p-3 dark:border-gray-700 sm:p-4">
+              <h2 className="mb-3 text-sm font-medium text-[#010E30] dark:text-white">
+                Educational Qualification
+              </h2>
+              <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="highestQualification"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Highest Qualification
+                  </label>
+                  <select
+                    id="highestQualification"
+                    name="highestQualification"
+                    value={addApplicantForm.highestQualification}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">Select qualification</option>
+                    <option value="High School">High School</option>
+                    <option value="Diploma">Diploma</option>
+                    <option value="Bachelor's Degree">Bachelor&apos;s Degree</option>
+                    <option value="M.E.">M.E.</option>
+                    <option value="B.Ed">B.Ed</option>
+                    <option value="M.A.">M.A.</option>
+                    <option value="M.Ed">M.Ed</option>
+                    <option value="MCA">MCA</option>
+                    <option value="Master's Degree">Master&apos;s Degree</option>
+                    <option value="Ph.D.">Ph.D.</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="specialization"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Specialization
+                  </label>
+                  <select
+                    id="specialization"
+                    name="specialization"
+                    value={addApplicantForm.specialization}
+                    onChange={handleChange}
+                    disabled={!addApplicantForm.highestQualification}
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">
+                      {addApplicantForm.highestQualification
+                        ? "Select specialization"
+                        : "Select qualification first"}
+                    </option>
+                    {addApplicantForm.specialization &&
+                      !specializationOptions.includes(
+                        addApplicantForm.specialization
+                      ) && (
+                        <option value={addApplicantForm.specialization}>
+                          {addApplicantForm.specialization}
+                        </option>
+                      )}
+                    {specializationOptions.map((specialization) => (
+                      <option key={specialization} value={specialization}>
+                        {specialization}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="universityInstitution"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    University / Institution
+                  </label>
+                  <input
+                    id="universityInstitution"
+                    name="universityInstitution"
+                    value={addApplicantForm.universityInstitution}
+                    onChange={handleChange}
+                    placeholder="Enter university or institution"
+                    type="text"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="completionYear"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Completion Year
+                  </label>
+                  <select
+                    id="completionYear"
+                    name="completionYear"
+                    value={addApplicantForm.completionYear}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">Select year</option>
+                    {completionYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </section>
+          )}
 
-  <div className="flex items-center gap-2 mt-1">
+          {currentStep === 3 && (
+            <section className="rounded-lg border border-[#E0E4EA] p-3 dark:border-gray-700 sm:p-4">
+              <h2 className="mb-3 text-sm font-medium text-[#010E30] dark:text-white">
+                Teaching Experience
+              </h2>
+              <div className="mb-4 grid grid-cols-2 gap-1 rounded-full bg-[#EEF0FA] p-1 dark:bg-[#292929]">
+                {(["fresher", "experienced"] as const).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    aria-pressed={addApplicantForm.teachingExperienceLevel === level}
+                    onClick={() =>
+                      setAddApplicantForm((prev) => ({
+                        ...prev,
+                        teachingExperienceLevel: level,
+                      }))
+                    }
+                    className={`rounded-full border px-3 py-2 text-xs capitalize transition ${
+                      addApplicantForm.teachingExperienceLevel === level
+                        ? "border-[#576CBC] bg-white text-[#576CBC] dark:bg-[#343434]"
+                        : "border-transparent text-gray-500 dark:text-gray-300"
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
 
-    {/* Start Hour */}
-    <select
-      value={startHour}
-      onChange={(e) => {
-        setStartHour(e.target.value);
-        updateWorkingHours(e.target.value, startMinute, endHour, endMinute);
-      }}
-      className="border rounded px-2 py-2 text-xs w-16 dark:text-white dark:bg-[#343434]"
-    >
-      <option value="">HH</option>
-      {hours.map((h) => (
-        <option key={h} value={h}>{h}</option>
-      ))}
-    </select>
+              <fieldset
+                disabled={addApplicantForm.teachingExperienceLevel === "fresher"}
+                className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 disabled:opacity-50"
+              >
+                <div>
+                  <label
+                    htmlFor="teachingExperienceYears"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Total Teaching Experience
+                  </label>
+                  <select
+                    id="teachingExperienceYears"
+                    name="teachingExperienceYears"
+                    value={addApplicantForm.teachingExperienceYears}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">Years (YY)</option>
+                    {experienceYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="teachingExperienceMonths"
+                    className="mb-1 block text-xs font-medium text-transparent"
+                  >
+                    Experience months
+                  </label>
+                  <select
+                    id="teachingExperienceMonths"
+                    name="teachingExperienceMonths"
+                    value={addApplicantForm.teachingExperienceMonths}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">Months (MM)</option>
+                    {experienceMonths.map((month) => (
+                      <option key={month} value={month}>
+                        {month}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="previousInstitutionName"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Previous Institution Name
+                  </label>
+                  <input
+                    id="previousInstitutionName"
+                    name="previousInstitutionName"
+                    value={addApplicantForm.previousInstitutionName}
+                    onChange={handleChange}
+                    placeholder="Enter institution name"
+                    type="text"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="previousDesignation"
+                    className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                  >
+                    Previous Designation
+                  </label>
+                  <input
+                    id="previousDesignation"
+                    name="previousDesignation"
+                    value={addApplicantForm.previousDesignation}
+                    onChange={handleChange}
+                    placeholder="Enter designation"
+                    type="text"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
+              </fieldset>
+            </section>
+          )}
 
-    {/* Start Minute */}
-    <select
-      value={startMinute}
-      onChange={(e) => {
-        setStartMinute(e.target.value);
-        updateWorkingHours(startHour, e.target.value, endHour, endMinute);
-      }}
-      className="border rounded px-2 py-2 text-xs w-16 dark:text-white dark:bg-[#343434]"
-    >
-      <option value="">MM</option>
-      {minutes.map((m) => (
-        <option key={m} value={m}>{m}</option>
-      ))}
-    </select>
-
-    <span className="text-black dark:text-white">-</span>
-
-    {/* End Hour */}
-    <select
-      value={endHour}
-      onChange={(e) => {
-        setEndHour(e.target.value);
-        updateWorkingHours(startHour, startMinute, e.target.value, endMinute);
-      }}
-      className="border rounded px-2 py-2 text-xs w-16 dark:text-white dark:bg-[#343434]"
-    >
-      <option value="">HH</option>
-      {hours.map((h) => (
-        <option key={h} value={h}>{h}</option>
-      ))}
-    </select>
-
-    {/* End Minute */}
-    <select
-      value={endMinute}
-      onChange={(e) => {
-        setEndMinute(e.target.value);
-        updateWorkingHours(startHour, startMinute, endHour, e.target.value);
-      }}
-      className="border rounded px-2 py-2 text-xs w-16 dark:text-white dark:bg-[#343434]"
-    >
-      <option value="">MM</option>
-      {minutes.map((m) => (
-        <option key={m} value={m}>{m}</option>
-      ))}
-    </select>
-  </div>
-
-  <input type="hidden" name="workingHours" value={addApplicantForm.workingHours} />
-
-  <p className="text-xs text-gray-500 dark:text-gray-400">
-    Selected: {addApplicantForm.workingHours || "None"}
-  </p>
-</div>
-
-
-          </div>
+          {currentStep === 4 && (
+            <section className="rounded-lg border border-[#E0E4EA] p-3 dark:border-gray-700 sm:p-4">
+              <h2 className="mb-4 text-sm font-medium text-[#010E30] dark:text-white">
+                Skills &amp; Expertise
+              </h2>
+              <div className="space-y-4">
+                {([
+                  ["technicalSkills", "Technical Skills"],
+                  ["teachingSkills", "Teaching Skills"],
+                  ["languageProficiency", "Language Proficiency"],
+                ] as const).map(([category, label]) => (
+                  <div key={category}>
+                    <label
+                      htmlFor={category}
+                      className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                    >
+                      {label}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex min-h-9 min-w-0 flex-1 flex-wrap items-center gap-1.5 rounded-md border border-[#E0E4EA] bg-white px-2 py-1 dark:border-gray-600 dark:bg-[#343434]">
+                        {skillGroups[category].map((skill) => (
+                          <span
+                            key={skill}
+                            className="inline-flex items-center gap-1 rounded-full bg-[#E3E9FF] px-2.5 py-1 text-[11px] text-[#536AAE]"
+                          >
+                            {skill}
+                            <button
+                              type="button"
+                              aria-label={`Remove ${skill} from ${label}`}
+                              onClick={() => removeSkill(category, skill)}
+                              className="font-semibold hover:text-red-600"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                        <input
+                          id={category}
+                          value={skillDrafts[category]}
+                          onChange={(event) =>
+                            setSkillDrafts((prev) => ({
+                              ...prev,
+                              [category]: event.target.value,
+                            }))
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              addSkill(category);
+                            }
+                          }}
+                          placeholder="Type a skill"
+                          className="min-w-[100px] flex-1 bg-transparent px-1 py-1 text-xs text-[#343434] outline-none placeholder:text-gray-400 dark:text-white"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addSkill(category)}
+                        className="shrink-0 px-1 text-xs font-medium text-[#576CBC] hover:text-blue-700"
+                      >
+                        + ADD
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
-        {/* Comments Section */}
-        <div className="mt-4">
-          <label
-            htmlFor="skills"
-            className="block mb-1 text-black dark:text-white"
-          >
-            Skills
-          </label>
-          <input
-            name="skills"
-            value={addApplicantForm.skills}
-            onChange={handleSkillChange}
-            onKeyDown={handleSkillKeyDown}
-            type="text"
-            placeholder="Type a skill and press Enter"
-            className="w-full border rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-          />
-
-          {/* Show added skills below */}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {addApplicantForm.skillList.map((skill, idx) => (
-              <button
-                key={skill}
-                className="bg-[#576CBC] text-white text-xs px-2 py-1 rounded cursor-pointer"
-                onClick={() => removeSkill(skill)}
-              >
-                {skill} ✕
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="mt-4">
-          <label
-            htmlFor="vhviuv"
-            className="text-sm text-black dark:text-white mb-2 block"
-          >
-            Add Experience
-          </label>
-          <div
-            style={{ maxHeight: "700px" }} // adjust height as you want
-            className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800"
-          >
-            {/* Render multiple experience input forms */}
-            {experiences.map((exp, index) => (
-              <div
-                key={index}
-                className="mb-4 p-5 border rounded border-[#5C5C5C] dark:border-[#5C5C5C] dark:text-white relative"
-              >
-                <button
-                  type="button"
-                  onClick={() => removeExperienceForm(index)}
-                  className="absolute top-1  text-2xl  right-1 text-red-500 font-semibold hover:text-red-700"
+        {currentStep === 5 && (
+          <section className="rounded-lg border border-[#E0E4EA] p-3 dark:border-gray-700 sm:p-4">
+            <h2 className="mb-4 text-sm font-medium text-[#010E30] dark:text-white">
+              Job Preferences
+            </h2>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                <label
+                  htmlFor="position"
+                  className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
                 >
-                  ×
-                </button>
-
-                <input
-                  placeholder="Role"
-                  className="w-full mb-2 px-3 py-2 border rounded text-xs border-[#5C5C5C] text-[#343434] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-                  value={exp.jobRole}
-                  onChange={(e) =>
-                    handleChange1(index, "jobRole", e.target.value)
-                  }
-                />
-                <input
-                  placeholder="Organization"
-                  className="w-full mb-2 px-3 py-2 border rounded text-xs border-[#5C5C5C] text-[#343434] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-                  value={exp.organizationName}
-                  onChange={(e) =>
-                    handleChange1(index, "organizationName", e.target.value)
-                  }
-                />
-                <input
-                  placeholder="Place"
-                  className="w-full mb-2 px-3 py-2 border rounded text-xs border-[#5C5C5C] text-[#343434] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-                  value={exp.jobLocation}
-                  onChange={(e) =>
-                    handleChange1(index, "jobLocation", e.target.value)
-                  }
-                />
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="date"
-                    className="w-1/2 px-3 py-2 border rounded text-xs border-[#5C5C5C] text-[#343434] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-                    value={exp.fromDate}
-                    onChange={(e) =>
-                      handleChange1(index, "fromDate", e.target.value)
+                  Position
+                </label>
+                <select
+                  id="position"
+                  name="position"
+                  value={addApplicantForm.position}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                >
+                  <option value="">Select Position</option>
+                  <option value="Monday to Friday">UI/UX</option>
+                  <option value="Monday to Saturday">Maths</option>
+                  <option value="Weekends">Physics</option>
+                  <option value="Flexible">Chemistry</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="employmentType"
+                  className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                >
+                  Employment Type
+                </label>
+                <select
+                  id="employmentType"
+                  name="employmentType"
+                  value={addApplicantForm.employmentType}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                >
+                  <option value="">Select employment type</option>
+                  <option value="full-time">Full Time</option>
+                  <option value="half-time">Part Time</option>
+                  <option value="hourly">Hour Base</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="teachingMode"
+                  className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                >
+                  Teaching Mode
+                </label>
+                <select
+                  id="teachingMode"
+                  name="teachingMode"
+                  value={addApplicantForm.teachingMode}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                >
+                  <option value="">Select teaching mode</option>
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <div className="relative">
+                  <span className="mb-2 block text-xs font-medium text-[#010E30] dark:text-white">
+                    Available Working Days
+                  </span>
+                  <button
+                    type="button"
+                    aria-expanded={isWorkingDaysPopupOpen}
+                    aria-controls="availableWorkingDaysPopup"
+                    onClick={() =>
+                      setIsWorkingDaysPopupOpen((isOpen) => !isOpen)
                     }
-                  />
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-left text-xs text-[#343434] dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  >
+                    {addApplicantForm.availableWorkingDays.length
+                      ? addApplicantForm.availableWorkingDays.join(", ")
+                      : "Select available working days"}
+                  </button>
+                  {isWorkingDaysPopupOpen && (
+                    <fieldset
+                      id="availableWorkingDaysPopup"
+                      className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-[#E0E4EA] bg-white p-3 shadow-lg dark:border-gray-600 dark:bg-[#343434]"
+                    >
+                      <legend className="sr-only">
+                        Select available working days
+                      </legend>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {recruitmentDays.map((day) => (
+                          <label
+                            key={day}
+                            className="flex cursor-pointer items-center gap-2 rounded-md border border-[#979393] px-2 py-1.5 text-[10px] text-[#343434] dark:border-gray-600 dark:text-white"
+                          >
+                            <input
+                              type="checkbox"
+                              name="availableWorkingDays"
+                              value={day}
+                              checked={addApplicantForm.availableWorkingDays.includes(day)}
+                              onChange={(event) =>
+                                setAddApplicantForm((previous) => ({
+                                  ...previous,
+                                  availableWorkingDays: recruitmentDays.filter(
+                                    (workingDay) =>
+                                      event.target.checked
+                                        ? workingDay === day ||
+                                          previous.availableWorkingDays.includes(workingDay)
+                                        : workingDay !== day &&
+                                          previous.availableWorkingDays.includes(workingDay)
+                                  ),
+                                }))
+                              }
+                              className="h-3 w-3 accent-[#576CBC]"
+                            />
+                            {day}
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setIsWorkingDaysPopupOpen(false)}
+                          className="rounded-md bg-[#576CBC] px-3 py-1.5 text-xs text-white"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </fieldset>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor="currentSalary"
+                  className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                >
+                  Current Salary
+                </label>
+                <div className="flex rounded-md border border-[#E0E4EA] dark:border-gray-600">
+                  <span className="px-3 py-2 text-xs text-gray-500">
+                    {currency || "Currency"}
+                  </span>
                   <input
-                    type="date"
-                    className="w-1/2 px-3 py-2 border rounded text-xs border-[#5C5C5C] text-[#343434] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-                    value={exp.toDate}
-                    onChange={(e) =>
-                      handleChange1(index, "toDate", e.target.value)
-                    }
+                    id="currentSalary"
+                    name="currentSalary"
+                    value={addApplicantForm.currentSalary}
+                    onChange={handleChange}
+                    type="number"
+                    min="0"
+                    placeholder="Enter current salary"
+                    className="min-w-0 flex-1 bg-transparent px-2 py-2 text-xs text-[#343434] outline-none dark:text-white"
                   />
                 </div>
-                <textarea
-                  placeholder="Description"
-                  rows={3}
-                  className="w-full px-3 py-2 border rounded text-xs border-[#5C5C5C] text-[#343434] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-                  value={exp.jobDescription}
-                  onChange={(e) =>
-                    handleChange1(index, "jobDescription", e.target.value)
-                  }
-                />
               </div>
-            ))}
-          </div>
-          {/* Add new experience form button */}
-          <button
-            type="button"
-            onClick={addExperienceForm}
-            disabled={!canAddNewForm}
-            className={`px-4 py-1 rounded text-white ${
-              canAddNewForm
-                ? "bg-[#576CBC] hover:bg-blue-700"
-                : "bg-gray-400 cursor-not-allowed"
-            }`}
-          >
-            Add Another Experience
-          </button>
-        </div>
-
-        <div className="mt-4">
-          <label
-            htmlFor="inonoin"
-            className="block mb-1 text-black dark:text-white"
-          >
-            Comments
-          </label>
-          <textarea
-            name="comment"
-            value={addApplicantForm.comment}
-            onChange={handleChange}
-            rows={3}
-            className="w-full border rounded px-3 py-2 text-xs border-[#5C5C5C] dark:text-white dark:bg-[#343434] dark:border-[#5C5C5C]"
-          />
-        </div>
+              <div>
+                <label
+                  htmlFor="expectedSalary"
+                  className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                >
+                  Expected Salary
+                </label>
+                <div className="flex rounded-md border border-[#E0E4EA] dark:border-gray-600">
+                  <span className="px-3 py-2 text-xs text-gray-500">
+                    {currency || "Currency"}
+                  </span>
+                  <input
+                    id="expectedSalary"
+                    name="expectedSalary"
+                    value={addApplicantForm.expectedSalary}
+                    onChange={handleChange}
+                    type="number"
+                    min="0"
+                    placeholder="Enter expected salary"
+                    className="min-w-0 flex-1 bg-transparent px-2 py-2 text-xs text-[#343434] outline-none dark:text-white"
+                  />
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="joiningAvailability"
+                  className="mb-1 block text-xs font-medium text-[#010E30] dark:text-white"
+                >
+                  Joining Availability
+                </label>
+                <select
+                  id="joiningAvailability"
+                  name="joiningAvailability"
+                  value={addApplicantForm.joiningAvailability}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                >
+                  <option value="">Select joining availability</option>
+                  <option value="Immediate">Immediate</option>
+                  <option value="Within 15 days">Within 15 days</option>
+                  <option value="Within 30 days">Within 30 days</option>
+                </select>
+              </div>
+              <label className="flex items-start gap-2 text-xs text-gray-500 sm:col-span-2 dark:text-gray-400">
+                <input
+                  type="checkbox"
+                  name="confirmedInformation"
+                  checked={addApplicantForm.confirmedInformation}
+                  onChange={(event) =>
+                    setAddApplicantForm((prev) => ({
+                      ...prev,
+                      confirmedInformation: event.target.checked,
+                    }))
+                  }
+                  className="mt-0.5 accent-[#576CBC]"
+                />
+                <span>I confirm that all information provided is accurate.</span>
+              </label>
+            </div>
+          </section>
+        )}
 
         {/* Action Buttons */}
         <div className="border-t pt-4 mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1 border border-[#576CBC] rounded text-[#576CBC] hover:bg-gray-100 transition "
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            onClick={handleSubmit}
-            className="px-3 py-1 bg-[#576CBC] text-white rounded hover:bg-blue-700 transition"
-          >
-            Submit
-          </button>
+          {currentStep > 1 && (
+            <button
+              type="button"
+              onClick={() => setCurrentStep((step) => step - 1)}
+              className="px-3 py-1 border border-[#576CBC] rounded text-[#576CBC] hover:bg-gray-100 transition"
+            >
+              Back
+            </button>
+          )}
+          {currentStep < steps.length ? (
+            <button
+              type="button"
+              onClick={() => setCurrentStep((step) => step + 1)}
+              disabled={isParsingResume}
+              className="px-3 py-1 bg-[#576CBC] text-white rounded hover:bg-blue-700 transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={isParsingResume}
+              className="px-3 py-1 bg-[#576CBC] text-white rounded hover:bg-blue-700 transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Submit
+            </button>
+          )}
         </div>
       </form>
 

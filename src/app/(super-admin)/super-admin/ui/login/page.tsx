@@ -101,9 +101,7 @@ const SignIn: React.FC = () => {
 
     if (userId) {
       localStorage.setItem("SuperAdminUserId", userId);
-    } else {
-      localStorage.removeItem("SuperAdminUserId");
-    }
+    } 
 
     if (tenantId) {
       localStorage.setItem("tenantId", tenantId);

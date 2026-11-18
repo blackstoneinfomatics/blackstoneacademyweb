@@ -29,7 +29,7 @@ export default function RootLayout({
 
         <ApiSetupInitializer />
         <ThemeProvider>
-          <GoogleOAuthProvider clientId="808839308794-3eomcaalqhd64m3c0i2vn2m2jd35i6uv.apps.googleusercontent.com">
+          <GoogleOAuthProvider clientId="206930130835-1evd8v3rfckjgf66shrmbjntihh82cgn.apps.googleusercontent.com">
             {children}
             <ToastProvider />
           </GoogleOAuthProvider>

@@ -1,7 +1,17 @@
 "use client";
 
 import { useTheme } from "@/context/ThemeContext";
-import { CalendarDays, Bell, Sun, Moon, User, X } from "lucide-react";
+import {
+  CalendarDays,
+  Bell,
+  Sun,
+  Moon,
+  User,
+  UserRound,
+  ChevronRight,
+  LogOut,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import LeaveForm from "@/app/(tenant)/modules/users/supervisor/components/leaveForm";
@@ -238,11 +248,26 @@ const fetchNotifications = async (token: string) => {
       ? localStorage.getItem("SupervisorPortalName")
       : null;
   const [open, setOpen] = useState(false);
-  const menuRef = useRef(null);
+  const [loginTime, setLoginTime] = useState("");
+  const [attendanceStatus, setAttendanceStatus] = useState<
+    "checked-in" | "checked-out"
+  >("checked-out");
+  const [attendanceActionTime, setAttendanceActionTime] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoginTime(
+      new Date().toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    );
+  }, []);
+
   // Close dropdown if clicked outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !(menuRef.current as any).contains(e.target)) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
@@ -252,6 +277,17 @@ const fetchNotifications = async (token: string) => {
 
   const handleLogOut = () => {
     router.push("/modules/users/supervisor/ui/sign");
+  };
+
+  const handleAttendanceToggle = (status: "checked-in" | "checked-out") => {
+    if (status === attendanceStatus) return;
+    setAttendanceStatus(status);
+    setAttendanceActionTime(
+      new Date().toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    );
   };
 
   // Load on component mount
@@ -322,7 +358,7 @@ const fetchNotifications = async (token: string) => {
       return (
         <button
           onClick={() => setAddApplicant(true)}
-          className="bg-[#6C78F5] hover:bg-[#5a65d1] text-white text-sm px-4 py-2 rounded-lg"
+          className="bg-[#576CBC] hover:bg-[#394191] text-white text-sm px-4 py-2 rounded-lg"
           disabled={!trailWrite}
         >
           Add Applicant
@@ -420,30 +456,108 @@ const fetchNotifications = async (token: string) => {
               <Moon className="w-4 h-4 text-gray-800 dark:text-white" />
             )}
           </button>
-          <button
-            className="p-2.5 bg-white dark:bg-gray-700 rounded-full"
-            onClick={() => setOpen((prev) => !prev)}
-          >
-            <User className="w-4 h-4 text-gray-800 dark:text-white" />
-          </button>
+          <div ref={menuRef} className="relative">
+            <button
+              className="p-2.5 bg-white dark:bg-gray-700 rounded-full"
+              onClick={() => setOpen((prev) => !prev)}
+              aria-expanded={open}
+              aria-label="Open profile menu"
+            >
+              <User className="w-4 h-4 text-gray-800 dark:text-white" />
+            </button>
+            {open && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-[#DDE2EC] bg-white p-3 shadow-xl dark:border-gray-600 dark:bg-[#252525]">
+                <div className="rounded-xl bg-[#F7F8FC] p-2.5 dark:bg-[#30343F]">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#D9EEFF] text-[#576CBC]">
+                      <UserRound className="h-9 w-9" strokeWidth={1.6} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-[17px] font-semibold text-[#101B3C] dark:text-white">
+                        {userName || "Supervisor"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[#46536F] dark:text-gray-300">
+                        Supervisor
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        Login Time : {loginTime || "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  aria-label="Attendance controls"
+                  className="relative mt-3 flex rounded-full bg-[#E8ECFF] p-1 dark:bg-[#363D5D]"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute bottom-1 top-1 w-[calc(50%-0.25rem)] rounded-full bg-[#586FC0] shadow-sm transition-transform duration-300 ease-in-out ${
+                      attendanceStatus === "checked-out"
+                        ? "translate-x-full"
+                        : "translate-x-0"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    aria-pressed={attendanceStatus === "checked-in"}
+                    onClick={() => handleAttendanceToggle("checked-in")}
+                    className={`relative z-10 flex-1 rounded-full px-3 py-2 text-sm font-medium transition-colors duration-300 ${
+                      attendanceStatus === "checked-in"
+                        ? "text-white"
+                        : "text-[#586FC0] dark:text-[#C1CCFF]"
+                    }`}
+                  >
+                    Check-In
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={attendanceStatus === "checked-out"}
+                    onClick={() => handleAttendanceToggle("checked-out")}
+                    className={`relative z-10 flex-1 rounded-full px-3 py-2 text-sm font-medium transition-colors duration-300 ${
+                      attendanceStatus === "checked-out"
+                        ? "text-white"
+                        : "text-[#586FC0] dark:text-[#C1CCFF]"
+                    }`}
+                  >
+                    Check-Out
+                  </button>
+                </div>
+                {attendanceActionTime && (
+                  <p
+                    aria-live="polite"
+                    className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400"
+                  >
+                    {attendanceStatus === "checked-in"
+                      ? "Checked in"
+                      : "Checked out"}{" "}
+                    at {attendanceActionTime}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[#34415F] dark:text-gray-200"
+                >
+                  <User className="h-4 w-4 fill-[#586FC0] text-[#586FC0]" />
+                  <span className="flex-1 font-medium">My Profile</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={handleLogOut}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[#34415F] hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  <LogOut className="h-4 w-4 text-[#E24848]" />
+                  <span className="font-medium">Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {showLeaveForm && <LeaveForm onClose={() => setShowLeaveForm(false)} />}
       {showAddMeeting && <AddMeeting onClose={() => setAddMeetings(false)} />}
-      {open && (
-        <div className="absolute right-5 mt-2 w-40 bg-[#ffff] dark:bg-[#252525] shadow-lg rounded-lg py-2 z-50">
-          <div className="px-4 py-2 text-sm text-gray-800 dark:text-white font-semibold">
-            {userName}
-          </div>
-          <hr className="border-gray-300 dark:border-gray-600 my-1" />
-          <button
-            onClick={handleLogOut}
-            className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            Log Out
-          </button>
-        </div>
-      )}
       {showAddApplicant && (
         <AddApplicants onClose={() => setAddApplicant(false)} />
       )}

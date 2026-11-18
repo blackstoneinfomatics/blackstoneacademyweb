@@ -48,6 +48,41 @@ interface Applicant {
   createdDate: string;
   createdBy: string;
   level: string;
+  currentSalary?: number | string;
+  currentCTC?: number | string;
+  experience?: number | string;
+  interviewDate?: string;
+  interviewScheduledDate?: string;
+  scheduledDate?: string;
+  previousDate?: string;
+  previousInterviewDate?: string;
+  previousInterviewDateTime?: string;
+  newDate?: string;
+  newInterviewDate?: string;
+  rescheduledDate?: string;
+  interviewTime?: string;
+  time?: string;
+  previousTime?: string;
+  previousInterviewTime?: string;
+  newTime?: string;
+  newInterviewTime?: string;
+  rescheduledTime?: string;
+  platform?: string;
+  interviewLink?: string;
+  link?: string;
+  shortlistedDate?: string;
+  approvedDate?: string;
+  joinDate?: string;
+  rejectedDate?: string;
+  interviewMarks?: number | string;
+  waitingSince?: string;
+  supervisor?: {
+    teachingExperience?: number | string;
+    supervisorId?: string;
+    supervisorName?: string;
+    supervisorEmail?: string;
+    supervisorRole?: string;
+  };
 }
 interface ProfessionalExperience {
   jobRole: string;
@@ -547,7 +582,114 @@ export default function ApplicantsPage() {
     };
   }, []);
 
-  const tabs = ["All", "New Application", "Shortlisted", "Rejected", "Waiting"];
+  const tabs = ["All", "New Application", "Schedule", "Reschedule", "Shortlisted", "Approved", "Rejected", "Waiting"];
+
+  const applicantStageStatuses: Record<string, string[]> = {
+    "New Application": ["NEWAPPLICATION", "NEWAPPLICANT"],
+    Schedule: ["SCHEDULED", "SCHEDULE", "INTERVIEWSCHEDULED"],
+    Reschedule: ["RESCHEDULED", "RESCHEDULE", "INTERVIEWRESCHEDULED"],
+    Shortlisted: ["SHORTLISTED"],
+    Approved: ["APPROVED"],
+    Rejected: ["REJECTED"],
+    Waiting: ["WAITING"],
+  };
+
+  const applicantStageColumns: Record<string, string[]> = {
+    All: [
+      "Applicant Name",
+      "Application Date",
+      "Contact",
+      "Email id",
+      "Position",
+      "Resume",
+      "Status",
+      "Level",
+      "Action",
+    ],
+    "New Application": [
+      "Applicant Name",
+      "Application Date",
+      "Position",
+      "Current CTC",
+      "Experience",
+      "Contact",
+      "Email id",
+      "Resume",
+      "Action",
+    ],
+    Schedule: [
+      "Applicant Name",
+      "Position",
+      "Interview Date",
+      "Time",
+      "Contact",
+      "Email id",
+      "Link",
+      "Resume",
+      "Status",
+      "Action",
+    ],
+    Reschedule: [
+      "Applicant Name",
+      "Position",
+      "Previous Date",
+      "Previous Time",
+      "New Date",
+      "New Time",
+      "Platform",
+      "Contact",
+      "Link",
+      "Status",
+      "Action",
+    ],
+    Shortlisted: [
+      "Applicant Name",
+      "Position",
+      "Interview Date",
+      "Shortlisted Date",
+      "Contact",
+      "Action",
+    ],
+    Approved: [
+      "Applicant Name",
+      "Position",
+      "Interview Date",
+      "Approved Date",
+      "Contact",
+      "Join Date",
+      "Status",
+      "Action",
+    ],
+    Rejected: [
+      "Applicant Name",
+      "Position",
+      "Interview Date",
+      "Rejected Date",
+      "Contact",
+      "Action",
+    ],
+    Waiting: [
+      "Applicant Name",
+      "Position",
+      "Interview Date",
+      "Interview Marks",
+      "Waiting Since",
+      "Contact",
+      "Action",
+    ],
+  };
+
+  function formatApplicantDate(value?: string): string {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "2-digit",
+          year: "numeric",
+        });
+  }
 
   const filterApplicants = (applicants: Applicant[], searchQuery: string) => {
     if (!searchQuery.trim()) return applicants;
@@ -576,12 +718,174 @@ export default function ApplicantsPage() {
     activeTab === "All"
       ? applicants
       : applicants.filter(
-          (applicant) =>
-            applicant.applicationStatus.replace(/\s+/g, "").toUpperCase() ===
-            activeTab.replace(/\s+/g, "").toUpperCase()
+          (applicant) => {
+            const status = (applicant.applicationStatus ?? applicant.status ?? "")
+              .replace(/[\s_-]+/g, "")
+              .toUpperCase();
+            return (applicantStageStatuses[activeTab] ?? [
+              activeTab.replace(/[\s_-]+/g, "").toUpperCase(),
+            ]).includes(status);
+          }
         ),
     searchText
   );
+  const currentColumns =
+    applicantStageColumns[activeTab] ??
+    applicantStageColumns["New Application"];
+
+  const renderApplicantCell = (
+    applicant: Applicant,
+    column: string
+  ): React.ReactNode => {
+    const textClass = "text-[#17243E] dark:text-[#FDFDFD]";
+    switch (column) {
+      case "Applicant Name":
+        return (
+          <span className="font-medium text-[#3D8FDE]">
+            {[applicant.candidateFirstName, applicant.candidateLastName]
+              .filter(Boolean)
+              .join(" ") || "—"}
+          </span>
+        );
+      case "Application Date":
+        return formatApplicantDate(applicant.applicationDate);
+      case "Position":
+        return applicant.positionApplied || "—";
+      case "Current CTC":
+        return applicant.currentSalary ?? applicant.currentCTC ?? "—";
+      case "Experience":
+        return applicant.experience ??
+          applicant.supervisor?.teachingExperience ??
+          "—";
+      case "Contact":
+        return applicant.candidatePhoneNumber || "—";
+      case "Email id":
+        return applicant.candidateEmail || "—";
+      case "Interview Date":
+        return formatApplicantDate(
+          applicant.interviewDate ??
+            applicant.interviewScheduledDate ??
+            applicant.scheduledDate
+        );
+      case "Time":
+        return applicant.interviewTime ?? applicant.time ?? "—";
+      case "Previous Date":
+        return formatApplicantDate(
+          applicant.previousDate ??
+            applicant.previousInterviewDate ??
+            applicant.previousInterviewDateTime
+        );
+      case "Previous Time":
+        return applicant.previousTime ?? applicant.previousInterviewTime ?? "—";
+      case "New Date":
+        return formatApplicantDate(
+          applicant.newDate ?? applicant.newInterviewDate ?? applicant.rescheduledDate
+        );
+      case "New Time":
+        return applicant.newTime ?? applicant.newInterviewTime ?? applicant.rescheduledTime ?? "—";
+      case "Platform":
+        return applicant.platform || "—";
+      case "Link": {
+        const link = applicant.interviewLink ?? applicant.link;
+        return link ? (
+          <a
+            href={link}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[#3D8FDE] underline"
+          >
+            Open link
+          </a>
+        ) : (
+          "—"
+        );
+      }
+      case "Resume":
+        return <ResumeLink applicant={applicant} />;
+      case "Shortlisted Date":
+        return formatApplicantDate(applicant.shortlistedDate);
+      case "Approved Date":
+        return formatApplicantDate(applicant.approvedDate);
+      case "Join Date":
+        return formatApplicantDate(applicant.joinDate);
+      case "Rejected Date":
+        return formatApplicantDate(applicant.rejectedDate);
+      case "Interview Marks":
+        return applicant.interviewMarks ?? "—";
+      case "Waiting Since":
+        return formatApplicantDate(applicant.waitingSince);
+      case "Status": {
+        const applicantStatus =
+          applicant.applicationStatus || applicant.status || "—";
+        return (
+          <span
+            className={`text-[10px] font-semibold px-3 py-1 rounded-full ${getStatusColor(
+              applicantStatus
+            )}`}
+          >
+            {applicantStatus}
+          </span>
+        );
+      }
+      case "Level":
+        return applicant.level ? (
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={`${applicant._id}-star-${star}`}
+                className={`h-4 w-4 ${
+                  Number(applicant.level) >= star
+                    ? "text-[#FAAB3C]"
+                    : "text-gray-300"
+                }`}
+              />
+            ))}
+          </div>
+        ) : (
+          "—"
+        );
+      case "Action":
+        return (
+          <div className="relative">
+            <button
+              onClick={() => handleMenuClick(applicant._id)}
+              className="p-2 rounded-md"
+              aria-label={`Actions for ${applicant.candidateFirstName}`}
+            >
+              <MoreVertical className="w-4 h-4 text-slate-600 dark:text-[#FDFDFD]" />
+            </button>
+            {openMenuId === applicant._id && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10 dark:bg-[#252525] dark:text-[#fff]">
+                {supervisorId &&
+                  supervisorId === String(applicant.supervisor?.supervisorId) &&
+                  applicant.applicationStatus !== "APPROVED" && (
+                    <button
+                      onClick={() => handleEdit(applicant)}
+                      className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                    >
+                      Edit
+                    </button>
+                  )}
+                <button
+                  onClick={() => handleViewDetails(applicant)}
+                  className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                >
+                  View Details
+                </button>
+                <button
+                  onClick={() => setOpenMenuId(null)}
+                  className="block w-full px-4 py-2 text-left text-red-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      default:
+        return <span className={textClass}>—</span>;
+    }
+  };
 
   // Calculate pagination variables at the top of the component so they are always in scope
   const totalPages = Math.ceil(filteredApplicants.length / itemsPerPage);
@@ -924,7 +1228,10 @@ const handlesendupdate = async (id: string, status: string) => {
                     {tabs.map((tab) => (
                       <button
                         key={tab}
-                        onClick={() => setActiveTab(tab)}
+                        onClick={() => {
+                          setActiveTab(tab);
+                          setCurrentPage(1);
+                        }}
                         className={`px-3 py-1 md:px-3 md:py-1 text-[16px] font-medium
                            ${
                              activeTab === tab
@@ -1058,53 +1365,31 @@ const handlesendupdate = async (id: string, status: string) => {
                     <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
                       <span className="text-left -ml-60 ">
                         Showing {currentApplicants.length} of{" "}
-                        {applicants.length}
+                        {filteredApplicants.length}
                       </span>
                     </div>
                   </div>
 
                   {/* Table */}
+                  <div className="overflow-x-auto">
                   <table
-                    className="table-auto w-full"
-                    style={{ width: "100%", tableLayout: "fixed" }}
+                    className="table-auto w-full min-w-max"
+                    style={{ width: "100%" }}
                   >
                     <thead className="text-[12px] bg-[#4C6993] text-white dark:bg-[#6087C0]">
                       <tr className="font-medium">
-                        <th className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Applicant Name
-                        </th>
-                        <th className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Application Date
-                        </th>
-                        <th className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Contact
-                        </th>
-                        <th
-                          className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]"
-                          style={{ wordWrap: "break-word", width: "15%" }}
-                        >
-                          Email id
-                        </th>
-                        <th className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Position Applied
-                        </th>
-                        <th className="text-left px-4 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Resume
-                        </th>
-                        <th className="text-left px-6 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Status
-                        </th>
-                        <th className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Level
-                        </th>
-                        <th className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]">
-                          Action
-                        </th>
+                        {currentColumns.map((column) => (
+                          <th
+                            key={column}
+                            className="text-left px-3 py-3 font-medium border border-[#4C6993] dark:border-[#6087C0]"
+                          >
+                            {column}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {currentApplicants.map(
-                        (applicant: any, index: number) => (
+                      {currentApplicants.map((applicant, index) => (
                           <tr
                             key={applicant._id}
                             className={`text-[12px] ${
@@ -1113,106 +1398,24 @@ const handlesendupdate = async (id: string, status: string) => {
                                 : "bg-[#F8F8F8] dark:bg-[#303030]"
                             }`}
                           >
-                            <td className="px-5 py-2 text-[#3D8FDE] font-medium text-left">
-                              {applicant.candidateFirstName}
-                            </td>
-                            <td className="px-3 py-2 text-[#17243E] dark:text-[#FDFDFD]">
-                              {new Date(applicant.applicationDate)
-                                .toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "2-digit",
-                                  year: "numeric",
-                                })
-                                .replace(",", ",")}
-                            </td>
-                            <td className="px-3 py-2 text-[#17243E] dark:text-[#FDFDFD]">
-                              {applicant.candidatePhoneNumber}
-                            </td>
-                            <td
-                              className="px-3 py-2 text-[#17243E] dark:text-[#FDFDFD]"
-                              style={{ wordWrap: "break-word" }}
-                            >
-                              {applicant.candidateEmail}
-                            </td>
-                            <td className="px-3 py-2 text-[#17243E] dark:text-[#FDFDFD]">
-                              {applicant.positionApplied}
-                            </td>
-                            <td className="px-3 py-2">
-                              <ResumeLink applicant={applicant} />
-                            </td>
-
-                            <td className=" py-2">
-                              <span
-                                className={`text-[10px] font-semibold px-3 py-1 rounded-full ${getStatusColor(
-                                  applicant.applicationStatus
-                                )}`}
+                            {currentColumns.map((column) => (
+                              <td
+                                key={column}
+                                className={`px-3 py-2 ${column === "Action" ? "" : "text-[#17243E] dark:text-[#FDFDFD]"}`}
+                                style={
+                                  column === "Email id"
+                                    ? { wordWrap: "break-word" }
+                                    : undefined
+                                }
                               >
-                                {applicant.applicationStatus}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex gap-1">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={`star-${star}`}
-                                    className={`w-4 h-4 ${
-                                      (Number(applicant?.level) || 0) >= star
-                                        ? "text-[#FAAB3C]"
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="relative">
-                                <button
-                                  onClick={() => handleMenuClick(applicant._id)}
-                                  className="p-2 rounded-md"
-                                >
-                                  <MoreVertical className="w-4 h-4 text-slate-600 dark:text-[#FDFDFD]" />
-                                </button>
-                                {openMenuId === applicant._id && (
-                                  <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10 dark:bg-[#252525] dark:text-[#fff]">
-                                    {/* Show Edit only if supervisorId matches */}
-                                    {supervisorId &&
-                                      supervisorId ===
-                                        String(
-                                          applicant.supervisor?.supervisorId
-                                        ) &&
-                                      applicant.applicationStatus !==
-                                        "APPROVED" && (
-                                        <button
-                                          onClick={() => handleEdit(applicant)}
-                                          className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
-                                        >
-                                          Edit
-                                        </button>
-                                      )}
-
-                                    <button
-                                      onClick={() =>
-                                        handleViewDetails(applicant)
-                                      }
-                                      className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
-                                    >
-                                      View Details
-                                    </button>
-                                    <button
-                                      onClick={() => setOpenMenuId(null)}
-                                      className="block w-full px-4 py-2 text-left text-red-600 "
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
+                                {renderApplicantCell(applicant, column)}
+                              </td>
+                            ))}
                           </tr>
-                        )
-                      )}
+                        ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
                 {/* Pagination */}
