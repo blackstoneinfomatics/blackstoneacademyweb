@@ -3,14 +3,27 @@ import React, { useEffect } from "react";
 type Props = {
   readonly onClose: () => void;
   readonly title: string;
+  readonly autoClose?: boolean;
+  readonly actionLabel?: string;
+  readonly onAction?: () => void;
+  readonly actionDisabled?: boolean;
 };
-const FailedPopup = ({ onClose, title }: Props) => {
+const FailedPopup = ({
+  onClose,
+  title,
+  autoClose = true,
+  actionLabel,
+  onAction,
+  actionDisabled = false,
+}: Props) => {
   useEffect(() => {
+    if (!autoClose) return;
+
     const timer = setTimeout(() => {
       onClose();
     }, 3000);
     return () => clearTimeout(timer);
-  }, [onClose]);
+  }, [onClose, autoClose]);
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 text-center dark:bg-[#1D1D1D]">
@@ -38,7 +51,18 @@ const FailedPopup = ({ onClose, title }: Props) => {
           {title}
         </p>
         <div className="w-32 h-1 bg-red-800 my-6  rounded-full mx-auto"></div>
+        {actionLabel && onAction && (
+          <button
+            type="button"
+            onClick={onAction}
+            disabled={actionDisabled}
+            className="mb-3 w-full rounded-md bg-[#576CBC] px-6 py-3 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {actionDisabled ? "Opening authorization..." : actionLabel}
+          </button>
+        )}
         <button
+          type="button"
           onClick={onClose}
           className="px-6 py-3 bg-[#CB4C4B] text-white rounded-md hover:bg-red-400 transition-colors w-full"
         >

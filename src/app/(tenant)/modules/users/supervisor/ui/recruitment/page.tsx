@@ -9,7 +9,6 @@ import {
   Mail,
   Phone,
   Calendar,
-  UserRound,
 } from "lucide-react";
 import { ImAttachment } from "react-icons/im";
 import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
@@ -27,6 +26,7 @@ import SuccessPopup from "../../components/successPopup";
 import FailedPopup from "../../components/failedPopup";
 import { getSocket } from "@/app/utils/socket";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
+import InterviewScheduleForm from "./InterviewScheduleForm";
 
 interface Applicant {
   _id: string;
@@ -405,6 +405,8 @@ export default function ApplicantsPage() {
   const [interviewDate, setInterviewDate] = useState("");
   const [interviewTime, setInterviewTime] = useState("");
   const [interviewPlatform, setInterviewPlatform] = useState("Google Meet");
+
+  const [isSchedulingInterview, setIsSchedulingInterview] = useState(false);
 
   // State for dynamic filter options
   const [positionOptions, setPositionOptions] = useState<string[]>([
@@ -1104,7 +1106,8 @@ export default function ApplicantsPage() {
   const submitScheduleInterview = async () => {
     if (!scheduleApplicant) return;
 
-    if (!interviewDate || !interviewTime) {
+    const trimmedInterviewTime = interviewTime.trim();
+    if (!interviewDate || !trimmedInterviewTime) {
       setFailed(true);
       setFailedMessage("Interview date and time are required");
       return;
@@ -1128,21 +1131,18 @@ export default function ApplicantsPage() {
       return;
     }
 
-    const scheduleData = {
-      applicationStatus: "SCHEDULED",
-      status: "SCHEDULED",
-      interviewScheduledDate: interviewDate,
-      interviewDate,
-      interviewTime,
-      time: interviewTime,
-      platform: interviewPlatform,
-      updatedDate: new Date().toISOString(),
-    };
-
+    setIsSchedulingInterview(true);
     try {
-      await axios.put(
-        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.APPLICANTS.GET_LIST}/${scheduleApplicant._id}`,
-        scheduleData,
+      await axios.post(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.APPLICANTS.CREATE_INTERVIEW_SCHEDULE}`,
+        {
+          _id: scheduleApplicant._id,
+          interviewDate: new Date(
+            `${interviewDate}T00:00:00.000Z`
+          ).toISOString(),
+          interviewTime: trimmedInterviewTime,
+          interviewPlatform,
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1154,12 +1154,26 @@ export default function ApplicantsPage() {
       setSuccessMessage("Interview scheduled successfully");
       setScheduleApplicant(null);
       fetchApplicants();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Interview scheduling failed:", error);
       setFailed(true);
-      setFailedMessage(
-        error.response?.data?.message || "Failed to schedule interview"
-      );
+      if (
+        axios.isAxiosError<{
+          message?: string;
+          authorizationPath?: string;
+        }>(error)
+      ) {
+        const responseData = error.response?.data;
+        setFailedMessage(
+          responseData?.authorizationPath
+            ? `${responseData.message || "Google Meet authorization is required"}. Authorize at: ${responseData.authorizationPath}`
+            : responseData?.message || "Failed to schedule interview"
+        );
+      } else {
+        setFailedMessage("Failed to schedule interview");
+      }
+    } finally {
+      setIsSchedulingInterview(false);
     }
   };
 
@@ -1549,112 +1563,31 @@ const handlesendupdate = async (id: string, status: string) => {
       {success && (
         <SuccessPopup
           onClose={() => setSuccess(false)}
-          title={successMessage}
+          title="Success"
+          message={successMessage}
         />
       )}
       {failed && (
-        <FailedPopup onClose={() => setFailed(false)} title={failedMessage} />
+        <FailedPopup
+          onClose={() => setFailed(false)}
+          title={failedMessage}
+          autoClose={false}
+        />
       )}
 
       {scheduleApplicant && (
-        <>
-          <button
-            className="fixed inset-0 z-40 bg-black/50"
-            onClick={closeScheduleInterview}
-            aria-label="Close schedule interview dialog"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="schedule-interview-title"
-            className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[450px] max-w-[calc(100%-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-[#343434]"
-          >
-            <h2
-              id="schedule-interview-title"
-              className="mb-6 text-lg font-semibold leading-tight text-[#0A1737] dark:text-white"
-            >
-              Interview Schedule
-            </h2>
-            <div className="rounded-2xl border-2 border-[#E0E4EA] p-5 dark:border-[#5F5959]">
-              <div className="mb-6 flex items-center gap-5 rounded-2xl bg-[#eff1f9] p-5 dark:bg-[#292D3A]">
-                <div className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full bg-white text-[#5B6FC4] dark:bg-[#343434]">
-                  <UserRound className="h-7 w-7" />
-                </div>
-                <div className="min-w-0">
-                <h3 className="truncate text-base font-semibold leading-tight text-[#010E30] dark:text-white">
-                  {scheduleApplicant.candidateFirstName}{" "}
-                  {scheduleApplicant.candidateLastName}
-                </h3>
-                <div className="mt-1 text-sm text-[#313b58] dark:text-[#D6D6D6]">
-                  Applied for{" "}
-                  <span className="text-[#F3A13B]">
-                    {scheduleApplicant.position || "—"}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-[#747476] dark:text-[#D6D6D6]">
-                  Experience: {scheduleApplicant.experience ??
-                    scheduleApplicant.supervisor?.teachingExperience ??
-                    "—"}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-5">
-              <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
-                Interview Date
-                <input
-                  type="date"
-                  min={new Date(
-                    Date.now() - new Date().getTimezoneOffset() * 60000
-                  )
-                    .toISOString()
-                    .slice(0, 10)}
-                  value={interviewDate}
-                  onChange={(e) => setInterviewDate(e.target.value)}
-                  className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] px-2 py-1.5 text-[10px] font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
-                />
-              </label>
-              <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
-                Interview Time
-                <input
-                  type="text"
-                  value={interviewTime}
-                  onChange={(e) => setInterviewTime(e.target.value)}
-                  placeholder="e.g. 9AM - 3PM"
-                  className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] px-2 py-1.5 text-[10px] font-normal text-[#34415F] placeholder:text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white dark:placeholder:text-[#D6D6D6]"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
-                Interview Platform
-                <select
-                  value={interviewPlatform}
-                  onChange={(e) => setInterviewPlatform(e.target.value)}
-                  className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] bg-white px-2 py-1.5 text-[10px] font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
-                >
-                  <option>Google Meet</option>
-                  <option>Zoom</option>
-                </select>
-              </label>
-            </div>
-            </div>
-
-            <div className="mt-5 flex justify-end gap-5">
-              <button
-                onClick={closeScheduleInterview}
-                className="min-w-[150px] rounded-xl border-2 border-[#5B6FC4] bg-[#F0F2FB] px-6 py-3 text-[16px] font-semibold text-[#5B6FC4] dark:bg-[#292D3A]"
-              >
-                Back
-              </button>
-              <button
-                onClick={submitScheduleInterview}
-                className="min-w-[178px] rounded-xl bg-[#5B6FC4] px-6 py-3 text-[16px] font-semibold text-white"
-              >
-                Submit
-              </button>
-            </div>
-          </div>
-        </>
+        <InterviewScheduleForm
+          applicant={scheduleApplicant}
+          date={interviewDate}
+          time={interviewTime}
+          platform={interviewPlatform}
+          isSubmitting={isSchedulingInterview}
+          onDateChange={setInterviewDate}
+          onTimeChange={setInterviewTime}
+          onPlatformChange={setInterviewPlatform}
+          onClose={closeScheduleInterview}
+          onSubmit={submitScheduleInterview}
+        />
       )}
 
       {selectedApplicant && mode === "view" && (
