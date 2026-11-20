@@ -7,6 +7,7 @@ interface ScheduleApplicant {
   candidateLastName: string;
   position: string;
   experience?: number | string;
+  teachingExperience?: number | string;
   supervisor?: {
     teachingExperience?: number | string;
   };
@@ -78,7 +79,8 @@ export default function InterviewScheduleForm({
               </div>
               <p className="mt-1 text-sm text-[#747476] dark:text-[#D6D6D6]">
                 Experience:{" "}
-                {applicant.experience ??
+                {applicant.teachingExperience ??
+                  applicant.experience ??
                   applicant.supervisor?.teachingExperience ??
                   "—"}
               </p>

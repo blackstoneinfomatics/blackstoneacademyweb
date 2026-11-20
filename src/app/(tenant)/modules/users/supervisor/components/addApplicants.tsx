@@ -31,8 +31,14 @@ export enum RecruitmentDays {
   SUNDAY = "Sunday",
 }
 
+export enum RecruitmentPositions {
+  DEVELOPER = "developer",
+  UI_UX = "ui/ux",
+}
+
 type RecruitmentDay = RecruitmentDays;
 const recruitmentDays = Object.values(RecruitmentDays);
+const recruitmentPositions = Object.values(RecruitmentPositions);
 
 type ParsedResumeData = {
   fields: Partial<AddApplicantFormData>;
@@ -694,6 +700,18 @@ const handleSubmit = async (e: React.FormEvent) => {
       typeof window !== "undefined"
         ? localStorage.getItem("SupervisorPortalName")
         : null;
+    const supervisorId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("SupervisorPortalId")
+        : null;
+    const supervisorEmail =
+      typeof window !== "undefined"
+        ? localStorage.getItem("SupervisorPortalEmail")
+        : null;
+    const supervisorRole =
+      typeof window !== "undefined"
+        ? localStorage.getItem("SupervisorPortalRole")
+        : null;
 
     if (!token || !tenantId || !createdBy) {
       toast.error(!token
@@ -713,6 +731,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     const employmentType = ({
       "Full Time": "full-time",
       "Part Time": "part-time",
+      "half-time": "part-time",
       Contract: "contract",
     } as Record<string, string>)[addApplicantForm.employmentType] ||
       addApplicantForm.employmentType;
@@ -730,24 +749,30 @@ const handleSubmit = async (e: React.FormEvent) => {
       tenantId,
       candidateFirstName: addApplicantForm.firstName.trim(),
       candidateLastName: addApplicantForm.lastName.trim(),
+      gender: addApplicantForm.gender,
+      position: addApplicantForm.position.trim(),
       supervisor: {
-        dateOfBirth: dateToIso(addApplicantForm.dateOfBirth),
-        address: addApplicantForm.address.trim(),
-        highestQualification: addApplicantForm.highestQualification,
-        specialization: addApplicantForm.specialization,
-        university: addApplicantForm.universityInstitution.trim(),
-        completionYear: Number(addApplicantForm.completionYear) || 0,
-        experienceType: addApplicantForm.teachingExperienceLevel,
-        teachingExperience: experienceYears + experienceMonths / 12,
-        previousInstitutionName:
-          addApplicantForm.teachingExperienceLevel === "experienced"
-            ? addApplicantForm.previousInstitutionName.trim()
-            : "",
-        previousDesignation:
-          addApplicantForm.teachingExperienceLevel === "experienced"
-            ? addApplicantForm.previousDesignation.trim()
-            : "",
+        ...(supervisorId ? { supervisorId } : {}),
+        supervisorName: createdBy,
+        ...(supervisorEmail ? { supervisorEmail } : {}),
+        ...(supervisorRole ? { supervisorRole } : {}),
       },
+      dateOfBirth: dateToIso(addApplicantForm.dateOfBirth),
+      address: addApplicantForm.address.trim(),
+      highestQualification: addApplicantForm.highestQualification,
+      specialization: addApplicantForm.specialization.trim(),
+      university: addApplicantForm.universityInstitution.trim(),
+      completionYear: Number(addApplicantForm.completionYear) || 0,
+      experienceType: addApplicantForm.teachingExperienceLevel,
+      teachingExperience: experienceYears + experienceMonths / 12,
+      previousInstitutionName:
+        addApplicantForm.teachingExperienceLevel === "experienced"
+          ? addApplicantForm.previousInstitutionName.trim()
+          : "",
+      previousDesignation:
+        addApplicantForm.teachingExperienceLevel === "experienced"
+          ? addApplicantForm.previousDesignation.trim()
+          : "",
       technicalSkills: skillGroups.technicalSkills,
       teachingSkills: skillGroups.teachingSkills,
       languages: skillGroups.languageProficiency,
@@ -996,6 +1021,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         "currentSalary",
         "expectedSalary",
         "employmentType",
+        "position",
         "teachingMode",
         "availableWorkingDays",
         "joiningAvailability",
@@ -1615,15 +1641,20 @@ const handleSubmit = async (e: React.FormEvent) => {
                 >
                   Position
                 </label>
-                <input
+                <select
                   id="position"
                   name="position"
                   value={addApplicantForm.position}
                   onChange={handleChange}
-                  placeholder="Enter position"
-                  type="text"
-                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 dark:border-gray-600 dark:bg-[#343434] dark:text-white"
-                />
+                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                >
+                  <option value="">Select position</option>
+                  {recruitmentPositions.map((position) => (
+                    <option key={position} value={position}>
+                      {position}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label

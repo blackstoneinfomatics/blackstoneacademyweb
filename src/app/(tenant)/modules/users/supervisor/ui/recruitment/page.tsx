@@ -30,31 +30,61 @@ import InterviewScheduleForm from "./InterviewScheduleForm";
 
 interface Applicant {
   _id: string;
+  tenantId?: string;
+  candidateId?: string;
   candidateFirstName: string;
   candidateLastName: string;
   applicationDate: string;
   candidateEmail: string;
   candidatePhoneNumber: number;
+  phoneCountryCode?: string;
 
   candidateCountry: string;
   candidateCity: string;
   position: string;
+  positionApplied?: string;
   currency: string;
-  expectedSalary: string;
-  preferedWorkingHours: string;
-  uploadResume: string;
-  comments: string;
+  expectedSalary: number | string;
+  preferedWorkingHours?: string;
+  uploadResume: string | UploadResume;
+  comments?: string;
   applicationStatus: string;
-  status: string;
-  createdDate: string;
-  createdBy: string;
-  level: string;
+  status?: string;
+  createdDate?: string;
+  createdBy?: string;
+  level?: string;
   currentSalary?: number | string;
   currentCTC?: number | string;
   experience?: number | string;
   gender?: string;
+  dateOfBirth?: string;
+  address?: string;
+  highestQualification?: string;
+  specialization?: string;
+  university?: string;
+  completionYear?: number | string;
+  experienceType?: string;
+  teachingExperience?: number | string;
+  previousInstitutionName?: string;
+  previousDesignation?: string;
   skills?: string;
+  technicalSkills?: string[];
+  teachingSkills?: string[];
+  languages?: string[];
+  languageProficiency?: string[];
   professionalExperience?: ProfessionalExperience[];
+  interviewSchedule?: InterviewSchedule;
+  __v?: number;
+  employmentType?: string;
+  teachingMode?: string | string[];
+  availableWorkingDays?: string[];
+  joiningAvailability?: string;
+  preferedWorkingDays?: string;
+  quranReading?: string;
+  tajweed?: string;
+  arabicSpeaking?: string;
+  arabicWriting?: string;
+  englishSpeaking?: string;
   interviewDate?: string;
   interviewScheduledDate?: string;
   scheduledDate?: string;
@@ -81,12 +111,39 @@ interface Applicant {
   interviewMarks?: number | string;
   waitingSince?: string;
   supervisor?: {
+    dateOfBirth?: string;
+    address?: string;
+    highestQualification?: string;
+    specialization?: string;
+    university?: string;
+    completionYear?: number | string;
+    experienceType?: string;
     teachingExperience?: number | string;
+    previousInstitutionName?: string;
+    previousDesignation?: string;
     supervisorId?: string;
     supervisorName?: string;
     supervisorEmail?: string;
     supervisorRole?: string;
   };
+}
+interface InterviewSchedule {
+  _id?: string;
+  recruitmentId?: string;
+  tenantId?: string;
+  candidateId?: string;
+  candidateFirstName?: string;
+  position?: string;
+  teachingExperience?: number | string;
+  interviewDate?: string;
+  interviewTime?: string;
+  interviewPlatform?: string;
+  interviewmeetinglink?: string;
+  previousInterviewDate?: string;
+  previousInterviewTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
 }
 interface ProfessionalExperience {
   jobRole: string;
@@ -104,39 +161,72 @@ interface UploadResume {
 }
 
 interface ApiResponse {
+  tenantId?: string;
+  candidateId?: string;
   candidateFirstName: string;
   candidateLastName: string;
   applicationDate: string;
   candidateEmail: string;
   candidatePhoneNumber: number;
+  phoneCountryCode?: string;
   candidateCountry: string;
   candidateCity: string;
   position: string;
+  positionApplied?: string;
   currency: string;
   gender: string;
+  dateOfBirth?: string;
+  address?: string;
+  highestQualification?: string;
+  specialization?: string;
+  university?: string;
+  completionYear?: number | string;
+  experienceType?: string;
+  teachingExperience?: number | string;
+  previousInstitutionName?: string;
+  previousDesignation?: string;
   currentSalary?: number | string;
-  expectedSalary: string;
-  preferedWorkingHours: string;
-  uploadResume: UploadResume;
-  comments: string;
-  preferedWorkingDays: string;
-  quranReading: string;
-  tajweed: string;
-  arabicSpeaking: string;
-  arabicWriting: string;
-  englishSpeaking: string;
-  overallRating: number;
+  expectedSalary: number | string;
+  preferedWorkingHours?: string;
+  uploadResume: UploadResume | string;
+  comments?: string;
+  preferedWorkingDays?: string;
+  quranReading?: string;
+  tajweed?: string;
+  arabicSpeaking?: string;
+  arabicWriting?: string;
+  englishSpeaking?: string;
+  overallRating?: number;
   applicationStatus: string;
-  professionalExperience: ProfessionalExperience[];
-  skills: string;
+  professionalExperience?: ProfessionalExperience[];
+  skills?: string;
+  technicalSkills?: string[];
+  teachingSkills?: string[];
+  languages?: string[];
+  languageProficiency?: string[];
   experience?: number | string;
+  employmentType?: string;
+  teachingMode?: string | string[];
+  availableWorkingDays?: string[];
+  joiningAvailability?: string;
+  interviewSchedule?: InterviewSchedule;
   currentCTC?: number | string;
   status: string;
-  createdDate: string;
-  createdBy: string;
+  createdDate?: string;
+  createdBy?: string;
   _id: string;
-  __v: number;
+  __v?: number;
   supervisor?: { // Add this if it exists in your response
+    dateOfBirth?: string;
+    address?: string;
+    highestQualification?: string;
+    specialization?: string;
+    university?: string;
+    completionYear?: number | string;
+    experienceType?: string;
+    teachingExperience?: number | string;
+    previousInstitutionName?: string;
+    previousDesignation?: string;
     supervisorId?: string;
     supervisorName?: string;
     supervisorEmail?: string;
@@ -405,7 +495,6 @@ export default function ApplicantsPage() {
   const [interviewDate, setInterviewDate] = useState("");
   const [interviewTime, setInterviewTime] = useState("");
   const [interviewPlatform, setInterviewPlatform] = useState("Google Meet");
-
   const [isSchedulingInterview, setIsSchedulingInterview] = useState(false);
 
   // State for dynamic filter options
@@ -767,11 +856,12 @@ export default function ApplicantsPage() {
       case "Application Date":
         return formatApplicantDate(applicant.applicationDate);
       case "Position":
-        return applicant.position || "—";
+        return applicant.position ?? applicant.positionApplied ?? "—";
       case "Current CTC":
         return applicant.currentSalary ?? applicant.currentCTC ?? "—";
       case "Experience":
-        return applicant.experience ??
+        return applicant.teachingExperience ??
+          applicant.experience ??
           applicant.supervisor?.teachingExperience ??
           "—";
       case "Contact":
@@ -782,28 +872,48 @@ export default function ApplicantsPage() {
         return formatApplicantDate(
           applicant.interviewDate ??
             applicant.interviewScheduledDate ??
-            applicant.scheduledDate
+            applicant.scheduledDate ??
+            applicant.interviewSchedule?.interviewDate
         );
       case "Time":
-        return applicant.interviewTime ?? applicant.time ?? "—";
+        return applicant.interviewTime ??
+          applicant.time ??
+          applicant.interviewSchedule?.interviewTime ??
+          "—";
       case "Previous Date":
         return formatApplicantDate(
           applicant.previousDate ??
             applicant.previousInterviewDate ??
-            applicant.previousInterviewDateTime
+            applicant.previousInterviewDateTime ??
+            applicant.interviewSchedule?.previousInterviewDate
         );
       case "Previous Time":
-        return applicant.previousTime ?? applicant.previousInterviewTime ?? "—";
+        return applicant.previousTime ??
+          applicant.previousInterviewTime ??
+          applicant.interviewSchedule?.previousInterviewTime ??
+          "—";
       case "New Date":
         return formatApplicantDate(
-          applicant.newDate ?? applicant.newInterviewDate ?? applicant.rescheduledDate
+          applicant.newDate ??
+            applicant.newInterviewDate ??
+            applicant.rescheduledDate ??
+            applicant.interviewSchedule?.interviewDate
         );
       case "New Time":
-        return applicant.newTime ?? applicant.newInterviewTime ?? applicant.rescheduledTime ?? "—";
+        return applicant.newTime ??
+          applicant.newInterviewTime ??
+          applicant.rescheduledTime ??
+          applicant.interviewSchedule?.interviewTime ??
+          "—";
       case "Platform":
-        return applicant.platform || "—";
+        return applicant.platform ??
+          applicant.interviewSchedule?.interviewPlatform ??
+          "—";
       case "Link": {
-        const link = applicant.interviewLink ?? applicant.link;
+        const link =
+          applicant.interviewLink ??
+          applicant.link ??
+          applicant.interviewSchedule?.interviewmeetinglink;
         return link ? (
           <a
             href={link}
@@ -948,6 +1058,9 @@ export default function ApplicantsPage() {
   setOpenMenuId(openMenuId === _id ? null : _id);
 
   if (openMenuId !== _id) {
+    setApplicantbyid(null);
+    setParsedSkills([]);
+    setResumeImages(null);
     try {
       const token =
         typeof window !== "undefined"
@@ -1336,13 +1449,49 @@ const handlesendupdate = async (id: string, status: string) => {
   };
 
   const isViewingApplicant = () => mode === "view";
-  const applicationSkills =
-    parsedSkills.length > 0
-      ? parsedSkills
-      : (Applicantbyid?.skills ?? "")
-          .split(/[,•\n]/)
-          .map((skill) => skill.trim())
-          .filter(Boolean);
+  const legacySkills = parsedSkills.length
+    ? parsedSkills
+    : (
+        Applicantbyid?.skills ??
+        selectedApplicant?.skills ??
+        ""
+      )
+        .split(/[,•\n]/)
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+  const applicationSkillGroups = [
+    {
+      label: "Technical Skills",
+      skills:
+        Applicantbyid?.technicalSkills ??
+        selectedApplicant?.technicalSkills ??
+        legacySkills,
+    },
+    {
+      label: "Teaching Skills",
+      skills:
+        Applicantbyid?.teachingSkills ??
+        selectedApplicant?.teachingSkills ??
+        [],
+    },
+    {
+      label: "Languages",
+      skills:
+        Applicantbyid?.languages ??
+        Applicantbyid?.languageProficiency ??
+        selectedApplicant?.languages ??
+        selectedApplicant?.languageProficiency ??
+        [],
+    },
+  ].filter((group) => group.skills.length > 0);
+  const applicantInterviewSchedule =
+    Applicantbyid?.interviewSchedule ??
+    selectedApplicant?.interviewSchedule;
+  const applicantTeachingMode =
+    Applicantbyid?.teachingMode ?? selectedApplicant?.teachingMode;
+  const applicantWorkingDays =
+    Applicantbyid?.availableWorkingDays ??
+    selectedApplicant?.availableWorkingDays;
 
   return (
     <BaseLayout3>
@@ -1563,16 +1712,11 @@ const handlesendupdate = async (id: string, status: string) => {
       {success && (
         <SuccessPopup
           onClose={() => setSuccess(false)}
-          title="Success"
-          message={successMessage}
+          title={successMessage}
         />
       )}
       {failed && (
-        <FailedPopup
-          onClose={() => setFailed(false)}
-          title={failedMessage}
-          autoClose={false}
-        />
+        <FailedPopup onClose={() => setFailed(false)} title={failedMessage} />
       )}
 
       {scheduleApplicant && (
@@ -1643,13 +1787,28 @@ const handlesendupdate = async (id: string, status: string) => {
                     ],
                     [
                       "Mobile Number",
-                      Applicantbyid?.candidatePhoneNumber ??
-                        selectedApplicant.candidatePhoneNumber,
+                      [
+                        Applicantbyid?.phoneCountryCode ??
+                          selectedApplicant.phoneCountryCode,
+                        Applicantbyid?.candidatePhoneNumber ??
+                          selectedApplicant.candidatePhoneNumber,
+                      ]
+                        .filter(Boolean)
+                        .join(" "),
                     ],
-                    ["Gender", Applicantbyid?.gender],
+                    ["Gender", Applicantbyid?.gender ?? selectedApplicant.gender],
+                    [
+                      "Date of Birth",
+                      formatApplicantDate(
+                        Applicantbyid?.dateOfBirth ??
+                          selectedApplicant.dateOfBirth
+                      ),
+                    ],
                     [
                       "Address",
-                      [
+                      (Applicantbyid?.address ??
+                        selectedApplicant.address) ||
+                        [
                         Applicantbyid?.candidateCity ??
                           selectedApplicant.candidateCity,
                         Applicantbyid?.candidateCountry ??
@@ -1663,8 +1822,48 @@ const handlesendupdate = async (id: string, status: string) => {
                       formatApplicantDate(
                         Applicantbyid?.applicationDate ??
                           selectedApplicant.applicationDate ??
-                          Applicantbyid?.createdDate
+                          Applicantbyid?.createdDate ??
+                          selectedApplicant.createdDate
                       ),
+                    ],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                    >
+                      <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                        {label}
+                      </span>
+                      <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                        {value || "—"}
+                      </span>
+                    </div>
+                  ))}
+                </section>
+
+                <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
+                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                    Educational Qualification
+                  </h3>
+                  {[
+                    [
+                      "Highest Qualification",
+                      Applicantbyid?.highestQualification ??
+                        selectedApplicant.highestQualification,
+                    ],
+                    [
+                      "Specialization",
+                      Applicantbyid?.specialization ??
+                        selectedApplicant.specialization,
+                    ],
+                    [
+                      "University / Institution",
+                      Applicantbyid?.university ?? selectedApplicant.university,
+                    ],
+                    [
+                      "Completion Year",
+                      Applicantbyid?.completionYear ??
+                        selectedApplicant.completionYear,
                     ],
                   ].map(([label, value]) => (
                     <div
@@ -1685,8 +1884,49 @@ const handlesendupdate = async (id: string, status: string) => {
                   <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
                     Teaching Experience
                   </h3>
-                  {Applicantbyid?.professionalExperience?.length ? (
-                    Applicantbyid.professionalExperience.map((experience) => (
+                  {[
+                    [
+                      "Experience Level",
+                      Applicantbyid?.experienceType ??
+                        selectedApplicant.experienceType,
+                    ],
+                    [
+                      "Total Experience",
+                      Applicantbyid?.teachingExperience ??
+                        Applicantbyid?.experience ??
+                        selectedApplicant.teachingExperience ??
+                        selectedApplicant.experience,
+                    ],
+                    [
+                      "Previous Designation",
+                      Applicantbyid?.previousDesignation ??
+                        selectedApplicant.previousDesignation,
+                    ],
+                    [
+                      "Previous Institution",
+                      Applicantbyid?.previousInstitutionName ??
+                        selectedApplicant.previousInstitutionName,
+                    ],
+                  ].map(
+                    ([label, value]) =>
+                      value != null && value !== "" && (
+                        <div
+                          key={label}
+                          className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                        >
+                          <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                            {label}
+                          </span>
+                          <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                            {value}
+                          </span>
+                        </div>
+                      )
+                  )}
+                  {(Applicantbyid?.professionalExperience ??
+                    selectedApplicant.professionalExperience)?.length ? (
+                    (Applicantbyid?.professionalExperience ??
+                      selectedApplicant.professionalExperience)?.map((experience) => (
                       <div
                         key={experience._id}
                         className="border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
@@ -1721,15 +1961,24 @@ const handlesendupdate = async (id: string, status: string) => {
                   <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
                     Skills &amp; Expertise
                   </h3>
-                  {applicationSkills.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {applicationSkills.map((skill, index) => (
-                        <span
-                          key={`${skill}-${index}`}
-                          className="rounded-full bg-[#F0F2FB] px-3 py-1 text-[12px] text-[#5268BB] dark:bg-[#292D3A] dark:text-[#A9B6F0]"
-                        >
-                          {skill}
-                        </span>
+                  {applicationSkillGroups.length > 0 ? (
+                    <div className="space-y-3">
+                      {applicationSkillGroups.map((group) => (
+                        <div key={group.label}>
+                          <h4 className="mb-1 text-[13px] text-[#34415F] dark:text-[#D6D6D6]">
+                            {group.label}
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {group.skills.map((skill, index) => (
+                              <span
+                                key={`${group.label}-${skill}-${index}`}
+                                className="rounded-full bg-[#F0F2FB] px-3 py-1 text-[12px] text-[#5268BB] dark:bg-[#292D3A] dark:text-[#A9B6F0]"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -1738,19 +1987,53 @@ const handlesendupdate = async (id: string, status: string) => {
                     </p>
                   )}
                   {[
-                    ["Quran Reading", Applicantbyid?.quranReading],
-                    ["Tajweed", Applicantbyid?.tajweed],
-                    ["Arabic Speaking", Applicantbyid?.arabicSpeaking],
-                    ["Arabic Writing", Applicantbyid?.arabicWriting],
-                    ["English Speaking", Applicantbyid?.englishSpeaking],
+                    [
+                      "Quran Reading",
+                      Applicantbyid?.quranReading ?? selectedApplicant.quranReading,
+                    ],
+                    ["Tajweed", Applicantbyid?.tajweed ?? selectedApplicant.tajweed],
+                    [
+                      "Arabic Speaking",
+                      Applicantbyid?.arabicSpeaking ??
+                        selectedApplicant.arabicSpeaking,
+                    ],
+                    [
+                      "Arabic Writing",
+                      Applicantbyid?.arabicWriting ??
+                        selectedApplicant.arabicWriting,
+                    ],
+                    [
+                      "English Speaking",
+                      Applicantbyid?.englishSpeaking ??
+                        selectedApplicant.englishSpeaking,
+                    ],
                   ].some(([, value]) => value) && (
                     <div className="mt-3 space-y-2 border-t border-[#EEF0F3] pt-3 text-[13px] dark:border-[#5F5959]">
                       {[
-                        ["Quran Reading", Applicantbyid?.quranReading],
-                        ["Tajweed", Applicantbyid?.tajweed],
-                        ["Arabic Speaking", Applicantbyid?.arabicSpeaking],
-                        ["Arabic Writing", Applicantbyid?.arabicWriting],
-                        ["English Speaking", Applicantbyid?.englishSpeaking],
+                        [
+                          "Quran Reading",
+                          Applicantbyid?.quranReading ??
+                            selectedApplicant.quranReading,
+                        ],
+                        [
+                          "Tajweed",
+                          Applicantbyid?.tajweed ?? selectedApplicant.tajweed,
+                        ],
+                        [
+                          "Arabic Speaking",
+                          Applicantbyid?.arabicSpeaking ??
+                            selectedApplicant.arabicSpeaking,
+                        ],
+                        [
+                          "Arabic Writing",
+                          Applicantbyid?.arabicWriting ??
+                            selectedApplicant.arabicWriting,
+                        ],
+                        [
+                          "English Speaking",
+                          Applicantbyid?.englishSpeaking ??
+                            selectedApplicant.englishSpeaking,
+                        ],
                       ].map(
                         ([label, value]) =>
                           value && (
@@ -1774,16 +2057,44 @@ const handlesendupdate = async (id: string, status: string) => {
                   {[
                     [
                       "Position",
-                      Applicantbyid?.position ??
+                      Applicantbyid?.positionApplied ??
+                        Applicantbyid?.position ??
                         selectedApplicant.position,
                     ],
                     [
                       "Current Salary",
-                      Applicantbyid?.currentSalary ?? Applicantbyid?.currentCTC,
+                      Applicantbyid?.currentSalary ??
+                        Applicantbyid?.currentCTC ??
+                        selectedApplicant.currentSalary ??
+                        selectedApplicant.currentCTC,
                     ],
-                    ["Expected Salary", Applicantbyid?.expectedSalary],
-                    ["Working Hours", Applicantbyid?.preferedWorkingHours],
-                    ["Working Days", Applicantbyid?.preferedWorkingDays],
+                    [
+                      "Expected Salary",
+                      Applicantbyid?.expectedSalary ??
+                        selectedApplicant.expectedSalary,
+                    ],
+                    [
+                      "Employment Type",
+                      Applicantbyid?.employmentType ??
+                        selectedApplicant.employmentType,
+                    ],
+                    [
+                      "Teaching Mode",
+                      Array.isArray(applicantTeachingMode)
+                        ? applicantTeachingMode.join(", ")
+                        : applicantTeachingMode,
+                    ],
+                    [
+                      "Working Days",
+                      applicantWorkingDays?.join(", ") ??
+                        Applicantbyid?.preferedWorkingDays ??
+                        selectedApplicant.preferedWorkingDays,
+                    ],
+                    [
+                      "Joining Availability",
+                      Applicantbyid?.joiningAvailability ??
+                        selectedApplicant.joiningAvailability,
+                    ],
                   ].map(([label, value]) => (
                     <div
                       key={label}
@@ -1798,6 +2109,62 @@ const handlesendupdate = async (id: string, status: string) => {
                     </div>
                   ))}
                 </section>
+
+                {applicantInterviewSchedule && (
+                  <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
+                    <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                      Interview Schedule
+                    </h3>
+                    {[
+                      [
+                        "Interview Date",
+                        formatApplicantDate(
+                          applicantInterviewSchedule.interviewDate
+                        ),
+                      ],
+                      [
+                        "Interview Time",
+                        applicantInterviewSchedule.interviewTime,
+                      ],
+                      [
+                        "Interview Platform",
+                        applicantInterviewSchedule.interviewPlatform,
+                      ],
+                      [
+                        "Previous Interview Date",
+                        formatApplicantDate(
+                          applicantInterviewSchedule.previousInterviewDate
+                        ),
+                      ],
+                      [
+                        "Previous Interview Time",
+                        applicantInterviewSchedule.previousInterviewTime,
+                      ],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                      >
+                        <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                          {label}
+                        </span>
+                        <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                          {value || "—"}
+                        </span>
+                      </div>
+                    ))}
+                    {applicantInterviewSchedule.interviewmeetinglink && (
+                      <a
+                        href={applicantInterviewSchedule.interviewmeetinglink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-block text-[13px] text-[#5268BB] underline"
+                      >
+                        Open interview link
+                      </a>
+                    )}
+                  </section>
+                )}
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
                   <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
