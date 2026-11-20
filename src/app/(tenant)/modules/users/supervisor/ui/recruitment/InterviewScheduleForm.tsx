@@ -18,6 +18,7 @@ interface InterviewScheduleFormProps {
   date: string;
   time: string;
   platform: string;
+  isRescheduling?: boolean;
   isSubmitting: boolean;
   onDateChange: (date: string) => void;
   onTimeChange: (time: string) => void;
@@ -31,6 +32,7 @@ export default function InterviewScheduleForm({
   date,
   time,
   platform,
+  isRescheduling = false,
   isSubmitting,
   onDateChange,
   onTimeChange,
@@ -60,7 +62,7 @@ export default function InterviewScheduleForm({
           id="schedule-interview-title"
           className="mb-6 text-lg font-semibold leading-tight text-[#0A1737] dark:text-white"
         >
-          Interview Schedule
+          {isRescheduling ? "Reschedule Interview" : "Interview Schedule"}
         </h2>
         <div className="rounded-2xl border-2 border-[#E0E4EA] p-5 dark:border-[#5F5959]">
           <div className="mb-6 flex items-center gap-5 rounded-2xl bg-[#eff1f9] p-5 dark:bg-[#292D3A]">
@@ -137,7 +139,11 @@ export default function InterviewScheduleForm({
             disabled={isSubmitting}
             className="min-w-[178px] rounded-xl bg-[#5B6FC4] px-6 py-3 text-[16px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? "Scheduling..." : "Submit"}
+            {isSubmitting
+              ? isRescheduling
+                ? "Rescheduling..."
+                : "Scheduling..."
+              : "Submit"}
           </button>
         </div>
       </div>

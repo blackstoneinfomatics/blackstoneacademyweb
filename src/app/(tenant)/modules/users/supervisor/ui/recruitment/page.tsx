@@ -27,6 +27,9 @@ import FailedPopup from "../../components/failedPopup";
 import { getSocket } from "@/app/utils/socket";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import InterviewScheduleForm from "./InterviewScheduleForm";
+import EditScheduledApplicantForm, {
+  type ScheduledApplicantUpdate,
+} from "./EditScheduledApplicantForm";
 
 interface Applicant {
   _id: string;
@@ -492,10 +495,15 @@ export default function ApplicantsPage() {
   const [preferredWorkingHours, setPreferredWorkingHours] = useState("");
   const [expectedSalary, setExpectedSalary] = useState("");
   const [scheduleApplicant, setScheduleApplicant] = useState<Applicant | null>(null);
+  const [editingScheduledApplicant, setEditingScheduledApplicant] =
+    useState<ApiResponse | null>(null);
+  const [isUpdatingScheduledApplicant, setIsUpdatingScheduledApplicant] =
+    useState(false);
   const [interviewDate, setInterviewDate] = useState("");
   const [interviewTime, setInterviewTime] = useState("");
   const [interviewPlatform, setInterviewPlatform] = useState("Google Meet");
   const [isSchedulingInterview, setIsSchedulingInterview] = useState(false);
+  const [isReschedulingInterview, setIsReschedulingInterview] = useState(false);
 
   // State for dynamic filter options
   const [positionOptions, setPositionOptions] = useState<string[]>([
@@ -983,35 +991,66 @@ export default function ApplicantsPage() {
             </button>
             {openMenuId === applicant._id && (
               <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10 dark:bg-[#252525] dark:text-[#fff]">
-                {supervisorId &&
-                  supervisorId === String(applicant.supervisor?.supervisorId) &&
-                  applicant.applicationStatus !== "APPROVED" && (
+                {activeTab === "Schedule" ? (
+                  <>
                     <button
-                      onClick={() => handleEdit(applicant)}
+                      onClick={() => handleViewDetails(applicant)}
+                      className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                    >
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => openScheduledApplicantEditor(applicant._id)}
                       className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
                     >
                       Edit
                     </button>
-                  )}
-                {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
-                  (applicant.applicationStatus ?? applicant.status ?? "")
-                    .replace(/[\s_-]+/g, "")
-                    .toUpperCase()
-                ) && (
-                 
-                  <button
-                  onClick={() => handleViewDetails(applicant)}
-                  className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
-                >
-                  View Details
-                </button>
+                    <button
+                      onClick={() => handleScheduleInterview(applicant, true)}
+                      className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                    >
+                      Reschedule Interview
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {supervisorId &&
+                      supervisorId ===
+                        String(applicant.supervisor?.supervisorId) &&
+                      applicant.applicationStatus !== "APPROVED" && (
+                        <button
+                          onClick={() => handleEdit(applicant)}
+                          className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
+                      (applicant.applicationStatus ?? applicant.status ?? "")
+                        .replace(/[\s_-]+/g, "")
+                        .toUpperCase()
+                    ) && (
+                      <button
+                        onClick={() => handleViewDetails(applicant)}
+                        className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                      >
+                        View Details
+                      </button>
+                    )}
+                    {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
+                      (applicant.applicationStatus ?? applicant.status ?? "")
+                        .replace(/[\s_-]+/g, "")
+                        .toUpperCase()
+                    ) && (
+                      <button
+                        onClick={() => handleScheduleInterview(applicant)}
+                        className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                      >
+                        Schedule Interview
+                      </button>
+                    )}
+                  </>
                 )}
-                 <button
-                    onClick={() => handleScheduleInterview(applicant)}
-                    className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
-                  >
-                    Schedule Interview
-                  </button>
                 <button
                   onClick={() => setOpenMenuId(null)}
                   className="block w-full px-4 py-2 text-left text-red-600"
@@ -1204,16 +1243,37 @@ export default function ApplicantsPage() {
     setMode("view"); // Always set to view mode
   };
 
-  const handleScheduleInterview = (applicant: Applicant) => {
+  const handleScheduleInterview = (
+    applicant: Applicant,
+    reschedule = false
+  ) => {
     setScheduleApplicant(applicant);
-    setInterviewDate("");
-    setInterviewTime("");
-    setInterviewPlatform("Google Meet");
+    const interview = applicant.interviewSchedule;
+    const existingInterviewDate =
+      interview?.interviewDate ??
+      applicant.interviewDate ??
+      applicant.interviewScheduledDate ??
+      applicant.scheduledDate;
+    setInterviewDate(
+      reschedule ? existingInterviewDate?.slice(0, 10) ?? "" : ""
+    );
+    setInterviewTime(
+      reschedule
+        ? interview?.interviewTime ?? applicant.interviewTime ?? applicant.time ?? ""
+        : ""
+    );
+    setInterviewPlatform(
+      reschedule
+        ? interview?.interviewPlatform ?? applicant.platform ?? "Google Meet"
+        : "Google Meet"
+    );
+    setIsReschedulingInterview(reschedule);
     setOpenMenuId(null);
   };
 
   const closeScheduleInterview = () => {
     setScheduleApplicant(null);
+    setIsReschedulingInterview(false);
   };
 
   const submitScheduleInterview = async () => {
@@ -1264,8 +1324,13 @@ export default function ApplicantsPage() {
         }
       );
       setSuccess(true);
-      setSuccessMessage("Interview scheduled successfully");
+      setSuccessMessage(
+        isReschedulingInterview
+          ? "Interview rescheduled successfully"
+          : "Interview scheduled successfully"
+      );
       setScheduleApplicant(null);
+      setIsReschedulingInterview(false);
       fetchApplicants();
     } catch (error) {
       console.error("Interview scheduling failed:", error);
@@ -1287,6 +1352,84 @@ export default function ApplicantsPage() {
       }
     } finally {
       setIsSchedulingInterview(false);
+    }
+  };
+
+  const openScheduledApplicantEditor = async (applicantId: string) => {
+    setOpenMenuId(null);
+    const token = localStorage.getItem("SupervisorAuthToken");
+    if (!token) {
+      setFailed(true);
+      setFailedMessage("Authentication token not found");
+      return;
+    }
+
+    try {
+      const response = await axios.get<ApiResponse>(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.APPLICANTS.GET_LIST}/${applicantId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      setEditingScheduledApplicant(response.data);
+    } catch (error) {
+      console.error("Failed to load scheduled applicant:", error);
+      setFailed(true);
+      setFailedMessage(
+        axios.isAxiosError<{ message?: string }>(error)
+          ? error.response?.data?.message || "Failed to load applicant details"
+          : "Failed to load applicant details"
+      );
+    }
+  };
+
+  const closeScheduledApplicantEditor = () => {
+    if (!isUpdatingScheduledApplicant) {
+      setEditingScheduledApplicant(null);
+    }
+  };
+
+  const updateScheduledApplicant = async (
+    values: ScheduledApplicantUpdate
+  ) => {
+    if (!editingScheduledApplicant) return;
+
+    const token = localStorage.getItem("SupervisorAuthToken");
+    if (!token) {
+      setFailed(true);
+      setFailedMessage("Authentication token not found");
+      return;
+    }
+
+    setIsUpdatingScheduledApplicant(true);
+    try {
+      await axios.put(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.APPLICANTS.GET_LIST}/${editingScheduledApplicant._id}`,
+        values,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      setSuccess(true);
+      setSuccessMessage("Applicant updated successfully");
+      setEditingScheduledApplicant(null);
+      fetchApplicants();
+    } catch (error) {
+      console.error("Failed to update scheduled applicant:", error);
+      setFailed(true);
+      setFailedMessage(
+        axios.isAxiosError<{ message?: string }>(error)
+          ? error.response?.data?.message || "Failed to update applicant"
+          : "Failed to update applicant"
+      );
+    } finally {
+      setIsUpdatingScheduledApplicant(false);
     }
   };
 
@@ -1725,12 +1868,28 @@ const handlesendupdate = async (id: string, status: string) => {
           date={interviewDate}
           time={interviewTime}
           platform={interviewPlatform}
+          isRescheduling={isReschedulingInterview}
           isSubmitting={isSchedulingInterview}
           onDateChange={setInterviewDate}
           onTimeChange={setInterviewTime}
           onPlatformChange={setInterviewPlatform}
           onClose={closeScheduleInterview}
           onSubmit={submitScheduleInterview}
+        />
+      )}
+
+      {editingScheduledApplicant && (
+        <EditScheduledApplicantForm
+          key={editingScheduledApplicant._id}
+          applicant={editingScheduledApplicant}
+          isSubmitting={isUpdatingScheduledApplicant}
+          onClose={closeScheduledApplicantEditor}
+          onSubmit={updateScheduledApplicant}
+          resumeContent={
+            editingScheduledApplicant.uploadResume ? (
+              <ResumeLink applicant={editingScheduledApplicant} />
+            ) : undefined
+          }
         />
       )}
 
