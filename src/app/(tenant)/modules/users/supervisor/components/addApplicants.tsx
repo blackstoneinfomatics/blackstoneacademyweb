@@ -72,94 +72,6 @@ interface AddApplicantFormData {
 const resumeSectionHeadings =
   /^(education(?:al)?(?: details)?|academic|experience|employment|work history|skills?|technical skills|teaching skills|language(?:s| proficiency)?|personal details|personal particulars|contact(?: info)?|certifications?|references?)\s*:?\s*$/i;
 
-const specializationOptionsByQualification: Record<string, string[]> = {
-  Diploma: [
-    "Mechanical",
-    "Computer Science",
-    "Electronics and Communication",
-    "Electrical",
-    "Civil",
-    "Information Technology",
-  ],
-  "Bachelor's Degree": [
-    "Mechanical Engineering",
-    "Computer Science Engineering",
-    "Electronics and Communication Engineering",
-    "Electrical Engineering",
-    "Civil Engineering",
-    "Mathematics",
-    "Physics",
-    "Chemistry",
-    "Computer Application",
-    "Education",
-    "Arabic",
-    "Islamic Studies",
-    "Quran Studies",
-  ],
-  "M.E.": [
-    "Mechanical (ME)",
-    "Computer Science (CSC)",
-    "Electronics and Communication (ECE)",
-    "Electrical (EEE)",
-    "Civil (CE)",
-    "Information Technology (IT)",
-  ],
-  "B.Ed": [
-    "Mathematics Education",
-    "Science Education",
-    "English Education",
-    "Social Studies Education",
-    "Arabic Education",
-    "Islamic Studies Education",
-    "Special Education",
-  ],
-  "M.A.": [
-    "English",
-    "Arabic",
-    "Islamic Studies",
-    "History",
-    "Economics",
-    "Mathematics",
-  ],
-  "M.Ed": [
-    "Educational Leadership",
-    "Curriculum and Instruction",
-    "Educational Psychology",
-    "Mathematics Education",
-    "Science Education",
-    "Language Education",
-    "Special Education",
-  ],
-  MCA: [
-    "Computer Science",
-    "Software Engineering",
-    "Data Science",
-    "Artificial Intelligence",
-    "Information Technology",
-  ],
-  "Master's Degree": [
-    "Mathematics",
-    "Physics",
-    "Chemistry",
-    "Computer Science",
-    "Education",
-    "Arabic",
-    "Islamic Studies",
-    "Quran Studies",
-  ],
-  "Ph.D.": [
-    "Mathematics",
-    "Science",
-    "Computer Science",
-    "Education",
-    "Arabic",
-    "Islamic Studies",
-    "Quran Studies",
-  ],
-  "High School": ["Science", "Commerce", "Arts", "General Studies"],
-  Other: ["Other"],
-};
-
 function findLabeledValue(text: string, labels: string[]): string {
   const escapedLabels = labels.map((label) =>
     label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -577,7 +489,7 @@ export default function AddApplicants({ onClose }: Props) {
       joiningAvailability: "",
       confirmedInformation: false,
       gender: "",
-      position: "Arabic Teacher",
+      position: "",
       expectedSalary: "",
       resume: null,
     });
@@ -624,8 +536,6 @@ const [skillDrafts, setSkillDrafts] = useState<SkillDrafts>({
   const experienceMonths = Array.from({ length: 12 }, (_, index) =>
     String(index).padStart(2, "0")
   );
-  const specializationOptions =
-    specializationOptionsByQualification[addApplicantForm.highestQualification] || [];
   function handleChange(
     event: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -634,11 +544,7 @@ const [skillDrafts, setSkillDrafts] = useState<SkillDrafts>({
     const { name, value } = event.target;
     const updatedValue = name === "phone" ? value.replace(/\D/g, "") : value;
     if (name === "highestQualification") {
-      setAddApplicantForm((prev) => ({
-        ...prev,
-        highestQualification: value,
-        specialization: "",
-      }));
+      setAddApplicantForm((prev) => ({ ...prev, highestQualification: value }));
       return;
     }
     setAddApplicantForm((prev) => ({ ...prev, [name]: updatedValue }));
@@ -909,7 +815,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         confirmedInformation: false,
         phone: "",
         gender: "",
-        position: "Arabic Teacher",
+        position: "",
         expectedSalary: "",
         resume: null,
       });
@@ -1459,33 +1365,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                   >
                     Specialization
                   </label>
-                  <select
+                  <input
                     id="specialization"
                     name="specialization"
                     value={addApplicantForm.specialization}
                     onChange={handleChange}
-                    disabled={!addApplicantForm.highestQualification}
-                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
-                  >
-                    <option value="">
-                      {addApplicantForm.highestQualification
-                        ? "Select specialization"
-                        : "Select qualification first"}
-                    </option>
-                    {addApplicantForm.specialization &&
-                      !specializationOptions.includes(
-                        addApplicantForm.specialization
-                      ) && (
-                        <option value={addApplicantForm.specialization}>
-                          {addApplicantForm.specialization}
-                        </option>
-                      )}
-                    {specializationOptions.map((specialization) => (
-                      <option key={specialization} value={specialization}>
-                        {specialization}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Enter specialization"
+                    type="text"
+                    className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 focus:border-[#576CBC] focus:outline-none dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                  />
                 </div>
                 <div>
                   <label
@@ -1727,19 +1615,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                 >
                   Position
                 </label>
-                <select
+                <input
                   id="position"
                   name="position"
                   value={addApplicantForm.position}
                   onChange={handleChange}
-                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] dark:border-gray-600 dark:bg-[#343434] dark:text-white"
-                >
-                  <option value="">Select Position</option>
-                  <option value="Monday to Friday">UI/UX</option>
-                  <option value="Monday to Saturday">Maths</option>
-                  <option value="Weekends">Physics</option>
-                  <option value="Flexible">Chemistry</option>
-                </select>
+                  placeholder="Enter position"
+                  type="text"
+                  className="w-full rounded-md border border-[#E0E4EA] bg-white px-3 py-2 text-xs text-[#343434] placeholder:text-gray-400 dark:border-gray-600 dark:bg-[#343434] dark:text-white"
+                />
               </div>
               <div>
                 <label

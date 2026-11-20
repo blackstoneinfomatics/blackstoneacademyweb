@@ -9,6 +9,7 @@ import {
   Mail,
   Phone,
   Calendar,
+  UserRound,
 } from "lucide-react";
 import { ImAttachment } from "react-icons/im";
 import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
@@ -37,7 +38,7 @@ interface Applicant {
 
   candidateCountry: string;
   candidateCity: string;
-  positionApplied: string;
+  position: string;
   currency: string;
   expectedSalary: string;
   preferedWorkingHours: string;
@@ -51,6 +52,9 @@ interface Applicant {
   currentSalary?: number | string;
   currentCTC?: number | string;
   experience?: number | string;
+  gender?: string;
+  skills?: string;
+  professionalExperience?: ProfessionalExperience[];
   interviewDate?: string;
   interviewScheduledDate?: string;
   scheduledDate?: string;
@@ -107,9 +111,10 @@ interface ApiResponse {
   candidatePhoneNumber: number;
   candidateCountry: string;
   candidateCity: string;
-  positionApplied: string;
+  position: string;
   currency: string;
   gender: string;
+  currentSalary?: number | string;
   expectedSalary: string;
   preferedWorkingHours: string;
   uploadResume: UploadResume;
@@ -124,6 +129,8 @@ interface ApiResponse {
   applicationStatus: string;
   professionalExperience: ProfessionalExperience[];
   skills: string;
+  experience?: number | string;
+  currentCTC?: number | string;
   status: string;
   createdDate: string;
   createdBy: string;
@@ -388,12 +395,16 @@ export default function ApplicantsPage() {
   const [searchText, setSearchText] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [positionApplied, setPositionApplied] = useState("");
+  const [position, setPosition] = useState("");
   const [applicationStatus, setApplicationStatus] = useState("");
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [workingDays, setWorkingDays] = useState(""); // final formatted result
   const [preferredWorkingHours, setPreferredWorkingHours] = useState("");
   const [expectedSalary, setExpectedSalary] = useState("");
+  const [scheduleApplicant, setScheduleApplicant] = useState<Applicant | null>(null);
+  const [interviewDate, setInterviewDate] = useState("");
+  const [interviewTime, setInterviewTime] = useState("");
+  const [interviewPlatform, setInterviewPlatform] = useState("Google Meet");
 
   // State for dynamic filter options
   const [positionOptions, setPositionOptions] = useState<string[]>([
@@ -460,7 +471,7 @@ export default function ApplicantsPage() {
       const uniquePositions = Array.from(
         new Set(
           applicantsList
-            .map((a: any) => a.positionApplied)
+            .map((a: any) => a.position)
             .filter((x: any): x is string => typeof x === "string")
         )
       ) as string[];
@@ -504,7 +515,7 @@ export default function ApplicantsPage() {
     setSearchText("");
     setFromDate("");
     setToDate("");
-    setPositionApplied("");
+    setPosition("");
     setApplicationStatus("");
     fetchApplicants();
   };
@@ -512,9 +523,9 @@ export default function ApplicantsPage() {
   // When dropdowns change, fetch filtered applicants immediately
   const handlePositionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    setPositionApplied(value);
+    setPosition(value);
     fetchApplicants({
-      ...(value ? { positionApplied: value } : {}),
+      ...(value ? { position: value } : {}),
       ...(applicationStatus ? { applicationStatus } : {}),
       ...(searchText ? { searchText } : {}),
       ...(fromDate && toDate
@@ -526,7 +537,7 @@ export default function ApplicantsPage() {
     const value = e.target.value;
     setApplicationStatus(value);
     fetchApplicants({
-      ...(positionApplied ? { positionApplied } : {}),
+      ...(position ? { position } : {}),
       ...(value ? { applicationStatus: value } : {}),
       ...(searchText ? { searchText } : {}),
       ...(fromDate && toDate
@@ -544,7 +555,7 @@ export default function ApplicantsPage() {
       params["dateRange.from"] = fromDate;
       params["dateRange.to"] = toDate;
     }
-    if (positionApplied) params.positionApplied = positionApplied;
+    if (position) params.position = position;
     if (applicationStatus) params.applicationStatus = applicationStatus;
     fetchApplicants(params);
   };
@@ -615,6 +626,7 @@ export default function ApplicantsPage() {
       "Contact",
       "Email id",
       "Resume",
+      "Status",
       "Action",
     ],
     Schedule: [
@@ -648,6 +660,7 @@ export default function ApplicantsPage() {
       "Interview Date",
       "Shortlisted Date",
       "Contact",
+      "Status",
       "Action",
     ],
     Approved: [
@@ -666,6 +679,7 @@ export default function ApplicantsPage() {
       "Interview Date",
       "Rejected Date",
       "Contact",
+      "Status",
       "Action",
     ],
     Waiting: [
@@ -675,6 +689,7 @@ export default function ApplicantsPage() {
       "Interview Marks",
       "Waiting Since",
       "Contact",
+      "Status",
       "Action",
     ],
   };
@@ -703,7 +718,7 @@ export default function ApplicantsPage() {
         applicant.applicationDate,
         applicant.candidatePhoneNumber?.toString(),
         applicant.candidateEmail,
-        applicant.positionApplied,
+        applicant.position,
         applicant.applicationStatus,
         applicant.level?.toString(),
       ];
@@ -750,7 +765,7 @@ export default function ApplicantsPage() {
       case "Application Date":
         return formatApplicantDate(applicant.applicationDate);
       case "Position":
-        return applicant.positionApplied || "—";
+        return applicant.position || "—";
       case "Current CTC":
         return applicant.currentSalary ?? applicant.currentCTC ?? "—";
       case "Experience":
@@ -866,12 +881,25 @@ export default function ApplicantsPage() {
                       Edit
                     </button>
                   )}
-                <button
+                {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
+                  (applicant.applicationStatus ?? applicant.status ?? "")
+                    .replace(/[\s_-]+/g, "")
+                    .toUpperCase()
+                ) && (
+                 
+                  <button
                   onClick={() => handleViewDetails(applicant)}
                   className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
                 >
                   View Details
                 </button>
+                )}
+                 <button
+                    onClick={() => handleScheduleInterview(applicant)}
+                    className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                  >
+                    Schedule Interview
+                  </button>
                 <button
                   onClick={() => setOpenMenuId(null)}
                   className="block w-full px-4 py-2 text-left text-red-600"
@@ -903,6 +931,10 @@ export default function ApplicantsPage() {
         return "bg-[#FDECEC] dark:bg-[#503434] dark:text-[#D34645] text-[#D34645] rounded-md px-8 text-[9px]";
       case "SENDAPPROVAL":
         return "bg-[#FDF9D9] dark:bg-[#4f4b29] dark:text-[#d0c02f] text-[#d0c02f] rounded-md px-6 text-[9px]";
+      case "SCHEDULED":
+      case "SCHEDULE":
+      case "INTERVIEWSCHEDULED":
+        return "bg-[#ECF3FD] dark:bg-[#39475A] text-[#38619A] dark:text-[#78A7E8] rounded-md px-5 text-[9px]";
       case "WAITING":
         return "bg-[#FDF6EC] dark:bg-[#534634] dark:text-[#F0AD4E] text-[#F0AD4E] rounded-md px-8 text-[9px]";
       case "APPROVED":
@@ -1055,6 +1087,80 @@ export default function ApplicantsPage() {
     setSelectedApplicant(applicant);
     setOpenMenuId(null);
     setMode("view"); // Always set to view mode
+  };
+
+  const handleScheduleInterview = (applicant: Applicant) => {
+    setScheduleApplicant(applicant);
+    setInterviewDate("");
+    setInterviewTime("");
+    setInterviewPlatform("Google Meet");
+    setOpenMenuId(null);
+  };
+
+  const closeScheduleInterview = () => {
+    setScheduleApplicant(null);
+  };
+
+  const submitScheduleInterview = async () => {
+    if (!scheduleApplicant) return;
+
+    if (!interviewDate || !interviewTime) {
+      setFailed(true);
+      setFailedMessage("Interview date and time are required");
+      return;
+    }
+
+    const today = new Date(
+      Date.now() - new Date().getTimezoneOffset() * 60000
+    )
+      .toISOString()
+      .slice(0, 10);
+    if (interviewDate < today) {
+      setFailed(true);
+      setFailedMessage("Interview date cannot be in the past");
+      return;
+    }
+
+    const token = localStorage.getItem("SupervisorAuthToken");
+    if (!token) {
+      setFailed(true);
+      setFailedMessage("Authentication token not found");
+      return;
+    }
+
+    const scheduleData = {
+      applicationStatus: "SCHEDULED",
+      status: "SCHEDULED",
+      interviewScheduledDate: interviewDate,
+      interviewDate,
+      interviewTime,
+      time: interviewTime,
+      platform: interviewPlatform,
+      updatedDate: new Date().toISOString(),
+    };
+
+    try {
+      await axios.put(
+        `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.APPLICANTS.GET_LIST}/${scheduleApplicant._id}`,
+        scheduleData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      setSuccess(true);
+      setSuccessMessage("Interview scheduled successfully");
+      setScheduleApplicant(null);
+      fetchApplicants();
+    } catch (error: any) {
+      console.error("Interview scheduling failed:", error);
+      setFailed(true);
+      setFailedMessage(
+        error.response?.data?.message || "Failed to schedule interview"
+      );
+    }
   };
 
   const handleEdit = (applicant: Applicant) => {
@@ -1215,6 +1321,15 @@ const handlesendupdate = async (id: string, status: string) => {
     }
   };
 
+  const isViewingApplicant = () => mode === "view";
+  const applicationSkills =
+    parsedSkills.length > 0
+      ? parsedSkills
+      : (Applicantbyid?.skills ?? "")
+          .split(/[,•\n]/)
+          .map((skill) => skill.trim())
+          .filter(Boolean);
+
   return (
     <BaseLayout3>
       <div className="">
@@ -1312,7 +1427,7 @@ const handlesendupdate = async (id: string, status: string) => {
                             </label>
                             <select
                               className="w-full border rounded-md p-2 text-[12px] dark:bg-[#343434] dark:text-[#D6D6D6] dark:border-[#565656]"
-                              value={positionApplied}
+                              value={position}
                               onChange={handlePositionChange}
                             >
                               <option value="">All</option>
@@ -1441,7 +1556,349 @@ const handlesendupdate = async (id: string, status: string) => {
         <FailedPopup onClose={() => setFailed(false)} title={failedMessage} />
       )}
 
-      {selectedApplicant && (
+      {scheduleApplicant && (
+        <>
+          <button
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={closeScheduleInterview}
+            aria-label="Close schedule interview dialog"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-interview-title"
+            className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[450px] max-w-[calc(100%-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-[#343434]"
+          >
+            <h2
+              id="schedule-interview-title"
+              className="mb-6 text-lg font-semibold leading-tight text-[#0A1737] dark:text-white"
+            >
+              Interview Schedule
+            </h2>
+            <div className="rounded-2xl border-2 border-[#E0E4EA] p-5 dark:border-[#5F5959]">
+              <div className="mb-6 flex items-center gap-5 rounded-2xl bg-[#eff1f9] p-5 dark:bg-[#292D3A]">
+                <div className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full bg-white text-[#5B6FC4] dark:bg-[#343434]">
+                  <UserRound className="h-7 w-7" />
+                </div>
+                <div className="min-w-0">
+                <h3 className="truncate text-base font-semibold leading-tight text-[#010E30] dark:text-white">
+                  {scheduleApplicant.candidateFirstName}{" "}
+                  {scheduleApplicant.candidateLastName}
+                </h3>
+                <div className="mt-1 text-sm text-[#313b58] dark:text-[#D6D6D6]">
+                  Applied for{" "}
+                  <span className="text-[#F3A13B]">
+                    {scheduleApplicant.position || "—"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-[#747476] dark:text-[#D6D6D6]">
+                  Experience: {scheduleApplicant.experience ??
+                    scheduleApplicant.supervisor?.teachingExperience ??
+                    "—"}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
+                Interview Date
+                <input
+                  type="date"
+                  min={new Date(
+                    Date.now() - new Date().getTimezoneOffset() * 60000
+                  )
+                    .toISOString()
+                    .slice(0, 10)}
+                  value={interviewDate}
+                  onChange={(e) => setInterviewDate(e.target.value)}
+                  className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] px-2 py-1.5 text-[10px] font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
+                />
+              </label>
+              <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
+                Interview Time
+                <input
+                  type="text"
+                  value={interviewTime}
+                  onChange={(e) => setInterviewTime(e.target.value)}
+                  placeholder="e.g. 9AM - 3PM"
+                  className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] px-2 py-1.5 text-[10px] font-normal text-[#34415F] placeholder:text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white dark:placeholder:text-[#D6D6D6]"
+                />
+              </label>
+
+              <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
+                Interview Platform
+                <select
+                  value={interviewPlatform}
+                  onChange={(e) => setInterviewPlatform(e.target.value)}
+                  className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] bg-white px-2 py-1.5 text-[10px] font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
+                >
+                  <option>Google Meet</option>
+                  <option>Zoom</option>
+                </select>
+              </label>
+            </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-5">
+              <button
+                onClick={closeScheduleInterview}
+                className="min-w-[150px] rounded-xl border-2 border-[#5B6FC4] bg-[#F0F2FB] px-6 py-3 text-[16px] font-semibold text-[#5B6FC4] dark:bg-[#292D3A]"
+              >
+                Back
+              </button>
+              <button
+                onClick={submitScheduleInterview}
+                className="min-w-[178px] rounded-xl bg-[#5B6FC4] px-6 py-3 text-[16px] font-semibold text-white"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {selectedApplicant && mode === "view" && (
+        <>
+          <button
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={handleviewclose}
+            aria-label="Close application details"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="application-details-title"
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[900px] max-w-[calc(100%-24px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white p-5 shadow-xl dark:bg-[#343434]"
+          >
+            <header className="mb-4 flex items-center justify-between">
+              <h2
+                id="application-details-title"
+                className="text-[20px] font-semibold text-[#0A1737] dark:text-white"
+              >
+                Application Details
+              </h2>
+              <button
+                onClick={handleviewclose}
+                className="rounded-full text-[#8A8A8A] hover:text-[#17243E] dark:hover:text-white"
+                aria-label="Close"
+              >
+                <IoCloseOutline className="h-6 w-6" />
+              </button>
+            </header>
+
+            <div className="grid flex-1 grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2">
+              <div className="space-y-3">
+                <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
+                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                    Personal Information
+                  </h3>
+                  {[
+                    [
+                      "First Name",
+                      Applicantbyid?.candidateFirstName ??
+                        selectedApplicant.candidateFirstName,
+                    ],
+                    [
+                      "Last Name",
+                      Applicantbyid?.candidateLastName ??
+                        selectedApplicant.candidateLastName,
+                    ],
+                    [
+                      "Email",
+                      Applicantbyid?.candidateEmail ??
+                        selectedApplicant.candidateEmail,
+                    ],
+                    [
+                      "Mobile Number",
+                      Applicantbyid?.candidatePhoneNumber ??
+                        selectedApplicant.candidatePhoneNumber,
+                    ],
+                    ["Gender", Applicantbyid?.gender],
+                    [
+                      "Address",
+                      [
+                        Applicantbyid?.candidateCity ??
+                          selectedApplicant.candidateCity,
+                        Applicantbyid?.candidateCountry ??
+                          selectedApplicant.candidateCountry,
+                      ]
+                        .filter(Boolean)
+                        .join(", "),
+                    ],
+                    [
+                      "Application Date",
+                      formatApplicantDate(
+                        Applicantbyid?.applicationDate ??
+                          selectedApplicant.applicationDate ??
+                          Applicantbyid?.createdDate
+                      ),
+                    ],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                    >
+                      <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                        {label}
+                      </span>
+                      <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                        {value || "—"}
+                      </span>
+                    </div>
+                  ))}
+                </section>
+
+                <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
+                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                    Teaching Experience
+                  </h3>
+                  {Applicantbyid?.professionalExperience?.length ? (
+                    Applicantbyid.professionalExperience.map((experience) => (
+                      <div
+                        key={experience._id}
+                        className="border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                      >
+                        <div className="font-medium text-[#34415F] dark:text-white">
+                          {experience.jobRole || "Position"}
+                        </div>
+                        <div className="mt-1 flex justify-between gap-3 text-[#596780] dark:text-[#D6D6D6]">
+                          <span>{experience.organizationName || "—"}</span>
+                          <span>
+                            {formatApplicantDate(experience.fromDate)} -{" "}
+                            {formatApplicantDate(experience.toDate)}
+                          </span>
+                        </div>
+                        {experience.jobDescription && (
+                          <p className="mt-1 text-[#596780] dark:text-[#D6D6D6]">
+                            {experience.jobDescription}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="border-t border-[#EEF0F3] pt-2 text-[13px] text-[#596780] dark:border-[#5F5959] dark:text-[#D6D6D6]">
+                      No experience details provided
+                    </p>
+                  )}
+                </section>
+              </div>
+
+              <div className="space-y-3">
+                <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
+                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                    Skills &amp; Expertise
+                  </h3>
+                  {applicationSkills.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {applicationSkills.map((skill, index) => (
+                        <span
+                          key={`${skill}-${index}`}
+                          className="rounded-full bg-[#F0F2FB] px-3 py-1 text-[12px] text-[#5268BB] dark:bg-[#292D3A] dark:text-[#A9B6F0]"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-[#596780] dark:text-[#D6D6D6]">
+                      No skills provided
+                    </p>
+                  )}
+                  {[
+                    ["Quran Reading", Applicantbyid?.quranReading],
+                    ["Tajweed", Applicantbyid?.tajweed],
+                    ["Arabic Speaking", Applicantbyid?.arabicSpeaking],
+                    ["Arabic Writing", Applicantbyid?.arabicWriting],
+                    ["English Speaking", Applicantbyid?.englishSpeaking],
+                  ].some(([, value]) => value) && (
+                    <div className="mt-3 space-y-2 border-t border-[#EEF0F3] pt-3 text-[13px] dark:border-[#5F5959]">
+                      {[
+                        ["Quran Reading", Applicantbyid?.quranReading],
+                        ["Tajweed", Applicantbyid?.tajweed],
+                        ["Arabic Speaking", Applicantbyid?.arabicSpeaking],
+                        ["Arabic Writing", Applicantbyid?.arabicWriting],
+                        ["English Speaking", Applicantbyid?.englishSpeaking],
+                      ].map(
+                        ([label, value]) =>
+                          value && (
+                            <div
+                              key={label}
+                              className="flex justify-between gap-3 text-[#34415F] dark:text-[#D6D6D6]"
+                            >
+                              <span>{label}</span>
+                              <span>{value}</span>
+                            </div>
+                          )
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
+                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                    Job Preferences
+                  </h3>
+                  {[
+                    [
+                      "Position",
+                      Applicantbyid?.position ??
+                        selectedApplicant.position,
+                    ],
+                    [
+                      "Current Salary",
+                      Applicantbyid?.currentSalary ?? Applicantbyid?.currentCTC,
+                    ],
+                    ["Expected Salary", Applicantbyid?.expectedSalary],
+                    ["Working Hours", Applicantbyid?.preferedWorkingHours],
+                    ["Working Days", Applicantbyid?.preferedWorkingDays],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                    >
+                      <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                        {label}
+                      </span>
+                      <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                        {value || "—"}
+                      </span>
+                    </div>
+                  ))}
+                </section>
+
+                <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
+                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                    Attachment
+                  </h3>
+                  {resumeImages ? (
+                    <div className="flex items-center justify-between gap-3 rounded-lg bg-[#F0F2FB] px-4 py-3 dark:bg-[#292D3A]">
+                      <span className="flex items-center gap-2 text-[13px] text-[#34415F] dark:text-white">
+                        <FileText className="h-5 w-5 text-[#E95B5B]" />
+                        Resume
+                      </span>
+                      <a
+                        href={resumeImages}
+                        target="_blank"
+                        rel="noreferrer"
+                        download
+                        className="text-[13px] font-medium text-[#5268BB] hover:underline"
+                      >
+                        View / Download
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-[#596780] dark:text-[#D6D6D6]">
+                      No attachment provided
+                    </p>
+                  )}
+                </section>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      {selectedApplicant && !isViewingApplicant() && (
         <>
           {/* Dimmed background that closes the panel on click */}
           <button
@@ -1479,7 +1936,7 @@ const handlesendupdate = async (id: string, status: string) => {
                   <div className="mt-1 text-[10px] text-[#0A0A14] font-medium flex items-center gap-2 dark:text-[#D6D6D6]">
                     <span>Applied for</span>
                     <span className="text-[#D28F35] px-3 py-1 text-sm rounded-md font-medium text-[10px]">
-                      {Applicantbyid?.positionApplied}
+                      {Applicantbyid?.position}
                     </span>
                   </div>
                 </div>
