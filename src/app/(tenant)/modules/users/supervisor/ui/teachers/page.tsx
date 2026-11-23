@@ -2,66 +2,25 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { FaStar } from "react-icons/fa";
-import { Search } from "lucide-react";
+import { ChevronDown, MoreVertical, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
 import SupervisorHeader from "../../components/supervisorHeader";
 import Pagination from "@/components/Pagination";
 import { MdTune } from "react-icons/md";
-import { getSocket } from "@/app/utils/socket";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
- interface IProfessionalExperience {
-  jobRole: string;
-  organizationName: string;
-  jobLocation: string;
-  fromDate: string | null;
-  toDate: string | null;
-  jobDescription: string;
-  _id: string;
-}
-
- interface ICandidateApplication {
-  _id: string;
-  candidateFirstName: string;
-  candidateLastName: string;
-  supervisor: {
-    supervisorId: string;
-    supervisorName: string;
-    supervisorEmail: string;
-    supervisorRole: string;
-  };
-  gender: string;
-  applicationDate: string; // ISO date string
-  candidateEmail: string;
-  candidatePhoneNumber: number;
-  candidateCountry: string;
-  candidateCity: string;
-  positionApplied: string;
-  currency: string;
-  expectedSalary: number;
-  preferedWorkingHours: string;
-  comments: string;
-  applicationStatus: string;
-  overallRating: number;
-  professionalExperience: IProfessionalExperience[];
-  skills: string;
-  status: string;
-  createdDate: string; // ISO date string
-  createdBy: string;
-  __v: number;
-}
 
 
-const items = Array.from({ length: 100 }, (_, i) => ({
-  id: i + 1,
-  name: `Item ${i + 1}`,
-}));
 
 const ManageTeacher: React.FC = () => {
   const router = useRouter();
-  const [teachers, setTeachers] = useState<ICandidateApplication[]>([]);  
+  const [activeTab, setActiveTab] = useState<
+    "teachers" | "scheduled" | "completed" | "cancelled"
+  >("teachers");
+  const [scheduledClasses, setScheduledClasses] = useState<any[]>([]);
+  const [completedClasses, setCompletedClasses] = useState<any[]>([]);
+  const [cancelledClasses, setCancelledClasses] = useState<any[]>([]);
   // Active filters (applied)
   const [filterName, setFilterName] = useState("");
   const [filterLevel, setFilterLevel] = useState("");
@@ -73,36 +32,14 @@ const ManageTeacher: React.FC = () => {
   const [tempFilterCourse, setTempFilterCourse] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
 
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Filter teachers based on both search query and filters
-  const filteredTeachers = teachers.filter((teacher) => {
-    // Search query filtering
-    const searchLower = searchQuery.toLowerCase();
-    const fullName = `${teacher.candidateFirstName} ${teacher.candidateLastName}`.toLowerCase();
-    const nameMatch = fullName.includes(searchLower);
-    const levelMatch = teacher.overallRating?.toString().includes(searchLower);
-    const courseMatch = teacher.positionApplied?.toLowerCase().includes(searchLower);
-    const searchMatch = nameMatch || levelMatch || courseMatch;
-
-    // Filter criteria
-    const filterNameMatch = !filterName || 
-      fullName.includes(filterName.toLowerCase());
-    const filterLevelMatch = !filterLevel || 
-      teacher.overallRating?.toString() === filterLevel;
-    const filterCourseMatch = !filterCourse || 
-      teacher.positionApplied?.toLowerCase() === filterCourse.toLowerCase();
-
-    // Combine both search and filter results
-    return searchMatch && filterNameMatch && filterLevelMatch && filterCourseMatch;
-  });
-
-  const totalPages = Math.ceil(filteredTeachers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentApplicants = filteredTeachers.slice(startIndex, endIndex);
+  const [applicants, setApplicants] = useState<any[]>([]);
+  const [scheduleFilterOpen, setScheduleFilterOpen] = useState(false);
+  const [scheduleFromDate, setScheduleFromDate] = useState("");
+  const [scheduleToDate, setScheduleToDate] = useState("");
+  const [scheduleCourse, setScheduleCourse] = useState("");
+  const [scheduleStatus, setScheduleStatus] = useState("");
 
   // Reset filters
   const handleResetFilters = () => {
@@ -133,18 +70,7 @@ const ManageTeacher: React.FC = () => {
   };
 
   const [Filter, setFilter] = useState(false);
-  useEffect(()=>{
-    const userId = typeof window != 'undefined' ? localStorage.getItem('SupervisorPortalId') : null;
-     const socket = getSocket(userId ?? '');
-     const handleList = ({ data }: { data: ICandidateApplication }) =>{
-       console.log("📩 Received WebSocket Data:", data);
-       setTeachers(pre => [...pre, data]);
-     };
-     socket.on('supervisorteacherlist',handleList);
-    return () =>{
-      socket.off('supervisorteacherlist',handleList);
-    }
-  },[]);
+
   useEffect(() => {
     const fetchTeachers = async () => {
       try {
@@ -173,16 +99,14 @@ const ManageTeacher: React.FC = () => {
 const data = await response.json();
 
         console.log("Fetched data:", data);
-
-       if (data && Array.isArray(data.applicants)) {
-  const approvedApplicants = data.applicants.filter(
-    (applicant : ICandidateApplication) => applicant.applicationStatus === "APPROVED"
-  );
-  console.log(approvedApplicants);
-  setTeachers(approvedApplicants);
-} else {
-  console.error("Unexpected API response structure:", data);
-}
+        const teachers = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.applicants)
+          ? data.applicants
+          : [];
+        setApplicants(teachers);
 
       } catch (error) {
         console.error("Error fetching teachers:", error);
@@ -191,7 +115,169 @@ const data = await response.json();
 
 
     fetchTeachers();
+
+    const fetchScheduledClasses = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("SupervisorAuthToken")
+            : null;
+
+        if (!token) return;
+
+        const response = await fetch(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.CLASSSHEDULE.GET}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch scheduled classes (${response.status})`);
+        }
+
+        const data = await response.json();
+        const schedules = Array.isArray(data?.students)
+          ? data.students
+          : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+        setScheduledClasses(
+          schedules.filter(
+            (schedule: any) =>
+              schedule.scheduleStatus !== "Completed" &&
+              schedule.scheduleStatus !== "Cancelled"
+          )
+        );
+        setCompletedClasses(
+          schedules.filter(
+            (schedule: any) =>
+              schedule.scheduleStatus?.toLowerCase() === "completed"
+          )
+        );
+        setCancelledClasses(
+          schedules.filter(
+            (schedule: any) =>
+              schedule.scheduleStatus?.toLowerCase() === "cancelled"
+          )
+        );
+      } catch (error) {
+        console.error("Error fetching scheduled classes:", error);
+      }
+    };
+
+    fetchScheduledClasses();
   }, []);
+
+  const filteredApplicants = applicants.filter((teacher) => {
+    const name = `${teacher.candidateFirstName || ""} ${teacher.candidateLastName || ""}`;
+    const matchesSearch = `${name} ${teacher.candidateEmail || ""} ${teacher.positionApplied || ""}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesName = name.toLowerCase().includes(filterName.toLowerCase());
+    const matchesRating = !filterLevel || String(teacher.overallRating || 0) === filterLevel;
+    const matchesPosition = !filterCourse || teacher.positionApplied === filterCourse;
+
+    return matchesSearch && matchesName && matchesRating && matchesPosition;
+  });
+
+  const filteredScheduledClasses = scheduledClasses.filter((schedule) => {
+    const teacherName = schedule.teacher?.teacherName || "";
+    const courseName = schedule.course?.courseName || "";
+    const classId = schedule.classId || schedule._id || "";
+    const status = schedule.scheduleStatus || "";
+    const startDate = schedule.startDate ? new Date(schedule.startDate) : null;
+    const matchesCourse =
+      !scheduleCourse ||
+      courseName.toLowerCase() === scheduleCourse.toLowerCase();
+    const matchesStatus =
+      !scheduleStatus ||
+      status.toLowerCase() === scheduleStatus.toLowerCase();
+    const matchesFromDate =
+      !scheduleFromDate ||
+      (startDate ? startDate >= new Date(`${scheduleFromDate}T00:00:00`) : false);
+    const matchesToDate =
+      !scheduleToDate ||
+      (startDate ? startDate <= new Date(`${scheduleToDate}T23:59:59`) : false);
+
+    const matchesSearch = `${teacherName} ${classId} ${courseName} ${status}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+
+    return (
+      matchesSearch &&
+      matchesCourse &&
+      matchesStatus &&
+      matchesFromDate &&
+      matchesToDate
+    );
+  });
+
+  const filterClassTab = (classes: any[]) =>
+    classes.filter((schedule) => {
+      const teacherName = schedule.teacher?.teacherName || "";
+      const courseName = schedule.course?.courseName || "";
+      const classId = schedule.classId || schedule._id || "";
+      const status = schedule.scheduleStatus || "";
+      const startDate = schedule.startDate ? new Date(schedule.startDate) : null;
+
+      const matchesSearch =
+        `${teacherName} ${classId} ${courseName} ${status}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      const matchesCourse =
+        !scheduleCourse ||
+        courseName.toLowerCase() === scheduleCourse.toLowerCase();
+      const matchesStatus =
+        !scheduleStatus ||
+        status.toLowerCase() === scheduleStatus.toLowerCase();
+      const matchesFromDate =
+        !scheduleFromDate ||
+        (startDate
+          ? startDate >= new Date(`${scheduleFromDate}T00:00:00`)
+          : false);
+      const matchesToDate =
+        !scheduleToDate ||
+        (startDate
+          ? startDate <= new Date(`${scheduleToDate}T23:59:59`)
+          : false);
+
+      return (
+        matchesSearch &&
+        matchesCourse &&
+        matchesStatus &&
+        matchesFromDate &&
+        matchesToDate
+      );
+    });
+
+  const filteredCompletedClasses = filterClassTab(completedClasses);
+  const filteredCancelledClasses = filterClassTab(cancelledClasses);
+  const pageSize = 10;
+  const activeClassClasses =
+    activeTab === "completed"
+      ? filteredCompletedClasses
+      : activeTab === "cancelled"
+      ? filteredCancelledClasses
+      : filteredScheduledClasses;
+  const currentClassClasses = activeClassClasses.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const activeFilteredItems =
+    activeTab === "teachers"
+      ? filteredApplicants
+      : activeClassClasses;
+  const totalPages = Math.max(1, Math.ceil(activeFilteredItems.length / pageSize));
+  const currentApplicants = filteredApplicants.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
  
 
   const handleViewTeacherSchedule = (teacherId: string) => {
@@ -205,191 +291,665 @@ const data = await response.json();
   };
 
  
-  return (
-    <BaseLayout3>
-      <SupervisorHeader currentSection="Teacher's List" />
-      <div className="flex h-screen">
-        {/* Main Content */}
-        <div className="flex-1">
-          {/* Cards */}
-          <div className="w-full h-[605px] shadow bg-[#FAFAFB] rounded-lg dark:bg-[#343434] dark:text-[#dedede]">
-            <div className="flex justify-between items-center px-4 py-0 rounded-md dark:bg-[#343434] h-10">
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Search className="w-4 h-4 text-gray-400 dark:text-gray-400" />
+
+return (
+  <BaseLayout3>
+    <SupervisorHeader currentSection="Teacher's List" />
+
+    <div className="flex min-h-screen bg-[#E7EAF6] dark:bg-[#252525]">
+      <div className="flex-1 min-w-0 p-1">
+
+        {/* Top Navigation Tabs */}
+        <div className="flex items-center gap-7 px-3 mb-3 overflow-x-auto whitespace-nowrap">
+          <button
+            onClick={() => {
+              setActiveTab("teachers");
+              setCurrentPage(1);
+            }}
+            className={`text-sm pb-1 ${
+              activeTab === "teachers"
+                ? "font-medium text-[#576CBC] border-b-[3px] border-[#576CBC]"
+                : "text-[#010E30] dark:text-white"
+            }`}
+          >
+            Teachers
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("scheduled");
+              setCurrentPage(1);
+            }}
+            className={`text-sm pb-1 ${
+              activeTab === "scheduled"
+                ? "font-medium text-[#576CBC] border-b-[3px] border-[#576CBC]"
+                : "text-[#010E30] dark:text-white"
+            }`}
+          >
+            Scheduled Classes ({scheduledClasses.length})
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("completed");
+              setCurrentPage(1);
+            }}
+            className={`text-sm pb-1 ${
+              activeTab === "completed"
+                ? "font-medium text-[#576CBC] border-b-[3px] border-[#576CBC]"
+                : "text-[#010E30] dark:text-white"
+            }`}
+          >
+            Completed Classes ({completedClasses.length})
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("cancelled");
+              setCurrentPage(1);
+            }}
+            className={`text-sm pb-1 ${
+              activeTab === "cancelled"
+                ? "font-medium text-[#576CBC] border-b-[3px] border-[#576CBC]"
+                : "text-[#010E30] dark:text-white"
+            }`}
+          >
+            Cancelled ({cancelledClasses.length})
+          </button>
+
+          <button className="text-sm text-[#010E30] dark:text-white pb-1">
+            Feedback
+          </button>
+        </div>
+
+        {/* Main Teachers Container */}
+        <div className="bg-[#F7F8FC] dark:bg-[#343434] rounded-xl shadow-sm p-3">
+
+          {/* Header and Search */}
+          <div
+            className={
+              activeTab === "scheduled" ||
+              activeTab === "completed" ||
+              activeTab === "cancelled"
+                ? "grid grid-cols-3 w-full h-[52px] mb-3 bg-white dark:bg-[#292929] rounded-lg overflow-hidden"
+                : "flex flex-wrap justify-between items-center gap-3 mb-3"
+            }
+          >
+            {activeTab === "teachers" && (
+              <h2 className="text-[15px] font-medium text-[#010E30] dark:text-white">
+                Teachers List
+              </h2>
+            )}
+
+            {activeTab === "scheduled" ||
+            activeTab === "completed" ||
+            activeTab === "cancelled" ? (
+              <>
+                <div className="flex items-center w-full h-full px-4">
+                  <Search className="w-4 h-4 text-[#52698F] shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search by keyword"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full ml-2 text-[13px] outline-none bg-transparent text-[#010E30] dark:text-white placeholder:text-[#A3A3A3]"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setScheduleFilterOpen(true)}
+                  className="flex items-center justify-left gap-2 w-full h-full px-4 border-l border-[#EEF0F5] dark:border-[#454545] text-[13px] text-[#A3A3A3] dark:text-white"
+                >
+                  <MdTune className="w-4 h-4" />
+                  Filter
+                  <ChevronDown className="w-3 h-3 ml-1" />
+                </button>
+
+                <div className="flex items-center justify-left w-full h-full px-5 border-l border-[#EEF0F5] dark:border-[#454545] text-[13px] text-[#A3A3A3]">
+                  Showing {currentClassClasses.length} Of{" "}
+                  {activeClassClasses.length}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+
+              {/* Search */}
+              <div className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-3 py-2.5 w-[190px]">
+                <Search className="w-3.5 h-3.5 text-[#52698F]" />
+
                 <input
                   type="text"
-                  placeholder="Search"
-                  className="bg-transparent outline-none text-[15px] w-52 py-3"
+                  placeholder="Search by keyword"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-[10px] outline-none bg-transparent text-[#010E30] dark:text-white placeholder:text-gray-400"
                 />
               </div>
 
-              <div className="relative ">
-                {/* Filter Button: Tune + Filter Left, Arrow Right */}
+              {activeTab === "teachers" && (
+                <>
+                  {/* Filter */}
+                  <button
+                    onClick={handleOpenFilter}
+                    className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-4 py-2.5 text-[11px] text-[#010E30] dark:text-white"
+                  >
+                    <MdTune className="w-4 h-4" />
+                    Filter
+                  </button>
+
+                  {/* Subject Dropdown */}
+                  <button
+                    className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-3 py-2.5 text-[11px] text-[#010E30] dark:text-white"
+                  >
+                    All Subjects
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </>
+              )}
+            </div>
+            )}
+          </div>
+
+          {/* Filter Popup */}
+          {Filter && (
+            <div className="fixed inset-0 z-50 bg-black/40 flex justify-center items-center">
+
+              <div className="bg-white dark:bg-[#252525] p-6 rounded-lg w-[350px] relative">
+
                 <button
-                  className="flex items-center gap-2 text-sm text-gray-400 border-[#f5f5f5] dark:border-[#3b3b3b] mt-2 py-[13px] border-r-2 border-l-2 px-48 -ml-60 cursor-pointer"
-                  onClick={handleOpenFilter}
+                  className="absolute top-2 right-3 text-gray-400 text-xl"
+                  onClick={() => setFilter(false)}
                 >
-                  {/* <BsFilterLeft /> */}
-                  <MdTune className="w-4 h-4" />
-                  <span>Filter</span>
+                  &times;
                 </button>
 
-                {/* Filter Popup */}
-                {Filter && (
-                  <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
-                    <div className="bg-white p-6 rounded-lg w-[350px] relative dark:bg-[#252525]">
-                      {/* Close Icon */}
-                      <button
-                        className="absolute top-2 right-3 text-gray-400 text-xl"
-                        onClick={() => setFilter(false)}
-                      >
-                        &times;
-                      </button>
+                <h2 className="text-lg font-semibold mb-4 dark:text-white">
+                  Filter by
+                </h2>
 
-                      <h2 className="text-lg font-semibold mb-4">Filter by</h2>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 dark:text-white">
+                    Name
+                  </label>
 
-                      {/* Position Applied */}
-                      <div className="mb-4">
-                        <label
-                          htmlFor="name"
-                          className="block text-sm font-medium mb-1"
-                        >
-                          Name
-                        </label>
-                        <div>
-                          <input
-                            type="text"
-                            value={tempFilterName}
-                            onChange={(e) => setTempFilterName(e.target.value)}
-                            placeholder="Search by teacher name"
-                            className="w-full border rounded-md p-2 text-[12px] dark:bg-[#343434] dark:text-[#D6D6D6] dark:border-[#565656]"
-                          />
-                        </div>
-                      </div>
-                      <div className="mb-4">
-                        <label
-                          htmlFor="level"
-                          className="block text-sm font-medium mb-1"
-                        >
-                          Level
-                        </label>
-                        <select 
-                          value={tempFilterLevel}
-                          onChange={(e) => setTempFilterLevel(e.target.value)}
-                          className="w-full border rounded-md p-2 text-[12px] dark:bg-[#343434] dark:text-[#D6D6D6] dark:border-[#565656]"
-                        >
-                          <option value="">All Levels</option>
-                          <option value="1">Level 1</option>
-                          <option value="2">Level 2</option>
-                          <option value="3">Level 3</option>
-                          <option value="4">Level 4</option>
-                          <option value="5">Level 5</option>
-                        </select>
-                      </div>
-                      <div className="mb-4">
-                        <label
-                          htmlFor="position"
-                          className="block text-sm font-medium mb-1"
-                        >
-                          Course
-                        </label>
-                        <select 
-                          value={tempFilterCourse}
-                          onChange={(e) => setTempFilterCourse(e.target.value)}
-                          className="w-full border rounded-md p-2 text-[12px] dark:bg-[#343434] dark:text-[#D6D6D6] dark:border-[#565656]"
-                        >
-                          <option value="">All Courses</option>
-                          <option value="Quran Teacher">Quran Teacher</option>
-                          <option value="Arabic Teacher">Arabic Teacher</option>
-                          <option value="Islamic Teacher">Islamic Teacher</option>
-                        </select>
-                      </div>
-                      {/* Buttons */}
-                      <div className="flex justify-end gap-3">
-                        <button
-                          onClick={handleResetFilters}
-                          className="px-4 py-1 rounded-md border border-[#576CBC] text-[#576CBC] font-medium"
-                        >
-                          Reset
-                        </button>
-                        <button 
-                          onClick={handleApplyFilters}
-                          className="px-4 py-1 rounded-md bg-[#576CBC] text-white font-medium"
-                        >
-                          Submit
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  <input
+                    type="text"
+                    value={tempFilterName}
+                    onChange={(e) => setTempFilterName(e.target.value)}
+                    placeholder="Search by teacher name"
+                    className="w-full border rounded-md p-2 text-xs dark:bg-[#343434] dark:text-white"
+                  />
+                </div>
 
-              <div className="flex items-center gap-2 text-[14px] text-gray-400 dark:text-gray-400">
-                <span className="text-left -ml-60 ">
-                  Showing {currentApplicants.length} Of {filteredTeachers.length}
-                </span>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 dark:text-white">
+                    Rating
+                  </label>
+
+                  <select
+                    value={tempFilterLevel}
+                    onChange={(e) => setTempFilterLevel(e.target.value)}
+                    className="w-full border rounded-md p-2 text-xs dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">All Ratings</option>
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <option key={level} value={level}>
+                        {level} / 5
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 dark:text-white">
+                    Position
+                  </label>
+
+                  <select
+                    value={tempFilterCourse}
+                    onChange={(e) => setTempFilterCourse(e.target.value)}
+                    className="w-full border rounded-md p-2 text-xs dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">All Positions</option>
+                    <option value="Quran Teacher">Quran Teacher</option>
+                    <option value="Arabic Teacher">Arabic Teacher</option>
+                    <option value="Islamic Teacher">Islamic Teacher</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={handleResetFilters}
+                    className="px-4 py-1 rounded-md border border-[#576CBC] text-[#576CBC] text-sm"
+                  >
+                    Reset
+                  </button>
+
+                  <button
+                    onClick={handleApplyFilters}
+                    className="px-4 py-1 rounded-md bg-[#576CBC] text-white text-sm"
+                  >
+                    Submit
+                  </button>
+                </div>
+
               </div>
             </div>
+          )}
 
-            <div className="grid grid-cols-6 gap-2 gap-x-4 p-3 px-4 bg-[#f5f5f5] dark:bg-[#3b3b3b] w-[180] h-[260px] ">
-              {currentApplicants.map((teacher: ICandidateApplication) => (
-                <div
-                  key={teacher._id}
-                  className="bg-white dark:bg-[#343434] h-[260px] shadow-md rounded-lg p-4"
+          {scheduleFilterOpen && (
+            <div className="fixed inset-0 z-50 bg-black/40 flex justify-center items-center">
+              <div className="bg-white dark:bg-[#252525] p-6 rounded-lg w-[350px] relative">
+                <button
+                  className="absolute top-2 right-3 text-gray-400 text-xl"
+                  onClick={() => setScheduleFilterOpen(false)}
                 >
-                  <div className="items-center">
-                    <div className="h-[126px] rounded-md bg-[#e8e8e8] dark:bg-[#dadada] flex items-center justify-center">
-                      <Image
-                        src={"/assets/images/profilebg.png"}
-                        alt="Teacher"
-                        className="rounded-md"
-                        width={160}
-                        height={160}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-2 text-center">
-                    <h3 className="text-[12px] font-semibold text-[#010e30] dark:text-[#fff] mb-1">
-                      {teacher.candidateFirstName} {teacher.candidateLastName}
-                    </h3>
-                    <p className="text-[#717579] text-[10px] dark:text-[#fff]">
-                      Level: {teacher.overallRating}
-                    </p>
-                    <p className="text-[#717579] text-[10px] dark:text-[#fff]">
-                      {teacher.positionApplied} 
-                    </p>
-                    <div className="flex justify-center">
-                      <FaStar className="text-[#faab3c] text-[10px]" />
-                      <FaStar className="text-[#faab3c] text-[10px] mx-1" />
-                      <FaStar className="text-[#faab3c] text-[10px]" />
-                      <FaStar className="text-gray-300 text-[10px] mx-1" />
-                      <FaStar className="text-gray-300 text-[10px]" />
-                    </div>
-                    <button
-                      className="mt-[8px] text-[11px] bg-[#576cbc] text-[#fff] px-4 py-1 rounded-lg w-full h-[27px]"
-                      onClick={() => handleViewTeacherSchedule(teacher._id)}
-                    >
-                      View Profile
-                    </button>
+                  &times;
+                </button>
+
+                <h2 className="text-lg font-semibold mb-4 dark:text-white">
+                  Filter scheduled classes
+                </h2>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 dark:text-white">
+                    Date range
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={scheduleFromDate}
+                      onChange={(e) => setScheduleFromDate(e.target.value)}
+                      className="w-1/2 border rounded-md p-2 text-xs dark:bg-[#343434] dark:text-white"
+                    />
+                    <input
+                      type="date"
+                      value={scheduleToDate}
+                      onChange={(e) => setScheduleToDate(e.target.value)}
+                      className="w-1/2 border rounded-md p-2 text-xs dark:bg-[#343434] dark:text-white"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
-            
-            </div>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-        </div>
-      </div>
 
-    
-    </BaseLayout3>
-  );
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 dark:text-white">
+                    Course
+                  </label>
+                  <select
+                    value={scheduleCourse}
+                    onChange={(e) => setScheduleCourse(e.target.value)}
+                    className="w-full border rounded-md p-2 text-xs dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">All Courses</option>
+                    <option value="Islamic Studies">Islamic Studies</option>
+                    <option value="Quran">Quran</option>
+                    <option value="Arabic">Arabic</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 dark:text-white">
+                    Status
+                  </label>
+                  <select
+                    value={scheduleStatus}
+                    onChange={(e) => setScheduleStatus(e.target.value)}
+                    className="w-full border rounded-md p-2 text-xs dark:bg-[#343434] dark:text-white"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="Re-scheduled">Re-scheduled</option>
+                    <option value="Ongoing">Ongoing</option>
+                    <option value="Ready to Start">Ready to Start</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setScheduleFromDate("");
+                      setScheduleToDate("");
+                      setScheduleCourse("");
+                      setScheduleStatus("");
+                      setCurrentPage(1);
+                    }}
+                    className="px-4 py-1 rounded-md border border-[#576CBC] text-[#576CBC] text-sm"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentPage(1);
+                      setScheduleFilterOpen(false);
+                    }}
+                    className="px-4 py-1 rounded-md bg-[#576CBC] text-white text-sm"
+                  >
+                    Submit
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "scheduled" ||
+          activeTab === "completed" ||
+          activeTab === "cancelled" ? (
+            <div className="w-full overflow-x-auto rounded-lg">
+              <table className="w-full min-w-[950px] border-collapse">
+                <thead>
+                  <tr className="bg-[#526D96] text-white text-[10px] text-left">
+                    <th className="px-3 py-3 font-medium">Class ID</th>
+                    <th className="px-3 py-3 font-medium">Teacher</th>
+                    <th className="px-3 py-3 font-medium">Course Name</th>
+                    <th className="px-3 py-3 font-medium">Class Type</th>
+                    <th className="px-3 py-3 font-medium">Class Topic</th>
+                    <th className="px-3 py-3 font-medium">Date</th>
+                    <th className="px-3 py-3 font-medium">Time</th>
+                    <th className="px-3 py-3 font-medium">Type</th>
+                    <th className="px-3 py-3 font-medium text-center">
+                    Action
+                  </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentClassClasses.length > 0 ? (
+                    currentClassClasses.map((schedule, index) => {
+                      const startTime = schedule.startTime?.[0] || "-";
+                      const endTime = schedule.endTime?.[0] || "-";
+                      const status = schedule.scheduleStatus || "Scheduled";
+
+                      return (
+                        <tr
+                          key={schedule._id}
+                          className={`text-[10px] text-[#010E30] dark:text-white ${
+                            index % 2 === 0
+                              ? "bg-white dark:bg-[#343434]"
+                              : "bg-[#F5F5F5] dark:bg-[#2D2D2D]"
+                          }`}
+                        >
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {schedule.classId || schedule._id || "-"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {schedule.teacher?.teacherName || "-"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {schedule.course?.courseName || "-"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            Regular Class
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {schedule.subject ||
+                              schedule.classTopic ||
+                              schedule.course?.courseName ||
+                              "-"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {schedule.startDate
+                              ? new Date(schedule.startDate).toLocaleDateString()
+                              : "-"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {startTime !== "-" ? `${startTime} - ${endTime}` : "-"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {schedule.package || "Regular"}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {schedule.classLink ? (
+                              <a
+                                href={schedule.classLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[#576CBC]"
+                              >
+                                Open
+                              </a>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <span
+                              className={`inline-flex px-3 py-1 rounded-md text-[9px] font-medium ${
+                                status === "Ongoing"
+                                  ? "bg-[#F3F6FF] text-[#576CBC]"
+                                  : status === "Cancelled"
+                                  ? "bg-[#FCECEC] text-red-500"
+                                  : "bg-[#ECFDF3] text-green-700"
+                              }`}
+                            >
+                              {status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <button
+                              title="View class"
+                              className="p-1 text-gray-500 hover:text-[#576CBC]"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={11}
+                        className="text-center py-10 text-gray-500 text-xs"
+                      >
+                        No {activeTab} classes found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+          /* Teachers Table */
+          <div className="w-full overflow-x-auto rounded-lg">
+
+            <table className="w-full min-w-[1050px] border-collapse">
+
+              {/* Table Header */}
+              <thead>
+                <tr className="bg-[#526D96] text-white text-[10px] text-left">
+
+                  <th className="px-3 py-3 font-medium">
+                    Teacher Name
+                  </th>
+
+                  <th className="px-3 py-3 font-medium">
+                    Position
+                  </th>
+
+                  <th className="px-3 py-3 font-medium">
+                    Employment Type
+                  </th>
+
+                  <th className="px-3 py-3 font-medium">
+                    Rating
+                  </th>
+
+                  <th className="px-3 py-3 font-medium">
+                    Assigned Students
+                  </th>
+
+                  <th className="px-3 py-3 font-medium">
+                    Classes Scheduled
+                  </th>
+
+                  <th className="px-3 py-3 font-medium">
+                    Email id
+                  </th>
+
+                  <th className="px-3 py-3 font-medium">
+                    Attendance Status
+                  </th>
+
+                  <th className="px-3 py-3 font-medium text-center">
+                    Action
+                  </th>
+
+                </tr>
+              </thead>
+
+              {/* Table Body */}
+              <tbody>
+
+                {currentApplicants.length > 0 ? (
+                  currentApplicants.map((teacher, index) => {
+
+                    const rating = teacher.overallRating || 0;
+
+                    return (
+                      <tr
+                        key={teacher._id}
+                        className={`text-[10px] text-[#010E30] dark:text-white ${
+                          index % 2 === 0
+                            ? "bg-white dark:bg-[#343434]"
+                            : "bg-[#F5F5F5] dark:bg-[#2D2D2D]"
+                        } hover:bg-[#EDF1FA] dark:hover:bg-[#404040] transition-colors`}
+                      >
+
+                        {/* Teacher Name */}
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+
+                            <Image
+                              src="/assets/images/profilebg.png"
+                              alt="Teacher"
+                              width={30}
+                              height={30}
+                              className="rounded-full w-[30px] h-[30px] object-cover"
+                            />
+
+                            <span className="font-medium">
+                              {teacher.candidateFirstName}{" "}
+                              {teacher.candidateLastName}
+                            </span>
+
+                          </div>
+                        </td>
+
+                        {/* Position */}
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {teacher.positionApplied || "-"}
+                        </td>
+
+                        {/* Employment Type */}
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {teacher.employmentType || "-"}
+                        </td>
+
+                        {/* Rating */}
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className={
+                            rating >= 3
+                              ? "text-green-700"
+                              : "text-red-500"
+                          }>
+                            {rating}
+                          </span>
+                          {" / 5"}
+                        </td>
+
+                        {/* Assigned Students */}
+                        <td className="px-3 py-2">
+                          {teacher.assignedStudents ?? "-"}
+                        </td>
+
+                        {/* Classes Scheduled */}
+                        <td className="px-3 py-2">
+                          {teacher.classesScheduled ?? "-"}
+                        </td>
+
+                        {/* Email */}
+                        <td className="px-3 py-2">
+                          <span
+                            className="block max-w-[150px] truncate"
+                            title={teacher.candidateEmail}
+                          >
+                            {teacher.candidateEmail || "-"}
+                          </span>
+                        </td>
+
+                        {/* Attendance Status */}
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex items-center justify-center min-w-[58px] px-3 py-1 rounded-md text-[9px] font-medium ${
+                              teacher.attendanceStatus === "Present"
+                                ? "bg-[#E8F9EF] text-green-700"
+                                : teacher.attendanceStatus === "Absent"
+                                ? "bg-[#FCECEC] text-red-500"
+                                : "bg-[#FFF4E5] text-orange-600"
+                            }`}
+                          >
+                            {teacher.attendanceStatus || "Pending"}
+                          </span>
+                        </td>
+
+                        {/* Action */}
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            onClick={() =>
+                              handleViewTeacherSchedule(teacher._id)
+                            }
+                            title="View Teacher Profile"
+                            className="p-1 text-gray-500 hover:text-[#576CBC]"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        </td>
+
+                      </tr>
+                    );
+                  })
+                ) : (
+
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="text-center py-10 text-gray-500 text-xs"
+                    >
+                      No teachers found
+                    </td>
+                  </tr>
+
+                )}
+
+              </tbody>
+
+            </table>
+          </div>
+          )}
+
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-end mt-3">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+
+      </div>
+    </div>
+  </BaseLayout3>
+);
+
 };
 
 export default ManageTeacher;
