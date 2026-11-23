@@ -990,7 +990,7 @@ export default function ApplicantsPage() {
               <MoreVertical className="w-4 h-4 text-slate-600 dark:text-[#FDFDFD]" />
             </button>
             {openMenuId === applicant._id && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10 dark:bg-[#252525] dark:text-[#fff]">
+              <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-10 dark:bg-[#252525] dark:text-[#fff]">
                 {activeTab === "Schedule" ? (
                   <>
                     <button
@@ -1032,9 +1032,9 @@ export default function ApplicantsPage() {
                     ) && (
                       <button
                         onClick={() => handleViewDetails(applicant)}
-                        className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                        className="block w-full px-4 py-2 text-left text-[12px] text-[#010e30] dark:text-[#fff]"
                       >
-                        View Details
+                        View
                       </button>
                     )}
                     {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
@@ -1044,7 +1044,7 @@ export default function ApplicantsPage() {
                     ) && (
                       <button
                         onClick={() => handleScheduleInterview(applicant)}
-                        className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                        className="block w-full px-4 py-2 text-left text-[12px] text-[#010e30] dark:text-[#fff]"
                       >
                         Schedule Interview
                       </button>
@@ -1904,12 +1904,12 @@ const handlesendupdate = async (id: string, status: string) => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="application-details-title"
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[900px] max-w-[calc(100%-24px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white p-5 shadow-xl dark:bg-[#343434]"
+            className="fixed left-1/2 top-1/2 z-50 flex max-h-[82vh] w-[720px] max-w-[calc(100%-24px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl bg-white p-4 shadow-xl dark:bg-[#343434]"
           >
-            <header className="mb-4 flex items-center justify-between">
+            <header className="mb-3 flex items-center justify-between">
               <h2
                 id="application-details-title"
-                className="text-[20px] font-semibold text-[#0A1737] dark:text-white"
+                className="text-[18px] font-semibold text-[#000000] dark:text-white"
               >
                 Application Details
               </h2>
@@ -1918,14 +1918,14 @@ const handlesendupdate = async (id: string, status: string) => {
                 className="rounded-full text-[#8A8A8A] hover:text-[#17243E] dark:hover:text-white"
                 aria-label="Close"
               >
-                <IoCloseOutline className="h-6 w-6" />
+                <IoCloseOutline className="h-5 w-5" />
               </button>
             </header>
 
-            <div className="grid flex-1 grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2">
-              <div className="space-y-3">
-                <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+            <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-y-auto md:grid-cols-2">
+              <div className="space-y-2.5">
+                <section className="rounded-lg border border-[#E5E7EB] p-3 dark:border-[#5F5959]">
+                  <h3 className="mb-2 text-[14px] font-medium text-[#010E30] dark:text-white">
                     Personal Information
                   </h3>
                   {[
@@ -1988,12 +1988,12 @@ const handlesendupdate = async (id: string, status: string) => {
                   ].map(([label, value]) => (
                     <div
                       key={label}
-                      className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                      className="flex items-start justify-between gap-2 py-1 dark:border-[#5F5959]"
                     >
-                      <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                      <span className="text-[#343e59] dark:text-[#D6D6D6] text-[12px]">
                         {label}
                       </span>
-                      <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                      <span className="max-w-[65%] break-words text-right text-[11px] text-[#596780] dark:text-[#D6D6D6]">
                         {value || "—"}
                       </span>
                     </div>
@@ -2001,7 +2001,7 @@ const handlesendupdate = async (id: string, status: string) => {
                 </section>
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
                     Educational Qualification
                   </h3>
                   {[
@@ -2027,12 +2027,12 @@ const handlesendupdate = async (id: string, status: string) => {
                   ].map(([label, value]) => (
                     <div
                       key={label}
-                      className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                      className="flex items-start justify-between gap-2 py-1 dark:border-[#5F5959]"
                     >
-                      <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                      <span className="text-[#010e30] dark:text-[#D6D6D6] text-[12px]">
                         {label}
                       </span>
-                      <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                      <span className="max-w-[65%] break-words text-right text-[11px] text-[#343e59] dark:text-[#D6D6D6]">
                         {value || "—"}
                       </span>
                     </div>
@@ -2040,7 +2040,7 @@ const handlesendupdate = async (id: string, status: string) => {
                 </section>
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
                     Teaching Experience
                   </h3>
                   {[
@@ -2071,12 +2071,12 @@ const handlesendupdate = async (id: string, status: string) => {
                       value != null && value !== "" && (
                         <div
                           key={label}
-                          className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                          className="flex items-start justify-between gap-2 py-1 dark:border-[#5F5959]"
                         >
-                          <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                          <span className="text-[#010e30] text-[12px] dark:text-[#D6D6D6]">
                             {label}
                           </span>
-                          <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                          <span className="max-w-[65%] break-words text-right text-[11px] text-[#343e59] dark:text-[#D6D6D6]">
                             {value}
                           </span>
                         </div>
@@ -2093,7 +2093,7 @@ const handlesendupdate = async (id: string, status: string) => {
                         <div className="font-medium text-[#34415F] dark:text-white">
                           {experience.jobRole || "Position"}
                         </div>
-                        <div className="mt-1 flex justify-between gap-3 text-[#596780] dark:text-[#D6D6D6]">
+                        <div className="mt-1 flex justify-between gap-3 text-[13px] text-[#596780] dark:text-[#D6D6D6]">
                           <span>{experience.organizationName || "—"}</span>
                           <span>
                             {formatApplicantDate(experience.fromDate)} -{" "}
@@ -2108,7 +2108,7 @@ const handlesendupdate = async (id: string, status: string) => {
                       </div>
                     ))
                   ) : (
-                    <p className="border-t border-[#EEF0F3] pt-2 text-[13px] text-[#596780] dark:border-[#5F5959] dark:text-[#D6D6D6]">
+                    <p className="border-t border-[#EEF0F3] pt-2 text-[12px] text-[#010e30] dark:border-[#5F5959] dark:text-[#D6D6D6]">
                       No experience details provided
                     </p>
                   )}
@@ -2117,7 +2117,7 @@ const handlesendupdate = async (id: string, status: string) => {
 
               <div className="space-y-3">
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
                     Skills &amp; Expertise
                   </h3>
                   {applicationSkillGroups.length > 0 ? (
@@ -2141,7 +2141,7 @@ const handlesendupdate = async (id: string, status: string) => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[13px] text-[#596780] dark:text-[#D6D6D6]">
+                    <p className="text-[12px] text-[#596780] dark:text-[#D6D6D6]">
                       No skills provided
                     </p>
                   )}
@@ -2210,7 +2210,7 @@ const handlesendupdate = async (id: string, status: string) => {
                 </section>
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
                     Job Preferences
                   </h3>
                   {[
@@ -2271,7 +2271,7 @@ const handlesendupdate = async (id: string, status: string) => {
 
                 {applicantInterviewSchedule && (
                   <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                    <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                    <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
                       Interview Schedule
                     </h3>
                     {[
@@ -2326,7 +2326,7 @@ const handlesendupdate = async (id: string, status: string) => {
                 )}
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[16px] font-medium text-[#0A1737] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
                     Attachment
                   </h3>
                   {resumeImages ? (
