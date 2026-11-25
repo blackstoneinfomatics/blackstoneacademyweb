@@ -1,8 +1,12 @@
 import { TeacherClass, TeacherProfile } from "./teacherDetailsTypes";
 
+type InfoRowsProps = {
+  rows: [string, unknown][];
+};
+
 export const cardClass =
   "rounded-lg border border-[#e7eaf2] bg-white p-4 dark:border-[#454a57] dark:bg-[#30343f]";
-export const titleClass = "text-[15px] font-semibold text-[#111b38] dark:text-white";
+export const titleClass = "text-[15px] font-medium text-[#010e30] dark:text-white";
 
 export const mockStudentFeedback = [
   {
@@ -59,21 +63,27 @@ function formatClassTime(value?: string): string {
   });
 }
 
-export function InfoRows({ rows }: { rows: [string, unknown][] }) {
+export function InfoRows({ rows }: InfoRowsProps) {
   return (
-    <dl className="divide-y divide-[#edf0f5] dark:divide-[#454a57]">
-      {rows.map(([label, value]) => (
+    <div className="space-y-1.5">
+      {rows.map(([label, value], index) => (
         <div
-          key={label}
-          className="flex items-start justify-between gap-4 py-2.5 text-[13px]"
+          key={index}
+          className="flex items-start justify-between gap-4"
         >
-          <dt className="text-[#273653] dark:text-[#d6d9e2]">{label}</dt>
-          <dd className="max-w-[62%] break-words text-right text-[#67738d] dark:text-[#c2c7d2]">
+          <span className="shrink-0 text-[13px] font-medium
+                           leading-5 text-[#35415e] dark:text-gray-300">
+            {label}
+          </span>
+
+          <span className="min-w-0 whitespace-pre-line break-words
+                           text-right text-[13px] leading-5
+                           text-[#626d85] dark:text-gray-400">
             {displayValue(value)}
-          </dd>
+          </span>
         </div>
       ))}
-    </dl>
+    </div>
   );
 }
 
@@ -98,6 +108,10 @@ export function ClassList({
       {classes.map((item, index) => {
         const name = item.course?.courseName || "Scheduled class";
         const status = item.scheduleStatus || item.sessionClassType || "Scheduled";
+        const teachingMode = Array.isArray(item.teachingMode)
+          ? item.teachingMode[0]
+          : item.teachingMode;
+        const mode = item.classMode || teachingMode;
         const dateLine = [
           formatDate(item.startDate),
           formatClassTime(item.startTime?.[0]),
@@ -109,15 +123,28 @@ export function ClassList({
         return (
           <div
             key={item._id || item.classId || `${name}-${index}`}
-            className="flex items-center justify-between gap-3 py-3"
+            className="flex items-center justify-between gap-3 py-3 mt-2"
           >
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-medium text-[#14203c] dark:text-white">
-                {name}
-              </p>
-              <p className="mt-1 text-[12px] text-[#7d89a2]">{dateLine}</p>
+              <div className="flex min-w-0 items-center gap-3">
+                <p className="truncate text-[13px] font-normal text-[#14203c] dark:text-white">
+                  {name}
+                </p>
+                {mode && (
+                  <span
+                    className={
+                      mode.toLowerCase() === "offline"
+                        ? "shrink-0 text-[12px] font-normal text-[#258342]"
+                        : "shrink-0 text-[12px] font-normal text-[#5268bb]"
+                    }
+                  >
+                    {mode}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] text-[#7f8697]">{dateLine}</p>
             </div>
-            <span className="shrink-0 rounded-full bg-[#e8f7ed] px-3 py-1 text-[11px] font-medium capitalize text-[#258342] dark:bg-[#244532] dark:text-[#9ce2b0]">
+            <span className="shrink-0 rounded-sm bg-[#e8f7ed] px-3 py-1 text-[10px] font-medium capitalize text-[#258342] dark:bg-[#244532] dark:text-[#9ce2b0]">
               {status.toLowerCase()}
             </span>
           </div>
@@ -141,16 +168,20 @@ export function SalaryTable() {
           </tr>
         </thead>
         <tbody>
-          {mockSalaryPayments.map((payment) => (
+          {mockSalaryPayments.map((payment, index) => (
             <tr
               key={payment.month}
-              className="border-b border-[#edf0f5] text-[#24324e] last:border-0 dark:border-[#454a57] dark:text-[#d6d9e2]"
+              className={`text-[#1b2745] last:border-0 dark:border-[#454a57] dark:text-[#d6d9e2] ${
+                index % 2 === 0
+                  ? "bg-[#ffffff] dark:bg-[#30343f]"
+                  : "bg-[#f8f8f8] dark:bg-[#383d48]"
+              }`}
             >
               <td className="px-3 py-3">{payment.month}</td>
-              <td className="px-3 py-3">{payment.paidOn}</td>
+              <td className="px-3 py-3 text-[#0F172A]">{payment.paidOn}</td>
               <td className="px-3 py-3">₹{payment.netPaid.toLocaleString()}</td>
               <td className="px-3 py-3">
-                <span className="rounded-md bg-[#e8f9ef] px-4 py-1.5 text-[11px] font-medium text-[#258342] dark:bg-[#244532] dark:text-[#9ce2b0]">
+                <span className="rounded-md bg-[#ECFDF3] px-4 py-1.5 text-[11px] font-medium text-[#377E36] dark:bg-[#244532] dark:text-[#9ce2b0]">
                   {payment.status}
                 </span>
               </td>
@@ -167,3 +198,4 @@ export function getTeacherFullName(teacher: TeacherProfile): string {
     teacher.candidateLastName || ""
   }`.trim();
 }
+

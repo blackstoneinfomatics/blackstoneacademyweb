@@ -14,6 +14,7 @@ import {
 interface TeacherDetailsTabsProps extends TeacherDetailsTabProps {
   onViewResume: () => void;
   onChangeTab: (tab: TeacherDetailsTabId) => void;
+  onTeacherUpdate: (teacher: TeacherDetailsTabProps["teacher"]) => void;
 }
 
 const tabs: { id: TeacherDetailsTabId; label: string }[] = [
@@ -54,7 +55,7 @@ export default function TeacherDetailsTabs(props: TeacherDetailsTabsProps) {
             aria-selected={activeTab === tab.id}
             aria-controls="teacher-details-panel"
             onClick={() => changeTab(tab.id)}
-            className={`relative shrink-0 px-3 py-3 text-[13px] font-medium transition-colors ${
+            className={`relative shrink-0 px-3 py-1 text-[14px] font-medium transition-colors ${
               activeTab === tab.id
                 ? "text-[#5268bb] after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-full after:bg-[#5268bb]"
                 : "text-[#111b38] hover:text-[#5268bb] dark:text-[#d6d9e2]"
@@ -72,12 +73,17 @@ export default function TeacherDetailsTabs(props: TeacherDetailsTabsProps) {
         {activeTab === "overview" && (
           <OverviewTab {...tabProps} onChangeTab={changeTab} />
         )}
-        {activeTab === "personal" && <PersonalInformationTab {...tabProps} />}
+        {activeTab === "personal" && (
+          <PersonalInformationTab
+            {...tabProps}
+            onTeacherUpdate={props.onTeacherUpdate}
+          />
+        )}
         {activeTab === "documents" && (
           <DocumentsTab {...tabProps} onViewResume={props.onViewResume} />
         )}
         {activeTab === "classes" && <ClassesScheduleTab {...tabProps} />}
-        {activeTab === "salary" && <SalaryHistoryTab {...tabProps} />}
+        {activeTab === "salary" && <SalaryHistoryTab />}
       </div>
     </div>
   );

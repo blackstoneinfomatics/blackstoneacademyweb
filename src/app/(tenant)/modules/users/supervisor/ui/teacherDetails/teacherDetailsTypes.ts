@@ -22,6 +22,17 @@ export interface TeacherProfile {
   gender?: string;
   dateOfBirth?: string;
   address?: string;
+  emergencyContact?: string | number;
+  idType?: string;
+  idProof?: string;
+  bloodGroup?: string;
+  maritalStatus?: string;
+  role?: string;
+  salaryType?: string;
+  currentSalary?: number | string;
+  technicalSkills?: string[] | string | null;
+  teachingSkills?: string[] | string | null;
+  languages?: string[] | string | null;
   highestQualification?: string;
   qualification?: string;
   specialization?: string;
@@ -48,6 +59,8 @@ export interface TeacherClass {
   classId?: string;
   course?: { courseName?: string };
   sessionClassType?: string;
+  classMode?: string;
+  teachingMode?: string | string[];
   scheduleStatus?: string;
   startDate?: string;
   endDate?: string;

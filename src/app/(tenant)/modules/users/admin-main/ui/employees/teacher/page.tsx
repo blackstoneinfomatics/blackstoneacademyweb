@@ -2,10 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { dateFnsLocalizer, Views } from "react-big-calendar";
-import { format } from "date-fns/format";
-import { parse } from "date-fns/parse";
-import { startOfWeek } from "date-fns/startOfWeek";
-import { getDay } from "date-fns/getDay";
+import { format, getDay, parse, startOfWeek } from "date-fns";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { FaUserGraduate } from "react-icons/fa6";
 import { FaRegEye, FaCalendarAlt } from "react-icons/fa";

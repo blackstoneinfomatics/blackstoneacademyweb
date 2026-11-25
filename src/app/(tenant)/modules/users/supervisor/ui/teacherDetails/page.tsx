@@ -17,7 +17,7 @@ import {
 } from "./teacherDetailsTypes";
 
 const cardClass =
-  "rounded-xl border border-white/70 bg-white/70 p-4 shadow-sm dark:border-[#454a57] dark:bg-[#30343f]";
+  "rounded-xl border border-[#E2E8F0] bg-[#F2F3FA] p-5 shadow-[0_2px_8px_0_rgba(153,153,153,0.08)] dark:shadow-sm dark:border-[#454a57] dark:bg-[#30343f]";
 
 const MOCK_TEACHER: TeacherProfile = {
   _id: "TCH-1001",
@@ -63,6 +63,7 @@ const MOCK_CLASSES: TeacherClass[] = [
     _id: "CLS-2001",
     course: { courseName: "Typography Principles" },
     sessionClassType: "REGULARCLASS",
+    classMode: "Online",
     scheduleStatus: "Live",
     startDate: "2026-11-23",
     startTime: ["14:15"],
@@ -72,6 +73,7 @@ const MOCK_CLASSES: TeacherClass[] = [
     _id: "CLS-2002",
     course: { courseName: "Typography Principles" },
     sessionClassType: "REGULARCLASS",
+    classMode: "Online",
     scheduleStatus: "Completed",
     startDate: "2026-11-22",
     endDate: "2026-11-22",
@@ -82,6 +84,7 @@ const MOCK_CLASSES: TeacherClass[] = [
     _id: "CLS-2003",
     course: { courseName: "Design Handoff & Specs" },
     sessionClassType: "REGULARCLASS",
+    classMode: "Offline",
     scheduleStatus: "Scheduled",
     startDate: "2026-11-24",
     startTime: ["10:00"],
@@ -143,7 +146,7 @@ function createResumeUrl(
 }
 
 export default function TeacherDetails() {
-  const teacher = MOCK_TEACHER;
+  const [teacher, setTeacher] = useState<TeacherProfile>(MOCK_TEACHER);
   const stats = MOCK_STATS;
   const classes = MOCK_CLASSES;
   const [resumeObjectUrl, setResumeObjectUrl] = useState<string | null>(null);
@@ -192,26 +195,26 @@ export default function TeacherDetails() {
       />
       <main className="space-y-3 pb-5">
         <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className={`${cardClass} flex min-w-0 items-center gap-4 sm:gap-5`}>
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#dceaff] text-[16px] font-semibold text-[#2557d6] sm:h-[70px] sm:w-[70px]">
+          <div className={`${cardClass} flex min-w-0 items-center gap-5 sm:gap-6`}>
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[16px] font-semibold text-[#1D4ED8] sm:h-[70px] sm:w-[70px]">
               {initials}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold text-[#111b38] dark:text-white sm:text-[22px]">
+                <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white sm:text-[22px]">
                   {fullName}
                 </h2>
-                <span className="rounded-full bg-[#d7f0dd] px-3 py-1 text-[11px] font-medium capitalize text-[#26793c]">
+                <span className="rounded-sm bg-[#c7e6d5] px-3 py-1 text-[11px] font-medium capitalize text-[#377E36]">
                   {teacher.status}
                 </span>
-                <span className="rounded-full bg-[#e8edf5] px-3 py-1 text-[11px] text-[#3d4c68] dark:bg-[#424957] dark:text-[#e0e4ec]">
+                <span className="rounded-sm bg-[#E2E8F0] px-3 py-1 text-[11px] text-[#475569] dark:bg-[#424957] dark:text-[#e0e4ec]">
                   {teacher.employmentType}
                 </span>
-                <span className="text-[11px] text-[#7b879e]">
+                <span className="text-[11px] text-[#63738C] dark:text-[#c2c7d2]">
                   Joined {formatDate(teacher.dateOfJoining)}
                 </span>
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-[#61708d] dark:text-[#c2c7d2]">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-[#475569] dark:text-[#c2c7d2]">
                 <span className="inline-flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5" />
                   {teacher.teacherId}
@@ -233,14 +236,14 @@ export default function TeacherDetails() {
           </div>
 
           <section className={`${cardClass} flex flex-col justify-center`}>
-            <h2 className="text-[14px] font-medium text-[#111b38] dark:text-white">
+            <h2 className="text-[14px] font-medium text-[#010E30] dark:text-white">
               Overall Performance
             </h2>
-            <div className="mt-2 flex items-center gap-4">
-              <p className="text-[26px] font-bold leading-none text-[#368344]">
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <p className="text-[26px] font-bold leading-none text-[#377E36]">
                 {performance}
               </p>
-              <p className="text-[11px] text-[#68748b] dark:text-[#c2c7d2]">
+              <p className="text-[11px] text-[#353535] dark:text-[#c2c7d2]">
                 60% increase than Last Month
               </p>
             </div>
@@ -254,6 +257,7 @@ export default function TeacherDetails() {
           classesLoading={false}
           onViewResume={handleViewResume}
           onChangeTab={() => undefined}
+          onTeacherUpdate={setTeacher}
         />
       </main>
     </BaseLayout3>
