@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { ChevronDown, MoreVertical, Search } from "lucide-react";
+import { FaStar } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
 import SupervisorHeader from "../../components/supervisorHeader";
@@ -10,13 +11,22 @@ import Pagination from "@/components/Pagination";
 import { MdTune } from "react-icons/md";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 
-
-
+const demoFeedbacks = [
+  { id: "GRP UX-A1", review: "grp-ux-a1", teacher: "Samantha Neil", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 5 },
+  { id: "INDL UX-A1", review: "indl-ux-a1", teacher: "Harry Potter", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 5 },
+  { id: "GRP UX-A1", review: "grp-ux-a1", teacher: "Samantha Neil", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 4 },
+  { id: "INDL UX-A1", review: "indl-ux-a1", teacher: "Harry Potter", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 4 },
+  { id: "GRP UX-A1", review: "grp-ux-a1", teacher: "Samantha Neil", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 5 },
+  { id: "GRP UX-A1", review: "grp-ux-a1", teacher: "Samantha Neil", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 4 },
+  { id: "INDL UX-A1", review: "indl-ux-a1", teacher: "Harry Potter", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 5 },
+  { id: "GRP UX-A1", review: "grp-ux-a1", teacher: "Samantha Neil", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 4 },
+  { id: "INDL UX-A1", review: "indl-ux-a1", teacher: "Harry Potter", feedback: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor int.", className: "Tajweed Masterclass", date: "25 Jan 2026", courseType: "UI/Ux Designer · Online", rating: 5 },
+];
 
 const ManageTeacher: React.FC = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
-    "teachers" | "scheduled" | "completed" | "cancelled"
+    "teachers" | "scheduled" | "completed" | "cancelled" | "feedback"
   >("teachers");
   const [scheduledClasses, setScheduledClasses] = useState<any[]>([]);
   const [completedClasses, setCompletedClasses] = useState<any[]>([]);
@@ -40,6 +50,12 @@ const ManageTeacher: React.FC = () => {
   const [scheduleToDate, setScheduleToDate] = useState("");
   const [scheduleCourse, setScheduleCourse] = useState("");
   const [scheduleStatus, setScheduleStatus] = useState("");
+  const [openClassActionId, setOpenClassActionId] = useState<string | null>(null);
+  const [selectedClassDetails, setSelectedClassDetails] = useState<any | null>(null);
+  const [openFeedbackActionId, setOpenFeedbackActionId] = useState<string | null>(null);
+  const [selectedFeedbackDetails, setSelectedFeedbackDetails] = useState<
+    (typeof demoFeedbacks)[number] | null
+  >(null);
 
   // Reset filters
   const handleResetFilters = () => {
@@ -257,6 +273,11 @@ const data = await response.json();
 
   const filteredCompletedClasses = filterClassTab(completedClasses);
   const filteredCancelledClasses = filterClassTab(cancelledClasses);
+  const filteredFeedbacks = demoFeedbacks.filter((item) =>
+    `${item.id} ${item.review} ${item.teacher} ${item.feedback} ${item.className} ${item.courseType}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
   const pageSize = 10;
   const activeClassClasses =
     activeTab === "completed"
@@ -268,10 +289,16 @@ const data = await response.json();
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
+  const currentFeedbacks = filteredFeedbacks.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const activeFilteredItems =
     activeTab === "teachers"
       ? filteredApplicants
+      : activeTab === "feedback"
+      ? filteredFeedbacks
       : activeClassClasses;
   const totalPages = Math.max(1, Math.ceil(activeFilteredItems.length / pageSize));
   const currentApplicants = filteredApplicants.slice(
@@ -357,7 +384,17 @@ return (
             Cancelled ({cancelledClasses.length})
           </button>
 
-          <button className="text-sm text-[#010E30] dark:text-white pb-1">
+          <button
+            onClick={() => {
+              setActiveTab("feedback");
+              setCurrentPage(1);
+            }}
+            className={`text-sm pb-1 ${
+              activeTab === "feedback"
+                ? "font-medium text-[#576CBC] border-b-[3px] border-[#576CBC]"
+                : "text-[#010E30] dark:text-white"
+            }`}
+          >
             Feedback
           </button>
         </div>
@@ -370,7 +407,8 @@ return (
             className={
               activeTab === "scheduled" ||
               activeTab === "completed" ||
-              activeTab === "cancelled"
+              activeTab === "cancelled" ||
+              activeTab === "feedback"
                 ? "grid grid-cols-3 w-full h-[52px] mb-3 bg-white dark:bg-[#292929] rounded-lg overflow-hidden"
                 : "flex flex-wrap justify-between items-center gap-3 mb-3"
             }
@@ -383,7 +421,8 @@ return (
 
             {activeTab === "scheduled" ||
             activeTab === "completed" ||
-            activeTab === "cancelled" ? (
+            activeTab === "cancelled" ||
+            activeTab === "feedback" ? (
               <>
                 <div className="flex items-center w-full h-full px-4">
                   <Search className="w-4 h-4 text-[#52698F] shrink-0" />
@@ -398,7 +437,6 @@ return (
                     className="w-full ml-2 text-[13px] outline-none bg-transparent text-[#010E30] dark:text-white placeholder:text-[#A3A3A3]"
                   />
                 </div>
-
                 <button
                   onClick={() => setScheduleFilterOpen(true)}
                   className="flex items-center justify-left gap-2 w-full h-full px-4 border-l border-[#EEF0F5] dark:border-[#454545] text-[13px] text-[#A3A3A3] dark:text-white"
@@ -407,52 +445,46 @@ return (
                   Filter
                   <ChevronDown className="w-3 h-3 ml-1" />
                 </button>
-
                 <div className="flex items-center justify-left w-full h-full px-5 border-l border-[#EEF0F5] dark:border-[#454545] text-[13px] text-[#A3A3A3]">
-                  Showing {currentClassClasses.length} Of{" "}
-                  {activeClassClasses.length}
+                  Showing{" "}
+                  {activeTab === "feedback"
+                    ? currentFeedbacks.length
+                    : currentClassClasses.length}{" "}
+                  Of{" "}
+                  {activeTab === "feedback"
+                    ? filteredFeedbacks.length
+                    : activeClassClasses.length}
                 </div>
               </>
             ) : (
               <div className="flex items-center gap-2 flex-wrap">
-
-              {/* Search */}
-              <div className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-3 py-2.5 w-[190px]">
-                <Search className="w-3.5 h-3.5 text-[#52698F]" />
-
-                <input
-                  type="text"
-                  placeholder="Search by keyword"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full text-[10px] outline-none bg-transparent text-[#010E30] dark:text-white placeholder:text-gray-400"
-                />
+                <div className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-3 py-2.5 w-[190px]">
+                  <Search className="w-3.5 h-3.5 text-[#52698F]" />
+                  <input
+                    type="text"
+                    placeholder="Search by keyword"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full text-[10px] outline-none bg-transparent text-[#010E30] dark:text-white placeholder:text-gray-400"
+                  />
+                </div>
+                <button
+                  onClick={handleOpenFilter}
+                  className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-4 py-2.5 text-[11px] text-[#010E30] dark:text-white"
+                >
+                  <MdTune className="w-4 h-4" />
+                  Filter
+                </button>
+                <button
+                  className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-3 py-2.5 text-[11px] text-[#010E30] dark:text-white"
+                >
+                  All Subjects
+                  <ChevronDown className="w-3 h-3" />
+                </button>
               </div>
-
-              {activeTab === "teachers" && (
-                <>
-                  {/* Filter */}
-                  <button
-                    onClick={handleOpenFilter}
-                    className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-4 py-2.5 text-[11px] text-[#010E30] dark:text-white"
-                  >
-                    <MdTune className="w-4 h-4" />
-                    Filter
-                  </button>
-
-                  {/* Subject Dropdown */}
-                  <button
-                    className="flex items-center gap-2 bg-white dark:bg-[#292929] rounded-lg px-3 py-2.5 text-[11px] text-[#010E30] dark:text-white"
-                  >
-                    All Subjects
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
-                </>
-              )}
-            </div>
             )}
           </div>
 
@@ -639,7 +671,113 @@ return (
             </div>
           )}
 
-          {activeTab === "scheduled" ||
+          {activeTab === "feedback" ? (
+            <div className="w-full overflow-x-auto rounded-lg">
+              <table className="w-full min-w-[950px] table-fixed border-collapse">
+                <thead>
+                  <tr className="bg-[#526D96] text-left text-[11px] text-white">
+                    <th className="w-[11%] px-3 py-3 font-medium">Class Id</th>
+                    <th className="w-[12%] px-3 py-3 font-medium">Review</th>
+                    <th className="w-[15%] px-3 py-3 font-medium">Teacher Name</th>
+                    <th className="w-[29%] px-3 py-3 font-medium">Feedback</th>
+                    <th className="w-[17%] px-3 py-3 font-medium">Class</th>
+                    <th className="w-[11%] px-3 py-3 font-medium">Rating</th>
+                    <th className="w-[5%] px-3 py-3 text-center font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentFeedbacks.length ? (
+                    currentFeedbacks.map((item, index) => (
+                      <tr
+                        key={`${item.id}-${index}`}
+                        className={`text-[11px] text-[#010E30] dark:text-white ${
+                          index % 2 === 0
+                            ? "bg-white dark:bg-[#343434]"
+                            : "bg-[#F5F5F5] dark:bg-[#2D2D2D]"
+                        }`}
+                      >
+                        <td className="whitespace-nowrap px-3 py-4">{item.id}</td>
+                        <td className="px-3 py-4">
+                          <div className="flex -space-x-2">
+                            {["#E8A17D", "#5A78A8", "#D9A86C", "#83A7A1", "#C4C4C4"].map(
+                              (color, avatarIndex) => (
+                                <span
+                                  key={avatarIndex}
+                                  className="h-8 w-8 rounded-full border-2 border-white dark:border-[#343434]"
+                                  style={{ backgroundColor: color }}
+                                />
+                              )
+                            )}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4">{item.teacher}</td>
+                        <td className="px-3 py-4 leading-4">{item.feedback}</td>
+                        <td className="px-3 py-4">
+                          <div className="font-semibold">{item.className}</div>
+                          <div className="mt-1 text-[10px] text-[#9A9A9A]">
+                            {item.date} · {item.courseType}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4">
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <FaStar
+                                key={star}
+                                className={`h-3 w-3 ${
+                                  item.rating >= star
+                                    ? "text-[#FAAB3C]"
+                                    : "text-gray-300"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 text-center">
+                          <div className="relative inline-block">
+                            <button
+                              type="button"
+                              title="Feedback actions"
+                              aria-label={`Actions for feedback from ${item.teacher}`}
+                              aria-expanded={openFeedbackActionId === `${item.id}-${index}`}
+                              onClick={() => {
+                                const feedbackId = `${item.id}-${index}`;
+                                setOpenFeedbackActionId(
+                                  openFeedbackActionId === feedbackId ? null : feedbackId
+                                );
+                              }}
+                              className="p-1 text-[#52698F] hover:text-[#576CBC]"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                            {openFeedbackActionId === `${item.id}-${index}` && (
+                              <div className="absolute right-0 top-full z-20 mt-1 w-32 rounded-md border border-gray-200 bg-white py-1 text-left shadow-lg dark:border-gray-600 dark:bg-[#252525]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedFeedbackDetails(item);
+                                    setOpenFeedbackActionId(null);
+                                  }}
+                                  className="block w-full px-3 py-2 text-xs text-[#010E30] hover:bg-gray-100 dark:text-white dark:hover:bg-[#343434]"
+                                >
+                                  View Details
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-xs text-gray-500">
+                        No feedback found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : activeTab === "scheduled" ||
           activeTab === "completed" ||
           activeTab === "cancelled" ? (
             <div className="w-full overflow-x-auto rounded-lg">
@@ -654,6 +792,12 @@ return (
                     <th className="px-3 py-3 font-medium">Date</th>
                     <th className="px-3 py-3 font-medium">Time</th>
                     <th className="px-3 py-3 font-medium">Type</th>
+                    {activeTab === "scheduled" && (
+                      <>
+                        <th className="px-3 py-3 font-medium">Link</th>
+                        <th className="px-3 py-3 font-medium">Status</th>
+                      </>
+                    )}
                     <th className="px-3 py-3 font-medium text-center">
                     Action
                   </th>
@@ -704,40 +848,70 @@ return (
                           <td className="px-3 py-3 whitespace-nowrap">
                             {schedule.package || "Regular"}
                           </td>
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            {schedule.classLink ? (
-                              <a
-                                href={schedule.classLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[#576CBC]"
-                              >
-                                Open
-                              </a>
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <span
-                              className={`inline-flex px-3 py-1 rounded-md text-[9px] font-medium ${
-                                status === "Ongoing"
-                                  ? "bg-[#F3F6FF] text-[#576CBC]"
-                                  : status === "Cancelled"
-                                  ? "bg-[#FCECEC] text-red-500"
-                                  : "bg-[#ECFDF3] text-green-700"
-                              }`}
-                            >
-                              {status}
-                            </span>
-                          </td>
+                          {activeTab === "scheduled" && (
+                            <>
+                              <td className="px-3 py-3 whitespace-nowrap">
+                                {schedule.classLink ? (
+                                  <a
+                                    href={schedule.classLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[#576CBC]"
+                                  >
+                                    Open
+                                  </a>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex px-3 py-1 rounded-md text-[9px] font-medium ${
+                                    status === "Ongoing"
+                                      ? "bg-[#F3F6FF] text-[#576CBC]"
+                                      : status === "Cancelled"
+                                      ? "bg-[#FCECEC] text-red-500"
+                                      : "bg-[#ECFDF3] text-green-700"
+                                  }`}
+                                >
+                                  {status}
+                                </span>
+                              </td>
+                            </>
+                          )}
                           <td className="px-3 py-3 text-center">
-                            <button
-                              title="View class"
-                              className="p-1 text-gray-500 hover:text-[#576CBC]"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
+                            <div className="relative inline-block">
+                              <button
+                                type="button"
+                                title="Class actions"
+                                aria-label={`Actions for class ${schedule.classId || schedule._id}`}
+                                aria-expanded={openClassActionId === schedule._id}
+                                onClick={() =>
+                                  setOpenClassActionId(
+                                    openClassActionId === schedule._id
+                                      ? null
+                                      : schedule._id
+                                  )
+                                }
+                                className="p-1 text-gray-500 hover:text-[#576CBC]"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {openClassActionId === schedule._id && (
+                                <div className="absolute right-0 top-full z-20 mt-1 w-32 rounded-md border border-gray-200 bg-white py-1 text-left shadow-lg dark:border-gray-600 dark:bg-[#252525]">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedClassDetails(schedule);
+                                      setOpenClassActionId(null);
+                                    }}
+                                    className="block w-full px-3 py-2 text-xs text-[#010E30] hover:bg-gray-100 dark:text-white dark:hover:bg-[#343434]"
+                                  >
+                                    View Details
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -745,7 +919,7 @@ return (
                   ) : (
                     <tr>
                       <td
-                        colSpan={11}
+                        colSpan={activeTab === "scheduled" ? 11 : 9}
                         className="text-center py-10 text-gray-500 text-xs"
                       >
                         No {activeTab} classes found
@@ -759,7 +933,7 @@ return (
           /* Teachers Table */
           <div className="w-full overflow-x-auto rounded-lg">
 
-            <table className="w-full min-w-[1050px] border-collapse">
+            <table className="w-full border-collapse">
 
               {/* Table Header */}
               <thead>
@@ -935,6 +1109,151 @@ return (
           )}
 
         </div>
+
+        {selectedClassDetails && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setSelectedClassDetails(null);
+              }
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="class-details-title"
+              className="relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-[#252525]"
+            >
+              <button
+                type="button"
+                aria-label="Close class details"
+                onClick={() => setSelectedClassDetails(null)}
+                className="absolute right-4 top-3 text-2xl text-gray-500 hover:text-gray-800 dark:hover:text-white"
+              >
+                &times;
+              </button>
+              <h2
+                id="class-details-title"
+                className="mb-5 text-lg font-semibold text-[#010E30] dark:text-white"
+              >
+                Class Details
+              </h2>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                {[
+                  ["Class ID", selectedClassDetails.classId || selectedClassDetails._id],
+                  ["Teacher", selectedClassDetails.teacher?.teacherName],
+                  ["Student", `${selectedClassDetails.student?.studentFirstName || ""} ${selectedClassDetails.student?.studentLastName || ""}`.trim()],
+                  ["Course", selectedClassDetails.course?.courseName],
+                  ["Class Type", selectedClassDetails.classType || "Regular Class"],
+                  ["Class Topic", selectedClassDetails.subject || selectedClassDetails.classTopic],
+                  ["Date", selectedClassDetails.startDate ? new Date(selectedClassDetails.startDate).toLocaleDateString() : ""],
+                  ["Time", selectedClassDetails.startTime?.length ? selectedClassDetails.startTime.map((time: string, index: number) => `${time} - ${selectedClassDetails.endTime?.[index] || "-"}`).join(", ") : ""],
+                  ["Type", selectedClassDetails.package],
+                  ["Status", selectedClassDetails.scheduleStatus],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs text-gray-500 dark:text-gray-400">{label}</dt>
+                    <dd className="mt-1 break-words font-medium text-[#010E30] dark:text-white">
+                      {value || "-"}
+                    </dd>
+                  </div>
+                ))}
+                {selectedClassDetails.classLink && (
+                  <div>
+                    <dt className="text-xs text-gray-500 dark:text-gray-400">Class Link</dt>
+                    <dd className="mt-1">
+                      <a
+                        href={selectedClassDetails.classLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all font-medium text-[#576CBC] hover:underline"
+                      >
+                        {selectedClassDetails.classLink}
+                      </a>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          </div>
+        )}
+
+        {selectedFeedbackDetails && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setSelectedFeedbackDetails(null);
+              }
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="feedback-details-title"
+              className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-[#252525]"
+            >
+              <button
+                type="button"
+                aria-label="Close feedback details"
+                onClick={() => setSelectedFeedbackDetails(null)}
+                className="absolute right-4 top-3 text-2xl text-gray-500 hover:text-gray-800 dark:hover:text-white"
+              >
+                &times;
+              </button>
+              <h2
+                id="feedback-details-title"
+                className="mb-5 text-lg font-semibold text-[#010E30] dark:text-white"
+              >
+                Feedback Details
+              </h2>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                {[
+                  ["Class ID", selectedFeedbackDetails.id],
+                  ["Teacher Name", selectedFeedbackDetails.teacher],
+                  ["Class", selectedFeedbackDetails.className],
+                  ["Date", selectedFeedbackDetails.date],
+                  ["Type", selectedFeedbackDetails.courseType],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs text-gray-500 dark:text-gray-400">
+                      {label}
+                    </dt>
+                    <dd className="mt-1 break-words font-medium text-[#010E30] dark:text-white">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+                <div>
+                  <dt className="text-xs text-gray-500 dark:text-gray-400">
+                    Rating
+                  </dt>
+                  <dd className="mt-1 flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <FaStar
+                        key={star}
+                        className={`h-4 w-4 ${
+                          selectedFeedbackDetails.rating >= star
+                            ? "text-[#FAAB3C]"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    ))}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-xs text-gray-500 dark:text-gray-400">
+                    Feedback
+                  </dt>
+                  <dd className="mt-1 leading-5 text-[#010E30] dark:text-white">
+                    {selectedFeedbackDetails.feedback}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+        )}
 
         {/* Pagination */}
         <div className="flex justify-end mt-3">
