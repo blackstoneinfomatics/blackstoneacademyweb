@@ -12,9 +12,9 @@ interface RescheduleScheduleDetails {
   previousInterviewTime?: string;
   previousInterviewMode?: string;
   previousInterviewPlatform?: string;
-  rescheduledBy?: string;
+  createdBy?: string;
   rescheduledAt?: string;
-  rescheduledReason?: string;
+  rescheduleReason?: string;
   updatedAt?: string;
 }
 
@@ -43,10 +43,10 @@ interface RescheduleDetailsApplicant {
   previousInterviewTime?: string;
   previousInterviewMode?: string;
   previousInterviewPlatform?: string;
-  rescheduledBy?: string;
+  createdBy?: string;
   rescheduledAt?: string;
   rescheduledDate?: string;
-  rescheduledReason?: string;
+  rescheduleReason?: string;
 }
 
 interface RescheduleDetailsModalProps {
@@ -140,9 +140,9 @@ export default function RescheduleDetailsModal({
   const previousTime =
     schedule?.previousInterviewTime ?? applicant.previousInterviewTime;
   const previousMode =
-    schedule?.previousInterviewMode ?? applicant.previousInterviewMode;
+    schedule?.previousInterviewMode ?? applicant.interviewMode;
   const previousPlatform =
-    schedule?.previousInterviewPlatform ?? applicant.previousInterviewPlatform;
+    schedule?.previousInterviewPlatform ?? applicant.interviewPlatform;
   const rescheduledDate =
     schedule?.interviewDate ??
     applicant.interviewDate ??
@@ -155,14 +155,14 @@ export default function RescheduleDetailsModal({
     schedule?.interviewPlatform ?? applicant.interviewPlatform;
   const meetingLink =
     schedule?.interviewmeetinglink ?? applicant.interviewmeetinglink;
-  const rescheduledBy =
-    schedule?.rescheduledBy ?? applicant.rescheduledBy;
+  const createdBy =
+    schedule?.createdBy ?? applicant.createdBy;
   const rescheduledAt =
     schedule?.rescheduledAt ??
     applicant.rescheduledAt ??
     schedule?.updatedAt;
-  const reason =
-    schedule?.rescheduledReason ?? applicant.rescheduledReason;
+  const rescheduleReason =
+    schedule?.rescheduleReason ?? applicant.rescheduleReason;
   const hasAttachment = Boolean(applicant.uploadResume);
 
   return (
@@ -306,9 +306,9 @@ export default function RescheduleDetailsModal({
             Reschedule Information
           </h3>
           <dl className="grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-3">
-            <Detail label="Rescheduled By" value={display(rescheduledBy)} />
+            <Detail label="Rescheduled By" value={display(createdBy)} />
             <Detail label="Rescheduled Date" value={formatDate(rescheduledAt)} />
-            <Detail label="Reschedule Reason" value={display(reason)} />
+            <Detail label="Reschedule Reason" value={display(rescheduleReason)} />
           </dl>
         </section>
       </section>

@@ -20,7 +20,7 @@ interface WaitingApplicant {
   createdBy?: string;
   waitingSince?: string;
   waitingRemarks?: string;
-  comments?: string;
+  InterviewRemarks?: string;
   changeHistory?: Array<{
     field?: string;
     oldValue?: string;
@@ -202,7 +202,7 @@ export default function WaitingApplicantDetailsModal({
                   Waiting List Remarks
                 </dt>
                 <dd className="break-words text-[11px] leading-relaxed text-[#3D4A64] dark:text-[#D6D6D6]">
-                  {displayValue(applicant.waitingRemarks ?? applicant.comments)}
+                  {displayValue(applicant.InterviewRemarks)}
                 </dd>
               </div>
             </dl>

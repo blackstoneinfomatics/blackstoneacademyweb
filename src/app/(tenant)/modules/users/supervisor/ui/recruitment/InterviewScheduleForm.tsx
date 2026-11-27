@@ -28,7 +28,13 @@ interface InterviewScheduleFormProps {
   onClose: () => void;
   onSubmit: () => void;
 }
-
+function formatExperience(value?: number | string) {
+  if (value === undefined || value === null || value === "") return "—";
+  const numericValue = Number(value);
+  return Number.isNaN(numericValue)
+    ? value
+    : numericValue.toFixed(1);
+}
 export default function InterviewScheduleForm({
   applicant,
   date,
@@ -84,10 +90,12 @@ export default function InterviewScheduleForm({
               </div>
               <p className="mt-1 text-[11px] text-[#747476] dark:text-[#D6D6D6]">
                 Experience:{" "}
-                {applicant.teachingExperience ??
-                  applicant.experience ??
-                  applicant.supervisor?.teachingExperience ??
-                  "—"}
+                {formatExperience(
+                  applicant.teachingExperience ??
+                    applicant.experience ??
+                    applicant.supervisor?.teachingExperience ??
+                    "—"
+                )}
               </p>
             </div>
           </div>

@@ -437,21 +437,6 @@ function dateToIso(value: string): string {
   return value ? new Date(`${value}T00:00:00.000Z`).toISOString() : "";
 }
 
-async function fileToDataUrl(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunkEnd = Math.min(offset + chunkSize, bytes.length);
-    const characterCodes: number[] = [];
-    for (let index = offset; index < chunkEnd; index += 1) {
-      characterCodes.push(bytes[index]);
-    }
-    binary += String.fromCharCode.apply(null, characterCodes);
-  }
-  return `data:${file.type || "application/octet-stream"};base64,${btoa(binary)}`;
-}
-
 export default function AddApplicants({ onClose }: Props) {
   const steps = [
     "Applicant details",
@@ -742,9 +727,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       "More than 30 days": "more than 30 days",
     } as Record<string, string>)[addApplicantForm.joiningAvailability] ||
       addApplicantForm.joiningAvailability;
-    const resumeData = addApplicantForm.resume
-      ? await fileToDataUrl(addApplicantForm.resume)
-      : "";
     const payload = {
       tenantId,
       candidateFirstName: addApplicantForm.firstName.trim(),
@@ -790,17 +772,32 @@ const handleSubmit = async (e: React.FormEvent) => {
       candidateCity,
       currency,
       expectedSalary: Number(addApplicantForm.expectedSalary),
-      uploadResume: resumeData,
       createdDate: new Date().toISOString(),
       createdBy,
     };
 
+    const requestData = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      requestData.append(
+        key,
+        value !== null && typeof value === "object"
+          ? JSON.stringify(value)
+          : String(value ?? "")
+      );
+    });
+    if (addApplicantForm.resume) {
+      requestData.append(
+        "uploadResume",
+        addApplicantForm.resume,
+        addApplicantForm.resume.name
+      );
+    }
+
     const response = await axios.post(
       `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.RECRUITMENT.CREATE_SUPERVISOR_RECRUIT}`,
-      payload,
+      requestData,
       {
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       }
@@ -1131,30 +1128,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           </button>
         </div>
 
-        <div className="mb-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-black dark:text-white">
-              Application Progress
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Section {currentStep} of {steps.length}
-            </p>
-          </div>
-          <div
-            className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
-            role="progressbar"
-            aria-label="Application progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round((currentStep / steps.length) * 100)}
-          >
-            <div
-              className="h-full rounded-full bg-[#576CBC] transition-all"
-              style={{ width: `${(currentStep / steps.length) * 100}%` }}
-            />
-          </div>
-        </div>
-
+L
         <div className="space-y-4">
           {currentStep === 1 && (
             <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700 sm:p-4">

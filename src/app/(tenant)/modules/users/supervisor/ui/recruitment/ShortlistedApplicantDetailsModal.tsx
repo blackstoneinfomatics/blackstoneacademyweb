@@ -26,7 +26,7 @@ interface ShortlistedApplicantDetails {
     interviewPlatform?: string;
   };
   platform?: string;
-  comments?: string;
+  InterviewRemarks?: string;
   shortlistedBy?: string;
   createdBy?: string;
   shortlistedDate?: string;
@@ -126,7 +126,7 @@ export default function ShortlistedApplicantDetailsModal({
         ["Salary Type", applicant.salaryType],
         ["Fixed Salary", expectedSalary],
         ["Platform", platform],
-        ["Interview Remarks", applicant.comments],
+        ["Interview Remarks", applicant.InterviewRemarks],
       ],
     },
     {

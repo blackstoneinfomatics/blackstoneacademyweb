@@ -19,8 +19,8 @@ interface RejectedApplicant {
   candidateCountry?: string;
   rejectedBy?: string;
   rejectedByEmail?: string;
-  rejectionReason?: string;
-  comments?: string;
+  rejectedReason?: string;
+  InterviewRemarks?: string;
   createdBy?: string;
   supervisor?: {
     supervisorName?: string;
@@ -185,7 +185,7 @@ export default function RejectedApplicantDetailsModal({
                   Rejection Reason
                 </dt>
                 <dd className="break-words text-[11px] text-[#3D4A64] dark:text-[#D6D6D6]">
-                  {displayValue(applicant.rejectionReason ?? applicant.comments)}
+                  {displayValue(applicant.InterviewRemarks)}
                 </dd>
               </div>
             </dl>

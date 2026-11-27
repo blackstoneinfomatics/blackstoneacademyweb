@@ -13,7 +13,7 @@ export type ScheduledApplicantUpdate = {
   expectedSalary: number;
   currentSalary?: number;
   joiningAvailability: string;
-  comments: string;
+  InterviewRemarks: string;
   applicationStatus: "SHORTLISTED" | "REJECTED" | "WAITING";
 };
 
@@ -40,7 +40,7 @@ interface ScheduledApplicant {
   preferedWorkingHours?: string;
   salaryType?: string;
   joiningAvailability?: string;
-  comments?: string;
+  InterviewRemarks?: string;
   technicalSkills?: string[];
   teachingSkills?: string[];
   languages?: string[];
@@ -133,7 +133,7 @@ export default function EditScheduledApplicantForm({
   const [joiningAvailability, setJoiningAvailability] = useState(
     applicant.joiningAvailability ?? ""
   );
-  const [comments, setComments] = useState(applicant.comments ?? "");
+  const [InterviewRemarks, setInterviewRemarks] = useState(applicant.InterviewRemarks ?? "");
   const [applicationStatus, setApplicationStatus] =
     useState<ScheduledApplicantUpdate["applicationStatus"]>(
       applicant.applicationStatus === "REJECTED" ||
@@ -173,7 +173,7 @@ export default function EditScheduledApplicantForm({
         ? { currentSalary: Number(currentSalary) }
         : {}),
       joiningAvailability: joiningAvailability.trim(),
-      comments: comments.trim(),
+      InterviewRemarks: InterviewRemarks.trim(),
       applicationStatus,
     });
   };
@@ -360,11 +360,9 @@ export default function EditScheduledApplicantForm({
                       className={fieldClassName}
                     >
                       <option value="">Select type</option>
-                      <option value="hour">Hour</option>
                       <option value="hourly">Hour</option>
                       <option value="full-time">Full Time</option>
-                      <option value="part-time">Part Time</option>
-                      <option value="contract">Contract</option>
+                      <option value="half-time">Part Time</option>
                     </select>
                   </label>
 
@@ -467,8 +465,8 @@ export default function EditScheduledApplicantForm({
                   <label className="text-[9px] font-medium text-[#0A1737] dark:text-white sm:col-span-2">
                     Interview Remarks
                     <textarea
-                      value={comments}
-                      onChange={(event) => setComments(event.target.value)}
+                      value={InterviewRemarks}
+                      onChange={(event) => setInterviewRemarks(event.target.value)}
                       className="mt-1 min-h-[96px] w-full resize-y rounded-[4px] border border-[#DDE2EC] bg-white p-2 text-[10px] text-[#5D6680] outline-none focus:border-[#5B6FC4] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
                     />
                   </label>
