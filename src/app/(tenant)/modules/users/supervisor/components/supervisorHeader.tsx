@@ -393,7 +393,7 @@ const fetchNotifications = async (token: string) => {
     if (currentSection === "Teacher's List") {
       return (
         <div className="flex gap-2">
-          <button
+          {/* <button
             onClick={() => router.push("/modules/users/supervisor/ui/feedback")}
             className="text-[#5a65d1] border border-[#5a65d1] text-sm font-semibold px-4 py-2 rounded-lg"
           >
@@ -404,7 +404,7 @@ const fetchNotifications = async (token: string) => {
             className="bg-[#6C78F5] hover:bg-[#5a65d1] text-white text-sm px-4 py-2 rounded-lg"
           >
             Scheduled Classes
-          </button>
+          </button> */}
         </div>
       );
     }

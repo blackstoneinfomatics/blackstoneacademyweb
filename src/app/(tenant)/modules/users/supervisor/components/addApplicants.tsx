@@ -199,13 +199,16 @@ function parseResumeText(
   if (phone) {
     const digits = phone.replace(/\D/g, "");
     const explicitCountryCode = phone.trim().startsWith("+");
+    const normalizedDigits = explicitCountryCode
+      ? digits.replace(/^0+(?=\d)/, "")
+      : digits;
     const countryCode = explicitCountryCode
-      ? phoneCountryCodesForDigits(digits, knownPhoneCodes)
+      ? phoneCountryCodesForDigits(normalizedDigits, knownPhoneCodes)
       : { code: "", digits: "" };
     if (!explicitCountryCode || countryCode.code) {
       fields.phoneCountryCode = countryCode.code || fields.phoneCountryCode;
       fields.phone = countryCode.code
-        ? digits.slice(countryCode.digits.length)
+        ? normalizedDigits.slice(countryCode.digits.length)
         : digits;
     }
   }
@@ -512,6 +515,22 @@ const [skillDrafts, setSkillDrafts] = useState<SkillDrafts>({
   const candidateCity = addressParts[0] || "";
   const currency =
     (addressCountry || phoneCountry)?.currency || "";
+  let currencySymbol = "";
+  if (currency) {
+    try {
+      currencySymbol =
+        new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency,
+          currencyDisplay: "narrowSymbol",
+        })
+          .formatToParts(0)
+          .find((part) => part.type === "currency")?.value || currency;
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+      currencySymbol = currency;
+    }
+  }
   const phoneCountryCodes = Array.from(
     new Set([
       "91",
@@ -780,7 +799,10 @@ const handleSubmit = async (e: React.FormEvent) => {
     Object.entries(payload).forEach(([key, value]) => {
       requestData.append(
         key,
-        value !== null && typeof value === "object"
+        Array.isArray(value) &&
+          (key === "teachingMode" || key === "availableWorkingDays")
+          ? value.join(",")
+          : value !== null && typeof value === "object"
           ? JSON.stringify(value)
           : String(value ?? "")
       );
@@ -1127,8 +1149,6 @@ const handleSubmit = async (e: React.FormEvent) => {
             x
           </button>
         </div>
-
-L
         <div className="space-y-4">
           {currentStep === 1 && (
             <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
@@ -1747,7 +1767,7 @@ L
                 </label>
                 <div className="flex rounded-md border border-[#E0E4EA] dark:border-gray-600">
                   <span className="px-3 py-2 text-xs text-gray-500">
-                    {currency || "Currency"}
+                    {currencySymbol || "Currency"}
                   </span>
                   <input
                     id="currentSalary"
@@ -1770,7 +1790,7 @@ L
                 </label>
                 <div className="flex rounded-md border border-[#E0E4EA] dark:border-gray-600">
                   <span className="px-3 py-2 text-xs text-gray-500">
-                    {currency || "Currency"}
+                    {currencySymbol || "Currency"}
                   </span>
                   <input
                     id="expectedSalary"

@@ -162,7 +162,10 @@ export default function RescheduleDetailsModal({
     applicant.rescheduledAt ??
     schedule?.updatedAt;
   const rescheduleReason =
-    schedule?.rescheduleReason ?? applicant.rescheduleReason;
+    schedule?.rescheduleReason ??
+    schedule?.rescheduleReason ??
+    applicant.rescheduleReason ??
+    applicant.rescheduleReason;
   const hasAttachment = Boolean(applicant.uploadResume);
 
   return (

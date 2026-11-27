@@ -7,6 +7,7 @@ interface RescheduleApplicant {
   candidateLastName: string;
   position: string;
   interviewMode?: string;
+  rescheduleReason?: string;
   experience?: number | string;
   teachingExperience?: number | string;
   supervisor?: {
@@ -160,7 +161,7 @@ export default function InterviewReScheduleForm({
                 onChange={(event) => onPlatformChange(event.target.value)}
                 className="mt-1 h-8 w-full rounded-md border border-[#E0E4EA] bg-white px-2 text-[11px] font-normal text-[#34415F] outline-none focus:border-[#5B6FC4] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
               >
-                {/* <option>Google Meet</option> */}
+                <option>-- Select Platform --</option>
                 <option>Zoom</option>
               </select>
             </label>

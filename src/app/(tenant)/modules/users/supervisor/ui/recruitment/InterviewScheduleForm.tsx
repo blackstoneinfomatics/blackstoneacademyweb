@@ -141,7 +141,7 @@ export default function InterviewScheduleForm({
                 onChange={(event) => onPlatformChange(event.target.value)}
                 className="mt-1.5 h-8 w-full rounded-md border border-[#E0E4EA] bg-white px-2 text-xs font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
               >
-                {/* <option>Google Meet</option> */}
+                <option>-- Select Platform --</option>
                 <option>Zoom</option>
               </select>
             </label>

@@ -85,7 +85,7 @@ interface Applicant {
   languageProficiency?: string[];
   professionalExperience?: ProfessionalExperience[];
   interviewSchedule?: InterviewSchedule;
-  rescheduledReason?: string;
+  rescheduleReason?: string;
   interviewMode?: string;
   __v?: number;
   employmentType?: string;
@@ -171,7 +171,7 @@ interface InterviewSchedule {
   interviewPlatform?: string;
   interviewMode?: string;
   interviewmeetinglink?: string;
-  rescheduledReason?: string;
+  rescheduleReason?: string;
   previousInterviewDate?: string;
   previousInterviewTime?: string;
   previousInterviewMode?: string;
@@ -552,7 +552,7 @@ export default function ApplicantsPage() {
   const [interviewTime, setInterviewTime] = useState("");
   const [interviewMode, setInterviewMode] = useState("online");
   const [interviewPlatform, setInterviewPlatform] = useState("Google Meet");
-  const [rescheduledReason, setRescheduledReason] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
   const [isSchedulingInterview, setIsSchedulingInterview] = useState(false);
   const [isReschedulingInterview, setIsReschedulingInterview] = useState(false);
 
@@ -1428,9 +1428,9 @@ export default function ApplicantsPage() {
         ? interview?.interviewPlatform ?? applicant.platform ?? "Google Meet"
         : "Google Meet"
     );
-    setRescheduledReason(
+    setRescheduleReason(
       reschedule
-        ? interview?.rescheduledReason ?? applicant.rescheduledReason ?? ""
+        ? interview?.rescheduleReason ?? applicant.rescheduleReason ?? ""
         : ""
     );
     setIsReschedulingInterview(reschedule);
@@ -1439,7 +1439,7 @@ export default function ApplicantsPage() {
 
   const closeScheduleInterview = () => {
     setScheduleApplicant(null);
-    setRescheduledReason("");
+    setRescheduleReason("");
     setIsReschedulingInterview(false);
   };
 
@@ -1452,7 +1452,7 @@ export default function ApplicantsPage() {
       setFailedMessage("Interview date and time are required");
       return;
     }
-    if (isReschedulingInterview && !rescheduledReason.trim()) {
+    if (isReschedulingInterview && !rescheduleReason.trim()) {
       setFailed(true);
       setFailedMessage("Please provide a reason for rescheduling");
       return;
@@ -1490,6 +1490,7 @@ export default function ApplicantsPage() {
             interviewTime: trimmedInterviewTime,
             interviewPlatform,
             interviewMode,
+            rescheduleReason: rescheduleReason.trim(),
           },
           {
             headers: {
@@ -1525,7 +1526,7 @@ export default function ApplicantsPage() {
           : "Interview scheduled successfully"
       );
       setScheduleApplicant(null);
-      setRescheduledReason("");
+      setRescheduleReason("");
       setIsReschedulingInterview(false);
       fetchApplicants();
     } catch (error) {
@@ -2084,13 +2085,13 @@ const handlesendupdate = async (id: string, status: string) => {
         isReschedulingInterview ? (
           <InterviewForm
             applicant={scheduleApplicant}
-            reason={rescheduledReason}
+            reason={rescheduleReason}
             date={interviewDate}
             time={interviewTime}
             mode={interviewMode}
             platform={interviewPlatform}
             isSubmitting={isSchedulingInterview}
-            onReasonChange={setRescheduledReason}
+            onReasonChange={setRescheduleReason}
             onDateChange={setInterviewDate}
             onTimeChange={setInterviewTime}
             onModeChange={setInterviewMode}
@@ -2485,7 +2486,7 @@ const handlesendupdate = async (id: string, status: string) => {
                     ))
                   ) : (
                     <p className="border-t border-[#EEF0F3] pt-2 text-[12px] text-[#010e30] dark:border-[#5F5959] dark:text-[#D6D6D6]">
-                      No experience details provided
+                      {/* No experience details provided */}
                     </p>
                   )}
                 </section>
