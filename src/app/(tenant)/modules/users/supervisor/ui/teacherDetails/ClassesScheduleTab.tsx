@@ -20,12 +20,33 @@ type ClassRow = {
   classTopic: string;
   date: string;
   time: string;
+  startTime: string;
   type: string;
   link: string;
   status: string;
+  classStatus: string;
+  teacherName: string;
+  endTime: string;
+  duration: string;
+  platform: string;
+  totalStudents: string;
+  present: string;
+  absent: string;
+  description: string;
 };
 
-type ClassFilters = Omit<ClassRow, "id">;
+type ClassFilters = Pick<
+  ClassRow,
+  | "batch"
+  | "courseName"
+  | "classType"
+  | "classTopic"
+  | "date"
+  | "time"
+  | "type"
+  | "link"
+  | "status"
+>;
 
 const emptyFilters = (): ClassFilters => ({
   batch: "",
@@ -43,6 +64,11 @@ const toText = (value: unknown): string => {
   return value == null ? "" : String(value);
 };
 
+const nestedText = (value: unknown, key: string): string => {
+  if (typeof value !== "object" || value === null) return "";
+  return toText((value as Record<string, unknown>)[key]);
+};
+
 const PAGE_SIZE = 5;
 
 export default function ClassesScheduleTab({
@@ -55,6 +81,7 @@ export default function ClassesScheduleTab({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<ClassRow | null>(null);
 
   // Map API response to table data
   const classList: ClassRow[] = useMemo(() => {
@@ -66,7 +93,9 @@ export default function ClassesScheduleTab({
       return {
         id: toText(data._id || data.id || index),
         batch: toText(data.batchName || data.batch),
-        courseName: toText(data.courseName || data.course),
+        courseName: toText(
+          data.courseName || nestedText(data.course, "courseName") || data.course
+        ),
         classType: toText(data.classType || data.sessionClassType),
         classTopic: toText(data.classTopic || data.topic),
         date: toText(data.date || data.classDate || data.startDate),
@@ -76,6 +105,8 @@ export default function ClassesScheduleTab({
               .filter(Boolean)
               .join(" - ")
         ),
+        startTime: toText(data.startTime),
+        endTime: toText(data.endTime),
         type: toText(data.type || data.classMode),
         link: toText(data.classLink || data.link),
         status: toText(
@@ -83,6 +114,28 @@ export default function ClassesScheduleTab({
             data.scheduleStatus ||
             data.status
         ),
+        classStatus: toText(data.scheduleStatus || data.status),
+        teacherName: toText(
+          data.teacherName || nestedText(data.teacher, "teacherName")
+        ),
+        duration: toText(data.duration || data.totalHourse || data.totalHours),
+        platform: toText(data.platform || data.meetingPlatform),
+        totalStudents: toText(
+          data.totalStudents ||
+            data.studentCount ||
+            nestedText(data.attendance, "totalStudents")
+        ),
+        present: toText(
+          data.present ||
+            data.presentCount ||
+            nestedText(data.attendance, "present")
+        ),
+        absent: toText(
+          data.absent ||
+            data.absentCount ||
+            nestedText(data.attendance, "absent")
+        ),
+        description: toText(data.classDescription || data.description),
       };
     });
   }, [classes]);
@@ -162,9 +215,14 @@ export default function ClassesScheduleTab({
   const handleAction = (action: string, item: ClassRow) => {
     setActiveMenu(null);
 
+    if (action === "View") {
+      setSelectedClass(item);
+      return;
+    }
+
     console.log(action, item);
 
-    // Bind your View, Reschedule and Cancel actions here.
+    // Bind your Reschedule and Cancel actions here.
   };
 
   return (
@@ -359,13 +417,13 @@ export default function ClassesScheduleTab({
                           />
 
                           <div
-                            className={`absolute right-8 z-50 w-32 rounded-lg border border-[#e7eaf2] bg-white p-1 text-left shadow-md dark:border-[#454a57] dark:bg-[#30343f] ${
+                            className={`absolute right-12 z-50 w-24 rounded-lg border border-[#e7eaf2] bg-white text-left shadow-md dark:border-[#454a57] dark:bg-[#30343f] ${
                               index >= paginatedClasses.length - 2
                                 ? "bottom-9"
                                 : "top-9"
                             }`}
                           >
-                            {["View", "Reschedule", "Cancel"].map(
+                            {["View"].map(
                               (action) => (
                                 <button
                                   key={action}
@@ -373,7 +431,7 @@ export default function ClassesScheduleTab({
                                   onClick={() =>
                                     handleAction(action, item)
                                   }
-                                  className={`block w-full rounded-md px-3 py-2 text-left text-xs hover:bg-[#f0f1f8] dark:hover:bg-[#454a57] ${
+                                  className={`block w-full rounded-md px-1 py-1 text-center text-xs hover:bg-[#f0f1f8] dark:hover:bg-[#454a57] ${
                                     action === "Cancel"
                                       ? "text-red-500"
                                       : "text-[#35415e] dark:text-gray-300"
@@ -394,6 +452,98 @@ export default function ClassesScheduleTab({
           </table>
         </div>
       </section>
+
+      {selectedClass && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-3"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedClass(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="class-details-title"
+            className="max-h-[90vh] w-full max-w-[660px] overflow-y-auto rounded-xl bg-white p-3 shadow-2xl dark:bg-[#30343f] sm:p-4"
+          >
+            <header className="mb-3 flex items-center justify-between gap-3">
+              <h2
+                id="class-details-title"
+                className="text-base font-semibold text-[#111827] dark:text-white"
+              >
+                Classes and Schedule Details
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedClass(null)}
+                aria-label="Close class details"
+                className="rounded-full p-1.5 text-[#64748b] hover:bg-[#f1f5f9] dark:hover:bg-[#424957]"
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="space-y-2.5">
+              <DetailSection title="Basic Class Information">
+                <DetailItem label="Class Topic" value={selectedClass.classTopic} />
+                <DetailItem label="Course Name" value={selectedClass.courseName} />
+                <DetailItem label="Batch Name" value={selectedClass.batch} />
+                <DetailItem label="Teacher Name" value={selectedClass.teacherName} />
+                <DetailItem label="Class Type" value={selectedClass.classType} />
+                <DetailItem
+                  label="Class Status"
+                  value={selectedClass.classStatus}
+                  status
+                />
+              </DetailSection>
+
+              <DetailSection title="Schedule Information">
+                <DetailItem label="Class Date" value={formatDate(selectedClass.date)} />
+                <DetailItem
+                  label="Start Time"
+                  value={selectedClass.startTime || selectedClass.time}
+                />
+                <DetailItem label="End Time" value={selectedClass.endTime} />
+                <DetailItem label="Duration" value={selectedClass.duration} />
+                <DetailItem label="Class Mode" value={selectedClass.type} />
+                <DetailItem label="Platform" value={selectedClass.platform} />
+              </DetailSection>
+
+              <DetailSection title="Attendance Information">
+                <DetailItem label="Total Students" value={selectedClass.totalStudents} />
+                <DetailItem label="Present" value={selectedClass.present} accent="green" />
+                <DetailItem label="Absent" value={selectedClass.absent} accent="red" />
+              </DetailSection>
+
+              <DetailSection title="Meeting Information" columns={2}>
+                <div>
+                  <p className="mb-1 text-xs text-[#475569] dark:text-gray-400">
+                    Meeting Link
+                  </p>
+                  {/^https?:\/\//i.test(selectedClass.link) ? (
+                    <a
+                      href={selectedClass.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-sm text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {selectedClass.link}
+                    </a>
+                  ) : (
+                    <p className="text-sm text-[#14203c] dark:text-white">
+                      {selectedClass.link || "—"}
+                    </p>
+                  )}
+                </div>
+                <DetailItem
+                  label="Class Description"
+                  value={selectedClass.description}
+                />
+              </DetailSection>
+            </div>
+          </section>
+        </div>
+      )}
 
       {isFilterOpen && (
         <div
@@ -579,6 +729,66 @@ function FilterField({
         />
       )}
     </label>
+  );
+}
+
+function DetailSection({
+  title,
+  children,
+  columns = 3,
+}: {
+  title: string;
+  children: React.ReactNode;
+  columns?: 2 | 3;
+}) {
+  return (
+    <section className="rounded-lg border border-[#e7eaf2] p-3 dark:border-[#454a57]">
+      <h3 className="mb-3 text-sm font-medium text-[#14203c] dark:text-white">
+        {title}
+      </h3>
+      <div
+        className={`grid gap-x-4 gap-y-3 ${
+          columns === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        }`}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+  status = false,
+  accent,
+}: {
+  label: string;
+  value: string;
+  status?: boolean;
+  accent?: "green" | "red";
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 text-[11px] text-[#475569] dark:text-gray-400">{label}</p>
+      {status && value ? (
+        <span className="inline-flex rounded-full bg-[#e8fbf1] px-2 py-0.5 text-[11px] capitalize text-[#218838] dark:bg-green-500/10 dark:text-green-400">
+          {value}
+        </span>
+      ) : (
+        <p
+          className={`break-words text-[13px] ${
+            accent === "green"
+              ? "text-[#218838] dark:text-green-400"
+              : accent === "red"
+                ? "text-[#ef4444] dark:text-red-400"
+                : "text-[#14203c] dark:text-white"
+          }`}
+        >
+          {value || "—"}
+        </p>
+      )}
+    </div>
   );
 }
 

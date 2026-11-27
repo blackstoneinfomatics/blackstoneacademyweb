@@ -14,6 +14,7 @@ import { ImAttachment } from "react-icons/im";
 import BaseLayout3 from "@/app/(tenant)/modules/users/supervisor/components/BaseLayout3";
 import axios from "axios";
 import { pdfjs } from "react-pdf";
+import { createPortal } from "react-dom";
 import Pagination from "@/components/Pagination";
 
 import SupervisorHeader from "../../components/supervisorHeader";
@@ -27,9 +28,16 @@ import FailedPopup from "../../components/failedPopup";
 import { getSocket } from "@/app/utils/socket";
 import { AppApiEndpoints } from "@/app/_components/contents/api-endpoints";
 import InterviewScheduleForm from "./InterviewScheduleForm";
+import InterviewForm from "./InterviewReScheduleForm";
+import RescheduleDetailsModal from "./RescheduleDetailsModal";
 import EditScheduledApplicantForm, {
   type ScheduledApplicantUpdate,
 } from "./EditScheduledApplicantForm";
+import ShortlistedApplicantDetailsModal from "./ShortlistedApplicantDetailsModal";
+import ApprovedApplicantDetailsModal from "./ApprovedApplicantDetailsModal";
+import RejectedApplicantDetailsModal from "./RejectedApplicantDetailsModal";
+import WaitingApplicantDetailsModal from "./WaitingApplicantDetailsModal";
+import ScheduledDetailsModal from "./ScheduledDetailsModal";
 
 interface Applicant {
   _id: string;
@@ -77,8 +85,12 @@ interface Applicant {
   languageProficiency?: string[];
   professionalExperience?: ProfessionalExperience[];
   interviewSchedule?: InterviewSchedule;
+  rescheduledReason?: string;
+  interviewMode?: string;
   __v?: number;
   employmentType?: string;
+  salaryType?: string;
+  shortlistedBy?: string;
   teachingMode?: string | string[];
   availableWorkingDays?: string[];
   joiningAvailability?: string;
@@ -101,16 +113,25 @@ interface Applicant {
   time?: string;
   previousTime?: string;
   previousInterviewTime?: string;
+  previousInterviewMode?: string;
+  previousInterviewPlatform?: string;
   newTime?: string;
   newInterviewTime?: string;
   rescheduledTime?: string;
+  rescheduledBy?: string;
+  rescheduledAt?: string;
   platform?: string;
   interviewLink?: string;
+  interviewmeetinglink?: string;
   link?: string;
   shortlistedDate?: string;
+  shortlistedAt?: string;
+  changeHistory?: ApplicantChangeHistory[];
   approvedDate?: string;
+  approvedAt?: string;
   joinDate?: string;
   rejectedDate?: string;
+  rejectedAt?: string;
   interviewMarks?: number | string;
   waitingSince?: string;
   supervisor?: {
@@ -130,6 +151,13 @@ interface Applicant {
     supervisorRole?: string;
   };
 }
+interface ApplicantChangeHistory {
+  field?: string;
+  oldValue?: string;
+  newValue?: string;
+  changedBy?: string;
+  changedAt?: string;
+}
 interface InterviewSchedule {
   _id?: string;
   recruitmentId?: string;
@@ -141,9 +169,15 @@ interface InterviewSchedule {
   interviewDate?: string;
   interviewTime?: string;
   interviewPlatform?: string;
+  interviewMode?: string;
   interviewmeetinglink?: string;
+  rescheduledReason?: string;
   previousInterviewDate?: string;
   previousInterviewTime?: string;
+  previousInterviewMode?: string;
+  previousInterviewPlatform?: string;
+  rescheduledBy?: string;
+  rescheduledAt?: string;
   createdAt?: string;
   updatedAt?: string;
   __v?: number;
@@ -209,6 +243,8 @@ interface ApiResponse {
   languageProficiency?: string[];
   experience?: number | string;
   employmentType?: string;
+  salaryType?: string;
+  shortlistedBy?: string;
   teachingMode?: string | string[];
   availableWorkingDays?: string[];
   joiningAvailability?: string;
@@ -217,6 +253,9 @@ interface ApiResponse {
   status: string;
   createdDate?: string;
   createdBy?: string;
+  shortlistedDate?: string;
+  shortlistedAt?: string;
+  changeHistory?: ApplicantChangeHistory[];
   _id: string;
   __v?: number;
   supervisor?: { // Add this if it exists in your response
@@ -247,6 +286,13 @@ const items = Array.from({ length: 100 }, (_, i) => ({
   id: i + 1,
   name: `Item ${i + 1}`,
 }));
+
+function formatExperience(value?: number | string): number | string | undefined {
+  if (value == null || value === "") return value;
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return value;
+  return Number(numericValue.toFixed(1));
+}
 
 const RadioOption: React.FC<RadioOptionProps> = ({
   label,
@@ -317,7 +363,6 @@ const createBlobUrlFromData = (resumeData: any, applicantId: string) => {
   }
 };
 
-// Cleanup function to revoke all blob URLs
 function cleanupBlobUrls(): void {
   blobUrlCache.forEach((url) => {
     try {
@@ -455,13 +500,17 @@ function getResumeBlobUrl(
 }
 
 export default function ApplicantsPage() {
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeTab, setActiveTab] = useState("New Application");
   const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(
     null
   );
   const [parsedSkills, setParsedSkills] = useState<string[]>([]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [Applicantbyid, setApplicantbyid] = useState<ApiResponse | null>(null);
   const [resumeImages, setResumeImages] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -501,7 +550,9 @@ export default function ApplicantsPage() {
     useState(false);
   const [interviewDate, setInterviewDate] = useState("");
   const [interviewTime, setInterviewTime] = useState("");
+  const [interviewMode, setInterviewMode] = useState("online");
   const [interviewPlatform, setInterviewPlatform] = useState("Google Meet");
+  const [rescheduledReason, setRescheduledReason] = useState("");
   const [isSchedulingInterview, setIsSchedulingInterview] = useState(false);
   const [isReschedulingInterview, setIsReschedulingInterview] = useState(false);
 
@@ -523,7 +574,6 @@ export default function ApplicantsPage() {
   const extractSkills = (rawText: string): string[] => {
     // Only keep content before "Accomplishments" or "Certifications"
     const relevantSection = rawText.split(/Accomplishments|Certifications/i)[0];
-    // Match all bullet point items (• React, etc.)
     const matches = relevantSection.match(/•\s*[^•\n]+/g);
     const skills = matches
       ? matches
@@ -588,7 +638,6 @@ export default function ApplicantsPage() {
     }
   };
 
-  // On mount, fetch all applicants
   useEffect(() => {
     fetchApplicants();
   }, []);
@@ -609,7 +658,6 @@ export default function ApplicantsPage() {
   }
 };
 
-  // When Reset is clicked, clear filters and fetch all applicants
   const handleResetFilter = () => {
     setSearchText("");
     setFromDate("");
@@ -692,7 +740,7 @@ export default function ApplicantsPage() {
     };
   }, []);
 
-  const tabs = ["All", "New Application", "Schedule", "Reschedule", "Shortlisted", "Approved", "Rejected", "Waiting"];
+  const tabs = ["New Application", "Schedule", "Reschedule", "Shortlisted", "Approved", "Rejected", "Waiting"];
 
   const applicantStageStatuses: Record<string, string[]> = {
     "New Application": ["NEWAPPLICATION", "NEWAPPLICANT"],
@@ -705,17 +753,6 @@ export default function ApplicantsPage() {
   };
 
   const applicantStageColumns: Record<string, string[]> = {
-    All: [
-      "Applicant Name",
-      "Application Date",
-      "Contact",
-      "Email id",
-      "Position",
-      "Resume",
-      "Status",
-      "Level",
-      "Action",
-    ],
     "New Application": [
       "Applicant Name",
       "Application Date",
@@ -785,7 +822,6 @@ export default function ApplicantsPage() {
       "Applicant Name",
       "Position",
       "Interview Date",
-      "Interview Marks",
       "Waiting Since",
       "Contact",
       "Status",
@@ -829,9 +865,10 @@ export default function ApplicantsPage() {
   };
 
   const filteredApplicants = filterApplicants(
-    activeTab === "All"
-      ? applicants
-      : applicants.filter(
+    // activeTab === "All"
+    //   ? applicants
+    //   :
+       applicants.filter(
           (applicant) => {
             const status = (applicant.applicationStatus ?? applicant.status ?? "")
               .replace(/[\s_-]+/g, "")
@@ -868,10 +905,13 @@ export default function ApplicantsPage() {
       case "Current CTC":
         return applicant.currentSalary ?? applicant.currentCTC ?? "—";
       case "Experience":
-        return applicant.teachingExperience ??
-          applicant.experience ??
-          applicant.supervisor?.teachingExperience ??
-          "—";
+        return (
+          formatExperience(
+            applicant.teachingExperience ??
+              applicant.experience ??
+              applicant.supervisor?.teachingExperience
+          ) ?? "—"
+        );
       case "Contact":
         return applicant.candidatePhoneNumber || "—";
       case "Email id":
@@ -938,17 +978,27 @@ export default function ApplicantsPage() {
       case "Resume":
         return <ResumeLink applicant={applicant} />;
       case "Shortlisted Date":
-        return formatApplicantDate(applicant.shortlistedDate);
+        return formatApplicantDate(
+          applicant.shortlistedAt ?? applicant.shortlistedDate
+        );
       case "Approved Date":
-        return formatApplicantDate(applicant.approvedDate);
+        return formatApplicantDate(applicant.approvedAt);
       case "Join Date":
         return formatApplicantDate(applicant.joinDate);
       case "Rejected Date":
-        return formatApplicantDate(applicant.rejectedDate);
+        return formatApplicantDate(applicant.rejectedAt);
       case "Interview Marks":
         return applicant.interviewMarks ?? "—";
       case "Waiting Since":
-        return formatApplicantDate(applicant.waitingSince);
+        return formatApplicantDate(
+          [...(applicant.changeHistory ?? [])]
+            .reverse()
+            .find(
+              (change) =>
+                change.field === "applicationStatus" &&
+                change.newValue?.toUpperCase() === "WAITING"
+            )?.changedAt ?? applicant.waitingSince
+        );
       case "Status": {
         const applicantStatus =
           applicant.applicationStatus || applicant.status || "—";
@@ -981,85 +1031,175 @@ export default function ApplicantsPage() {
         );
       case "Action":
         return (
-          <div className="relative">
+          <>
             <button
-              onClick={() => handleMenuClick(applicant._id)}
+              onClick={(event) =>
+                handleMenuClick(applicant._id, event.currentTarget)
+              }
               className="p-2 rounded-md"
               aria-label={`Actions for ${applicant.candidateFirstName}`}
+              aria-expanded={openMenuId === applicant._id}
             >
               <MoreVertical className="w-4 h-4 text-slate-600 dark:text-[#FDFDFD]" />
             </button>
-            {openMenuId === applicant._id && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-10 dark:bg-[#252525] dark:text-[#fff]">
-                {activeTab === "Schedule" ? (
-                  <>
-                    <button
-                      onClick={() => handleViewDetails(applicant)}
-                      className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
-                    >
-                      View Details
-                    </button>
-                    <button
-                      onClick={() => openScheduledApplicantEditor(applicant._id)}
-                      className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleScheduleInterview(applicant, true)}
-                      className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
-                    >
-                      Reschedule Interview
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {supervisorId &&
-                      supervisorId ===
-                        String(applicant.supervisor?.supervisorId) &&
-                      applicant.applicationStatus !== "APPROVED" && (
+            {openMenuId === applicant._id &&
+              actionMenuPosition &&
+              typeof document !== "undefined" &&
+              createPortal(
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close actions menu"
+                    className="fixed inset-0 z-[100]"
+                    onClick={() => setOpenMenuId(null)}
+                  />
+                  <div
+                    className="fixed z-[101] w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-[#454a57] dark:bg-[#252525] dark:text-white"
+                    style={{
+                      top: actionMenuPosition.top,
+                      left: actionMenuPosition.left,
+                    }}
+                  >
+                    {activeTab === "Schedule" ? (
+                      <>
                         <button
-                          onClick={() => handleEdit(applicant)}
-                          className="block w-full px-4 py-2 text-left text-[12px] text-slate-600 dark:text-[#fff]"
+                          onClick={() => handleViewDetails(applicant)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => openScheduledApplicantEditor(applicant._id)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
                         >
                           Edit
                         </button>
-                      )}
-                    {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
-                      (applicant.applicationStatus ?? applicant.status ?? "")
-                        .replace(/[\s_-]+/g, "")
-                        .toUpperCase()
-                    ) && (
-                      <button
-                        onClick={() => handleViewDetails(applicant)}
-                        className="block w-full px-4 py-2 text-left text-[12px] text-[#010e30] dark:text-[#fff]"
-                      >
-                        View
-                      </button>
+                        <button
+                          onClick={() => handleScheduleInterview(applicant, true)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          Reschedule Interview
+                        </button>
+                      </>
+                    ) : activeTab === "Reschedule" ? (
+                      <>
+                        <button
+                          onClick={() => handleViewDetails(applicant)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => openScheduledApplicantEditor(applicant._id)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          Edit
+                        </button>
+                      </>
+                    ) : activeTab === "Shortlisted" ? (
+                      <>
+                        <button
+                          onClick={() => handleViewDetails(applicant)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => openScheduledApplicantEditor(applicant._id)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          Edit
+                        </button>
+                      </>
+                    ) : activeTab === "Approved" ? (
+                      <>
+                        <button
+                          onClick={() => handleViewDetails(applicant)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          View Details
+                        </button>
+                      </>
+                    ) : activeTab === "Rejected" ? (
+                      <>
+                        <button
+                          onClick={() => handleViewDetails(applicant)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => openScheduledApplicantEditor(applicant._id)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          Edit
+                        </button>
+                      </>
+                    ) : activeTab === "Waiting" ? (
+                      <>
+                        <button
+                          onClick={() => handleViewDetails(applicant)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => openScheduledApplicantEditor(applicant._id)}
+                          className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010E30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                        >
+                          Edit
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {supervisorId &&
+                          supervisorId ===
+                            String(applicant.supervisor?.supervisorId) &&
+                          applicant.applicationStatus !== "APPROVED" && (
+                            <button
+                              onClick={() => handleEdit(applicant)}
+                              className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-slate-600 hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
+                          (applicant.applicationStatus ?? applicant.status ?? "")
+                            .replace(/[\s_-]+/g, "")
+                            .toUpperCase()
+                        ) && (
+                          <button
+                            onClick={() => handleViewDetails(applicant)}
+                            className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010e30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                          >
+                            View
+                          </button>
+                        )}
+                        {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
+                          (applicant.applicationStatus ?? applicant.status ?? "")
+                            .replace(/[\s_-]+/g, "")
+                            .toUpperCase()
+                        ) && (
+                          <button
+                            onClick={() => handleScheduleInterview(applicant)}
+                            className="block w-full px-3 py-1.5 text-center border-b border-[#d4d4d4] text-[11px] text-[#010e30] hover:bg-slate-50 dark:text-white dark:hover:bg-[#343434]"
+                          >
+                            Schedule Interview
+                          </button>
+                        )}
+                      </>
                     )}
-                    {["NEWAPPLICATION", "NEWAPPLICANT"].includes(
-                      (applicant.applicationStatus ?? applicant.status ?? "")
-                        .replace(/[\s_-]+/g, "")
-                        .toUpperCase()
-                    ) && (
-                      <button
-                        onClick={() => handleScheduleInterview(applicant)}
-                        className="block w-full px-4 py-2 text-left text-[12px] text-[#010e30] dark:text-[#fff]"
-                      >
-                        Schedule Interview
-                      </button>
-                    )}
-                  </>
-                )}
-                <button
-                  onClick={() => setOpenMenuId(null)}
-                  className="block w-full px-4 py-2 text-left text-red-600"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
+                    <button
+                      onClick={() => setOpenMenuId(null)}
+                      className="block w-full px-3 py-1.5 text-center text-[11px] text-red-600 hover:bg-slate-50 dark:hover:bg-[#343434]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>,
+                document.body
+              )}
+          </>
         );
       default:
         return <span className={textClass}>—</span>;
@@ -1093,10 +1233,27 @@ export default function ApplicantsPage() {
     }
   };
 
- const handleMenuClick = async (_id: string) => {
-  setOpenMenuId(openMenuId === _id ? null : _id);
+ const handleMenuClick = async (
+  _id: string,
+  button: HTMLButtonElement
+) => {
+  if (openMenuId === _id) {
+    setOpenMenuId(null);
+    return;
+  }
 
-  if (openMenuId !== _id) {
+  const rect = button.getBoundingClientRect();
+  const menuHeight = activeTab === "Schedule" ? 140 : 160;
+  const openAbove = window.innerHeight - rect.bottom < menuHeight;
+  setActionMenuPosition({
+    top: openAbove
+      ? Math.max(8, rect.top - menuHeight)
+      : rect.bottom + 4,
+    left: Math.max(8, Math.min(rect.right - 176, window.innerWidth - 184)),
+  });
+  setOpenMenuId(_id);
+
+  {
     setApplicantbyid(null);
     setParsedSkills([]);
     setResumeImages(null);
@@ -1124,7 +1281,6 @@ export default function ApplicantsPage() {
       console.log("✅ Applicant data received:", response.data);
       setApplicantbyid(response.data);
 
-      // ✅ Initialize ALL editable fields with actual data from API
       setPreferredWorkingHours(response.data.preferedWorkingHours || "");
       setExpectedSalary(response.data.expectedSalary?.toString() || "");
      
@@ -1156,7 +1312,7 @@ export default function ApplicantsPage() {
         setResumeImages(resumeUrl || null);
       }
 
-      // Debug log to verify all data is loaded
+
       console.log("📥 Loaded applicant data:", {
         preferredWorkingHours: response.data.preferedWorkingHours,
         expectedSalary: response.data.expectedSalary,
@@ -1262,10 +1418,20 @@ export default function ApplicantsPage() {
         ? interview?.interviewTime ?? applicant.interviewTime ?? applicant.time ?? ""
         : ""
     );
+    const savedMode =
+      interview?.interviewMode ?? applicant.interviewMode ?? "online";
+    setInterviewMode(
+      savedMode.toLowerCase() === "offline" ? "offline" : "online"
+    );
     setInterviewPlatform(
       reschedule
         ? interview?.interviewPlatform ?? applicant.platform ?? "Google Meet"
         : "Google Meet"
+    );
+    setRescheduledReason(
+      reschedule
+        ? interview?.rescheduledReason ?? applicant.rescheduledReason ?? ""
+        : ""
     );
     setIsReschedulingInterview(reschedule);
     setOpenMenuId(null);
@@ -1273,6 +1439,7 @@ export default function ApplicantsPage() {
 
   const closeScheduleInterview = () => {
     setScheduleApplicant(null);
+    setRescheduledReason("");
     setIsReschedulingInterview(false);
   };
 
@@ -1283,6 +1450,11 @@ export default function ApplicantsPage() {
     if (!interviewDate || !trimmedInterviewTime) {
       setFailed(true);
       setFailedMessage("Interview date and time are required");
+      return;
+    }
+    if (isReschedulingInterview && !rescheduledReason.trim()) {
+      setFailed(true);
+      setFailedMessage("Please provide a reason for rescheduling");
       return;
     }
 
@@ -1306,7 +1478,28 @@ export default function ApplicantsPage() {
 
     setIsSchedulingInterview(true);
     try {
-      await axios.post(
+      if (isReschedulingInterview) {
+        await axios.put(
+          `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.APPLICANTS.RESCHEDULE_INTERVIEW(
+            scheduleApplicant._id
+          )}`,
+          {
+            interviewDate: new Date(
+              `${interviewDate}T00:00:00.000Z`
+            ).toISOString(),
+            interviewTime: trimmedInterviewTime,
+            interviewPlatform,
+            interviewMode,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      } else {
+        await axios.post(
         `${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.APPLICANTS.CREATE_INTERVIEW_SCHEDULE}`,
         {
           _id: scheduleApplicant._id,
@@ -1314,7 +1507,8 @@ export default function ApplicantsPage() {
             `${interviewDate}T00:00:00.000Z`
           ).toISOString(),
           interviewTime: trimmedInterviewTime,
-          interviewPlatform,
+          interviewMode,
+          ...(interviewMode === "online" ? { interviewPlatform } : {}),
         },
         {
           headers: {
@@ -1322,7 +1516,8 @@ export default function ApplicantsPage() {
             "Content-Type": "application/json",
           },
         }
-      );
+        );
+      }
       setSuccess(true);
       setSuccessMessage(
         isReschedulingInterview
@@ -1330,6 +1525,7 @@ export default function ApplicantsPage() {
           : "Interview scheduled successfully"
       );
       setScheduleApplicant(null);
+      setRescheduledReason("");
       setIsReschedulingInterview(false);
       fetchApplicants();
     } catch (error) {
@@ -1345,10 +1541,32 @@ export default function ApplicantsPage() {
         setFailedMessage(
           responseData?.authorizationPath
             ? `${responseData.message || "Google Meet authorization is required"}. Authorize at: ${responseData.authorizationPath}`
-            : responseData?.message || "Failed to schedule interview"
+            : [
+                responseData?.message,
+                ...(Array.isArray(
+                  (responseData as { errors?: unknown[] } | undefined)?.errors
+                )
+                  ? (
+                      responseData as { errors: Array<{ message?: string; path?: (string | number)[] }> }
+                    ).errors.map((issue) =>
+                      [issue.path?.join("."), issue.message]
+                        .filter(Boolean)
+                        .join(": ")
+                    )
+                  : []),
+              ]
+                .filter(Boolean)
+                .join(". ") ||
+              (isReschedulingInterview
+                ? "Failed to reschedule interview"
+                : "Failed to schedule interview")
         );
       } else {
-        setFailedMessage("Failed to schedule interview");
+        setFailedMessage(
+          isReschedulingInterview
+          ? "Failed to reschedule interview"
+          : "Failed to schedule interview"
+        );
       }
     } finally {
       setIsSchedulingInterview(false);
@@ -1565,7 +1783,7 @@ const handlesendupdate = async (id: string, status: string) => {
   };
 
   const handleDaySelection = (day: string) => {
-    if (mode === "view") return; // Don't allow selection in view mode
+    if (mode === "view") return;
 
     let updated = [...selectedDays];
 
@@ -1863,19 +2081,39 @@ const handlesendupdate = async (id: string, status: string) => {
       )}
 
       {scheduleApplicant && (
-        <InterviewScheduleForm
-          applicant={scheduleApplicant}
-          date={interviewDate}
-          time={interviewTime}
-          platform={interviewPlatform}
-          isRescheduling={isReschedulingInterview}
-          isSubmitting={isSchedulingInterview}
-          onDateChange={setInterviewDate}
-          onTimeChange={setInterviewTime}
-          onPlatformChange={setInterviewPlatform}
-          onClose={closeScheduleInterview}
-          onSubmit={submitScheduleInterview}
-        />
+        isReschedulingInterview ? (
+          <InterviewForm
+            applicant={scheduleApplicant}
+            reason={rescheduledReason}
+            date={interviewDate}
+            time={interviewTime}
+            mode={interviewMode}
+            platform={interviewPlatform}
+            isSubmitting={isSchedulingInterview}
+            onReasonChange={setRescheduledReason}
+            onDateChange={setInterviewDate}
+            onTimeChange={setInterviewTime}
+            onModeChange={setInterviewMode}
+            onPlatformChange={setInterviewPlatform}
+            onClose={closeScheduleInterview}
+            onSubmit={submitScheduleInterview}
+          />
+        ) : (
+          <InterviewScheduleForm
+            applicant={scheduleApplicant}
+            date={interviewDate}
+            time={interviewTime}
+            mode={interviewMode}
+            platform={interviewPlatform}
+            isSubmitting={isSchedulingInterview}
+            onDateChange={setInterviewDate}
+            onTimeChange={setInterviewTime}
+            onModeChange={setInterviewMode}
+            onPlatformChange={setInterviewPlatform}
+            onClose={closeScheduleInterview}
+            onSubmit={submitScheduleInterview}
+          />
+        )
       )}
 
       {editingScheduledApplicant && (
@@ -1894,6 +2132,142 @@ const handlesendupdate = async (id: string, status: string) => {
       )}
 
       {selectedApplicant && mode === "view" && (
+        activeTab === "Schedule" ? (
+          <ScheduledDetailsModal
+            applicant={{
+              ...selectedApplicant,
+              ...(Applicantbyid ?? {}),
+            }}
+            resumeContent={
+              (Applicantbyid?.uploadResume ?? selectedApplicant.uploadResume) ? (
+                <ResumeLink
+                  applicant={{
+                    ...selectedApplicant,
+                    ...(Applicantbyid ?? {}),
+                  }}
+                />
+              ) : undefined
+            }
+            onClose={handleviewclose}
+          />
+        ) : activeTab === "Shortlisted" ? (
+          <ShortlistedApplicantDetailsModal
+            applicant={{
+              ...selectedApplicant,
+              ...(Applicantbyid ?? {}),
+            }}
+            resumeContent={
+              (Applicantbyid?.uploadResume ?? selectedApplicant.uploadResume) ? (
+                <ResumeLink
+                  applicant={{
+                    ...selectedApplicant,
+                    ...(Applicantbyid ?? {}),
+                  }}
+                />
+              ) : undefined
+            }
+            onClose={handleviewclose}
+          />
+        ) : activeTab === "Approved" ? (
+          <ApprovedApplicantDetailsModal
+            applicant={{
+              ...selectedApplicant,
+              ...(Applicantbyid ?? {}),
+            }}
+            resumeContent={
+              (Applicantbyid?.uploadResume ?? selectedApplicant.uploadResume) ? (
+                <ResumeLink
+                  applicant={{
+                    ...selectedApplicant,
+                    ...(Applicantbyid ?? {}),
+                  }}
+                />
+              ) : undefined
+            }
+            onClose={handleviewclose}
+          />
+        ) : activeTab === "Rejected" ? (
+          <RejectedApplicantDetailsModal
+            applicant={{
+              ...selectedApplicant,
+              ...(Applicantbyid ?? {}),
+            }}
+            resumeContent={
+              (Applicantbyid?.uploadResume ?? selectedApplicant.uploadResume) ? (
+                <ResumeLink
+                  applicant={{
+                    ...selectedApplicant,
+                    ...(Applicantbyid ?? {}),
+                  }}
+                />
+              ) : undefined
+            }
+            onClose={handleviewclose}
+          />
+        ) : activeTab === "Waiting" ? (
+          <WaitingApplicantDetailsModal
+            applicant={{
+              ...selectedApplicant,
+              ...(Applicantbyid ?? {}),
+            }}
+            resumeContent={
+              (Applicantbyid?.uploadResume ?? selectedApplicant.uploadResume) ? (
+                <ResumeLink
+                  applicant={{
+                    ...selectedApplicant,
+                    ...(Applicantbyid ?? {}),
+                  }}
+                />
+              ) : undefined
+            }
+            onClose={handleviewclose}
+          />
+        ) : activeTab === "Reschedule" ? (
+          <RescheduleDetailsModal
+            applicant={{
+              ...selectedApplicant,
+              ...(Applicantbyid ?? {}),
+              interviewDate:
+                Applicantbyid?.interviewSchedule?.interviewDate ??
+                selectedApplicant.newInterviewDate ??
+                selectedApplicant.rescheduledDate ??
+                selectedApplicant.interviewDate,
+              interviewTime:
+                Applicantbyid?.interviewSchedule?.interviewTime ??
+                selectedApplicant.newInterviewTime ??
+                selectedApplicant.rescheduledTime ??
+                selectedApplicant.interviewTime ??
+                selectedApplicant.time,
+              interviewMode:
+                Applicantbyid?.interviewSchedule?.interviewMode ??
+                selectedApplicant.interviewMode,
+              interviewPlatform:
+                Applicantbyid?.interviewSchedule?.interviewPlatform ??
+                selectedApplicant.platform,
+              interviewmeetinglink:
+                Applicantbyid?.interviewSchedule?.interviewmeetinglink ??
+                selectedApplicant.interviewLink ??
+                selectedApplicant.link,
+              previousInterviewDate:
+                Applicantbyid?.interviewSchedule?.previousInterviewDate ??
+                selectedApplicant.previousInterviewDate ??
+                selectedApplicant.previousInterviewDateTime ??
+                selectedApplicant.previousDate,
+              previousInterviewTime:
+                Applicantbyid?.interviewSchedule?.previousInterviewTime ??
+                selectedApplicant.previousInterviewTime ??
+                selectedApplicant.previousTime,
+              previousInterviewMode:
+                Applicantbyid?.interviewSchedule?.previousInterviewMode ??
+                selectedApplicant.previousInterviewMode,
+              previousInterviewPlatform:
+                Applicantbyid?.interviewSchedule?.previousInterviewPlatform ??
+                selectedApplicant.previousInterviewPlatform,
+            }}
+            resumeUrl={resumeImages}
+            onClose={handleviewclose}
+          />
+        ) : (
         <>
           <button
             className="fixed inset-0 z-40 bg-black/50"
@@ -1922,7 +2296,7 @@ const handlesendupdate = async (id: string, status: string) => {
               </button>
             </header>
 
-            <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-y-auto md:grid-cols-2">
+            <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-y-scroll scrollbar-thin md:grid-cols-2">
               <div className="space-y-2.5">
                 <section className="rounded-lg border border-[#E5E7EB] p-3 dark:border-[#5F5959]">
                   <h3 className="mb-2 text-[14px] font-medium text-[#010E30] dark:text-white">
@@ -2001,7 +2375,7 @@ const handlesendupdate = async (id: string, status: string) => {
                 </section>
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#010E30] dark:text-white">
                     Educational Qualification
                   </h3>
                   {[
@@ -2040,7 +2414,7 @@ const handlesendupdate = async (id: string, status: string) => {
                 </section>
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#010E30] dark:text-white">
                     Teaching Experience
                   </h3>
                   {[
@@ -2051,10 +2425,12 @@ const handlesendupdate = async (id: string, status: string) => {
                     ],
                     [
                       "Total Experience",
-                      Applicantbyid?.teachingExperience ??
-                        Applicantbyid?.experience ??
-                        selectedApplicant.teachingExperience ??
-                        selectedApplicant.experience,
+                      formatExperience(
+                        Applicantbyid?.teachingExperience ??
+                          Applicantbyid?.experience ??
+                          selectedApplicant.teachingExperience ??
+                          selectedApplicant.experience
+                      ),
                     ],
                     [
                       "Previous Designation",
@@ -2117,21 +2493,21 @@ const handlesendupdate = async (id: string, status: string) => {
 
               <div className="space-y-3">
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#010E30] dark:text-white">
                     Skills &amp; Expertise
                   </h3>
                   {applicationSkillGroups.length > 0 ? (
                     <div className="space-y-3">
                       {applicationSkillGroups.map((group) => (
                         <div key={group.label}>
-                          <h4 className="mb-1 text-[13px] text-[#34415F] dark:text-[#D6D6D6]">
+                          <h4 className="mb-1 text-[12px] text-[#34415F] dark:text-[#D6D6D6]">
                             {group.label}
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {group.skills.map((skill, index) => (
                               <span
                                 key={`${group.label}-${skill}-${index}`}
-                                className="rounded-full bg-[#F0F2FB] px-3 py-1 text-[12px] text-[#5268BB] dark:bg-[#292D3A] dark:text-[#A9B6F0]"
+                                className="rounded-full text-[11px] text-[#576CBC] dark:bg-[#292D3A] dark:text-[#A9B6F0]"
                               >
                                 {skill}
                               </span>
@@ -2210,7 +2586,7 @@ const handlesendupdate = async (id: string, status: string) => {
                 </section>
 
                 <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                  <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
+                  <h3 className="mb-3 text-[14px] font-medium text-[#010E30] dark:text-white">
                     Job Preferences
                   </h3>
                   {[
@@ -2257,12 +2633,12 @@ const handlesendupdate = async (id: string, status: string) => {
                   ].map(([label, value]) => (
                     <div
                       key={label}
-                      className="flex items-start justify-between gap-4 border-t border-[#EEF0F3] py-2 text-[13px] dark:border-[#5F5959]"
+                      className="flex items-start justify-between gap-4 py-1"
                     >
-                      <span className="text-[#34415F] dark:text-[#D6D6D6]">
+                      <span className="text-[#34415F] text-[12px] dark:text-[#D6D6D6]">
                         {label}
                       </span>
-                      <span className="max-w-[65%] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
+                      <span className="max-w-[65%] text-[11px] break-words text-right text-[#596780] dark:text-[#D6D6D6]">
                         {value || "—"}
                       </span>
                     </div>
@@ -2271,7 +2647,7 @@ const handlesendupdate = async (id: string, status: string) => {
 
                 {applicantInterviewSchedule && (
                   <section className="rounded-xl border border-[#E5E7EB] p-4 dark:border-[#5F5959]">
-                    <h3 className="mb-3 text-[14px] font-medium text-[#000000] dark:text-white">
+                    <h3 className="mb-3 text-[14px] font-medium text-[#010E30] dark:text-white">
                       Interview Schedule
                     </h3>
                     {[
@@ -2355,6 +2731,7 @@ const handlesendupdate = async (id: string, status: string) => {
             </div>
           </section>
         </>
+        )
       )}
 
       {selectedApplicant && !isViewingApplicant() && (

@@ -83,7 +83,9 @@ export default function TeacherDetailsTabs(props: TeacherDetailsTabsProps) {
           <DocumentsTab {...tabProps} onViewResume={props.onViewResume} />
         )}
         {activeTab === "classes" && <ClassesScheduleTab {...tabProps} />}
-        {activeTab === "salary" && <SalaryHistoryTab />}
+        {activeTab === "salary" && (
+          <SalaryHistoryTab teacher={props.teacher} />
+        )}
       </div>
     </div>
   );

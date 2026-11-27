@@ -158,7 +158,7 @@ const SignIn: React.FC = () => {
       console.log("Fetching role-based access control for tenant:", tenantId, "with role:", roleName);
       const response = await axios.get(`${AppApiEndpoints.API_END_POINT}${AppApiEndpoints.TENANTACCESS.GET_ACCESS(tenantId)}`, {
         params: {
-          roleName: "Admin",
+          roleName: "ADMIN",
         },
         headers: {
           "Content-Type": "application/json",

@@ -7,10 +7,12 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
-  Eye,
   Download,
   X,
+  Printer,
+  FileText,
 } from "lucide-react";
+import { TeacherProfile } from "./teacherDetailsTypes";
 
 type SalaryPayment = {
   id: string;
@@ -23,6 +25,7 @@ type SalaryPayment = {
   netAmountPaid: number;
   paymentMethod: string;
   paymentStatus: string;
+  transactionReference?: string;
 };
 
 type SalaryFilters = {
@@ -65,6 +68,7 @@ const salaryPayments: SalaryPayment[] = Array.from(
     netAmountPaid: 26500,
     paymentMethod: "Bank Transfer",
     paymentStatus: "Paid",
+    transactionReference: `TRX-${1001 + index}`,
   })
 );
 
@@ -86,11 +90,13 @@ const cellClass = "whitespace-nowrap px-3 py-3.5";
 type SalaryHistoryTabProps = {
   payments?: SalaryPayment[];
   loading?: boolean;
+  teacher?: TeacherProfile;
 };
 
 export default function SalaryHistoryTab({
   payments = salaryPayments,
   loading = false,
+  teacher,
 }: SalaryHistoryTabProps) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<SalaryFilters>(emptyFilters);
@@ -98,6 +104,9 @@ export default function SalaryHistoryTab({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<SalaryPayment | null>(
+    null
+  );
 
   // Search and Filter
   const filteredPayments = useMemo(() => {
@@ -168,9 +177,14 @@ export default function SalaryHistoryTab({
   ) => {
     setActiveMenu(null);
 
+    if (action === "View Payment") {
+      setSelectedPayment(payment);
+      return;
+    }
+
     console.log(action, payment);
 
-    // Bind View Payment or Download Payslip here.
+    // Bind payslip download to the payment document when available.
   };
 
   return (
@@ -340,7 +354,7 @@ export default function SalaryHistoryTab({
                           />
 
                           <div
-                            className={`absolute right-10 z-50 w-44 rounded-lg border border-[#e7eaf2] bg-white p-1 text-left shadow-md dark:border-[#454a57] dark:bg-[#30343f] ${
+                            className={`absolute right-10 z-50 w-28 rounded-lg border border-[#e7eaf2] bg-white text-center shadow-md dark:border-[#454a57] dark:bg-[#30343f] ${
                               index >= paginatedPayments.length - 2
                                 ? "bottom-10"
                                 : "top-10"
@@ -353,19 +367,7 @@ export default function SalaryHistoryTab({
                               }
                               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-[#35415e] hover:bg-[#f0f1f8] dark:text-gray-300 dark:hover:bg-[#454a57]"
                             >
-                              <Eye size={14} />
                               View Payment
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleAction("Download Payslip", item)
-                              }
-                              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-[#35415e] hover:bg-[#f0f1f8] dark:text-gray-300 dark:hover:bg-[#454a57]"
-                            >
-                              <Download size={14} />
-                              Download Payslip
                             </button>
                           </div>
                         </>
@@ -378,6 +380,186 @@ export default function SalaryHistoryTab({
           </table>
         </div>
       </section>
+
+      {selectedPayment && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-3 sm:p-5"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedPayment(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payment-details-title"
+            className="max-h-[92vh] w-full max-w-[700px] overflow-y-auto rounded-lg bg-white p-3 shadow-2xl dark:bg-[#30343f] sm:p-4"
+          >
+            <header className="mb-2 flex items-center justify-between">
+              <h2
+                id="payment-details-title"
+                className="text-sm font-semibold text-[#111827] dark:text-white"
+              >
+                Payment Details
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedPayment(null)}
+                aria-label="Close payment details"
+                className="rounded-full p-1 text-[#64748b] hover:bg-[#f1f5f9] dark:hover:bg-[#424957]"
+              >
+                <X size={15} />
+              </button>
+            </header>
+
+            <div className="space-y-2">
+              <section className="rounded-lg border border-[#e2e8f0] p-2 dark:border-[#454a57]">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-xs font-medium text-[#14203c] dark:text-white">
+                    Teacher Information
+                  </h3>
+                  <PaymentStatus status={selectedPayment.paymentStatus} />
+                </div>
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] text-sm font-semibold text-[#2563eb]">
+                    {`${teacher?.candidateFirstName?.[0] || "T"}${
+                      teacher?.candidateLastName?.[0] || ""
+                    }`.toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[#14203c] dark:text-white">
+                      {`${teacher?.candidateFirstName || ""} ${
+                        teacher?.candidateLastName || ""
+                      }`.trim() || "Teacher"}
+                    </p>
+                    <p className="text-[10px] text-[#64748b] dark:text-gray-400">
+                      {teacher?.teacherId || "—"} <span className="mx-1">•</span>
+                      {teacher?.specialization || teacher?.positionApplied || "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <PaymentDetail
+                    label="Department"
+                    value={teacher?.department || teacher?.specialization}
+                  />
+                  <PaymentDetail
+                    label="Employment Type"
+                    value={teacher?.employmentType}
+                  />
+                  <PaymentDetail
+                    label="Experience"
+                    value={
+                      teacher?.teachingExperience || teacher?.experience
+                    }
+                  />
+                  <PaymentDetail label="Gender" value={teacher?.gender} />
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-[#e2e8f0] p-2 dark:border-[#454a57]">
+                <h3 className="mb-2 text-xs font-medium text-[#14203c] dark:text-white">
+                  Payment Information
+                </h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <PaymentDetail
+                    label="Salary Month"
+                    value={selectedPayment.salaryMonth}
+                  />
+                  <PaymentDetail
+                    label="Payment Date"
+                    value={selectedPayment.paymentDate}
+                  />
+                  <PaymentDetail
+                    label="Payment Method"
+                    value={selectedPayment.paymentMethod}
+                  />
+                  <PaymentDetail
+                    label="Transaction Reference"
+                    value={selectedPayment.transactionReference}
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-[#e2e8f0] p-2 dark:border-[#454a57]">
+                <h3 className="mb-2 text-xs font-medium text-[#14203c] dark:text-white">
+                  Payment Summary
+                </h3>
+                <div className="space-y-1.5 text-[11px]">
+                  <PaymentAmount label="Base Salary" amount={selectedPayment.baseSalary} />
+                  <PaymentAmount
+                    label="Incentives"
+                    amount={selectedPayment.incentives}
+                    accent="green"
+                    prefix="+ "
+                  />
+                  <PaymentAmount
+                    label="Deductions"
+                    amount={selectedPayment.deductions}
+                    accent="red"
+                    prefix="- "
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between rounded-md bg-[#ecfdf3] px-2.5 py-2 text-sm font-medium text-[#258342] dark:bg-[#244532] dark:text-[#9ce2b0]">
+                  <span>Net amount Paid</span>
+                  <span>
+                    {formatCurrency(selectedPayment.netAmountPaid)}
+                  </span>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-[#e2e8f0] p-2 dark:border-[#454a57]">
+                <h3 className="mb-2 text-xs font-medium text-[#14203c] dark:text-white">
+                  Payment Document
+                </h3>
+                <div className="flex items-center justify-between gap-3 rounded-md bg-[#eef1fa] p-2 dark:bg-[#383d48]">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <FileText className="h-4 w-4 shrink-0 text-red-500" />
+                    <div className="min-w-0">
+                      <p className="truncate text-[10px] font-medium text-[#334155] dark:text-white">
+                        payment_bill_{selectedPayment.paymentId}.pdf
+                      </p>
+                      <p className="text-[9px] text-[#64748b] dark:text-gray-400">
+                        Payslip
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleAction("Download Payslip", selectedPayment)
+                    }
+                    aria-label="Download payment document"
+                    className="shrink-0 rounded p-1 text-[#596fbe] hover:bg-white dark:hover:bg-[#454a57]"
+                  >
+                    <Download size={14} />
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#596fbe] px-3 py-1.5 text-[10px] font-medium text-[#596fbe] hover:bg-[#f4f6ff] dark:hover:bg-[#424957]"
+              >
+                <Printer size={13} />
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handleAction("Download Payslip", selectedPayment)
+                }
+                className="inline-flex items-center gap-1.5 rounded-md bg-[#596fbe] px-3 py-1.5 text-[10px] font-medium text-white hover:bg-[#485eae]"
+              >
+                Download Slip
+                <Download size={13} />
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {isFilterOpen && (
         <div
@@ -583,6 +765,49 @@ function SalaryFilterField({
         />
       )}
     </label>
+  );
+}
+
+function PaymentDetail({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 text-[9px] text-[#475569] dark:text-gray-400">
+        {label}
+      </p>
+      <p className="break-words text-[10px] text-[#14203c] dark:text-white">
+        {value == null || value === "" ? "—" : String(value)}
+      </p>
+    </div>
+  );
+}
+
+function PaymentAmount({
+  label,
+  amount,
+  accent,
+  prefix = "",
+}: {
+  label: string;
+  amount: number;
+  accent?: "green" | "red";
+  prefix?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[#475569] dark:text-gray-300">{label}</span>
+      <span
+        className={
+          accent === "green"
+            ? "font-medium text-[#258342] dark:text-[#9ce2b0]"
+            : accent === "red"
+              ? "font-medium text-red-500"
+              : "text-[#14203c] dark:text-white"
+        }
+      >
+        {prefix}
+        {formatCurrency(amount)}
+      </span>
+    </div>
   );
 }
 

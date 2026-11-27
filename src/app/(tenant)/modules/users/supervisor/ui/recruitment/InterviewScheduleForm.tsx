@@ -6,6 +6,7 @@ interface ScheduleApplicant {
   candidateFirstName: string;
   candidateLastName: string;
   position: string;
+  interviewMode?: string;
   experience?: number | string;
   teachingExperience?: number | string;
   supervisor?: {
@@ -17,11 +18,12 @@ interface InterviewScheduleFormProps {
   applicant: ScheduleApplicant;
   date: string;
   time: string;
+  mode: string;
   platform: string;
-  isRescheduling?: boolean;
   isSubmitting: boolean;
   onDateChange: (date: string) => void;
   onTimeChange: (time: string) => void;
+  onModeChange: (mode: string) => void;
   onPlatformChange: (platform: string) => void;
   onClose: () => void;
   onSubmit: () => void;
@@ -31,11 +33,12 @@ export default function InterviewScheduleForm({
   applicant,
   date,
   time,
+  mode,
   platform,
-  isRescheduling = false,
   isSubmitting,
   onDateChange,
   onTimeChange,
+  onModeChange,
   onPlatformChange,
   onClose,
   onSubmit,
@@ -56,30 +59,30 @@ export default function InterviewScheduleForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="schedule-interview-title"
-        className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[450px] max-w-[calc(100%-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-[#343434]"
+        className="fixed left-1/2 top-1/2 z-50 max-h-[88vh] w-[380px] max-w-[calc(100%-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-white p-4 shadow-xl dark:bg-[#343434]"
       >
         <h2
           id="schedule-interview-title"
-          className="mb-6 text-lg font-semibold leading-tight text-[#0A1737] dark:text-white"
+          className="mb-3 text-base font-medium leading-tight text-[#010E30] dark:text-white"
         >
-          {isRescheduling ? "Reschedule Interview" : "Interview Schedule"}
+          Interview Schedule
         </h2>
-        <div className="rounded-2xl border-2 border-[#E0E4EA] p-5 dark:border-[#5F5959]">
-          <div className="mb-6 flex items-center gap-5 rounded-2xl bg-[#eff1f9] p-5 dark:bg-[#292D3A]">
-            <div className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full bg-white text-[#5B6FC4] dark:bg-[#343434]">
-              <UserRound className="h-7 w-7" />
+        <div className="rounded-xl border border-[#E0E4EA] p-3 dark:border-[#5F5959]">
+          <div className="mb-3 flex items-center gap-3 rounded-xl bg-[#eff1f9] p-3 dark:bg-[#292D3A]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#5B6FC4] dark:bg-[#343434]">
+              <UserRound className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate text-base font-semibold leading-tight text-[#010E30] dark:text-white">
+              <h3 className="truncate text-sm font-semibold leading-tight text-[#010E30] dark:text-white">
                 {applicant.candidateFirstName} {applicant.candidateLastName}
               </h3>
-              <div className="mt-1 text-sm text-[#313b58] dark:text-[#D6D6D6]">
+              <div className="mt-1 text-xs text-[#313b58] dark:text-[#D6D6D6]">
                 Applied for{" "}
                 <span className="text-[#F3A13B]">
                   {applicant.position || "—"}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-[#747476] dark:text-[#D6D6D6]">
+              <p className="mt-1 text-[11px] text-[#747476] dark:text-[#D6D6D6]">
                 Experience:{" "}
                 {applicant.teachingExperience ??
                   applicant.experience ??
@@ -88,9 +91,19 @@ export default function InterviewScheduleForm({
               </p>
             </div>
           </div>
-
-          <div className="space-y-5">
-            <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
+          <div className="space-y-3">
+                      <label className="block text-xs font-medium text-[#010E30] dark:text-white">
+              Interview Mode
+              <select
+                value={mode}
+                onChange={(event) => onModeChange(event.target.value)}
+                className="mt-1.5 h-8 w-full rounded-md border border-[#E0E4EA] bg-white px-2 text-xs font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
+              >
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+              </select>
+            </label>
+            <label className="block text-xs font-medium text-[#010E30] dark:text-white">
               Interview Date
               <input
                 type="date"
@@ -98,38 +111,41 @@ export default function InterviewScheduleForm({
                 min={today}
                 value={date}
                 onChange={(event) => onDateChange(event.target.value)}
-                className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] px-2 py-1.5 text-[10px] font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
+                className="mt-1.5 h-8 w-full rounded-md border border-[#E0E4EA] px-2 text-xs font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
               />
             </label>
-            <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
+            <label className="block text-xs font-medium text-[#010E30] dark:text-white">
               Interview Time
               <input
                 type="time"
                 required
                 value={time}
                 onChange={(event) => onTimeChange(event.target.value)}
-                className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] px-2 py-1.5 text-[10px] font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
+                className="mt-1.5 h-8 w-full rounded-md border border-[#E0E4EA] px-2 text-xs font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
               />
             </label>
-            <label className="block text-sm font-semibold text-[#0A1737] dark:text-white">
+            
+            {mode === "online" && (
+            <label className="block text-xs font-medium text-[#010E30] dark:text-white">
               Interview Platform
               <select
                 value={platform}
                 onChange={(event) => onPlatformChange(event.target.value)}
-                className="mt-2 w-full rounded-lg border-2 border-[#E0E4EA] bg-white px-2 py-1.5 text-[10px] font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
+                className="mt-1.5 h-8 w-full rounded-md border border-[#E0E4EA] bg-white px-2 text-xs font-normal text-[#34415F] dark:border-[#5F5959] dark:bg-[#343434] dark:text-white"
               >
-                <option>Google Meet</option>
+                {/* <option>Google Meet</option> */}
                 <option>Zoom</option>
               </select>
             </label>
+            )}
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end gap-5">
+        <div className="mt-3 flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="min-w-[150px] rounded-xl border-2 border-[#5B6FC4] bg-[#F0F2FB] px-6 py-3 text-[16px] font-semibold text-[#5B6FC4] dark:bg-[#292D3A]"
+            className="min-w-[80px] rounded-md border border-[#5B6FC4] bg-[#F0F2FB] px-3 py-1.5 text-xs font-semibold text-[#5B6FC4] dark:bg-[#292D3A]"
           >
             Back
           </button>
@@ -137,12 +153,10 @@ export default function InterviewScheduleForm({
             type="button"
             onClick={onSubmit}
             disabled={isSubmitting}
-            className="min-w-[178px] rounded-xl bg-[#5B6FC4] px-6 py-3 text-[16px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-w-[90px] rounded-md bg-[#5B6FC4] px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting
-              ? isRescheduling
-                ? "Rescheduling..."
-                : "Scheduling..."
+              ? "Scheduling..."
               : "Submit"}
           </button>
         </div>

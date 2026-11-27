@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
-import { CalendarDays, Clock3, FileText, Mail, Phone, UserRound } from "lucide-react";
+import { Clock3, FileText, Mail, Phone } from "lucide-react";
+import { IoPerson } from "react-icons/io5";
+
 
 export type ScheduledApplicantUpdate = {
   employmentType: string;
@@ -15,15 +17,6 @@ export type ScheduledApplicantUpdate = {
   applicationStatus: "SHORTLISTED" | "REJECTED" | "WAITING";
 };
 
-interface ProfessionalExperience {
-  jobRole: string;
-  organizationName: string;
-  jobLocation: string;
-  fromDate: string;
-  toDate: string;
-  jobDescription: string;
-}
-
 interface ScheduledApplicant {
   _id: string;
   candidateFirstName: string;
@@ -36,6 +29,8 @@ interface ScheduledApplicant {
   position: string;
   applicationStatus?: string;
   teachingExperience?: number | string;
+  previousInstitutionName?: string;
+  previousDesignation?: string;
   experience?: number | string;
   currentSalary?: number | string;
   expectedSalary?: number | string;
@@ -51,7 +46,6 @@ interface ScheduledApplicant {
   languages?: string[];
   skills?: string;
   currency?: string;
-  professionalExperience?: ProfessionalExperience[];
   uploadResume?: string | { type: string; data: number[] };
   interviewSchedule?: {
     interviewDate?: string;
@@ -92,14 +86,6 @@ function formatDate(value?: string) {
         day: "2-digit",
         year: "numeric",
       }).toUpperCase();
-}
-
-function formatExperienceDate(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
 function statusLabel(status?: string) {
@@ -233,17 +219,17 @@ export default function EditScheduledApplicantForm({
           >
             Interview Evaluation
           </h2>
-          <span className="mr-3 text-[10px] font-medium text-[#23A65A]">
+          <span className="mr-3 text-[12px] font-medium text-[#40BD5F]">
             {statusLabel(applicant.applicationStatus)}
           </span>
         </header>
 
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto md:grid-cols-[260px_minmax(0,1fr)] md:overflow-hidden">
-            <aside className="flex min-h-0 flex-col gap-2 md:overflow-y-auto">
-              <section className="flex items-center gap-2 rounded-lg border border-[#E1E5EE] p-2 dark:border-[#5F5959]">
+            <aside className="flex border border-[#E1E5EE] p-2 rounded-lg min-h-0 flex-col gap-2 md:overflow-y-auto">
+              <section className="flex items-center gap-2 rounded-lg p-2 dark:border-[#5F5959]">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EDF0FA] text-[#5B6FC4]">
-                  <UserRound className="h-5 w-5" />
+                  <IoPerson className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold text-[#0A1737] dark:text-white">
@@ -296,42 +282,34 @@ export default function EditScheduledApplicantForm({
 
               <section className="min-h-0 rounded-lg border border-[#E1E5EE] p-3 dark:border-[#5F5959]">
                 <h3 className="mb-2 text-[11px] font-semibold text-[#0A1737] dark:text-white">
-                  Professional Experience
+                  Experience
                 </h3>
-                <div className="max-h-[150px] space-y-3 overflow-y-auto">
-                  {applicant.professionalExperience?.length ? (
-                    applicant.professionalExperience.map((experience, index) => (
-                      <article
-                        key={`${experience.organizationName}-${index}`}
-                        className="text-[9px] text-[#555] dark:text-[#D6D6D6]"
-                      >
-                        <h4 className="font-semibold text-[#0A1737] dark:text-white">
-                          {experience.jobRole || "Professional"}
-                        </h4>
-                        <p className="flex items-center justify-between gap-2 text-[#888]">
-                          <span>
-                            <CalendarDays className="mr-1 inline h-3 w-3" />
-                            {formatExperienceDate(experience.fromDate)}
-                            {experience.toDate
-                              ? ` - ${formatExperienceDate(experience.toDate)}`
-                              : " - Present"}
-                          </span>
-                          <span>{experience.jobLocation}</span>
-                        </p>
-                        <p className="mt-1 font-medium text-[#17243E] dark:text-white">
-                          {experience.organizationName}
-                        </p>
-                        {experience.jobDescription && (
-                          <p className="mt-1 whitespace-pre-line leading-4">
-                            {experience.jobDescription}
-                          </p>
-                        )}
-                      </article>
-                    ))
-                  ) : (
-                    <p className="text-[9px] text-[#888]">No experience details provided.</p>
-                  )}
-                </div>
+                <dl className="space-y-2 text-[9px]">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[#010e30] dark:text-[#D6D6D6]">
+                      Total Teaching Experience
+                    </dt>
+                    <dd className="text-right text-[#17243E] dark:text-white">
+                      {applicant.teachingExperience ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[#010e30] dark:text-[#D6D6D6]">
+                      Previous Institution Name
+                    </dt>
+                    <dd className="break-all text-right text-[#17243E] dark:text-white">
+                      {applicant.previousInstitutionName || "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[#010e30] dark:text-[#D6D6D6]">
+                      Previous Designation
+                    </dt>
+                    <dd className="break-all text-right text-[#17243E] dark:text-white">
+                      {applicant.previousDesignation || "—"}
+                    </dd>
+                  </div>
+                </dl>
               </section>
 
               <section className="rounded-lg border border-[#E1E5EE] p-3 dark:border-[#5F5959]">
@@ -364,7 +342,7 @@ export default function EditScheduledApplicantForm({
             </aside>
 
             <div className="flex min-h-0 flex-col gap-2 md:overflow-y-auto">
-              <div className="flex h-9 shrink-0 items-center justify-center rounded-full border-[3px] border-[#EDF0F8] text-[10px] font-medium text-[#5B6FC4]">
+              <div className="flex h-9 shrink-0 items-center justify-center rounded-full border-[3px] border-r-[8px] border-l-[8px] border-[#EDF0F8] text-[10px] font-medium text-[#5B6FC4]">
                 Employment &amp; Salary Details
               </div>
 
@@ -534,14 +512,14 @@ export default function EditScheduledApplicantForm({
             <button
               type="button"
               onClick={onClose}
-              className="min-w-[75px] rounded-md border border-[#5B6FC4] bg-[#F0F2FB] px-4 py-2 text-[10px] font-semibold text-[#5B6FC4] dark:bg-[#292D3A]"
+              className="min-w-[60px] rounded-md border border-[#5B6FC4] bg-[#F0F2FB] px-3 py-1.5 text-[10px] font-semibold text-[#5B6FC4] dark:bg-[#292D3A]"
             >
               Back
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="min-w-[90px] rounded-md bg-[#5B6FC4] px-4 py-2 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-w-[70px] rounded-md bg-[#5B6FC4] px-3 py-1.5 text-[10px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? "Saving..." : "Submit"}
             </button>

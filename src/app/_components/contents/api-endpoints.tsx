@@ -174,6 +174,8 @@ export const AppApiEndpoints = {
     GET_APPLICANT_COUNT_BY_COUNTRY: "/applicants/countriescount",
     GET_APPLICATION_SUPERVISOR: "/application",
     CREATE_INTERVIEW_SCHEDULE: "/interview-schedule",
+    RESCHEDULE_INTERVIEW: (recruitmentId: string) =>
+      `/interview-schedule/${encodeURIComponent(recruitmentId)}`,
   },
 
   MEETING_MINUTES: {
